@@ -199,6 +199,8 @@ def main():
                      .replace('{content}', content))
         for m in HREF_RE.finditer(content):
             internal_hrefs.add(m.group(1))
+        if 'grohtml-' in content:
+            report.append('GROHTML-IMG %s' % p['path'])
         dest = os.path.join(out, p['path'])
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         with open(dest, 'w', encoding='utf-8') as f:
@@ -219,6 +221,9 @@ def main():
     for p in pages:
         if not os.path.exists(os.path.join(out, p['path'])):
             errors.append('index path missing: %s' % p['path'])
+    for line in report:
+        if line.startswith('GROHTML-IMG'):
+            errors.append(line)
     dangling = internal_hrefs - written
     for d in sorted(dangling)[:20]:
         errors.append('dangling internal link: ../%s' % d)

@@ -16,7 +16,10 @@ conv_one() {
   mkdir -p "${out%/*}"
   if ! timeout 30 mandoc -T html -O fragment,man=../%S/%N.html "$src" > "$out" 2>/dev/null || [ ! -s "$out" ]; then
     method=groff
-    if ! timeout 30 groff -mandoc -Thtml "$src" > "$out" 2>/dev/null || [ ! -s "$out" ]; then
+    # grohtml renders complex tables/equations as PNG files dropped in cwd,
+    # which would be dangling resources on the static site — treat as failure.
+    if ! timeout 30 groff -mandoc -Thtml "$src" > "$out" 2>/dev/null || [ ! -s "$out" ] \
+       || grep -q '<img' "$out"; then
       method=pre
       { printf '<pre class="plain-roff">'
         python3 -c 'import sys,html; sys.stdout.write(html.escape(sys.stdin.read()))' < "$src"

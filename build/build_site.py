@@ -64,6 +64,27 @@ def rewrite_xr(content, exact, by_base, alias_target):
     return XR_RE.sub(repl, content)
 
 
+BOLD_REF_RE = re.compile(r'<([bi])>([A-Za-z0-9_.:+\-]+)</\1>\((\d\w{0,8})\)')
+
+
+def linkify_refs(content, exact, by_base, alias_target):
+    """Link man(7)-style references (.BR name (sect) -> <b>name</b>(sect)).
+
+    Only mdoc pages produce <a class="Xr">; classic man pages render refs as
+    bold/italic text. Section must start with a digit, which keeps function
+    calls and ordinary parentheses out.
+    """
+    def repl(m):
+        tag, name, sect = m.groups()
+        p = (exact.get((name, sect)) or by_base.get((name, sect[0]))
+             or alias_target(name, sect))
+        if p:
+            return '<a class="Xr" href="../%s/%s.html"><%s>%s</%s>(%s)</a>' % (
+                p['sect'], p['slug'], tag, name, tag, sect)
+        return m.group(0)
+    return BOLD_REF_RE.sub(repl, content)
+
+
 def extract_toc(content):
     toc = []
     for m in H_RE.finditer(content):
@@ -165,6 +186,7 @@ def main():
         elif p['method'] == 'pre':
             n_pre += 1
         content = rewrite_xr(content, exact, by_base, alias_target)
+        content = linkify_refs(content, exact, by_base, alias_target)
         toc_html = ''.join(
             '<li><a href="#%s">%s</a></li>' % (html.escape(i, quote=True), html.escape(t))
             for i, t in extract_toc(content))

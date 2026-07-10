@@ -14,7 +14,7 @@ export WORK HTML
 conv_one() {
   local rel=$1 src=$WORK/pages/$1 out=$HTML/$1.html method=mandoc
   mkdir -p "${out%/*}"
-  if ! mandoc -T html -O fragment,man=../%S/%N.html "$src" > "$out" 2>/dev/null || [ ! -s "$out" ]; then
+  if ! timeout 30 mandoc -T html -O fragment,man=../%S/%N.html "$src" > "$out" 2>/dev/null || [ ! -s "$out" ]; then
     method=groff
     if ! timeout 30 groff -mandoc -Thtml "$src" > "$out" 2>/dev/null || [ ! -s "$out" ]; then
       method=pre

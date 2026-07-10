@@ -48,6 +48,17 @@ class TestBuildSite(unittest.TestCase):
                                     lambda n, s: target if n == 'bunzip' else None)
         self.assertIn('href="../1/gzip.html"', out)
 
+    def test_linkify_bold_refs(self):
+        frag = ('<p><b>gzip</b>(1), <b>nope</b>(1), <i>foo</i>(3ssl), '
+                '<b>printf</b>("%s"), <b>word</b>(noun)</p>')
+        out = build_site.linkify_refs(frag, self.exact, self.by_base, lambda n, s: None)
+        self.assertIn('<a class="Xr" href="../1/gzip.html"><b>gzip</b>(1)</a>', out)
+        self.assertIn('<b>nope</b>(1)', out)          # unknown target left alone
+        self.assertNotIn('nope.html', out)
+        self.assertIn('<a class="Xr" href="../3ssl/foo.html"><i>foo</i>(3ssl)</a>', out)
+        self.assertIn('<b>printf</b>("%s")', out)      # function call untouched
+        self.assertIn('<b>word</b>(noun)', out)        # non-section parens untouched
+
     def test_extract_toc(self):
         self.assertEqual(build_site.extract_toc(FRAG),
                          [('NAME', 'NAME'), ('SEE_ALSO', 'SEE ALSO')])

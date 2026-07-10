@@ -69,8 +69,6 @@
     if (!list.contains(e.target) && e.target !== input) list.hidden = true;
   });
 
-  var pc = document.getElementById('page-count');
-  if (pc && window.MANDB) pc.textContent = window.MANDB.pages.length.toLocaleString();
 })();
 
 /* Pet settings panel — same localStorage keys and defaults as the vault site:

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Earliest TxTime First (ETF) Qdisc">
+<title>tc-etf(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">tc-etf(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#PARAMETERS">PARAMETERS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ETF(8)</td>
+    <td class="head-vol">Linux</td>
+    <td class="head-rtitle">ETF(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">ETF - Earliest TxTime First (ETF) Qdisc</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>tc qdisc ... dev</b> dev <b>parent</b> classid <b>[ handle</b>
+    major: <b>] etf clockid</b> clockid <b>[ delta</b> delta_nsecs <b>] [
+    deadline_mode ]</b> <b>[ offload ]</b></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The ETF (Earliest TxTime First) qdisc allows applications to
+    control the instant when a packet should be dequeued from the traffic
+    control layer into the netdevice. If <b>offload</b> is configured and
+    supported by the network interface card, the it will also control when
+    packets leave the network controller.</p>
+<p class="Pp">ETF achieves that by buffering packets until a configurable time
+    before their transmission time (i.e. txtime, or deadline), which can be
+    configured through the <b>delta</b> option.</p>
+<p class="Pp">The qdisc uses a rb-tree internally so packets are always
+    'ordered' by their txtime and will be dequeued following the (next) earliest
+    txtime first.</p>
+<p class="Pp">It relies on the SO_TXTIME socket option and the SCM_TXTIME CMSG
+    in each packet field to configure the behavior of time dependent sockets:
+    the clockid to be used as a reference, if the expected mode of txtime for
+    that socket is deadline or strict mode, and if packet drops should be
+    reported on the socket's error queue. See <b>socket(7)</b> for more
+    information.</p>
+<p class="Pp">The etf qdisc will drop any packets with a txtime in the past, or
+    if a packet expires while waiting for being dequeued.</p>
+<p class="Pp">This queueing discipline is intended to be used by TSN (Time
+    Sensitive Networking) applications, and it exposes a traffic shaping
+    functionality that is commonly documented as &quot;Launch Time&quot; or
+    &quot;Time-Based Scheduling&quot; by vendors and the documentation of
+    network interface controllers.</p>
+<p class="Pp">ETF is meant to be installed under another qdisc that maps packet
+    flows to traffic classes, one example is <b>mqprio(8).</b></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARAMETERS"><a class="permalink" href="#PARAMETERS">PARAMETERS</a></h1>
+<dl class="Bl-tag">
+  <dt id="clockid"><a class="permalink" href="#clockid">clockid</a></dt>
+  <dd>
+    <br/>
+    Specifies the clock to be used by qdisc's internal timer for measuring time
+      and scheduling events. The qdisc expects that packets passing through it
+      to be using this same <b>clockid</b> as the reference of their txtime
+      timestamps. It will drop packets coming from sockets that do not comply
+      with that.
+    <p class="Pp">For more information about time and clocks on Linux, please
+        refer to <b>time(7)</b> and <b>clock_gettime(3).</b></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="delta"><a class="permalink" href="#delta">delta</a></dt>
+  <dd>
+    <br/>
+    After enqueueing or dequeueing a packet, the qdisc will schedule its next
+      wake-up time for the next txtime minus this delta value. This means
+      <b>delta</b> can be used as a fudge factor for the scheduler latency of a
+      system. This value must be specified in nanoseconds. The default value is
+      0 nanoseconds.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="deadline_mode"><a class="permalink" href="#deadline_mode">deadline_mode</a></dt>
+  <dd>
+    <br/>
+    When <b>deadline_mode</b> is set, the qdisc will handle txtime with a
+      different semantics, changed from a 'strict' transmission time to a
+      deadline. In practice, this means during the dequeue flow <b>etf(8)</b>
+      will set the txtime of the packet being dequeued to 'now'. The default is
+      for this option to be disabled.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="offload"><a class="permalink" href="#offload">offload</a></dt>
+  <dd>
+    <br/>
+    When <b>offload</b> is set, <b>etf(8)</b> will try to configure the network
+      interface so time-based transmission arbitration is enabled in the
+      controller. This feature is commonly referred to as &quot;Launch
+      Time&quot; or &quot;Time-Based Scheduling&quot; by the documentation of
+      network interface controllers. The default is for this option to be
+      disabled.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="skip_sock_check"><a class="permalink" href="#skip_sock_check">skip_sock_check</a></dt>
+  <dd>
+    <br/>
+    <b>etf(8)</b> currently drops any packet which does not have a socket
+      associated with it or if the socket does not have SO_TXTIME socket option
+      set. But, this will not work if the launchtime is set by another entity
+      inside the kernel (e.g. some other Qdisc). Setting the skip_sock_check
+      will skip checking for a socket associated with the packet.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">ETF is used to enforce a Quality of Service. It controls when each
+    packets should be dequeued and transmitted, and can be used for limiting the
+    data rate of a traffic class. To separate packets into traffic classes the
+    user may choose <b>mqprio(8),</b> and configure it like this:</p>
+<p class="Pp"></p>
+<pre># tc qdisc add dev eth0 handle 100: parent root mqprio num_tc 3 \
+	map 2 2 1 0 2 2 2 2 2 2 2 2 2 2 2 2 \
+	queues 1@0 1@1 2@2 \
+	hw 0
+</pre>
+<p class="Pp">To replace the current queueing discipline by ETF in traffic class
+    number 0, issue:</p>
+<p class="Pp"></p>
+<pre># tc qdisc replace dev eth0 parent 100:1 etf \
+	clockid CLOCK_TAI delta 300000 offload
+</pre>
+<p class="Pp">With the options above, etf will be configured to use CLOCK_TAI as
+    its clockid_t, will schedule packets for 300 us before their txtime, and
+    will enable the functionality on that in the network interface card.
+    Deadline mode will not be configured for this mode.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Jesus Sanchez-Palencia &lt;jesus.sanchez-palencia@intel.com&gt;
+  <br/>
+  Vinicius Costa Gomes &lt;vinicius.gomes@intel.com&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">05 Jul 2018</td>
+    <td class="foot-os">iproute2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

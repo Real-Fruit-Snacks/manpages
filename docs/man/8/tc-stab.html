@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Generic size table manipulations">
+<title>tc-stab(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">tc-stab(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#TYPICAL_OVERHEADS">TYPICAL
+  OVERHEADS</a></li><li><a href="#ETHERNET_CARDS_CONSIDERATIONS">ETHERNET
+  CARDS CONSIDERATIONS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">STAB(8)</td>
+    <td class="head-vol">Linux</td>
+    <td class="head-rtitle">STAB(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">tc-stab - Generic size table manipulations</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>tc qdisc add ... stab</pre>
+<div class="Bd-indent">
+<pre>[ <b>mtu</b> BYTES ] [ <b>tsize</b> SLOTS ]
+[ <b>mpu</b> BYTES ] [ <b>overhead</b> BYTES ]
+[ <b>linklayer</b> { adsl | atm | ethernet } ] ...</pre>
+</div>
+<pre></pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">For the description of BYTES - please refer to the <b>UNITS</b>
+    section of <b>tc</b>(8).</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="mtu"><a class="permalink" href="#mtu"><b>mtu</b></a></dt>
+  <dd>
+    <br/>
+    maximum packet size we create size table for, assumed 2048 if not specified
+      explicitly</dd>
+  <dt id="tsize"><a class="permalink" href="#tsize"><b>tsize</b></a></dt>
+  <dd>
+    <br/>
+    required table size, assumed 512 if not specified explicitly</dd>
+  <dt id="mpu"><a class="permalink" href="#mpu"><b>mpu</b></a></dt>
+  <dd>
+    <br/>
+    minimum packet size used in computations</dd>
+  <dt id="overhead"><a class="permalink" href="#overhead"><b>overhead</b></a></dt>
+  <dd>
+    <br/>
+    per-packet size overhead (can be negative) used in computations</dd>
+  <dt id="linklayer"><a class="permalink" href="#linklayer"><b>linklayer</b></a></dt>
+  <dd>
+    <br/>
+    required linklayer specification.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Size tables allow manipulation of packet sizes, as seen by the
+    whole scheduler framework (of course, the actual packet size remains the
+    same). Adjusted packet size is calculated only once - when a qdisc enqueues
+    the packet. Initial root enqueue initializes it to the real packet's
+  size.</p>
+<p class="Pp">Each qdisc can use a different size table, but the adjusted size
+    is stored in an area shared by whole qdisc hierarchy attached to the
+    interface. The effect is that if you have such a setup, the last qdisc with
+    a stab in a chain &quot;wins&quot;. For example, consider HFSC with simple
+    pfifo attached to one of its leaf classes. If that pfifo qdisc has stab
+    defined, it will override lengths calculated during HFSC's enqueue; and in
+    turn, whenever HFSC tries to dequeue a packet, it will use a potentially
+    invalid size in its calculations. Normal setups will usually include stab
+    defined only on root qdisc, but further overriding gives extra flexibility
+    for less usual setups.</p>
+<p class="Pp">The initial size table is calculated by <b>tc</b> tool using
+    <b>mtu</b> and <b>tsize</b> parameters. The algorithm sets each slot's size
+    to the smallest power of 2 value, so the whole <b>mtu</b> is covered by the
+    size table. Neither <b>tsize</b>, nor <b>mtu</b> have to be power of 2
+    value, so the size table will usually support more than is required by
+    <b>mtu</b>.</p>
+<p class="Pp">For example, with <b>mtu</b>&#x00A0;=&#x00A0;1500 and
+    <b>tsize</b>&#x00A0;=&#x00A0;128, a table with 128 slots will be created,
+    where slot 0 will correspond to sizes 0-16, slot 1 to 17&#x00A0;-&#x00A0;32,
+    ..., slot 127 to 2033&#x00A0;-&#x00A0;2048. Sizes assigned to each slot
+    depend on <b>linklayer</b> parameter.</p>
+<p class="Pp">Stab calculation is also safe for an unusual case, when a size
+    assigned to a slot would be larger than 2^16-1 (you will lose the accuracy
+    though).</p>
+<p class="Pp">During the kernel part of packet size adjustment, <b>overhead</b>
+    will be added to original size, and then slot will be calculated. If the
+    size would cause overflow, more than 1 slot will be used to get the final
+    size. This of course will affect accuracy, but it's only a guard against
+    unusual situations.</p>
+<p class="Pp">Currently there are two methods of creating values stored in the
+    size table - ethernet and atm (adsl):</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="ethernet"><a class="permalink" href="#ethernet">ethernet</a></dt>
+  <dd>
+    <br/>
+    This is basically 1-1 mapping, so following our example from above
+      (disregarding <b>mpu</b> for a moment) slot 0 would have 8, slot 1 would
+      have 16 and so on, up to slot 127 with 2048. Note, that
+      <b>mpu</b>&#x00A0;&gt;&#x00A0;0 must be specified, and slots that would
+      get less than specified by <b>mpu</b> will get <b>mpu</b> instead. If you
+      don't specify <b>mpu</b>, the size table will not be created at all (it
+      wouldn't make any difference), although any <b>overhead</b> value will be
+      respected during calculations.</dd>
+  <dt id="atm,"><a class="permalink" href="#atm,">atm, adsl</a></dt>
+  <dd>
+    <br/>
+    ATM linklayer consists of 53 byte cells, where each of them provides 48
+      bytes for payload. Also all the cells must be fully utilized, thus the
+      last one is padded if/as necessary.
+    <p class="Pp">When the size table is calculated, adjusted size that fits
+        properly into lowest amount of cells is assigned to a slot. For example,
+        a 100 byte long packet requires three 48-byte payloads, so the final
+        size would require 3 ATM cells - 159 bytes.</p>
+    <p class="Pp">For ATM size tables, 16&#x00A0;bytes sized slots are perfectly
+        enough. The default values of <b>mtu</b> and <b>tsize</b> create
+        4&#x00A0;bytes sized slots.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TYPICAL_OVERHEADS"><a class="permalink" href="#TYPICAL_OVERHEADS">TYPICAL
+  OVERHEADS</a></h1>
+<p class="Pp">The following values are typical for different adsl scenarios
+    (based on <b>[1]</b> and <b>[2]</b>):</p>
+<p class="Pp"></p>
+<pre>LLC based:</pre>
+<div class="Bd-indent">
+<pre>PPPoA - 14 (PPP - 2, ATM - 12)
+PPPoE - 40+ (PPPoE - 8, ATM - 18, ethernet 14, possibly FCS - 4+padding)
+Bridged - 32 (ATM - 18, ethernet 14, possibly FCS - 4+padding)
+IPoA - 16 (ATM - 16)</pre>
+</div>
+<pre>
+VC Mux based:</pre>
+<div class="Bd-indent">
+<pre>PPPoA - 10 (PPP - 2, ATM - 8)
+PPPoE - 32+ (PPPoE - 8, ATM - 10, ethernet 14, possibly FCS - 4+padding)
+Bridged - 24+ (ATM - 10, ethernet 14, possibly FCS - 4+padding)
+IPoA - 8 (ATM - 8)</pre>
+</div>
+<pre></pre>
+<p class="Pp">There are a few important things regarding the above
+  overheads:</p>
+<ul class="Bl-bullet">
+  <li>IPoA in LLC case requires SNAP, instead of LLC-NLPID (see rfc2684) - this
+      is the reason why it actually takes more space than PPPoA.</li>
+  <li>In rare cases, FCS might be preserved on protocols that include Ethernet
+      frames (Bridged and PPPoE). In such situation, any Ethernet specific
+      padding guaranteeing 64 bytes long frame size has to be included as well
+      (see RFC2684). In the other words, it also guarantees that any packet you
+      send will take minimum 2 atm cells. You should set <b>mpu</b> accordingly
+      for that.</li>
+  <li>When the size table is consulted, and you're shaping traffic for the sake
+      of another modem/router, an Ethernet header (without padding) will already
+      be added to initial packet's length. You should compensate for that by
+      subtracting 14 from the above overheads in this case. If you're shaping
+      directly on the router (for example, with speedtouch usb modem) using ppp
+      daemon, you're using raw ip interface without underlying layer2, so
+      nothing will be added.
+    <p class="Pp">For more thorough explanations, please see <b>[1]</b> and
+        <b>[2]</b>.</p>
+  </li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ETHERNET_CARDS_CONSIDERATIONS"><a class="permalink" href="#ETHERNET_CARDS_CONSIDERATIONS">ETHERNET
+  CARDS CONSIDERATIONS</a></h1>
+<p class="Pp">It's often forgotten that modern network cards (even cheap ones on
+    desktop motherboards) and/or their drivers often support different
+    offloading mechanisms. In the context of traffic shaping, 'tso' and 'gso'
+    might cause undesirable effects, due to massive TCP segments being
+    considered during traffic shaping (including stab calculations). For slow
+    uplink interfaces, it's good to use <b>ethtool</b> to turn off offloading
+    features.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>tc</b>(8), <b>tc-hfsc</b>(7), <b>tc-hfsc</b>(8),
+  <br/>
+  <b>[1]</b> http://ace-host.stuart.id.au/russell/files/tc/tc-atm/
+  <br/>
+  <b>[2]</b> http://www.faqs.org/rfcs/rfc2684.html</p>
+<p class="Pp">Please direct bugreports and patches to:
+    &lt;netdev@vger.kernel.org&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Manpage created by Michal Soltys (soltys@ziu.info)</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">31 October 2011</td>
+    <td class="foot-os">iproute2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

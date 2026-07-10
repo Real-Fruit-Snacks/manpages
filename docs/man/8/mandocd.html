@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="server process to format manual pages in batch mode">
+<title>mandocd(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">mandocd(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#EXIT_STATUS">EXIT
+  STATUS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#HISTORY">HISTORY</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#CAVEATS">CAVEATS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MANDOCD(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">MANDOCD(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>mandocd</b> - server process to format manual pages in batch
+    mode</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp HP"><b>mandocd</b> [<b>-I</b>&#x00A0;<b>os</b>=<i>name</i>]
+    [<b>-T</b>&#x00A0;<i>output</i>] <i>socket_fd</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <b>mandocd</b> utility formats many manual pages without
+    requiring fork(2) and exec(3) overhead in between. It does not require
+    listing all the manuals to be formatted on the command line, and it supports
+    writing each formatted manual to its own file descriptor.</p>
+<p class="Pp">This server requires that a connected UNIX domain socket(2) is
+    already present at exec(3) time. Consequently, it cannot be started from the
+    sh(1) command line because the shell cannot supply such a socket. Typically,
+    the socket is created by the parent process using socketpair(2) before
+    calling fork(2) and exec(3) on <b>mandocd</b>. The parent process will pass
+    the file descriptor number as an argument to exec(3), formatted as a decimal
+    ASCII-encoded integer. See catman(8) for a typical implementation of a
+    parent process.</p>
+<p class="Pp"><b>mandocd</b> loops reading one-byte messages with recvmsg(2)
+    from the file descriptor number <i>socket_fd</i>. It ignores the byte read
+    and only uses the out-of-band auxiliary <i>struct cmsghdr</i> control data,
+    typically supplied by the calling process using CMSG_FIRSTHDR(3). The parent
+    process is expected to pass three file descriptors with each dummy byte. The
+    first one is used for mdoc(7) or man(7) input, the second one for formatted
+    output, and the third one for error output.</p>
+<p class="Pp">The options are as follows:</p>
+<dl class="Bl-tag">
+  <dt id="I"><a class="permalink" href="#I"><b>-I</b>
+    <b>os</b>=<i>name</i></a></dt>
+  <dd>Override the default operating system <i>name</i> for the mdoc(7)
+      <b>Os</b> and for the man(7) <b>TH</b> macro.</dd>
+  <dt id="T"><a class="permalink" href="#T"><b>-T</b> <i>output</i></a></dt>
+  <dd>Output format. The <i>output</i> argument can be <b>ascii</b>,
+      <b>utf8</b>, or <b>html</b>; see mandoc(1). In <b>html</b> output mode,
+      the <b>fragment</b> output option is implied. Other output options are not
+      supported.</dd>
+</dl>
+<p class="Pp">After exhausting one input file descriptor, all three file
+    descriptors are closed before reading the next dummy byte and control
+    message.</p>
+<p class="Pp">When a zero-byte message is read, when the <i>socket_fd</i> is
+    closed by the parent process, or when an error occurs, <b>mandocd</b>
+  exits.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<p class="Pp">The <b>mandocd</b> utility exits&#x00A0;0 on success,
+    and&#x00A0;&gt;0 if an error occurs.</p>
+<p class="Pp">A zero-byte message or a closed <i>socket_fd</i> is considered
+    success. Possible errors include:</p>
+<dl class="Bl-tag">
+  <dt><b>&#x2022;</b></dt>
+  <dd>missing, invalid, or excessive exec(3) arguments</dd>
+  <dt><b>&#x2022;</b></dt>
+  <dd>recvmsg(2) failure, for example due to EMSGSIZE</dd>
+  <dt><b>&#x2022;</b></dt>
+  <dd>missing or unexpected control data, in particular a <i>cmsg_level</i> in
+      the <i>struct cmsghdr</i> that differs from SOL_SOCKET, a <i>cmsg_type</i>
+      that differs from SCM_RIGHTS, or a <i>cmsg_len</i> that is not three times
+      the size of an <i>int</i></dd>
+  <dt><b>&#x2022;</b></dt>
+  <dd>invalid file descriptors passed in the CMSG_DATA(3)</dd>
+  <dt><b>&#x2022;</b></dt>
+  <dd>resource exhaustion, in particular dup(2) or malloc(3) failure</dd>
+</dl>
+<p class="Pp">Except for memory exhaustion and similar system-level failures,
+    parsing and formatting errors do not cause <b>mandocd</b> to return an error
+    exit status. Even after severe parsing errors, <b>mandocd</b> will simply
+    accept and process the next input file descriptor.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">mandoc(1), mandoc(3), catman(8)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp">The <b>mandocd</b> utility appeared in version 1.14.1 or the
+    <b>mandoc</b> toolkit.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">The concept was designed and implemented by Michael Stapelberg
+    &lt;<i>stapelberg@debian.org</i>&gt;. The mandoc(3) glue needed to make it a
+    stand-alone process was added by Ingo Schwarze
+    &lt;<i>schwarze@openbsd.org</i>&gt;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<p class="Pp">If the parsed manual pages contain roff(7) .<b>so</b> requests,
+    <b>mandocd</b> needs to be started with the current working directory set to
+    the root of the manual page tree. Avoid starting it in directories that
+    contain secret files in any subdirectories, in particular in the user
+    starting it has read access to these secret files.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">March 18, 2017</td>
+    <td class="foot-os">Debian</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

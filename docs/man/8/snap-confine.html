@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="internal tool for confining snappy applications">
+<title>snap-confine(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">snap-confine(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#FEATURES">FEATURES</a></li><li><a href="#Apparmor_profiles">Apparmor
+  profiles</a></li><li><a href="#Seccomp_profiles">Seccomp
+  profiles</a></li><li><a href="#Mount_profiles">Mount
+  profiles</a></li><li><a href="#Sharing_of_the_mount_namespace">Sharing
+  of the mount namespace</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#FILES">FILES</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SNAP-CONFINE(8)</td>
+    <td class="head-vol">snappy</td>
+    <td class="head-rtitle">SNAP-CONFINE(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">snap-confine - internal tool for confining snappy applications</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<div class="Bd-indent">
+<div class="Bd-indent">snap-confine [--classic] [--base BASE] SECURITY_TAG
+  COMMAND [...ARGUMENTS]</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <i>snap-confine</i> is a program used internally by
+    <i>snapd</i> to construct the execution environment for snap
+  applications.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">The <i>snap-confine</i> program accepts two options:</p>
+<div class="Bd-indent">
+<div class="Bd-indent"><i>--classic</i> requests the so-called _classic_
+  _confinement_ in which applications are not confined at all (like in classic
+  systems, hence the name). This disables the use of a dedicated, per-snap mount
+  namespace. The <i>snapd</i> service generates permissive apparmor and seccomp
+  profiles that allow everything.
+<p class="Pp"><i>--base BASE</i> directs snap-confine to use the given base snap
+    as the root filesystem. If omitted it defaults to the <i>core</i> snap. This
+    is derived from snap meta-data by <i>snapd</i> when starting the application
+    process.</p>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FEATURES"><a class="permalink" href="#FEATURES">FEATURES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Apparmor_profiles"><a class="permalink" href="#Apparmor_profiles">Apparmor
+  profiles</a></h2>
+<p class="Pp"><i>snap-confine</i> switches to the apparmor profile
+    <i>$SECURITY_TAG</i>. The profile is <b>mandatory</b> and
+    <i>snap-confine</i> will refuse to run without it.</p>
+<p class="Pp">The profile has to be loaded into the kernel prior to using
+    <i>snap-confine</i>. Typically this is arranged for by <i>snapd</i>. The
+    profile contains rich description of what the application process is allowed
+    to do, this includes system calls, file paths, access patterns, linux
+    capabilities, etc. The apparmor profile can also do extensive dbus
+    mediation. Refer to apparmor documentation for more details.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Seccomp_profiles"><a class="permalink" href="#Seccomp_profiles">Seccomp
+  profiles</a></h2>
+<p class="Pp"><i>snap-confine</i> looks for the
+    <i>/var/lib/snapd/seccomp/bpf/$SECURITY_TAG.bin</i> file. This file is
+    <b>mandatory</b> and <i>snap-confine</i> will refuse to run without it. This
+    file contains the seccomp bpf binary program that is loaded into the kernel
+    by snap-confine.</p>
+<p class="Pp">The file is generated with the <i>/usr/lib/snapd/snap-seccomp</i>
+    compiler from the <i>$SECURITY_TAG.src</i> file that uses a custom syntax
+    that describes the set of allowed system calls and optionally their
+    arguments. The profile is then used to confine the started application.</p>
+<p class="Pp">As a security precaution disallowed system calls cause the started
+    application executable to be killed by the kernel. In the future this
+    restriction may be lifted to return <i>EPERM</i> instead.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Mount_profiles"><a class="permalink" href="#Mount_profiles">Mount
+  profiles</a></h2>
+<p class="Pp"><i>snap-confine</i> uses a helper process, <i>snap-update-ns</i>,
+    to apply the mount namespace profile to freshly constructed mount namespace.
+    That tool looks for the <i>/var/lib/snapd/mount/snap.$SNAP_NAME.fstab</i>
+    file. If present it is read, parsed and treated like a mostly-typical
+    <i>fstab(5)</i> file. The mount directives listed there are executed in
+    order. All directives must succeed as any failure will abort execution.</p>
+<p class="Pp">By default all mount entries start with the following flags:
+    <i>bind</i>, <i>ro</i>, <i>nodev</i>, <i>nosuid</i>. Some of those flags can
+    be reversed by an appropriate option (e.g. <i>rw</i> can cause the mount
+    point to be writable).</p>
+<p class="Pp">Certain additional features are enabled and conveyed through the
+    use of mount options prefixed with <i>x-snapd-</i>.</p>
+<p class="Pp">As a security precaution only <i>bind</i> mounts are supported at
+    this time.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Sharing_of_the_mount_namespace"><a class="permalink" href="#Sharing_of_the_mount_namespace">Sharing
+  of the mount namespace</a></h2>
+<p class="Pp">As of version 1.0.41 all the applications from the same snap will
+    share the same mount namespace. Applications from different snaps continue
+    to use separate mount namespaces.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<p class="Pp"><i>snap-confine</i> responds to the following environment
+    variables</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="SNAP_CONFINE_DEBUG"><a class="permalink" href="#SNAP_CONFINE_DEBUG"><b><i>SNAP_CONFINE_DEBUG</i>:</b></a></dt>
+  <dd>When defined the program will print additional diagnostic information
+      about the actions being performed. All the output goes to stderr.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">The following variables are only used when <i>snap-confine</i> is
+    not setuid root. This is only applicable when testing the program
+  itself.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="SNAPPY_LAUNCHER_INSIDE_TESTS"><a class="permalink" href="#SNAPPY_LAUNCHER_INSIDE_TESTS"><b><i>SNAPPY_LAUNCHER_INSIDE_TESTS</i>:</b></a></dt>
+  <dd>Internal variable that should not be relied upon.</dd>
+  <dt id="SNAPPY_LAUNCHER_SECCOMP_PROFILE_DIR"><a class="permalink" href="#SNAPPY_LAUNCHER_SECCOMP_PROFILE_DIR"><b><i>SNAPPY_LAUNCHER_SECCOMP_PROFILE_DIR</i>:</b></a></dt>
+  <dd>Internal variable that should not be relied upon.</dd>
+  <dt id="SNAP_USER_DATA"><a class="permalink" href="#SNAP_USER_DATA"><b><i>SNAP_USER_DATA</i>:</b></a></dt>
+  <dd>Full path to the directory like
+      /home/$LOGNAME/snap/$SNAP_NAME/$SNAP_REVISION.
+    <p class="Pp">This directory is created by snap-confine on startup. This is
+        a temporary feature that will be merged into snapd's snap-run command.
+        The set of directories that can be created is confined with
+      apparmor.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<p class="Pp"><i>snap-confine</i> and <i>snap-update-ns</i> use the following
+    files:</p>
+<p class="Pp"><i>/var/lib/snapd/mount/snap.*.fstab</i>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">Description of the mount profile.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><i>/var/lib/snapd/seccomp/bpf/*.src</i>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">Input for the /usr/lib/snapd/snap-seccomp profile
+  compiler.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><i>/var/lib/snapd/seccomp/bpf/*.bin</i>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">Compiled seccomp bpf profile programs.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><i>/run/snapd/ns/</i>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">Directory used to keep shared mount namespaces.
+<p class="Pp"><i>snap-confine</i> internally converts this directory to a
+    private bind mount. Semantically the behavior is identical to the following
+    mount commands:</p>
+<p class="Pp">mount --bind /run/snapd/ns /run/snapd/ns mount --make-private
+    /run/snapd/ns</p>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><i>/run/snapd/ns/.lock</i>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">A <i>flock(2)</i>-based lock file acquired to create and
+  convert <i>/run/snapd/ns/</i> to a private bind mount.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><i>/run/snapd/ns/$SNAP_NAME.lock</i>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">A <i>flock(2)</i>-based lock file acquired to create or
+  join the mount namespace represented as
+  <i>/run/snaps/ns/$SNAP_NAME.mnt</i>.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><i>/run/snapd/ns/$SNAP_NAME.mnt</i>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">This file can be either:
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>An empty file that may be seen before the mount namespace is preserved or
+      when the mount namespace is unmounted.</li>
+  <li>A file belonging to the <i>nsfs</i> file system, representing a fully
+      populated mount namespace of a given snap. The file is bind mounted from
+      <i>/proc/self/ns/mnt</i> from the first process in any snap.</li>
+</ul>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><i>/proc/self/mountinfo</i>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">This file is read to decide if <i>/run/snapd/ns/</i>
+  needs to be created and converted to a private bind mount, as described
+  above.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Note that the apparmor profile is external to <i>snap-confine</i>
+    and is loaded directly into the kernel. The actual apparmor profile is
+    managed by <i>snapd</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Please report all bugs with
+    <i>https://bugs.launchpad.net/snapd/+filebug</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">zygmunt.krynicki@canonical.com</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Canonical Ltd.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2017-09-18</td>
+    <td class="foot-os">2.28</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

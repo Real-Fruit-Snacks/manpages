@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Perl-compatible regular expressions">
+<title>pcrestack(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pcrestack(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#PCRE_DISCUSSION_OF_STACK_USAGE">PCRE
+  DISCUSSION OF STACK USAGE</a></li><li><a href="#Reducing_">Reducing
+  pcre[16|32]_exec()&#x27;s stack usage</a></li><li><a href="#Compiling_PCRE_to_use_heap_instead_of_stack_for_">Compiling
+  PCRE to use heap instead of stack for pcre[16|32]_exec()</a></li><li><a href="#Limiting_">Limiting
+  pcre[16|32]_exec()&#x27;s stack usage</a></li><li><a href="#Obtaining_an_estimate_of_stack_usage">Obtaining
+  an estimate of stack usage</a></li><li><a href="#Changing_stack_size_in_Unix-like_systems">Changing
+  stack size in Unix-like systems</a></li><li><a href="#Changing_stack_size_in_Mac_OS_X">Changing
+  stack size in Mac OS X</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#REVISION">REVISION</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PCRESTACK(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">PCRESTACK(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">PCRE - Perl-compatible regular expressions</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PCRE_DISCUSSION_OF_STACK_USAGE"><a class="permalink" href="#PCRE_DISCUSSION_OF_STACK_USAGE">PCRE
+  DISCUSSION OF STACK USAGE</a></h1>
+<p class="Pp">When you call <b>pcre[16|32]_exec()</b>, it makes use of an
+    internal function called <b>match()</b>. This calls itself recursively at
+    branch points in the pattern, in order to remember the state of the match so
+    that it can back up and try a different alternative if the first one fails.
+    As matching proceeds deeper and deeper into the tree of possibilities, the
+    recursion depth increases. The <b>match()</b> function is also called in
+    other circumstances, for example, whenever a parenthesized sub-pattern is
+    entered, and in certain cases of repetition.</p>
+<p class="Pp">Not all calls of <b>match()</b> increase the recursion depth; for
+    an item such as a* it may be called several times at the same level, after
+    matching different numbers of a's. Furthermore, in a number of cases where
+    the result of the recursive call would immediately be passed back as the
+    result of the current call (a &quot;tail recursion&quot;), the function is
+    just restarted instead.</p>
+<p class="Pp">The above comments apply when <b>pcre[16|32]_exec()</b> is run in
+    its normal interpretive manner. If the pattern was studied with the
+    PCRE_STUDY_JIT_COMPILE option, and just-in-time compiling was successful,
+    and the options passed to <b>pcre[16|32]_exec()</b> were not incompatible,
+    the matching process uses the JIT-compiled code instead of the
+    <b>match()</b> function. In this case, the memory requirements are handled
+    entirely differently. See the <b>pcrejit</b> documentation for details.</p>
+<p class="Pp">The <b>pcre[16|32]_dfa_exec()</b> function operates in an entirely
+    different way, and uses recursion only when there is a regular expression
+    recursion or subroutine call in the pattern. This includes the processing of
+    assertion and &quot;once-only&quot; subpatterns, which are handled like
+    subroutine calls. Normally, these are never very deep, and the limit on the
+    complexity of <b>pcre[16|32]_dfa_exec()</b> is controlled by the amount of
+    workspace it is given. However, it is possible to write patterns with
+    runaway infinite recursions; such patterns will cause
+    <b>pcre[16|32]_dfa_exec()</b> to run out of stack. At present, there is no
+    protection against this.</p>
+<p class="Pp">The comments that follow do NOT apply to
+    <b>pcre[16|32]_dfa_exec()</b>; they are relevant only for
+    <b>pcre[16|32]_exec()</b> without the JIT optimization.</p>
+<section class="Ss">
+<h2 class="Ss" id="Reducing_"><a class="permalink" href="#Reducing_">Reducing
+  <b>pcre[16|32]_exec()</b>'s stack usage</a></h2>
+<p class="Pp">Each time that <b>match()</b> is actually called recursively, it
+    uses memory from the process stack. For certain kinds of pattern and data,
+    very large amounts of stack may be needed, despite the recognition of
+    &quot;tail recursion&quot;. You can often reduce the amount of recursion,
+    and therefore the amount of stack used, by modifying the pattern that is
+    being matched. Consider, for example, this pattern:</p>
+<p class="Pp">
+  <br/>
+   ([^&lt;]|&lt;(?!inet))+</p>
+<p class="Pp">It matches from wherever it starts until it encounters
+    &quot;&lt;inet&quot; or the end of the data, and is the kind of pattern that
+    might be used when processing an XML file. Each iteration of the outer
+    parentheses matches either one character that is not &quot;&lt;&quot; or a
+    &quot;&lt;&quot; that is not followed by &quot;inet&quot;. However, each
+    time a parenthesis is processed, a recursion occurs, so this formulation
+    uses a stack frame for each matched character. For a long string, a lot of
+    stack is required. Consider now this rewritten pattern, which matches
+    exactly the same strings:</p>
+<p class="Pp">
+  <br/>
+   ([^&lt;]++|&lt;(?!inet))+</p>
+<p class="Pp">This uses very much less stack, because runs of characters that do
+    not contain &quot;&lt;&quot; are &quot;swallowed&quot; in one item inside
+    the parentheses. Recursion happens only when a &quot;&lt;&quot; character
+    that is not followed by &quot;inet&quot; is encountered (and we assume this
+    is relatively rare). A possessive quantifier is used to stop any
+    backtracking into the runs of non-&quot;&lt;&quot; characters, but that is
+    not related to stack usage.</p>
+<p class="Pp">This example shows that one way of avoiding stack problems when
+    matching long subject strings is to write repeated parenthesized subpatterns
+    to match more than one character whenever possible.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Compiling_PCRE_to_use_heap_instead_of_stack_for_"><a class="permalink" href="#Compiling_PCRE_to_use_heap_instead_of_stack_for_">Compiling
+  PCRE to use heap instead of stack for <b>pcre[16|32]_exec()</b></a></h2>
+<p class="Pp">In environments where stack memory is constrained, you might want
+    to compile PCRE to use heap memory instead of stack for remembering back-up
+    points when <b>pcre[16|32]_exec()</b> is running. This makes it run a lot
+    more slowly, however. Details of how to do this are given in the
+    <b>pcrebuild</b> documentation. When built in this way, instead of using the
+    stack, PCRE obtains and frees memory by calling the functions that are
+    pointed to by the <b>pcre[16|32]_stack_malloc</b> and
+    <b>pcre[16|32]_stack_free</b> variables. By default, these point to
+    <b>malloc()</b> and <b>free()</b>, but you can replace the pointers to cause
+    PCRE to use your own functions. Since the block sizes are always the same,
+    and are always freed in reverse order, it may be possible to implement
+    customized memory handlers that are more efficient than the standard
+    functions.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Limiting_"><a class="permalink" href="#Limiting_">Limiting
+  <b>pcre[16|32]_exec()</b>'s stack usage</a></h2>
+<p class="Pp">You can set limits on the number of times that <b>match()</b> is
+    called, both in total and recursively. If a limit is exceeded,
+    <b>pcre[16|32]_exec()</b> returns an error code. Setting suitable limits
+    should prevent it from running out of stack. The default values of the
+    limits are very large, and unlikely ever to operate. They can be changed
+    when PCRE is built, and they can also be set when <b>pcre[16|32]_exec()</b>
+    is called. For details of these interfaces, see the <b>pcrebuild</b>
+    documentation and the section on extra data for <b>pcre[16|32]_exec()</b> in
+    the <b>pcreapi</b> documentation.</p>
+<p class="Pp">As a very rough rule of thumb, you should reckon on about 500
+    bytes per recursion. Thus, if you want to limit your stack usage to 8Mb, you
+    should set the limit at 16000 recursions. A 64Mb stack, on the other hand,
+    can support around 128000 recursions.</p>
+<p class="Pp">In Unix-like environments, the <b>pcretest</b> test program has a
+    command line option (<b>-S</b>) that can be used to increase the size of its
+    stack. As long as the stack is large enough, another option (<b>-M</b>) can
+    be used to find the smallest limits that allow a particular pattern to match
+    a given subject string. This is done by calling <b>pcre[16|32]_exec()</b>
+    repeatedly with different limits.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Obtaining_an_estimate_of_stack_usage"><a class="permalink" href="#Obtaining_an_estimate_of_stack_usage">Obtaining
+  an estimate of stack usage</a></h2>
+<p class="Pp">The actual amount of stack used per recursion can vary quite a
+    lot, depending on the compiler that was used to build PCRE and the
+    optimization or debugging options that were set for it. The rule of thumb
+    value of 500 bytes mentioned above may be larger or smaller than what is
+    actually needed. A better approximation can be obtained by running this
+    command:</p>
+<p class="Pp">
+  <br/>
+   pcretest -m -C</p>
+<p class="Pp">The <b>-C</b> option causes <b>pcretest</b> to output information
+    about the options with which PCRE was compiled. When <b>-m</b> is also given
+    (before <b>-C</b>), information about stack use is given in a line like
+    this:</p>
+<p class="Pp">
+  <br/>
+   Match recursion uses stack: approximate frame size = 640 bytes</p>
+<p class="Pp">The value is approximate because some recursions need a bit more
+    (up to perhaps 16 more bytes).</p>
+<p class="Pp">If the above command is given when PCRE is compiled to use the
+    heap instead of the stack for recursion, the value that is output is the
+    size of each block that is obtained from the heap.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Changing_stack_size_in_Unix-like_systems"><a class="permalink" href="#Changing_stack_size_in_Unix-like_systems">Changing
+  stack size in Unix-like systems</a></h2>
+<p class="Pp">In Unix-like environments, there is not often a problem with the
+    stack unless very long strings are involved, though the default limit on
+    stack size varies from system to system. Values from 8Mb to 64Mb are common.
+    You can find your default limit by running the command:</p>
+<p class="Pp">
+  <br/>
+   ulimit -s</p>
+<p class="Pp">Unfortunately, the effect of running out of stack is often
+    SIGSEGV, though sometimes a more explicit error message is given. You can
+    normally increase the limit on stack size by code such as this:</p>
+<p class="Pp">
+  <br/>
+   struct rlimit rlim;
+  <br/>
+   getrlimit(RLIMIT_STACK, &amp;rlim);
+  <br/>
+   rlim.rlim_cur = 100*1024*1024;
+  <br/>
+   setrlimit(RLIMIT_STACK, &amp;rlim);</p>
+<p class="Pp">This reads the current limits (soft and hard) using
+    <b>getrlimit()</b>, then attempts to increase the soft limit to 100Mb using
+    <b>setrlimit()</b>. You must do this before calling
+    <b>pcre[16|32]_exec()</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Changing_stack_size_in_Mac_OS_X"><a class="permalink" href="#Changing_stack_size_in_Mac_OS_X">Changing
+  stack size in Mac OS X</a></h2>
+<p class="Pp">Using <b>setrlimit()</b>, as described above, should also work on
+    Mac OS X. It is also possible to set a stack size when linking a program.
+    There is a discussion about stack sizes in Mac OS X at this web site:
+    http://developer.apple.com/qa/qa2005/qa1419.html.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<pre>Philip Hazel
+University Computing Service
+Cambridge CB2 3QH, England.</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REVISION"><a class="permalink" href="#REVISION">REVISION</a></h1>
+<pre>Last updated: 24 June 2012
+Copyright (c) 1997-2012 University of Cambridge.</pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">24 June 2012</td>
+    <td class="foot-os">PCRE 8.30</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

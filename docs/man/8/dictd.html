@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="a dictionary database server">
+<title>dictd(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">dictd(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#BACKGROUND">BACKGROUND</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#CONFIGURATION_FILE">CONFIGURATION
+  FILE</a></li><li><a href="#DETERMINATION_OF_ACCESS_LEVEL">DETERMINATION
+  OF ACCESS LEVEL</a></li><li><a href="#SEARCH_ALGORITHMS">SEARCH
+  ALGORITHMS</a></li><li><a href="#DATABASE_FORMAT">DATABASE
+  FORMAT</a></li><li><a href="#SIGNALS">SIGNALS</a></li><li><a href="#COPYING">COPYING</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#WARNINGS">WARNINGS</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">DICTD(8)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">DICTD(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">dictd - a dictionary database server</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>dictd</b><i> [options]</i></pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>dictd</b> is a server for the Dictionary Server Protocol
+    (DICT), a TCP transaction based query/response protocol that allows a client
+    to access dictionary definitions from a set of natural language dictionary
+    databases.</p>
+<p class="Pp">For security reasons, dictd drops root permissions after startup.
+    If user <b>dictd</b> exists on the system, the daemon will run as that user,
+    group <b>dictd</b>, otherwise it will run as user <b>nobody</b>, group
+    <b>nobody</b> or <b>nogroup</b> (depending on the operating system
+    distribution).</p>
+<p class="Pp">Since startup time is significant, the server is designed to run
+    continuously, and should <i>not</i> be run from <b>inetd</b>(8). (However,
+    with a fast processor, it is feasible to do so.)</p>
+<p class="Pp">Databases are distributed separately from the server.</p>
+<p class="Pp">By default, <b>dictd</b> assumes that the index files are sorted
+    alphabetically, and only alphanumeric characters from the 7-bit ASCII
+    character set are used for search. This default may be overridden by a
+    header in the data file. The only such features implemented at this time are
+    the headers &quot;00-database-allchars&quot; which tells <b>dictd</b> that
+    non-alphanumeric characters may also be used for search, the header
+    &quot;00-database-utf8&quot; which indicates that the database uses utf8
+    encoding, and the &quot;00-database-8bit-new&quot; which indicates that the
+    database is encoded and sorted according to a locale that uses an 8-bit
+    encoding.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BACKGROUND"><a class="permalink" href="#BACKGROUND">BACKGROUND</a></h1>
+<p class="Pp">For many years, the Internet community has relied on the
+    &quot;webster&quot; protocol for access to natural language definitions. The
+    webster protocol supports access to a single dictionary and (optionally) to
+    a single thesaurus. In recent years, the number of publicly available
+    webster servers on the Internet has dramatically decreased.</p>
+<p class="Pp">Fortunately, several freely-distributable dictionaries and
+    lexicons have recently become available on the Internet. However, these
+    freely-distributable databases are not accessible via a uniform interface,
+    and are not accessible from a single site. They are often small and
+    incomplete individually, but would collectively provide an interesting and
+    useful database of English words. Examples include the Jargon file, the
+    WordNet database, MICRA's version of the 1913 Webster's Revised Unabridged
+    Dictionary, and the Free Online Dictionary of Computing. (See the DICT
+    protocol specification (RFC) for references.) Translating and non-English
+    dictionaries are also becoming available (for example, the FOLDOC dictionary
+    is being translated into Spanish).</p>
+<p class="Pp">The webster protocol is not suitable for providing access to a
+    large number of separate dictionary databases, and extensions to the current
+    webster protocol were not felt to be a clean solution to the dictionary
+    database problem.</p>
+<p class="Pp">The DICT protocol is designed to provide access to multiple
+    databases. Word definitions can be requested, the word index can be searched
+    (using an easily extended set of algorithms), information about the server
+    can be provided (e.g., which index search strategies are supported, or which
+    databases are available), and information about a database can be provided
+    (e.g., copyright, citation, or distribution information). Further, the DICT
+    protocol has hooks that can be used to restrict access to some or all of the
+    databases.</p>
+<p class="Pp"><b>dictd</b>(8) is a server that implements the DICT protocol.
+    Bret Martin implemented another server, and several people (including Bret
+    and myself) have implemented clients in a variety of languages.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="V"><a class="permalink" href="#V"><b>-V</b> or
+    <b>--version</b></a></dt>
+  <dd>Display version information.</dd>
+  <dt id="license"><a class="permalink" href="#license"><b>--license</b></a></dt>
+  <dd>Display copyright and license information.</dd>
+  <dt id="h"><a class="permalink" href="#h"><b>-h</b> or <b>--help</b></a></dt>
+  <dd>Display help information.</dd>
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b> or <b>--verbose</b> or <b>
+    -dverbose</b></a></dt>
+  <dd>Be verbose.</dd>
+  <dt id="c"><a class="permalink" href="#c"><b>-c</b><i> file or
+    </i><b>--config</b><i> file</i></a></dt>
+  <dd>Specify configuration file. The default is <i>/etc/dictd/dictd.conf</i> ,
+      but may be changed in the <i>defs.h</i> file at compile time
+      (DICTD_CONFIG_FILE).</dd>
+  <dt id="p"><a class="permalink" href="#p"><b>-p</b><i> port or
+    </i><b>--port</b><i> port</i></a></dt>
+  <dd>Overrides the keyword <b>port</b> in <i>Global Settings Specification</i>
+      section of configuration file.</dd>
+  <dt id="i"><a class="permalink" href="#i"><b>-i</b> or <b>--inetd</b></a></dt>
+  <dd>Communicate on standard input/output, suitable for use from inetd.
+      Although, due to its rather large startup time, this daemon was not
+      intended to run from inetd, with a fast processor it is feasible to do so.
+      This option also implies --fast-start.</dd>
+  <dt id="pp"><a class="permalink" href="#pp"><b>--pp</b><i> prog</i></a></dt>
+  <dd>Sets a preprocessor for configuration file. like <i> m4</i> or <i> cpp
+      .</i> See examples/dictd_complex.conf file from distribution. By default
+      configuration file is parsed without preprocessor.</dd>
+  <dt id="depth"><a class="permalink" href="#depth"><b>--depth</b><i>
+    length</i></a></dt>
+  <dd>Overrides the keyword <b>depth</b> in <i>Global Settings Specification</i>
+      section of configuration file.</dd>
+  <dt id="delay"><a class="permalink" href="#delay"><b>--delay</b><i>
+    seconds</i></a></dt>
+  <dd>Overrides the keyword <b>delay</b> in <i>Global Settings Specification</i>
+      section of configuration file.</dd>
+  <dt id="facility"><a class="permalink" href="#facility"><b>--facility</b><i>
+    facility</i></a></dt>
+  <dd>The same as <b>syslog_facility</b> keyword in <i>Global Settings
+      Specification</i> of configuration files.</dd>
+  <dt id="f"><a class="permalink" href="#f"><b>-f</b> or <b>--force</b></a></dt>
+  <dd>Force the daemon to start even if an instance of the daemon is already
+      running. (This is of little value unless a non-default port is specified
+      with <b>-p</b>, since, if one instance is bound to a port, the second one
+      fails when it can not bind to the port.)</dd>
+  <dt id="limit"><a class="permalink" href="#limit"><b>--limit</b><i>
+    children</i></a></dt>
+  <dd>Overrides the keyword <b>limit</b> in <i>Global Settings Specification</i>
+      section of configuration file.</dd>
+  <dt id="listen"><a class="permalink" href="#listen"><b>--listen-to</b><i>
+    host</i></a></dt>
+  <dd>Overrides the keyword <b>listen_to</b> in <i>Global Settings
+      Specification</i> section of configuration file.</dd>
+  <dt id="address"><a class="permalink" href="#address"><b>--address-family</b><i>
+    family</i></a></dt>
+  <dd>Overrides the keyword <b>address_family</b> in <i>Global Settings
+      Specification</i> section of configuration file.</dd>
+  <dt id="locale"><a class="permalink" href="#locale"><b>--locale</b><i>
+    locale</i></a></dt>
+  <dd>Overrides the keyword <b>locale</b> in <i>Global Settings
+      Specification</i> section of configuration file.</dd>
+  <dt id="s"><a class="permalink" href="#s"><b>-s</b></a></dt>
+  <dd>The same as <b>syslog</b> keyword in <i>Global Settings Specification</i>
+      of configuration files.</dd>
+  <dt id="L"><a class="permalink" href="#L"><b>-L</b><i> file or
+    </i><b>--logfile</b><i> file</i></a></dt>
+  <dd>The same as <b>log_file</b> keyword in <i>Global Settings
+      Specification</i> of configuration files.</dd>
+  <dt id="pid"><a class="permalink" href="#pid"><b>--pid-file</b><i>
+    file</i></a></dt>
+  <dd>The same as <b>pid_file</b> keyword in <i>Global Settings
+      Specification</i> of configuration files.</dd>
+  <dt id="m"><a class="permalink" href="#m"><b>-m</b><i> minutes or
+    </i><b>--mark</b><i> minutes</i></a></dt>
+  <dd>Overrides the keyword <b>timestamp</b> in <i>Global Settings
+      Specification</i> section of configuration file.</dd>
+  <dt id="default"><a class="permalink" href="#default"><b>--default-strategy</b><i>
+    strategy</i></a></dt>
+  <dd>Overrides the keyword <b>default_strategy</b> in <i>Global Settings
+      Specification</i> section of configuration file.</dd>
+  <dt id="without-strategy"><a class="permalink" href="#without-strategy"><b>--without-strategy</b><i>
+    strat1,strat2,...</i></a></dt>
+  <dd>The same as <b>without_strategy</b> keyword in <i>Global Settings
+      Specification</i> of configuration files.</dd>
+  <dt id="add-strategy"><a class="permalink" href="#add-strategy"><b>--add-strategy</b><i>
+    strategy_name:description</i></a></dt>
+  <dd>The same as <b>add_strategy</b> keyword in <i>Global Settings
+      Specification</i> of configuration files.</dd>
+  <dt id="fast-start"><a class="permalink" href="#fast-start"><b>--fast-start</b></a></dt>
+  <dd>The same as <b>fast_start</b> keyword in <i>Global Settings
+      Specification</i> of configuration files.</dd>
+  <dt id="without-mmap"><a class="permalink" href="#without-mmap"><b>--without-mmap</b></a></dt>
+  <dd>The same as <b>without_mmap</b> keyword in <i>Global Settings
+      Specification</i> of configuration files.</dd>
+  <dt id="stdin2stdout"><a class="permalink" href="#stdin2stdout"><b>--stdin2stdout</b></a></dt>
+  <dd>When applied with --inetd, each command obtained from stdin is output to
+      stdout. This option is useful for debugging.</dd>
+  <dt id="l"><a class="permalink" href="#l"><b>-l</b><i> option or
+    </i><b>--log</b><i> option</i></a></dt>
+  <dd>The same as <b>log_option</b> keyword in <i>Global Settings
+      Specification</i> of configuration files.</dd>
+  <dt id="d"><a class="permalink" href="#d"><b>-d</b><i> option</i></a></dt>
+  <dd>The same as <b>debug_option</b> keyword in <i>Global Settings
+      Specification</i> of configuration files.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_FILE"><a class="permalink" href="#CONFIGURATION_FILE">CONFIGURATION
+  FILE</a></h1>
+<dl class="Bl-tag">
+  <dt id="Introduction"><a class="permalink" href="#Introduction"><b>Introduction</b></a></dt>
+  <dd>The configuration file defaults to <i>/etc/dictd/dictd.conf</i> but can be
+      specified on the command line with the <b>-c</b> option (see above).</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The configuration file is read into memory at startup, and is not
+    referenced again by <b>dictd</b> unless a signal 1 <b>(SIGHUP)</b> is
+    received, which will cause <b>dictd</b> to reread the configuration
+  file.</p>
+<p class="Pp">The file is divided into sections. The Access Section should come
+    first, followed by the Database Section, and the User Section. The Database
+    Section is required; the others are optional, but they must be in the order
+    listed here.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="Syntax"><a class="permalink" href="#Syntax"><b>Syntax</b></a></dt>
+  <dd>The following keywords are valid in a configuration file: access, allow,
+      deny, group, database, data, index, filter, prefilter, postfilter, name,
+      include, user, authonly, site. Keywords are case sensitive. String
+      arguments that contain spaces should be surrounded by double quotes.
+      Without quoting, strings may contain alphanumeric characters and _, -, .,
+      and *, but not spaces. Strings can be continued between lines. \&quot;,
+      \\, \n, \&lt;NL&gt; are treated as double quote, backslash, new line and
+      no symbol respectively. Comments start with # and extend to the end of the
+      line.</dd>
+  <dt id="Global"><a class="permalink" href="#Global"><b>Global Settings
+    Section</b></a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="global"><a class="permalink" href="#global"><b>global {</b><i> global
+    settings specification </i><b>}</b></a></dt>
+  <dd>Used to set global <b>dictd</b> setting such as log file, syslog facility,
+      locale and so on.</dd>
+  <dt id="EXAMPLE:"><a class="permalink" href="#EXAMPLE:"><b>EXAMPLE:</b></a></dt>
+  <dd>See <i>examples/dictd4.conf</i> file from the distribution.</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt id="Access"><a class="permalink" href="#Access"><b>Access
+    Section</b></a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="access"><a class="permalink" href="#access"><b>access {</b><i> access
+    specification </i><b>}</b></a></dt>
+  <dd>This section contains access restrictions for the server and all of the
+      databases collectively. Per-database control is specified in the Database
+      Section.</dd>
+  <dt id="EXAMPLE:~2"><a class="permalink" href="#EXAMPLE:~2"><b>EXAMPLE:</b></a></dt>
+  <dd>See <i>examples/dictd3.conf</i> file from the distribution.</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt id="Database"><a class="permalink" href="#Database"><b>Database
+    Section</b></a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="database"><a class="permalink" href="#database"><b>database</b><i>
+    string </i><b>{ </b><i>database specification </i><b>}</b></a></dt>
+  <dd>The string specifies the name of the database (e.g., wn or web1913). (This
+      is an arbitrary name selected by the administrator, and is not necessarily
+      related to the file name or any name listed in the data file. A short,
+      easy to type name is often selected for easy use with <b>dict
+    -d</b>.)</dd>
+</dl>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>EXAMPLE:</b> See <i>examples/dictd*.conf</i> files
+  from the distribution.</div>
+<div class="Bd-indent">
+<p class="Pp"><b>NOTE:</b> If the files specified in the database specification
+    do not exist on the system, dictd may silently fail.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="database_virtual"><a class="permalink" href="#database_virtual"><b>database_virtual</b><i>
+    string </i><b>{ </b><i>virtual database specification </i><b>}</b></a></dt>
+  <dd>This section specifies the virtual database. The <i>string</i> specifies
+      the name of the database (e.g., en-ru or fren).</dd>
+</dl>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>EXAMPLE:</b> See <i>examples/dictd_virtual.conf</i> or
+  <i>examples/dictd_complex.conf</i> files from the distribution.</div>
+<dl class="Bl-tag">
+  <dt id="database_plugin"><a class="permalink" href="#database_plugin"><b>database_plugin</b><i>
+    string </i><b>{ </b><i>plugin specification </i><b>}</b></a></dt>
+  <dd>This section specifies the plugin. The <i>string</i> specifies the name of
+      the database.</dd>
+</dl>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>EXAMPLE:</b> See <i>examples/dictd_plugin_dbi.conf</i>
+  or <i>examples/dictd_complex.conf</i> files from the distribution.</div>
+<dl class="Bl-tag">
+  <dt id="database_mime"><a class="permalink" href="#database_mime"><b>database_mime</b><i>
+    string </i><b>{ </b><i>mime specification </i><b>}</b></a></dt>
+  <dd>Traditionally, databases created for <i>dictd</i> contained plain text
+      only because <b>dictd</b> releases before 1.10.0 didn't have full support
+      of <i>OPTION MIME</i> option (consult with RFC-2229). This section
+      describes the special database which behaves differently depending on
+      whether <i>OPTION MIME</i> command was received from client or was not,
+      i.e. the database created by this section allows one to return to the
+      client either a plain text or specially formatted content depending on
+      whether DICT client supports (or wants to receive) MIMEized content or
+      doesn't. The <i>string</i> specifies the name of the database.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"><b>NOTE:</b> All this is about <i>DEFINE</i> command only.
+    <i>MATCH, SHOW DB, SHOW STRAT, SHOW INFO, SHOW SERVER and HELP</i> commands
+    return texts prepended with empty line only.</p>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>EXAMPLE:</b> See <i>examples/dictd_mime.conf</i> file
+  from the distribution.</div>
+<dl class="Bl-tag">
+  <dt id="database_exit"><a class="permalink" href="#database_exit"><b>database_exit</b></a></dt>
+  <dd>Excludes following databases from the '*' database. By default '*' means
+      all databases available. Look at 'examples/dictd_virtual.conf' file for
+      example configuration.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"><b>NOTE:</b> If you use 'virtual' dictionaries, you should use
+    this directive, otherwise you will search the same dictionary twice.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="User"><a class="permalink" href="#User"><b>User Section</b></a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="user"><a class="permalink" href="#user"><b>user</b><i> string</i><b>
+    string</b></a></dt>
+  <dd>The first string specifies the username, and the second string specifies
+      the shared secret for this username. When the AUTH command is used, the
+      client will provide the username and a hashed version of the shared
+      secret. If the shared secret matches, the user is said to have
+      authenticated, and will have access to databases whose access
+      specifications allow that user (by name, or by wildcard). If present, this
+      section must appear last in the configuration file. There may be many user
+      entries. The shared secret should be kept secret, as anyone who has access
+      to it can access the shared databases (assuming access is not denied by
+      domain name).</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt id="Access~2"><a class="permalink" href="#Access~2"><b>Access
+    Specification</b></a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">Access specifications may occur in the Access Section or
+  in the Database Section. The access specification will be described here.
+<p class="Pp">For allow, deny, and authonly, a star (*) may be used as a wild
+    card that matches any number of characters. A question mark (?) may be used
+    as a wildcard that matches a single character. For example, 10.0.0.* and
+    *.edu are valid strings.</p>
+<p class="Pp">Further, a range of IP addresses and an IP address followed by a
+    netmask may be specified. For example, 10.0.0.0:10.0.0.255, 10.0.0.0/24, and
+    10.0.0.* all specify the same range of IP numbers. Notation cannot be
+    combined on the same line. If the notation does not make sense, access will
+    be denied by default. Use the <i>--debug auth</i> option to debug related
+    problems.</p>
+<p class="Pp">Note that these specifications take only one string per
+    specification line. However, you can have multiple lines of each type.</p>
+<p class="Pp">The syntax is as follows:</p>
+<dl class="Bl-tag">
+  <dt id="allow"><a class="permalink" href="#allow"><b>allow</b><i>
+    string</i></a></dt>
+  <dd>The string specifies a domain name or IP address which is allowed access
+      to the server (in the Access Section) or to a database (in the Database
+      Section). Note that more than one string is not permitted for a single
+      &quot;allow&quot; line, but more than one &quot;allow&quot; lines are
+      permitted in the configuration file.</dd>
+  <dt id="deny"><a class="permalink" href="#deny"><b>deny</b><i>
+    string</i></a></dt>
+  <dd>The string specifies a domain name or IP address which is denied access to
+      the server (in the Access Section) or to a database (in the Database
+      Section). Note that if reverse DNS is not working, then only the IP number
+      will be checked. Therefore, it is essential to deny networks based on IP
+      number, since a denial based on domain name may not always be
+    checked.</dd>
+  <dt id="authonly"><a class="permalink" href="#authonly"><b>authonly</b><i>
+    string</i></a></dt>
+  <dd>This form is only useful in the Access Section. The string specifies a
+      domain name or IP address which is allowed access to the server but not to
+      any of the databases. All commands are valid except DEFINE, MATCH, and
+      SHOW DB. More specifically AUTH is a valid command, and commands which
+      access the databases are not allowed.</dd>
+  <dt id="user~2"><a class="permalink" href="#user~2"><b>user</b><i>
+    string</i></a></dt>
+  <dd>This form is only useful in the Database Section. The string specifies a
+      username that is allowed to access this database after a successful AUTH
+      command is executed.</dd>
+</dl>
+</div>
+</div>
+<dl class="Bl-tag">
+  <dt id="Global~2"><a class="permalink" href="#Global~2"><b>Global Settings
+    Specification</b></a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">This section describes the following parameters:
+<dl class="Bl-tag">
+  <dt id="port"><a class="permalink" href="#port"><b>port</b><i>
+    string_or_number</i></a></dt>
+  <dd>Specifies the port or service name (e.g., 2628). The default is 2628, as
+      specified in the DICT Protocol RFC, but may be changed in the
+      <i>defs.h</i> file at compile time (DICT_DEFAULT_SERVICE).</dd>
+  <dt id="site"><a class="permalink" href="#site"><b>site</b><i>
+    string</i></a></dt>
+  <dd>Used to specify the filename for the site information file, a flat text
+      file which will be displayed in response to the SHOW SERVER command.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"><b>EXAMPLE:</b> See <i>examples/dictd4.conf</i> file from the
+    distribution.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="site_no_banner"><a class="permalink" href="#site_no_banner"><b>site_no_banner</b><i>
+    boolean</i></a></dt>
+  <dd>By default SHOW SERVER command outputs information about <i>dictd</i>
+      version and an operating system type. This option disables this.</dd>
+  <dt id="site_no_uptime"><a class="permalink" href="#site_no_uptime"><b>site_no_uptime</b><i>
+    boolean</i></a></dt>
+  <dd>By default SHOW SERVER command outputs information about uptime of
+      <i>dictd</i> , a number of forks since startup and forks per hour. This
+      option disables this.</dd>
+  <dt id="site_no_dblist"><a class="permalink" href="#site_no_dblist"><b>site_no_dblist</b><i>
+    boolean</i></a></dt>
+  <dd>By default SHOW SERVER command outputs internal information about
+      databases, such as a number of headwords, index size and so on. This
+      option disables this.</dd>
+  <dt id="delay~2"><a class="permalink" href="#delay~2"><b>delay</b><i>
+    number</i></a></dt>
+  <dd>Specifies the number of seconds a client may be idle before the server
+      will close the connection. Idle time is defined to be the time the server
+      is waiting for input and does not include the time the server spends
+      searching the database. The default is 0 seconds (no limit), but may be
+      changed in the <i>defs.h</i> file at compile time
+    (DICT_DEFAULT_DELAY).</dd>
+</dl>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>NOTE:</b> Setting <i>delay</i> option disables
+  <i>limit_time</i> option. Only one of them (last specified in
+  <b>dictd.conf</b> ) is in effect.
+<p class="Pp"><b>NOTE:</b> Connections are closed without warning since no
+    provision for premature connection termination is specified in the DICT
+    protocol RFC.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="depth~2"><a class="permalink" href="#depth~2"><b>depth</b><i>
+    number</i></a></dt>
+  <dd>Specify the queue length for <b>listen</b>(2). Specifies the number of
+      pending socket connections which are queued by the operating system. Some
+      operating systems may silently limit this value to 5 (older BSD systems)
+      or 128 (Linux). The default is 10 but may be changed in the <i>defs.h</i>
+      file at compile time (DICT_QUEUE_DEPTH).</dd>
+  <dt id="limit_childs"><a class="permalink" href="#limit_childs"><b>limit_childs</b><i>
+    number</i></a></dt>
+  <dd>Specifies the number of daemons that may be running simultaneously. Each
+      daemon services a single connection. If the limit is exceeded, a
+      (serialized) connection will be made by the server process, and a response
+      code 420 (server temporarily unavailable) will be sent to the client. This
+      parameter should be adjusted to prevent the server machine from being
+      overloaded by dict clients, but should not be set so low that many clients
+      are denied useful connections. The default is 100, but may be changed in
+      the <i>defs.h</i> file at compile time (DICT_DAEMON_LIMIT_CHILDS).</dd>
+  <dt id="limit~2"><a class="permalink" href="#limit~2"><b>limit</b><i>
+    number</i></a></dt>
+  <dd>Synonym for <b>limit_childs.</b> For backward compatibility only.</dd>
+  <dt id="limit_matches"><a class="permalink" href="#limit_matches"><b>limit_matches</b><i>
+    number</i></a></dt>
+  <dd>Specifies the maximum number of matches that can be returned by MATCH
+      query. Zero means no limit. The default is 2000.</dd>
+  <dt id="limit_definitions"><a class="permalink" href="#limit_definitions"><b>limit_definitions</b><i>
+    number</i></a></dt>
+  <dd>Specifies the maximum number of definitions that can be returned by DEFINE
+      query. Zero means no limit. The default is 200.</dd>
+  <dt id="limit_time"><a class="permalink" href="#limit_time"><b>limit_time</b><i>
+    number</i></a></dt>
+  <dd>Specifies the number of seconds a client may talk to the server before the
+      server will close the connection. The default is 600 seconds (10 minutes),
+      but may be changed in the <i>defs.h</i> file at compile time
+      (DICT_DEFAULT_LIMIT_TIME).</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"><b>NOTE:</b> Setting <i>limit_time</i> option disables
+    <i>delay</i> option. Only one of them (last specified in <b>dictd.conf</b> )
+    is in effect.</p>
+<p class="Pp"><b>NOTE:</b> Connections are closed without warning since no
+    provision for premature connection termination is specified in the DICT
+    protocol RFC.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="limit_queries"><a class="permalink" href="#limit_queries"><b>limit_queries</b><i>
+    number</i></a></dt>
+  <dd>Specifies the number of queries (MATCH, DEFINE, SHOW DB etc.) that client
+      may send to the server before the server will close the connection. Zero
+      means no limit. The default is 2000, but may be changed in the
+      <i>defs.h</i> file at compile time (DICT_DEFAULT_LIMIT_QUERIES).</dd>
+  <dt id="timestamp"><a class="permalink" href="#timestamp"><b>timestamp</b><i>
+    number</i></a></dt>
+  <dd>How often a timestamp should be logged (int minutes). (This is effective
+      only if logging has been enabled with the -s or -L option, or with a
+      debugging option.)</dd>
+  <dt id="log_option"><a class="permalink" href="#log_option"><b>log_option</b><i>
+    option</i></a></dt>
+  <dd>Specify a logging option. This is effective only if logging has been
+      enabled with the <b>-s</b> or <b>-L</b> option or in configuration file,
+      or logging to the console has been activated with a debugging option
+      (e.g., <b>--debug nodetach</b>. Only one option may be set with each
+      invocation of this option; however, multiple invocations of this option
+      may be made in configuration file or dictd command line. For instance:
+    <br/>
+    dictd -s --log stats --log found --log notfound
+    <br/>
+    is a valid command line, and sets three logging options.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Some of the more verbose logging options are used primarily for
+    debugging the server code, and are not practical for normal use.</p>
+<dl class="Bl-tag">
+  <dt id="server"><a class="permalink" href="#server"><b>server</b></a></dt>
+  <dd>Log server diagnostics. This is extremely verbose.</dd>
+  <dt id="connect"><a class="permalink" href="#connect"><b>connect</b></a></dt>
+  <dd>Log all connections.</dd>
+  <dt id="stats"><a class="permalink" href="#stats"><b>stats</b></a></dt>
+  <dd>Log all children terminations.</dd>
+  <dt id="command"><a class="permalink" href="#command"><b>command</b></a></dt>
+  <dd>Log all commands. This is extremely verbose.</dd>
+  <dt id="client"><a class="permalink" href="#client"><b>client</b></a></dt>
+  <dd>Log results of CLIENT command.</dd>
+  <dt id="found"><a class="permalink" href="#found"><b>found</b></a></dt>
+  <dd>Log all words found in the databases.</dd>
+  <dt id="notfound"><a class="permalink" href="#notfound"><b>notfound</b></a></dt>
+  <dd>Log all words not found in the databases.</dd>
+  <dt id="timestamp~2"><a class="permalink" href="#timestamp~2"><b>timestamp</b></a></dt>
+  <dd>When logging to a file, use a full timestamp like that which syslog would
+      produce. Otherwise, no timestamp is made, making the files shorter.</dd>
+  <dt id="host"><a class="permalink" href="#host"><b>host</b></a></dt>
+  <dd>Log name of foreign host.</dd>
+  <dt id="auth"><a class="permalink" href="#auth"><b>auth</b></a></dt>
+  <dd>Log authentication failures.</dd>
+  <dt id="min"><a class="permalink" href="#min"><b>min</b></a></dt>
+  <dd>Set a minimal number of options. If logging is activated (to a file, or
+      via syslog), and no options are set, then the minimal set of options will
+      be used. If options are set, then only those options specified will be
+      used.</dd>
+  <dt id="all"><a class="permalink" href="#all"><b>all</b></a></dt>
+  <dd>Set all of the options.</dd>
+  <dt id="none"><a class="permalink" href="#none"><b>none</b></a></dt>
+  <dd>Clear all of the options.</dd>
+</dl>
+<p class="Pp">To facilitate location of interesting information in the log file,
+    entries are marked with initial letters indicating the class of the line
+    being logged:</p>
+<dl class="Bl-tag">
+  <dt id="I"><a class="permalink" href="#I"><b>I</b></a></dt>
+  <dd>Information about the server, connections, or termination statistics.
+      These lines are generally not designed to be parsed automatically.</dd>
+  <dt id="E"><a class="permalink" href="#E"><b>E</b></a></dt>
+  <dd>Error messages.</dd>
+  <dt id="C"><a class="permalink" href="#C"><b>C</b></a></dt>
+  <dd>CLIENT command information.</dd>
+  <dt id="D"><a class="permalink" href="#D"><b>D</b></a></dt>
+  <dd>Definitions found in the databases searched.</dd>
+  <dt id="M"><a class="permalink" href="#M"><b>M</b></a></dt>
+  <dd>Matches found in the database searched.</dd>
+  <dt id="N"><a class="permalink" href="#N"><b>N</b></a></dt>
+  <dd>Matches which were not found in the databases searched.</dd>
+  <dt id="T"><a class="permalink" href="#T"><b>T</b></a></dt>
+  <dd>Trace of exact line sent by client.</dd>
+  <dt id="A"><a class="permalink" href="#A"><b>A</b></a></dt>
+  <dd>Authentication information.</dd>
+</dl>
+<p class="Pp">To preserve anonymity of the client, do <i>not</i> use the
+    <b>connect</b> or <b>host</b> options. Clients may or may not send host
+    information using the CLIENT command, but this should be an option that is
+    selectable on the client side.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="debug_option"><a class="permalink" href="#debug_option"><b>debug_option</b><i>
+    string</i></a></dt>
+  <dd>Activate a debugging option. There are several, all of which are only
+      useful to developers. They are documented here for completeness. A list
+      can be obtained interactively by using <b>-d</b> with an illegal
+    option.</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="verbose"><a class="permalink" href="#verbose"><b>verbose</b></a></dt>
+  <dd>The same as <b>-v</b> or <b>--verbose</b>. Adds verbosity to other
+      options.</dd>
+  <dt id="scan"><a class="permalink" href="#scan"><b>scan</b></a></dt>
+  <dd>Debug the scanner for the configuration file.</dd>
+  <dt id="parse"><a class="permalink" href="#parse"><b>parse</b></a></dt>
+  <dd>Debug the parser for the configuration file.</dd>
+  <dt id="search"><a class="permalink" href="#search"><b>search</b></a></dt>
+  <dd>Debug the character folding and binary search routines.</dd>
+  <dt id="init"><a class="permalink" href="#init"><b>init</b></a></dt>
+  <dd>Report database initialization.</dd>
+  <dt id="port~2"><a class="permalink" href="#port~2"><b>port</b></a></dt>
+  <dd>Log client-side port number to the log file.</dd>
+  <dt id="lev"><a class="permalink" href="#lev"><b>lev</b></a></dt>
+  <dd>Debug Levenshtein search algorithm.</dd>
+  <dt id="auth~2"><a class="permalink" href="#auth~2"><b>auth</b></a></dt>
+  <dd>Debug the authorization routines.</dd>
+  <dt id="nodetach"><a class="permalink" href="#nodetach"><b>nodetach</b></a></dt>
+  <dd>Do not detach as a background process. Implies that a copy of the log file
+      will appear on the standard output.</dd>
+  <dt id="nofork"><a class="permalink" href="#nofork"><b>nofork</b></a></dt>
+  <dd>Do not fork daemons to service requests. Be a single-threaded server. This
+      option implies <b>nodetach</b>, and is most useful for using a debugger to
+      find the point at which daemon processes are dumping core.</dd>
+  <dt id="alt"><a class="permalink" href="#alt"><b>alt</b></a></dt>
+  <dd>Debugs <b>altcompare</b> in <i>index.c</i>.</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt id="locale~2"><a class="permalink" href="#locale~2"><b>locale</b><i>
+    string</i></a></dt>
+  <dd>Specifies the locale used for searching. If no locale is specified, the
+      &quot;C&quot; locale is used. The locale used for the server should be the
+      same as that used for dictfmt when the database was built (specifically,
+      the locale under which the index was sorted). The locale should be
+      specified for both 8-bit and UTF-8 formats. If locale contains utf8 or
+      utf-8 substring, UTF-8 format is expected. Note that if your database is
+      not in ASCII7 or UTF-8 format, then the dictd server will not be compliant
+      to RFC 2229.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"><b>NOTE</b> If utf-8 or 8-bit dictionaries are included in the
+    configuration file, and the appropriate --locale has not been specified,
+    <b>dictd</b> will fail to start. This implies that <b>dictd</b> will not run
+    with both utf-8 and 8-bit dictionaries in the configuration file.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="add_strategy"><a class="permalink" href="#add_strategy"><b>add_strategy</b><i>
+    strategy_name</i><b></b><i> description</i></a></dt>
+  <dd>Adds strategy <i>strategy_name</i> with the description
+      <i>description.</i> This new search strategy may be implemented with a
+      help of plugins. Both <i>strategy_name</i> and <i>description</i> are
+      <i>strings.</i></dd>
+  <dt id="default_strategy"><a class="permalink" href="#default_strategy"><b>default_strategy</b><i>
+    string</i></a></dt>
+  <dd>Set the server's default search strategy for MATCH search type. The
+      compiled-in default is 'lev'. It is also possible to set default strategy
+      per database. See <i>default_strategy</i> keyword in <i>Database
+      specification</i> section.</dd>
+  <dt id="disable_strategy"><a class="permalink" href="#disable_strategy"><b>disable_strategy</b><i>
+    string</i></a></dt>
+  <dd>Disable specified strategies. By default all implemented search strategies
+      are enabled. It is also possible to disable strategies per database. See
+      <i>disable_strategy</i> keyword in <i>Database specification</i>
+    section.</dd>
+  <dt id="listen_to"><a class="permalink" href="#listen_to"><b>listen_to</b><i>
+    host</i></a></dt>
+  <dd>Local host name or IP address for bind. If unspecified or <i>*</i>, dictd
+      will bind to all interfaces. Otherwise, dictd will bind to this address
+      only.</dd>
+  <dt id="address_family"><a class="permalink" href="#address_family"><b>address_family</b><i>
+    family</i></a></dt>
+  <dd>If <i>4</i>, address family is IPv4 (the default), if <i>6</i>, address
+      family is IPv6.</dd>
+  <dt id="syslog"><a class="permalink" href="#syslog"><b>syslog</b><i>
+    string</i></a></dt>
+  <dd>Log using the <b>syslog</b>(3) facility.</dd>
+  <dt id="syslog_facility"><a class="permalink" href="#syslog_facility"><b>syslog_facility</b><i>
+    string</i></a></dt>
+  <dd>Specifies the syslog facility to use. The use of this option implies the
+      <b>-s</b> option to turn on logging via syslog. When the operating system
+      libraries support SYSLOG_NAMES, the names used for this option should be
+      those listed in <b>syslog.conf</b>(5). Otherwise, the following names are
+      used (assuming the particular facility is defined in the header files):
+      auth, authpriv, cron, daemon, ftp, kern, lpr, mail, news, syslog, user,
+      uucp, local0, local1, local2, local3, local4, local5, local6, and
+    local7.</dd>
+  <dt id="log_file"><a class="permalink" href="#log_file"><b>log_file</b><i>
+    string</i></a></dt>
+  <dd>Specify the file for logging. The filename specified is recomputed on each
+      use using the <b>strftime</b>(3) call. For example, a filename ending in
+      &quot;.%Y%m%d&quot; will write to log files ending in the year, month, and
+      date that the log entry was written.</dd>
+</dl>
+<div class="Bd-indent"><b>NOTE:</b> If <b>dictd</b> does not have write
+  permission for this file, it will silently fail.</div>
+<dl class="Bl-tag">
+  <dt id="pid_file"><a class="permalink" href="#pid_file"><b>pid_file</b><i>
+    string</i></a></dt>
+  <dd>The specified filename will be created to contain the process id of the
+      main <b>dictd</b> process. The default is <i>/var/run/dictd.pid</i></dd>
+  <dt id="fast"><a class="permalink" href="#fast"><b>fast_start</b></a></dt>
+  <dd>By default, dictd creates (in memory) additional index to make the search
+      faster. This option disables this behaviour and makes startup faster.</dd>
+  <dt id="without"><a class="permalink" href="#without"><b>without_mmap</b></a></dt>
+  <dd>do not use the mmap(2) function and read entire files into memory instead.
+      Use this option, if you know exactly what you are doing.</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt id="Database~2"><a class="permalink" href="#Database~2"><b>Database
+    Specification</b></a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">The database specification describes the database:
+<dl class="Bl-tag">
+  <dt id="data"><a class="permalink" href="#data"><b>data</b><i>
+    string</i></a></dt>
+  <dd>Specifies the filename for the flat text database. If the filename does
+      not begin with '.' or '/', it is prepended with $datadir/. It is a compile
+      time option. You can change this behaviour by editing Makefile or running
+      ./configure --datadir=...</dd>
+  <dt id="index"><a class="permalink" href="#index"><b>index</b><i>
+    string</i></a></dt>
+  <dd>Specifies the filename for the index file. Path matter is similar to that
+      described above in &quot;data&quot; option .</dd>
+  <dt id="index_suffix"><a class="permalink" href="#index_suffix"><b>index_suffix</b><i>
+    string</i></a></dt>
+  <dd>This is optional index file to make 'suffix' search strategy faster
+      (binary search). It is generated by 'dictfmt_index2suffix'. Run
+      &quot;dictfmt_index2suffix --help&quot; for more information. Path matter
+      is similar to that described above in &quot;data&quot; option .</dd>
+  <dt id="index_word"><a class="permalink" href="#index_word"><b>index_word</b><i>
+    string</i></a></dt>
+  <dd>This is optional index file to make 'word' search strategy faster (binary
+      search). It is generated by 'dictfmt_index2word'. Run
+      &quot;dictfmt_index2word --help&quot; for more information. Path matter is
+      similar to that described above in &quot;data&quot; option .</dd>
+  <dt id="prefilter"><a class="permalink" href="#prefilter"><b>prefilter</b><i>
+    string</i></a></dt>
+  <dd>Specifies the prefilter command. When a chunk of the compressed database
+      is read, it will be filtered with this filter before being decompressed.
+      This may be used to provide some additional compression that knows about
+      the data and can provide better compression than the LZ77 algorithm used
+      by zlib.</dd>
+  <dt id="postfilter"><a class="permalink" href="#postfilter"><b>postfilter</b><i>
+    string</i></a></dt>
+  <dd>Specifies the postfilter command. When a chunk of the compressed database
+      is read, it will be filtered with this filter before the offset and length
+      for the entry are used to access data. This is provided for symmetry with
+      the prefilter command, and may also be useful for providing additional
+      database compression.</dd>
+  <dt id="filter"><a class="permalink" href="#filter"><b>filter</b><i>
+    string</i></a></dt>
+  <dd>Specifies the filter command. After the entry is extracted from the
+      database, it will be filtered with this filter. This may be used to
+      provide formatting for the entry (e.g., for html).</dd>
+  <dt id="name"><a class="permalink" href="#name"><b>name</b><i>
+    string</i></a></dt>
+  <dd>Specifies the short name of the database (e.g., &quot;1913
+      Webster's&quot;). If the string begins with @, then it specifies the
+      headword to look up in the dictionary to find the short name of the
+      database. The default is &quot;@00-database-short&quot;, but this may be
+      changed in the <i>defs.h</i> file at compile time
+    (DICT_SHORT_ENTRY_NAME).</dd>
+  <dt id="info"><a class="permalink" href="#info"><b>info</b><i>
+    string</i></a></dt>
+  <dd>Specifies the information about database. If the string begins with @,
+      then it specifies the headword to look up in the dictionary to find
+      information. The default is &quot;@00-database-info&quot;, but this may be
+      changed in the <i>defs.h</i> file at compile time
+    (DICT_INFO_ENTRY_NAME).</dd>
+  <dt id="invisible"><a class="permalink" href="#invisible"><b>invisible</b></a></dt>
+  <dd>Makes dictionary invisible to the clients i.e. this dictionary will not be
+      recognized or shown by DEFINE, MATCH, SHOW INFO, SHOW SERVER and SHOW DB
+      commands. If some definitions or matches are found in invisible
+      dictionary, the name of the upper visible virtual dictionary is returned.
+      Dictionaries '*' and '!' don't include invisible ones. <b>NOTE:</b>
+      Invisible dictionaries are completely inaccessible (and invisible) to the
+      client unless they are included to the virtual or MIME dictionary (See
+      <i>database_virtual</i> or <i>database_mime</i> database sections).</dd>
+  <dt id="disable_strategy~2"><a class="permalink" href="#disable_strategy~2"><b>disable_strategy</b><i>
+    string</i></a></dt>
+  <dd>Disables the specified strategy for database. This may be useful for slow
+      dictionaries (plugins) or for dictionaries included to virtual ones. For
+      an example see file examples/dictd_complex.conf.</dd>
+  <dt id="default_strategy~2"><a class="permalink" href="#default_strategy~2"><b>default_strategy</b><i>
+    string</i></a></dt>
+  <dd>Specifies the strategy which will be used if the database is accessed
+      using the strategy '.'. I.e. this directive is the way to set the
+      preferred search strategy per database. For example, instead of strategy
+      <i>lev</i> , the strategy <i>word</i> may be preferred for databases
+      mainly containing the multiword phrases but the single words.</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt id="Virtual"><a class="permalink" href="#Virtual"><b>Virtual Database
+    Specification</b></a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">The virtual database specification describes the virtual
+  database:
+<dl class="Bl-tag">
+  <dt id="database_list"><a class="permalink" href="#database_list"><b>database_list</b><i>
+    string</i></a></dt>
+  <dd>Specifies a list of databases which are included into the virtual
+      database. Database names are in the string and are separated by
+    comma.</dd>
+  <dt id="name~2"><a class="permalink" href="#name~2"><b>name</b><i>
+    string</i></a></dt>
+  <dd>Specifies the short name of the database. See <i>database
+      specification</i></dd>
+  <dt id="info~2"><a class="permalink" href="#info~2"><b>info</b><i>
+    string</i></a></dt>
+  <dd>Specifies the information about database. See <i>database
+      specification</i></dd>
+  <dt id="invisible~2"><a class="permalink" href="#invisible~2"><b>invisible</b></a></dt>
+  <dd>Makes dictionary invisible to the clients. See <i>database
+      specification</i></dd>
+  <dt id="disable_strategy~3"><a class="permalink" href="#disable_strategy~3"><b>disable_strategy</b><i>
+    string</i></a></dt>
+  <dd>Disables the specified strategy for database. See <i>database
+      specification</i></dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt id="Plugin"><a class="permalink" href="#Plugin"><b>Plugin
+    Specification</b></a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="plugin"><a class="permalink" href="#plugin"><b>plugin</b><i>
+    string</i></a></dt>
+  <dd>Specifies a filename of the plugin.</dd>
+  <dt id="data~2"><a class="permalink" href="#data~2"><b>data</b><i>
+    string</i></a></dt>
+  <dd>Specifies data for initializing plugin.</dd>
+  <dt id="name~3"><a class="permalink" href="#name~3"><b>name</b><i>
+    string</i></a></dt>
+  <dd>Specifies the short name of the database. See <i>Database
+      Specification</i> for more information.</dd>
+  <dt id="info~3"><a class="permalink" href="#info~3"><b>info</b><i>
+    string</i></a></dt>
+  <dd>Specifies the information about database. See <i>Database
+      Specification</i> for more information.</dd>
+  <dt id="invisible~3"><a class="permalink" href="#invisible~3"><b>invisible</b></a></dt>
+  <dd>Makes dictionary invisible to the clients. See <i>Database
+      Specification</i> for more information.</dd>
+  <dt id="disable_strategy~4"><a class="permalink" href="#disable_strategy~4"><b>disable_strategy</b><i>
+    string</i></a></dt>
+  <dd>Disables the specified strategy for database. See <i>Database
+      Specification</i> for more information.</dd>
+  <dt id="default_strategy~3"><a class="permalink" href="#default_strategy~3"><b>default_strategy</b><i>
+    string</i></a></dt>
+  <dd>Sets the default search strategy for database. See <i>Database
+      Specification</i> for more information.</dd>
+</dl>
+</div>
+<p class="Pp"><b>Mime Specification</b></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="dbname_nomime"><a class="permalink" href="#dbname_nomime"><b>dbname_nomime</b><i>
+    string</i></a></dt>
+  <dd>Specifies the real database name which is used in case <i>OPTION MIME</i>
+      command was NOT received from a client.</dd>
+  <dt id="dbname_mime"><a class="permalink" href="#dbname_mime"><b>dbname_mime</b><i>
+    string</i></a></dt>
+  <dd>Specifies the real database name which is used in case <i>OPTION MIME</i>
+      command WAS received from a client. A necessary MIME header is set while
+      creating a database. See <i>dictfmt(1)</i> for option
+      <i>--mime-header.</i></dd>
+  <dt id="name~4"><a class="permalink" href="#name~4"><b>name</b><i>
+    string</i></a></dt>
+  <dd>Specifies the short name of the database. See <i>Database
+      Specification</i> for more information.</dd>
+  <dt id="info~4"><a class="permalink" href="#info~4"><b>info</b><i>
+    string</i></a></dt>
+  <dd>Specifies the information about database. See <i>Database
+      Specification</i> for more information.</dd>
+  <dt id="invisible~4"><a class="permalink" href="#invisible~4"><b>invisible</b></a></dt>
+  <dd>Makes dictionary invisible to the clients. See <i>Database
+      Specification</i> for more information.</dd>
+  <dt id="disable_strategy~5"><a class="permalink" href="#disable_strategy~5"><b>disable_strategy</b><i>
+    string</i></a></dt>
+  <dd>Disables the specified strategy for database. See <i>Database
+      Specification</i> for more information.</dd>
+  <dt id="default_strategy~4"><a class="permalink" href="#default_strategy~4"><b>default_strategy</b><i>
+    string</i></a></dt>
+  <dd>Sets the default search strategy for database. See <i>Database
+      Specification</i> for more information.</dd>
+</dl>
+</div>
+<dl class="Bl-tag">
+  <dt id="include"><a class="permalink" href="#include"><b>include</b><i>
+    string</i></a></dt>
+  <dd>The text of the file &quot;string&quot; (usually a database specification)
+      will be read as if it appeared at this location in the configuration file.
+      Nested includes are not permitted.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DETERMINATION_OF_ACCESS_LEVEL"><a class="permalink" href="#DETERMINATION_OF_ACCESS_LEVEL">DETERMINATION
+  OF ACCESS LEVEL</a></h1>
+<p class="Pp">When a client connects, the global access specification is
+    scanned, in order, until a specification matches. If no access specification
+    exists, all access is allowed (e.g., the action is the same as if
+    &quot;allow *&quot; was the only item in the specification). For each item,
+    both the hostname and IP are checked. For example, consider the following
+    access specification:</p>
+<div class="Bd-indent">allow 10.42.*
+<br/>
+authonly *.edu
+<br/>
+deny *</div>
+With this specification, all clients in the 10.42 network will be allowed access
+  to unrestricted databases; all clients from *.edu sites will be allowed to
+  authenticate, but will be denied access to all databases, even those which are
+  otherwise unrestricted; and all other clients will have their connection
+  terminated immediately. The 10.42 network clients can send an AUTH command and
+  gain access to restricted databases. The *.edu clients must send an AUTH
+  command to gain access to any databases, restricted or unrestricted.
+<p class="Pp">When the AUTH command is sent, the access list for each database
+    is scanned, in order, just as the global access list is scanned. However,
+    after authentication, the client has an associated username. For example,
+    consider the following access specification:</p>
+<div class="Bd-indent">user u1
+<br/>
+deny *.com
+<br/>
+user u2
+<br/>
+allow *</div>
+If the client authenticated as u1, then the client will have access to this
+  database, even if the client comes from a *.com site. In contrast, if the
+  client authenticated as u2, the client will only have access if it does not
+  come from a *.com site. In this case, the &quot;user u2&quot; is redundant,
+  since that client would also match &quot;allow *&quot;.
+<p class="Pp"><b>Warning:</b> Checks are performed for domain names and for IP
+    addresses. However, if reverse DNS for a specific site is not working, it is
+    possible that a domain name may not be available for checking. Make sure
+    that all denials use IP addresses. (And consider a future enhancement: if a
+    domain name is not available, should denials that depend on a domain name
+    match anything? This is the more conservative viewpoint, but it is not
+    currently implemented.)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEARCH_ALGORITHMS"><a class="permalink" href="#SEARCH_ALGORITHMS">SEARCH
+  ALGORITHMS</a></h1>
+<p class="Pp">The DICT standard specifies a few search algorithms that must be
+    implemented, and permits others to be supported on a server-dependent basis.
+    The following search strategies are supported by this server. Note that
+    <i>all</i> strategies are case insensitive. Most ignore non-alphanumeric,
+    non-whitespace characters.</p>
+<dl class="Bl-tag">
+  <dt id="exact"><a class="permalink" href="#exact"><b>exact</b></a></dt>
+  <dd>An exact match. This algorithm uses a binary search and is one of the
+      fastest search algorithms available.</dd>
+  <dt id="lev~2"><a class="permalink" href="#lev~2"><b>lev</b></a></dt>
+  <dd>The Levenshtein algorithm (string edit distance of one). This algorithm
+      searches for all words which are within an edit distance of one from the
+      target word. An &quot;edit&quot; means an insertion, deletion, or
+      transposition. This is a rapid algorithm for correcting spelling errors,
+      since many spelling errors are within a Levenshtein distance of one from
+      the original word.</dd>
+  <dt id="prefix"><a class="permalink" href="#prefix"><b>prefix</b></a></dt>
+  <dd>Prefix match. This algorithm also uses a binary search and is very
+    fast.</dd>
+  <dt id="nprefix"><a class="permalink" href="#nprefix"><b>nprefix</b></a></dt>
+  <dd>Like <i>prefix</i> but returns the specified range of matches. For
+      example, when <i>prefix</i> strategy returns 1000 matches, you can get
+      only 100 ones skipping the first 800 matches. This is made by specified
+      these limits in a query like this: 800#100#app, where 800 is skip count,
+      100 is a number of matches you want to get and &quot;app&quot; is your
+      query. This strategy allows one to implement DICT client with fast
+      autocompletion (although it is not trivial) just like many standalone
+      dictionary programs do.</dd>
+</dl>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>NOTE:</b> If you access the dictionary &quot;*&quot;
+  (or virtual one) with <i>nprefix</i> strategy, the same range is set for each
+  database in it, but globally for all matches found in all databases.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>NOTE:</b> In case you access non-english dictionary
+  the returned matches may be (and mostly will be) NOT ordered in alphabetic
+  order.</div>
+<dl class="Bl-tag">
+  <dt id="re"><a class="permalink" href="#re"><b>re</b></a></dt>
+  <dd>POSIX 1003.2 (modern) regular expression search. Modern regular
+      expressions are the ones used by <b>egrep</b>(1). These regular
+      expressions allow predefined character classes (e.g., [[:alnum:]],
+      [[:alpha:]], [[:digit:]], and [[:xdigit:]] are useful for this
+      application); uses * to match a sequence 0 or more matches of the previous
+      atom; uses + to match a sequence of 1 or more matches of the previous
+      atom; uses ? to match a sequence of 0 or 1 matches of the previous atom;
+      used ^ to match the beginning of a word, uses $ to match the end of a
+      word, and allows nested subexpression and alternation with () and |. For
+      example, &quot;(foo|bar)&quot; matches all words that contain either
+      &quot;foo&quot; or &quot;bar&quot;. To match these special characters,
+      they must be quoted with two backslashes (due to the quoting
+      characteristics of the server). <b>Warning:</b> Regular expression matches
+      can take 10 to 300 times longer than substring matches. On a busy server,
+      with many databases, this can required more than 5 minutes of waiting
+      time, depending on the complexity of the regular expression.</dd>
+  <dt id="regexp"><a class="permalink" href="#regexp"><b>regexp</b></a></dt>
+  <dd>Old (basic) regular expressions. These regular expressions don't support
+      |, +, or ?. Groups use escaped parentheses. While modern regular
+      expressions are generally easier to use, basic regular expressions have a
+      back reference feature. This can be used to match a second occurrence of
+      something that was already matched. For example, the following expression
+      finds all words that begin and end with the same three letters:</dd>
+</dl>
+<div class="Bd-indent">
+<pre>
+<br/>
+    ^\\(...\\).*\\1$</pre>
+<p class="Pp">Note the use of the double backslashes to escape the special
+    characters. This is required by the DICT protocol string specification (a
+    single backslash quotes the next character -- we use two to get a single
+    backslash through to the regular expression engine). <b>Warning:</b> Note
+    that the use of backtracking is even slower than the use of general regular
+    expressions.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="soundex"><a class="permalink" href="#soundex"><b>soundex</b></a></dt>
+  <dd>The Soundex algorithm, a classic algorithm for finding words that sound
+      similar to each other. The algorithm encodes each word using the first
+      letter of the word and up to three digits. Since the first letter is
+      known, this search is relatively fast, and it sometimes good for
+      correcting spelling errors when the Levenshtein algorithm doesn't
+    help.</dd>
+  <dt id="substring"><a class="permalink" href="#substring"><b>substring</b></a></dt>
+  <dd>Match a substring anywhere in the headword. This search strategy uses a
+      modified Boyer-Moore-Horspool algorithm. Since it must search the whole
+      index file, it is not as fast as the exact and prefix matches.</dd>
+  <dt id="suffix"><a class="permalink" href="#suffix"><b>suffix</b></a></dt>
+  <dd>Suffix match. This search strategy also uses a modified
+      Boyer-Moore-Horspool algorithm, and is as fast as the substring search. If
+      the optional index_suffix string file is listed in the configuration file
+      this search is much faster.</dd>
+  <dt id="word"><a class="permalink" href="#word"><b>word</b></a></dt>
+  <dd>Match any single word, even if part of a multi-word entry. If the optional
+      index_word string file is listed in the configuration file this search
+      strategy works much faster.</dd>
+  <dt id="first"><a class="permalink" href="#first"><b>first</b></a></dt>
+  <dd>Match the first word that begins a multi-word entry.</dd>
+  <dt id="last"><a class="permalink" href="#last"><b>last</b></a></dt>
+  <dd>Match the last word that ends a multi-word entry. If the optional
+      index_suffix string file is listed in the configuration file this search
+      strategy works much faster.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DATABASE_FORMAT"><a class="permalink" href="#DATABASE_FORMAT">DATABASE
+  FORMAT</a></h1>
+<p class="Pp">Databases for <b>dictd</b> are distributed separately. A database
+    consists of two files. One is a flat text file, the other is the index.</p>
+<p class="Pp">The flat text file contains dictionary entries (or any other
+    suitable data), and the index contains tab-delimited tuples consisting of
+    the headword, the byte offset at which this entry begins in the flat text
+    file, and the length of the entry in bytes. The offset and length are
+    encoded using base 64 encoding using the 64-character subset of
+    International Alphabet IA5 discussed in RFC 1421 (printable encoding) and
+    RFC 1522 (base64 MIME). Encoding the offsets in base 64 saves considerable
+    space when compared with the usual base 10 encoding, while still permitting
+    tab characters (ASCII 9) to be used for delimiting fields in a record. Each
+    record ends with a newline (ASCII 10), so the index file is human
+  readable.</p>
+<p class="Pp">Some headwords are used by <i>dictd</i> especially</p>
+<p class="Pp"><b>00-database-info</b> Contains the information about database
+    which is returned by SHOW INFO command, unless it is specified in the
+    configuration file.</p>
+<p class="Pp"><b>00-database-short</b> Contains the short name of the database
+    which is returned by SHOW DB command, unless it is specified in the
+    configuration file. See dictfmt -s.</p>
+<p class="Pp"><b>00-database-url</b> URL where original dictionary sources were
+    obtained from. See dictfmt -u. This headword is not used by <i>dictd</i></p>
+<p class="Pp"><b>00-database-utf8</b> Presents if dictionary is encoded using
+    UTF-8. See dictfmt --utf8</p>
+<p class="Pp"><b>00-database-8bit-new</b> Presents if dictionary is encoded
+    using 8-BIT character set (not ASCII and not UTF8). See dictfmt
+  --locale.</p>
+<p class="Pp">The flat text file may be compressed using <b>gzip</b>(1) (not
+    recommended) or <b>dictzip</b>(1) (highly recommended). Optimal speed will
+    be obtained using an uncompressed file. However, the <b>gzip</b> compression
+    algorithm works very well on plain text, and can result in space savings
+    typically between 60 and 80%. Using a file compressed with <b>gzip</b>(1) is
+    not recommended, however, because random access on the file can only be
+    accomplished by serially decompressing the whole file, a process which is
+    prohibitively slow. <b>dictzip</b>(1) uses the same compression algorithm
+    and file format as does <b>gzip</b>(1), but provides a table that can be
+    used to randomly access compressed blocks in the file. The use of 50-64kB
+    blocks for compression typically degrades compression by less than 10%,
+    while maintaining acceptable random access capabilities for all data in the
+    file. As an added benefit, files compressed with <b>dictzip</b>(1) can be
+    decompressed with <b>gzip</b>(1) or <b>zcat</b>(1). (Note: recompressing a
+    <b>dictzip</b>'d file using, for example, <b>znew</b>(1) will destroy the
+    random access characteristics of the file. Always compress data files using
+    <b>dictzip</b>(1).)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SIGNALS"><a class="permalink" href="#SIGNALS">SIGNALS</a></h1>
+<p class="Pp"><b>SIGHUP</b> causes dictd to reread configuration file and
+    reinitialize databases.</p>
+<p class="Pp"><b>SIGUSR1</b> causes dictd to unload databases. Then <i>dictd</i>
+    returns 420 status (instead of 220). To load databases again, send
+    <b>SIGHUP</b> signal. Because database files are <i>mmap'ed(2)</i> , it is
+    impossible to update them while <i>dictd</i> is running. So, if you need to
+    update database files and reread configuration file, first, send
+    <b>SIGUSR1</b> signal to <i>dictd</i> to unload databases, update files, and
+    then send <b>SUGHUP</b> signal to load them again.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYING"><a class="permalink" href="#COPYING">COPYING</a></h1>
+<p class="Pp">The main source files for the <b>dictd</b> server and the
+    <b>dictzip</b> compression program were written by Rik Faith
+    (faith@dict.org) and are distributed under the terms of the GNU General
+    Public License. If you need to distribute under other terms, write to the
+    author.</p>
+<p class="Pp">The main libraries used by these programs (zlib, regex, libmaa)
+    are distributed under different terms, so you may be able to use the
+    libraries for applications which are incompatible with the GPL -- please see
+    the copyright notices and license information that come with the libraries
+    for more information, and consult with your attorney to resolve these
+    issues.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">The regular expression searches do not ignore non-whitespace,
+    non-alphanumeric characters as do the other searches. In practice, this
+    isn't much of a problem.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WARNINGS"><a class="permalink" href="#WARNINGS">WARNINGS</a></h1>
+<p class="Pp">Conformance of regular expressions (used by 're' and 'regexp'
+    search strategies) to ERE and BRE depends on library you build dictd with.
+    Whether 're' and 'regex' strategies support utf8 depends on library you
+    build dictd with.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><i>/etc/dictd/dictd.conf</i></dt>
+  <dd><b>dictd</b> configuration file</dd>
+  <dt><i>/usr/sbin/dictd</i></dt>
+  <dd><b>dictd</b> daemon itself</dd>
+  <dt><i>/var/run/dictd.pid</i></dt>
+  <dd>File for storing pid of <b>dictd</b> daemon</dd>
+  <dt><i>/usr/share/dictd</i></dt>
+  <dd>The default directory for <b>dictd</b> databases (.index and .dict[.dz]
+      files)</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>examples/dictd*.conf,</b> <b>dictfmt</b>(1), <b>dict</b>(1),
+    <b>dictzip</b>(1), <b>gunzip</b>(1), <b>zcat</b>(1), <b>webster</b>(1),
+    <b>RFC 2229</b></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">29 March 2002</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

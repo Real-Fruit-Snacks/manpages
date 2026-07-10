@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A configuration system">
+<title>dconf(7) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">dconf(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#PROFILES">PROFILES</a></li><li><a href="#KEY_FILES">KEY
+  FILES</a></li><li><a href="#LOCKS">LOCKS</a></li><li><a href="#PORTABILITY">PORTABILITY</a></li><li><a href="#API_STABILITY">API
+  STABILITY</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#NOTES">NOTES</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">DCONF(7)</td>
+    <td class="head-vol">Conventions and miscellaneous</td>
+    <td class="head-rtitle">DCONF(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">dconf - A configuration system</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">dconf is a simple key/value storage system that is heavily
+    optimised for reading. This makes it an ideal system for storing user
+    preferences (which are read 1000s of times for each time the user changes
+    one). It was created with this usecase in mind.</p>
+<p class="Pp">All preferences are stored in a single large binary file. Layering
+    of preferences is possible using multiple files (ie: for site defaults).
+    Lock-down is also supported. The binary file for the defaults can optionally
+    be compiled from a set of plain text keyfiles.</p>
+<p class="Pp">dconf has a partial client/server architecture. It uses D-Bus. The
+    server is only involved in writes (and is not activated in the user session
+    until the user modifies a preference). The service is stateless and can exit
+    freely at any time (and is therefore robust against crashes). The list of
+    paths that each process is watching is stored within the D-Bus daemon itself
+    (as D-Bus signal match rules).</p>
+<p class="Pp">Reads are performed by direct access (via mmap) to the on-disk
+    database which is essentially a hashtable. For this reason, dconf reads
+    typically involve zero system calls and are comparable to a hashtable lookup
+    in terms of speed. Practically speaking, in simple non-layered setups, dconf
+    is less than 10 times slower than GHashTable.</p>
+<p class="Pp">Writes are assumed only to happen in response to explicit user
+    interaction (like clicking on a checkbox in a preferences dialog) and are
+    therefore not optimised at all. On some file systems, dconf-service will
+    call fsync() for every write, which can introduce a latency of up to 100ms.
+    This latency is hidden by the client libraries through a clever
+    &quot;fast&quot; mechanism that records the outstanding changes locally (so
+    they can be read back immediately) until the service signals that a write
+    has completed.</p>
+<p class="Pp">The binary database format that dconf uses by default is not
+    suitable for use on NFS, where mmap does not work well. To handle this
+    common use case, dconf can be configured to place its binary database in
+    <b>XDG_RUNTIME_DIR</b> (which is guaranteed to be local, but non-persistent)
+    and synchronize it with a plain text keyfile in the users home
+  directory.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROFILES"><a class="permalink" href="#PROFILES">PROFILES</a></h1>
+<p class="Pp">A profile is a list of configuration databases that dconf consults
+    to find the value for a key. The user's personal database always takes the
+    highest priority, followed by the system databases in the order prescribed
+    by the profile.</p>
+<p class="Pp">On startup, dconf consults the <b>DCONF_PROFILE</b> environment
+    variable. If set, dconf will attempt to open the named profile, aborting if
+    that fails. If the environment variable is not set, it will attempt to open
+    the profile named &quot;user&quot; and if that fails, it will fall back to
+    an internal hard-wired configuration. dconf stores its profiles in text
+    files. <b>DCONF_PROFILE</b> can specify a relative path to a file in
+    /etc/dconf/profile/, or an absolute path (such as in a user's home
+    directory). The profile name can only use alphanumeric characters or
+  '_'.</p>
+<p class="Pp">A profile file might look like the following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>user-db:user
+system-db:local
+system-db:site
+<br/>
+      </pre>
+</div>
+<p class="Pp">Each line in a profile specifies one dconf database. The first
+    line indicates the database used to write changes, and the remaining lines
+    indicate read-only databases. (The first line should specify a user-db or
+    service-db, so that users can actually make configuration changes.)</p>
+<p class="Pp">A &quot;user-db&quot; line specifies a user database. These
+    databases are found in <b>$XDG_CONFIG_HOME</b>/dconf/. The name of the file
+    to open in that directory is exactly as it is written in the profile. This
+    file is expected to be in the binary dconf database format. Note that
+    <b>XDG_CONFIG_HOME</b> cannot be set/modified per terminal or session,
+    because then the writer and reader would be working on different DBs (the
+    writer is started by DBus and cannot see that variable).</p>
+<p class="Pp">A &quot;service-db&quot; line instructs dconf to place the binary
+    database file for the user database in <b>XDG_RUNTIME_DIR</b>. Since this
+    location is not persistent, the rest of the line instructs dconf how to
+    store the database persistently. A typical line is service-db:keyfile/user,
+    which tells dconf to synchronize the binary database with a plain text
+    keyfile in <b>$XDG_CONFIG_HOME</b>/dconf/user.txt. The synchronization is
+    bi-directional.</p>
+<p class="Pp">A &quot;system-db&quot; line specifies a system database. These
+    databases are found in /etc/dconf/db/. Again, the name of the file to open
+    in that directory is exactly as it is written in the profile and the file is
+    expected to be in the dconf database format.</p>
+<p class="Pp">If the <b>DCONF_PROFILE</b> environment variable is unset and the
+    &quot;user&quot; profile can not be opened, then the effect is as if the
+    profile was specified by this file:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>user-db:user
+<br/>
+      </pre>
+</div>
+<p class="Pp">That is, the user's personal database is consulted and there are
+    no system settings.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="KEY_FILES"><a class="permalink" href="#KEY_FILES">KEY
+  FILES</a></h1>
+<p class="Pp">To facilitate system configuration with a text editor, dconf can
+    populate databases from plain text keyfiles. For any given system database,
+    keyfiles can be placed into the /etc/dconf/db/<i>database</i>.d/ directory.
+    The keyfiles contain groups of settings as follows:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre># Some useful default settings for our site
+[system/proxy/http]
+host='172.16.0.1'
+enabled=true
+[org/gnome/desktop/background]
+picture-uri='file:///usr/local/rupert-corp/company-wallpaper.jpeg'
+<br/>
+     </pre>
+</div>
+<p class="Pp">After changing keyfiles, the database needs to be updated with the
+    <b>dconf</b>(1) tool.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOCKS"><a class="permalink" href="#LOCKS">LOCKS</a></h1>
+<p class="Pp">System databases can contain 'locks' for keys. If a lock for a
+    particular key or subpath is installed into a database then no database
+    listed above that one in the profile will be able to modify any of the
+    affected settings. This can be used to enforce mandatory settings.</p>
+<p class="Pp">To add locks to a database, place text files in the
+    /etc/dconf/db/<i>database</i>.d/locks directory, where <i>database</i> is
+    the name of a system database, as specified in the profile. The files
+    contain list of keys to lock, on per line. Lines starting with a # are
+    ignored. Here is an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre># prevent changes to the company wallpaper
+/org/gnome/desktop/background/picture-uri
+<br/>
+    </pre>
+</div>
+<p class="Pp">After changing locks, the database needs to be updated with the
+    <b>dconf</b>(1) tool.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PORTABILITY"><a class="permalink" href="#PORTABILITY">PORTABILITY</a></h1>
+<p class="Pp">dconf mostly targets Free Software operating systems. It will
+    theoretically run on Mac OS but there isn't much point to that (since Mac OS
+    applications want to store preferences in plist files). It is not possible
+    to use dconf on Windows because of the inability to rename over a file
+    that's still in use (which is what the dconf-service does on every
+  write).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="API_STABILITY"><a class="permalink" href="#API_STABILITY">API
+  STABILITY</a></h1>
+<p class="Pp">The dconf API is not particularly friendly, and is not guaranteed
+    to be stable. Because of this and the lack of portability, you almost
+    certainly want to use some sort of wrapper API around it. The wrapper API
+    used by GTK+ and GNOME applications is <b>GSettings</b>[1], which is
+    included as part of GLib. GSettings has backends for Windows (using the
+    registry) and Mac OS (using property lists) as well as its dconf backend and
+    is the proper API to use for graphical applications.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>dconf-service</b>(1), <b>dconf-editor</b>(1), <b>dconf</b>(1),
+    <b>GSettings</b>[1]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>GSettings</dd>
+</dl>
+<div class="Bd-indent">http://developer.gnome.org/gio/stable/GSettings.html</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os">dconf</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

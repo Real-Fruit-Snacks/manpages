@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Advanced Configuration and Power Interface event daemon">
+<title>acpid(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">acpid(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#TROUBLESHOOTING">TROUBLESHOOTING</a></li><li><a href="#DEPENDENCIES">DEPENDENCIES</a></li><li><a href="#FILES">FILES</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#PROJECT_WEBSITE">PROJECT
+  WEBSITE</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">acpid(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">acpid(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">acpid - Advanced Configuration and Power Interface event
+  daemon</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>acpid</b> [<i>options</i>]</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>acpid</b> is designed to notify user-space programs of ACPI
+    events. <b>acpid</b> should be started during the system boot, and will run
+    as a background process, by default. It will open an events file
+    (<i>/proc/acpi/event</i> by default) and attempt to read whole lines which
+    represent ACPI events. If the events file does not exist, <b>acpid</b> will
+    attempt to connect to the Linux kernel via the input layer and netlink. When
+    an ACPI event is received from one of these sources, <b>acpid</b> will
+    examine a list of rules, and execute the rules that match the event.
+    <b>acpid</b> will ignore all incoming ACPI events if a lock file exists
+    (<i>/var/lock/acpid</i> by default).</p>
+<p class="Pp"><i>Rules</i> are defined by simple configuration files.
+    <b>acpid</b> will look in a configuration directory (<i>/etc/acpi/events</i>
+    by default), and parse all regular files with names that consist entirely of
+    upper and lower case letters, digits, underscores, and hyphens (similar to
+    <b>run-parts</b>(8)) that do not begin with a period ('.') or end with a
+    tilde (~). Each file must define two things: an <i>event</i> and an
+    <i>action</i>. Any blank lines, or lines where the first character is a hash
+    ('#') are ignored. Extraneous lines are flagged as warnings, but are not
+    fatal. Each line has three tokens: the key, a literal equal sign, and the
+    value. The key can be up to 63 characters, and is case-insensitive (but
+    whitespace matters). The value can be up to 511 characters, and is case and
+    whitespace sensitive.</p>
+<p class="Pp">The event value is a regular expression (see <b>regcomp</b>(3)),
+    against which events are matched.</p>
+<p class="Pp">The action value is a commandline, which will be invoked via
+    <i>/bin/sh</i> whenever an event matching the rule in question occurs. The
+    commandline may include shell-special characters, and they will be
+    preserved. The only special characters in an action value are &quot;%&quot;
+    escaped. The string &quot;%e&quot; will be replaced by the literal text of
+    the event for which the action was invoked. This string may contain spaces,
+    so the commandline must take care to quote the &quot;%e&quot; if it wants a
+    single token. The string &quot;%%&quot; will be replaced by a literal
+    &quot;%&quot;. All other &quot;%&quot; escapes are reserved, and will cause
+    a rule to not load.</p>
+<p class="Pp">This feature allows multiple rules to be defined for the same
+    event (though no ordering is guaranteed), as well as one rule to be defined
+    for multiple events. To force <b>acpid</b> to reload the rule configuration,
+    send it a SIGHUP.</p>
+<p class="Pp">The pseudo-action <i>&lt;drop&gt;</i> causes the event to be
+    dropped completely and no further processing undertaken; clients connecting
+    via the UNIX domain socket (see below) will not be notified of the event.
+    This may be useful on some machines, such as certain laptops which generate
+    spurious battery events at frequent intervals. The name of this
+    pseudo-action may be redefined with a commandline option.</p>
+<p class="Pp">In addition to rule files, <b>acpid</b> also accepts connections
+    on a UNIX domain socket (<i>/var/run/acpid.socket</i> by default). Any
+    application may connect to this socket. Once connected, <b>acpid</b> will
+    send the text of all ACPI events to the client. The client has the
+    responsibility of filtering for messages about which it cares. <b>acpid</b>
+    will not close the client socket except in the case of a SIGHUP or
+    <b>acpid</b> exiting.</p>
+<p class="Pp">For faster startup, this socket can be passed in as stdin so that
+    <b>acpid</b> need not create the socket. In addition, if a socket is passed
+    in as stdin, <b>acpid</b> will not daemonize. It will be run in foreground.
+    This behavior is provided to support <b>systemd</b>(1).</p>
+<p class="Pp"><b>acpid</b> will log all of its activities, as well as the stdout
+    and stderr of any actions, to syslog.</p>
+<p class="Pp">All the default files and directories can be changed with
+    commandline options.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="c"><a class="permalink" href="#c"><b>-c</b><i>,
+    </i><b>--confdir</b><i> directory</i></a></dt>
+  <dd>This option changes the directory in which <b>acpid</b> looks for rule
+      configuration files. Default is <i>/etc/acpi/events</i>.</dd>
+  <dt id="C"><a class="permalink" href="#C"><b>-C</b><i>,
+    </i><b>--clientmax</b><i> number</i></a></dt>
+  <dd>This option changes the maximum number of non-root socket connections
+      which can be made to the <b>acpid</b> socket. Default is <i>256</i>.</dd>
+  <dt id="d"><a class="permalink" href="#d"><b>-d</b><i>,
+    </i><b>--debug</b></a></dt>
+  <dd>This option increases the <b>acpid</b> debug level by one.</dd>
+  <dt id="e"><a class="permalink" href="#e"><b>-e</b><i>,
+    </i><b>--eventfile</b><i> filename</i></a></dt>
+  <dd>This option changes the event file from which <b>acpid</b> reads events.
+      Default is <i>/proc/acpi/event</i>.</dd>
+  <dt id="n"><a class="permalink" href="#n"><b>-n</b><i>,
+    </i><b>--netlink</b></a></dt>
+  <dd>This option forces <b>acpid</b> to use the Linux kernel input layer and
+      netlink interface for ACPI events.</dd>
+  <dt id="f"><a class="permalink" href="#f"><b>-f</b><i>,
+    </i><b>--foreground</b></a></dt>
+  <dd>This option keeps <b>acpid</b> in the foreground by not forking at
+      startup, and makes it log to stderr instead of syslog.</dd>
+  <dt id="l"><a class="permalink" href="#l"><b>-l</b><i>,
+    </i><b>--logevents</b></a></dt>
+  <dd>This option tells <b>acpid</b> to log information about all events and
+      actions.</dd>
+  <dt id="L"><a class="permalink" href="#L"><b>-L</b><i>,
+    </i><b>--lockfile</b><i> filename</i></a></dt>
+  <dd>This option changes the lock file used to stop event processing. Default
+      is <i>/var/lock/acpid</i>.</dd>
+  <dt id="g"><a class="permalink" href="#g"><b>-g</b><i>,
+    </i><b>--socketgroup</b><i> groupname</i></a></dt>
+  <dd>This option changes the group ownership of the UNIX domain socket to which
+      <b>acpid</b> publishes events.</dd>
+  <dt id="m"><a class="permalink" href="#m"><b>-m</b><i>,
+    </i><b>--socketmode</b><i> mode</i></a></dt>
+  <dd>This option changes the permissions of the UNIX domain socket to which
+      <b>acpid</b> publishes events. Default is <i>0666</i>.</dd>
+  <dt id="s"><a class="permalink" href="#s"><b>-s</b><i>,
+    </i><b>--socketfile</b><i> filename</i></a></dt>
+  <dd>This option changes the name of the UNIX domain socket which <b>acpid</b>
+      opens. Default is <i>/var/run/acpid.socket</i>.</dd>
+  <dt id="S"><a class="permalink" href="#S"><b>-S</b><i>,
+    </i><b>--nosocket</b></a></dt>
+  <dd>This option tells <b>acpid</b> not to open a UNIX domain socket. This
+      overrides the <i>-s</i> option, and negates all other socket options.</dd>
+  <dt id="p"><a class="permalink" href="#p"><b>-p</b><i>,
+    </i><b>--pidfile</b><i> filename</i></a></dt>
+  <dd>This option tells <b>acpid</b> to use the specified file as its pidfile.
+      If the file exists, it will be removed and over-written. Default is
+      <i>/var/run/acpid.pid</i>.</dd>
+  <dt id="r"><a class="permalink" href="#r"><b>-r</b><i>,
+    </i><b>--dropaction</b><i> action</i></a></dt>
+  <dd>This option defines the pseudo-action which tells <b>acpid</b> to abort
+      all processing of an event, including client notifications. Default is
+      <i>&lt;drop&gt;</i>.</dd>
+  <dt id="t"><a class="permalink" href="#t"><b>-t</b><i>,
+    </i><b>--tpmutefix</b></a></dt>
+  <dd>This option enables special handling of the mute button for certain
+      ThinkPad models with mute LEDs that get out of sync with the mute state
+      when the mute button is held down. With this option, the mute button will
+      generate the following events in sync with the number of presses (and, by
+      extension, the state of the LED):</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <br/>
+    button/mute MUTE (key pressed) K
+    <br/>
+    button/mute MUTE (key released) K</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b><i>,
+    </i><b>--version</b></a></dt>
+  <dd>Print version information and exit.</dd>
+  <dt id="h"><a class="permalink" href="#h"><b>-h</b><i>,
+    </i><b>--help</b></a></dt>
+  <dd>Show help and exit.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<p class="Pp">This example will shut down your system if you press the power
+    button.</p>
+<p class="Pp">Create a file named /etc/acpi/events/power that contains the
+    following:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <br/>
+    event=button/power
+    <br/>
+    action=/etc/acpi/power.sh &quot;%e&quot;</dd>
+</dl>
+<p class="Pp">Then create a file named /etc/acpi/power.sh that contains the
+    following:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>/sbin/shutdown -h now &quot;Power button pressed&quot;</dd>
+</dl>
+<p class="Pp">Now, when <b>acpid</b> is running, a press of the power button
+    will cause the rule in /etc/acpi/events/power to trigger the script in
+    /etc/acpi/power.sh. The script will then shut down the system.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TROUBLESHOOTING"><a class="permalink" href="#TROUBLESHOOTING">TROUBLESHOOTING</a></h1>
+<p class="Pp"><b>acpid</b> is a simple program that runs scripts in response to
+    ACPI events from the kernel. When there's trouble, the problem is rarely
+    with <b>acpid</b> itself. The following are some suggestions for finding the
+    most common sources of ACPI-related problems.</p>
+<p class="Pp">When troubleshooting <b>acpid</b>, it is important to be aware
+    that other parts of a system might be handling ACPI events.
+    <b>systemd</b>(1) is capable of handling the power switch and various other
+    events that are commonly handled by <b>acpid</b>. See the description of
+    HandlePowerKey in <b>logind.conf</b>(5) for more. Some window managers also
+    take over <b>acpid</b>'s normal handling of the power button and other
+    events.</p>
+<p class="Pp"><b>kacpimon</b>(8) can be used to verify that the expected ACPI
+    events are coming in. See the man page for <b>kacpimon</b>(8) for the proper
+    procedure. If the events aren't coming in, you've probably got a kernel
+    driver issue.</p>
+<p class="Pp">If the expected events are coming in, then you'll need to check
+    and see if your window manager is responsible for handling these events.
+    Some are, some aren't. (E.g. in Ubuntu 14.04 (Unity/GNOME), there are
+    settings for the laptop lid in the System Settings &gt; Power &gt;
+    &quot;When the lid is closed&quot; fields.) If your window manager is
+    responsible for handling the problematic event, and you've got it configured
+    properly, then you may have a window manager issue.</p>
+<p class="Pp">Lastly, take a look in <i>/etc/acpi/events</i> (see above). Is
+    there a configuration file in there for the event in question (e.g.
+    /etc/acpi/events/lidbtn for laptop lid open/close events)? Is it properly
+    connected to a script (e.g. /etc/acpi/lid.sh)? Is that script working? It's
+    not unusual for an <b>acpid</b> script to check and see if there is a window
+    manager running, then do nothing if there is. This means it is up to the
+    window manager to handle this event.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEPENDENCIES"><a class="permalink" href="#DEPENDENCIES">DEPENDENCIES</a></h1>
+<p class="Pp"><b>acpid</b> should work on any linux kernel released since
+  2003.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<p class="Pp"><b>/proc/acpi/event</b>
+  <br/>
+  <b>/dev/input/event*</b>
+  <br/>
+  <b>/etc/acpi/</b>
+  <br/>
+  <b>/var/run/acpid.socket</b>
+  <br/>
+  <b>/var/run/acpid.pid</b>
+  <br/>
+  <b>/var/lock/acpid</b>
+  <br/>
+</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">There are no known bugs. To file bug reports, see <b>PROJECT
+    WEBSITE</b> below.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>regcomp</b>(3) <b>sh</b>(1) <b>socket</b>(2) <b>connect</b>(2)
+    <b>init</b>(1) <b>systemd</b>(1) <b>acpi_listen</b>(8)
+  <b>kacpimon</b>(8)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROJECT_WEBSITE"><a class="permalink" href="#PROJECT_WEBSITE">PROJECT
+  WEBSITE</a></h1>
+<p class="Pp">http://sourceforge.net/projects/acpid2/</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Ted Felix &lt;ted@tedfelix.com&gt;
+  <br/>
+  Tim Hockin &lt;thockin@hockin.org&gt;
+  <br/>
+  Andrew Henroid</p>
+<p class="Pp"></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="CMake Configure Log">
+<title>cmake-configure-log(7) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">cmake-configure-log(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#INTRODUCTION">INTRODUCTION</a></li><li><a href="#LOG_STRUCTURE">LOG
+  STRUCTURE</a></li><li><a href="#Log_Versioning">Log
+  Versioning</a></li><li><a href="#Text_Block_Encoding">Text
+  Block Encoding</a></li><li><a href="#EVENT_KINDS">EVENT
+  KINDS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CMAKE-CONFIGURE-LOG(7)</td>
+    <td class="head-vol">CMake</td>
+    <td class="head-rtitle">CMAKE-CONFIGURE-LOG(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">cmake-configure-log - CMake Configure Log</p>
+<p class="Pp">New in version 3.26.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INTRODUCTION"><a class="permalink" href="#INTRODUCTION">INTRODUCTION</a></h1>
+<p class="Pp">CMake writes a running log, known as the <i>configure log</i>, of
+    certain events that occur during the Configure step. The configure log does
+    <i>not</i> contain a log of all output, errors, or messages printed while
+    configuring a project. It is a log of detailed information about specific
+    events, such as toolchain inspection by <i>try_compile()</i>, meant for use
+    in debugging the configuration of a build tree.</p>
+<p class="Pp">For human use, this version of CMake writes the configure log to
+    the file:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>${CMAKE_BINARY_DIR}/CMakeFiles/CMakeConfigureLog.yaml
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">However, the <i>location and name of the log file may change</i>
+    in future versions of CMake. Tools that read the configure log should get
+    its location using a <i>configureLog</i> query to the
+    <i>cmake-file-api(7)</i>. See the <i>Log Versioning</i> section below for
+    details.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOG_STRUCTURE"><a class="permalink" href="#LOG_STRUCTURE">LOG
+  STRUCTURE</a></h1>
+<p class="Pp">The configure log is designed to be both machine- and
+    human-readable.</p>
+<p class="Pp">The log file is a YAML document stream containing zero or more
+    YAML documents separated by document markers. Each document begins with a
+    <b>---</b> document marker line, contains a single YAML mapping that logs
+    events from one CMake &quot;configure&quot; step, and, if the configure step
+    finished normally, ends with a <b>...</b> document marker line:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>---
+events:
+<br/>
+  -
+<br/>
+    kind: &quot;try_compile-v1&quot;
+<br/>
+    # (other fields omitted)
+<br/>
+  -
+<br/>
+    kind: &quot;try_compile-v1&quot;
+<br/>
+    # (other fields omitted)
+...
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">A new document is appended to the log every time CMake configures
+    the build tree and logs new events.</p>
+<p class="Pp">The keys of the each document root mapping are:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="events"><a class="permalink" href="#events"><b><b>events</b></b></a></dt>
+  <dd>A YAML block sequence of nodes corresponding to events logged during one
+      CMake &quot;configure&quot; step. Each event is a YAML node containing one
+      of the <i>Event Kinds</i> documented below.</dd>
+</dl>
+</div>
+<br/>
+<section class="Ss">
+<h2 class="Ss" id="Log_Versioning"><a class="permalink" href="#Log_Versioning">Log
+  Versioning</a></h2>
+<p class="Pp">Each of the <i>Event Kinds</i> is versioned independently. The set
+    of keys an event's log entry provides is specific to its major version. When
+    an event is logged, the latest version of its event kind that is known to
+    the running version of CMake is always written to the log.</p>
+<p class="Pp">Tools reading the configure log must ignore event kinds and
+    versions they do not understand:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>A future version of CMake may introduce a new event kind or version.</li>
+  <li>If an existing build tree is re-configured with a different version of
+      CMake, the log may contain different versions of the same event kind.</li>
+  <li>If <i>cmake-file-api(7)</i> queries request one or more
+      <i>configureLog</i> object versions, the log may contain multiple entries
+      for the same event, each with a different version of its event kind.</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">IDEs should write a <i>cmake-file-api(7)</i> query requesting a
+    specific <i>configureLog</i> object version, before running CMake, and then
+    read the configure log only as described by the file-api reply.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Text_Block_Encoding"><a class="permalink" href="#Text_Block_Encoding">Text
+  Block Encoding</a></h2>
+<p class="Pp">In order to make the log human-readable, text blocks are always
+    represented using YAML literal block scalars (<b>|</b>). Since literal block
+    scalars do not support escaping, backslashes and non-printable characters
+    are encoded at the application layer:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>\\</b> encodes a backslash.</li>
+  <li><b>\xXX</b> encodes a byte using two hexadecimal digits, <b>XX</b>.</li>
+</ul>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EVENT_KINDS"><a class="permalink" href="#EVENT_KINDS">EVENT
+  KINDS</a></h1>
+<p class="Pp">Every event kind is represented by a YAML mapping of the form:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>kind: &quot;&lt;kind&gt;-v&lt;major&gt;&quot;
+backtrace:
+<br/>
+  - &quot;&lt;file&gt;:&lt;line&gt; (&lt;function&gt;)&quot;
+checks:
+<br/>
+  - &quot;Checking for something&quot;
+#...event-specific keys...
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The keys common to all events are:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="kind"><a class="permalink" href="#kind"><b><b>kind</b></b></a></dt>
+  <dd>A string identifying the event kind and major version.</dd>
+  <dt id="backtrace"><a class="permalink" href="#backtrace"><b><b>backtrace</b></b></a></dt>
+  <dd>A YAML block sequence reporting the call stack of CMake source locations
+      at which the event occurred, from most-recent to least-recent. Each node
+      is a string specifying one location formatted as
+      <b>&lt;file&gt;:&lt;line&gt; (&lt;function&gt;)</b>.</dd>
+  <dt id="checks"><a class="permalink" href="#checks"><b><b>checks</b></b></a></dt>
+  <dd>An optional key that is present when the event occurred with at least one
+      pending <i>message(CHECK_START)</i>. Its value is a YAML block sequence
+      reporting the stack of pending checks, from most-recent to least-recent.
+      Each node is a string containing a pending check message.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">Additional mapping keys are specific to each (versioned) event
+    kind, described below.</p>
+<section class="Ss">
+<h2 class="Ss">Event Kind <b>message</b></h2>
+<p class="Pp">The <i>message(CONFIGURE_LOG)</i> command logs <b>message</b>
+    events.</p>
+<p class="Pp">There is only one <b>message</b> event major version, version
+  1.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>message-v1</b> Event</h2>
+<p class="Pp">A <b>message-v1</b> event is a YAML mapping:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>kind: &quot;message-v1&quot;
+backtrace:
+<br/>
+  - &quot;CMakeLists.txt:123 (message)&quot;
+checks:
+<br/>
+  - &quot;Checking for something&quot;
+message: |
+<br/>
+  # ...
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The keys specific to <b>message-v1</b> mappings are:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="message"><a class="permalink" href="#message"><b><b>message</b></b></a></dt>
+  <dd>A YAML literal block scalar containing the message text, represented using
+      our <i>Text Block Encoding</i>.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss">Event Kind <b>try_compile</b></h2>
+<p class="Pp">The <i>try_compile()</i> command logs <b>try_compile</b>
+  events.</p>
+<p class="Pp">There is only one <b>try_compile</b> event major version, version
+    1.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>try_compile-v1</b> Event</h2>
+<p class="Pp">A <b>try_compile-v1</b> event is a YAML mapping:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>kind: &quot;try_compile-v1&quot;
+backtrace:
+<br/>
+  - &quot;CMakeLists.txt:123 (try_compile)&quot;
+checks:
+<br/>
+  - &quot;Checking for something&quot;
+description: &quot;Explicit LOG_DESCRIPTION&quot;
+directories:
+<br/>
+  source: &quot;/path/to/.../TryCompile-01234&quot;
+<br/>
+  binary: &quot;/path/to/.../TryCompile-01234&quot;
+cmakeVariables:
+<br/>
+  SOME_VARIABLE: &quot;Some Value&quot;
+buildResult:
+<br/>
+  variable: &quot;COMPILE_RESULT&quot;
+<br/>
+  cached: true
+<br/>
+  stdout: |
+<br/>
+    # ...
+<br/>
+  exitCode: 0
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The keys specific to <b>try_compile-v1</b> mappings are:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="description"><a class="permalink" href="#description"><b><b>description</b></b></a></dt>
+  <dd>An optional key that is present when the <b>LOG_DESCRIPTION
+      &lt;text&gt;</b> option was used. Its value is a string containing the
+      description <b>&lt;text&gt;</b>.</dd>
+  <dt id="directories"><a class="permalink" href="#directories"><b><b>directories</b></b></a></dt>
+  <dd>A mapping describing the directories associated with the compilation
+      attempt. It has the following keys:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="source"><a class="permalink" href="#source"><b><b>source</b></b></a></dt>
+  <dd>String specifying the source directory of the <i>try_compile()</i>
+      project.</dd>
+  <dt id="binary"><a class="permalink" href="#binary"><b><b>binary</b></b></a></dt>
+  <dd>String specifying the binary directory of the <i>try_compile()</i>
+      project. For non-project invocations, this is often the same as the source
+      directory.</dd>
+</dl>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt id="cmakeVariables"><a class="permalink" href="#cmakeVariables"><b><b>cmakeVariables</b></b></a></dt>
+  <dd>An optional key that is present when CMake propagates variables into the
+      test project, either automatically or due to the
+      <i>CMAKE_TRY_COMPILE_PLATFORM_VARIABLES</i> variable. Its value is a
+      mapping from variable names to their values.</dd>
+  <dt id="buildResult"><a class="permalink" href="#buildResult"><b><b>buildResult</b></b></a></dt>
+  <dd>A mapping describing the result of compiling the test code. It has the
+      following keys:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="variable"><a class="permalink" href="#variable"><b><b>variable</b></b></a></dt>
+  <dd>A string specifying the name of the CMake variable storing the result of
+      trying to build the test project.</dd>
+  <dt id="cached"><a class="permalink" href="#cached"><b><b>cached</b></b></a></dt>
+  <dd>A boolean indicating whether the above result <b>variable</b> is stored in
+      the CMake cache.</dd>
+  <dt id="stdout"><a class="permalink" href="#stdout"><b><b>stdout</b></b></a></dt>
+  <dd>A YAML literal block scalar containing the output from building the test
+      project, represented using our <i>Text Block Encoding</i>. This contains
+      build output from both stdout and stderr.</dd>
+  <dt id="exitCode"><a class="permalink" href="#exitCode"><b><b>exitCode</b></b></a></dt>
+  <dd>An integer specifying the build tool exit code from trying to build the
+      test project.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss">Event Kind <b>try_run</b></h2>
+<p class="Pp">The <i>try_run()</i> command logs <b>try_run</b> events.</p>
+<p class="Pp">There is only one <b>try_run</b> event major version, version
+  1.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>try_run-v1</b> Event</h2>
+<p class="Pp">A <b>try_run-v1</b> event is a YAML mapping:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>kind: &quot;try_run-v1&quot;
+backtrace:
+<br/>
+  - &quot;CMakeLists.txt:456 (try_run)&quot;
+checks:
+<br/>
+  - &quot;Checking for something&quot;
+description: &quot;Explicit LOG_DESCRIPTION&quot;
+directories:
+<br/>
+  source: &quot;/path/to/.../TryCompile-56789&quot;
+<br/>
+  binary: &quot;/path/to/.../TryCompile-56789&quot;
+buildResult:
+<br/>
+  variable: &quot;COMPILE_RESULT&quot;
+<br/>
+  cached: true
+<br/>
+  stdout: |
+<br/>
+    # ...
+<br/>
+  exitCode: 0
+runResult:
+<br/>
+  variable: &quot;RUN_RESULT&quot;
+<br/>
+  cached: true
+<br/>
+  stdout: |
+<br/>
+    # ...
+<br/>
+  stderr: |
+<br/>
+    # ...
+<br/>
+  exitCode: 0
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The keys specific to <b>try_run-v1</b> mappings include those
+    documented by the <i>try_compile-v1 event</i>, plus:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="runResult"><a class="permalink" href="#runResult"><b><b>runResult</b></b></a></dt>
+  <dd>A mapping describing the result of running the test code. It has the
+      following keys:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="variable~2"><a class="permalink" href="#variable~2"><b><b>variable</b></b></a></dt>
+  <dd>A string specifying the name of the CMake variable storing the result of
+      trying to run the test executable.</dd>
+  <dt id="cached~2"><a class="permalink" href="#cached~2"><b><b>cached</b></b></a></dt>
+  <dd>A boolean indicating whether the above result <b>variable</b> is stored in
+      the CMake cache.</dd>
+  <dt id="stdout~2"><a class="permalink" href="#stdout~2"><b><b>stdout</b></b></a></dt>
+  <dd>An optional key that is present when the test project built successfully.
+      Its value is a YAML literal block scalar containing output from running
+      the test executable, represented using our <i>Text Block Encoding</i>.
+    <p class="Pp">If <b>RUN_OUTPUT_VARIABLE</b> was used, stdout and stderr are
+        captured together, so this will contain both. Otherwise, this will
+        contain only the stdout output.</p>
+  </dd>
+  <dt id="stderr"><a class="permalink" href="#stderr"><b><b>stderr</b></b></a></dt>
+  <dd>An optional key that is present when the test project built successfully
+      and the <b>RUN_OUTPUT_VARIABLE</b> option was not used. Its value is a
+      YAML literal block scalar containing output from running the test
+      executable, represented using our <i>Text Block Encoding</i>.
+    <p class="Pp">If <b>RUN_OUTPUT_VARIABLE</b> was used, stdout and stderr are
+        captured together in the <b>stdout</b> key, and this key will not be
+        present. Otherwise, this will contain the stderr output.</p>
+  </dd>
+  <dt id="exitCode~2"><a class="permalink" href="#exitCode~2"><b><b>exitCode</b></b></a></dt>
+  <dd>An optional key that is present when the test project built successfully.
+      Its value is an integer specifying the exit code, or a string containing
+      an error message, from trying to run the test executable.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">2000-2024 Kitware, Inc. and Contributors</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">April 15, 2024</td>
+    <td class="foot-os">3.28.3</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

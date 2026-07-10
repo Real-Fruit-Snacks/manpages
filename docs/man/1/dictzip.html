@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="compress (or expand) files, allowing random access">
+<title>dictzip(1) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">dictzip(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#TRADEOFFS">TRADEOFFS</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#CREDITS">CREDITS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">DICTZIP(1)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">DICTZIP(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">dictzip, dictunzip - compress (or expand) files, allowing random
+    access</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>dictzip [</b><i>options</i><b>] </b><i>name</i>
+<br/>
+<b>dictunzip [</b><i>options</i><b>] </b><i>name</i></pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>dictzip</b> compresses files using the <b>gzip</b>(1) algorithm
+    (LZ77) in a manner which is completely compatible with the <b>gzip</b> file
+    format. An extension to the <b>gzip</b> file format (Extra Field, described
+    in 2.3.1.1 of RFC 1952) allows extra data to be stored in the header of a
+    compressed file. Programs like <b>gzip</b> and <b>zcat</b> will ignore this
+    extra data. However, <b>dictd</b>(8), the DICT protocol dictionary server
+    will make use of this data to perform pseudo-random access on the file.
+    Files in the <b>dictzip</b> format should end in &quot;.dz&quot; so that
+    they may be distinguished from common <b>gzip</b> files that do not contain
+    the special header information.</p>
+<p class="Pp">From RFC 1952, the extra field is specified as follows:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">If the FLG.FEXTRA bit is set, an &quot;extra field&quot;
+  is present in the header, with total length XLEN bytes. It consists of a
+  series of subfields, each of the form:
+<p class="Pp"></p>
+<pre>+---+---+---+---+==================================+
+|SI1|SI2|  LEN  |... LEN bytes of subfield data ...|
++---+---+---+---+==================================+</pre>
+<p class="Pp">SI1 and SI2 provide a subfield ID, typically two ASCII letters
+    with some mnemonic value. Jean-Loup Gailly &lt;gzip@prep.ai.mit.edu&gt; is
+    maintaining a registry of subfield IDs; please send him any subfield ID you
+    wish to use. Subfield IDs with SI2 = 0 are reserved for future use.</p>
+<p class="Pp">LEN gives the length of the subfield data, excluding the 4 initial
+    bytes.</p>
+</div>
+<p class="Pp">The <b>dictzip</b> program uses 'R' for SI1, and 'A' for SI2
+    (i.e., &quot;Random Access&quot;). After the LEN field, the data is arranged
+    as follows:</p>
+<p class="Pp"></p>
+<pre>+---+---+---+---+---+---+===============================+
+|  VER  | CHLEN | CHCNT |  ... CHCNT words of data ...  |
++---+---+---+---+---+---+===============================+</pre>
+<p class="Pp">As per RFC 1952, all data is stored least-significant byte first.
+    For VER 1 of the data, all values are 16-bits long (2 bytes), and are
+    unsigned integers.</p>
+<p class="Pp">XLEN (which is specified earlier in the header) is a two byte
+    integer, so the extra field can be 0xffff bytes long, 2 bytes of which are
+    used for the subfield ID (SI1 and SI1), and 2 bytes of which are used for
+    the subfield length (LEN). This leaves 0xfffb bytes (0x7ffd 2-byte entries
+    or 0x3ffe 4-byte entries). Given that the zip output buffer must be 10% + 12
+    bytes larger than the input buffer, we can store 58969 bytes per entry, or
+    about 1.8GB if the 2-byte entries are used. If this becomes a limiting
+    factor, another format version can be selected and defined for 4-byte
+    entries.</p>
+<p class="Pp">For compression, the file is divided up into &quot;chunks&quot; of
+    data, each chunk is less than 64kB, and can be compressed into an area that
+    is also less than 64kB long (taking incompressible data into account --
+    usually the data is compressed into a block that is much smaller than the
+    original). The CHLEN field specifies the length of a &quot;chunk&quot; of
+    data. The CHCNT field specifies how many chunks are preset, and the CHCNT
+    words of data specifies how long each chunk is after compression (i.e., in
+    the current compressed file).</p>
+<p class="Pp">To perform random access on the data, the offset and length of the
+    data are provided to library routines. These routines determine the chunk in
+    which the desired data begins, and decompresses that chunk. Consecutive
+    chunks are decompressed as necessary.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TRADEOFFS"><a class="permalink" href="#TRADEOFFS">TRADEOFFS</a></h1>
+<dl class="Bl-tag">
+  <dt id="Speed"><a class="permalink" href="#Speed"><b>Speed</b></a></dt>
+  <dd>True random file access is not realized, since any access, even for a
+      single byte, requires that a 64kB chunk be read and decompressed. This is
+      slower than accessing a flat text file, but is much, much faster than
+      performing serial access on a fully compressed file.</dd>
+  <dt id="Space"><a class="permalink" href="#Space"><b>Space</b></a></dt>
+  <dd>For the textual dictionary databases we are working with, the use of 64kB
+      chunks and maximal LZ77 compression realizes a file which is only about 4%
+      larger than the same file compressed all at once.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="d"><a class="permalink" href="#d"><b>-d</b> or
+    <b>--decompress</b></a></dt>
+  <dd>Decompress. This is the default if the executable is called
+      <b>dictunzip</b>.</dd>
+  <dt id="c"><a class="permalink" href="#c"><b>-c</b> or
+    <b>--stdout</b></a></dt>
+  <dd>Write output on standard output; keep original files unchanged. This is
+      only available when decompressing (because parts of the header must be
+      updated after a write when compressing).</dd>
+  <dt id="f"><a class="permalink" href="#f"><b>-f</b> or <b>--force</b></a></dt>
+  <dd>Force compression or decompression even if the output file already
+    exists.</dd>
+  <dt id="h"><a class="permalink" href="#h"><b>-h</b> or <b>--help</b></a></dt>
+  <dd>Display help.</dd>
+  <dt id="k"><a class="permalink" href="#k"><b>-k</b> or <b>--keep</b></a></dt>
+  <dd>Do not delete the original file.</dd>
+  <dt id="l"><a class="permalink" href="#l"><b>-l</b> or <b>--list</b></a></dt>
+  <dd>For each compressed file, list the following fields:
+    <p class="Pp">
+      <br/>
+       type: dzip, gzip, or text (includes files in unknown formats)
+      <br/>
+       crc: CRC checksum
+      <br/>
+       date and time: from header
+      <br/>
+       chunks: number of chunks in file
+      <br/>
+       size: size of each uncompressed chunk
+      <br/>
+       compr.: compressed size
+      <br/>
+       uncompr.: uncompressed size
+      <br/>
+       ratio: compression ratio (0.0% if unknown)
+      <br/>
+       name: name of uncompressed file</p>
+    <p class="Pp">Unlike <b>gzip</b>, the compression method is not
+      detected.</p>
+  </dd>
+  <dt id="L"><a class="permalink" href="#L"><b>-L</b> or
+    <b>--license</b></a></dt>
+  <dd>Display the <b>dictzip</b> license and quit.</dd>
+  <dt id="t"><a class="permalink" href="#t"><b>-t</b> or <b>--test</b></a></dt>
+  <dd>Check the compressed file integrity. This option is not implemented.
+      Instead, it will list the header information.</dd>
+  <dt id="n"><a class="permalink" href="#n"><b>-n</b> or
+    <b>--no-name</b></a></dt>
+  <dd>Don't save the original filename and timestamp.</dd>
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b> or
+    <b>--verbose</b></a></dt>
+  <dd>Verbose. Display extra information during compression.</dd>
+  <dt id="V"><a class="permalink" href="#V"><b>-V</b> or
+    <b>--version</b></a></dt>
+  <dd>Version. Display the version number and compilation options then
+    quit.</dd>
+  <dt id="s"><a class="permalink" href="#s"><b>-s</b><i> start or
+    </i><b>--start</b><i> start</i></a></dt>
+  <dd>Specify the offer to start decompression, using decimal numbers. The
+      default is at the beginning of the file.</dd>
+  <dt id="e"><a class="permalink" href="#e"><b>-e</b><i> size or
+    </i><b>--size</b><i> size</i></a></dt>
+  <dd>Specify the size of the portion of the file to decompress, using decimal
+      numbers. The default is the whole file.</dd>
+  <dt id="S"><a class="permalink" href="#S"><b>-S</b><i> start or
+    </i><b>--Start</b><i> start</i></a></dt>
+  <dd>Specify the offer to start decompression, using base64 numbers. The
+      default is at the beginning of the file.</dd>
+  <dt id="E"><a class="permalink" href="#E"><b>-E</b><i> size or
+    </i><b>--Size</b><i> start</i></a></dt>
+  <dd>Specify the size of the portion of the file to decompress, using base64
+      numbers. The default is the whole file.</dd>
+  <dt id="p"><a class="permalink" href="#p"><b>-p</b><i> prefilter or
+    </i><b>--pre</b><i> prefilter</i></a></dt>
+  <dd>Specify a shell command to execute as a filter before compression or
+      decompression of a chunk. The pre- and post-compression filters can be
+      used to provide additional compression or output formatting. The filters
+      may not increase the buffer size significantly. The pre- and
+      post-compression filters were designed to provide the most general
+      interface possible.</dd>
+  <dt id="P"><a class="permalink" href="#P"><b>-P</b><i> postfilter or
+    </i><b>--post</b><i> postfilter</i></a></dt>
+  <dd>Specify a shell command to execute as a filter after compression or
+      decompression.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CREDITS"><a class="permalink" href="#CREDITS">CREDITS</a></h1>
+<p class="Pp"><b>dictzip</b> was written by Rik Faith (faith@cs.unc.edu) and is
+    distributed under the terms of the GNU General Public License. If you need
+    to distribute under other terms, write to the author.</p>
+<p class="Pp">The main libraries used by this programs (zlib, regex, libmaa) are
+    distributed under different terms, so you may be able to use the libraries
+    for applications which are incompatible with the GPL -- please see the
+    copyright notices and license information that come with the libraries for
+    more information, and consult with your attorney to resolve these
+  issues.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>dict</b>(1), <b>dictd</b>(8), <b>gzip</b>(1), <b>gunzip</b>(1),
+    <b>zcat</b>(1)</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">22 Jun 1997</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

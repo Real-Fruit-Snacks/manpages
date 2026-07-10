@@ -24,7 +24,7 @@
   <nav class="toc" aria-label="Sections">
     <div class="toc-title">bwrap(1)</div>
     <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#EXIT_STATUS">EXIT
-  STATUS</a></li></ul>
+  STATUS</a></li><li><a href="#NOTES">NOTES</a></li></ul>
   </nav>
   <article class="man-content">
 <table class="head">
@@ -45,9 +45,9 @@
 </section>
 <section class="Sh">
 <h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
-<p class="Pp"><b>bwrap</b> is a privileged helper for container setup. You are
-    unlikely to use it directly from the commandline, although that is
-  possible.</p>
+<p class="Pp"><b>bwrap</b> is a unprivileged low-level sandboxing tool
+    (optionally setuid on older distributions). You are unlikely to use it
+    directly from the commandline, although that is possible.</p>
 <p class="Pp">It works by creating a new, completely empty, filesystem namespace
     where the root is on a tmpfs that is invisible from the host, and which will
     be automatically cleaned up when the last process exits. You can then use
@@ -78,6 +78,9 @@
 <div class="Bd-indent">Parse nul-separated arguments from the given file
   descriptor. This option can be used multiple times to parse options from
   multiple sources.</div>
+<p class="Pp"><b>--argv0 </b><b>VALUE</b></p>
+<div class="Bd-indent">Set argv[0] to the value VALUE before running the
+  program</div>
 <p class="Pp">Options related to kernel namespaces:</p>
 <p class="Pp"><b>--unshare-user</b></p>
 <div class="Bd-indent">Create a new user namespace</div>
@@ -101,6 +104,9 @@
 <div class="Bd-indent">Unshare all possible namespaces. Currently equivalent
   with: <b>--unshare-user-try</b> <b>--unshare-ipc</b> <b>--unshare-pid</b>
   <b>--unshare-net</b> <b>--unshare-uts</b> <b>--unshare-cgroup-try</b></div>
+<p class="Pp"><b>--share-net</b></p>
+<div class="Bd-indent">Retain the network namespace, overriding an earlier
+  <b>--unshare-all</b> or <b>--unshare-net</b></div>
 <p class="Pp"><b>--userns </b><b>FD</b></p>
 <div class="Bd-indent">Use an existing user namespace instead of creating a new
   one. The namespace must fulfil the permission requirements for setns(), which
@@ -118,6 +124,20 @@
     user namespaces (to work around some kernel issues) and --userns2 can be
     used to enter these.</p>
 </div>
+<p class="Pp"><b>--disable-userns</b></p>
+<div class="Bd-indent">Prevent the process in the sandbox from creating further
+  user namespaces, so that it cannot rearrange the filesystem namespace or do
+  other more complex namespace modification. This is currently implemented by
+  setting the user.max_user_namespaces sysctl to 1, and then entering a nested
+  user namespace which is unable to raise that limit in the outer namespace.
+  This option requires <b>--unshare-user</b>, and doesn't work in the setuid
+  version of bubblewrap.</div>
+<p class="Pp"><b>--assert-userns-disabled</b></p>
+<div class="Bd-indent">Confirm that the process in the sandbox has been
+  prevented from creating further user namespaces, but without taking any
+  particular action to prevent that. For example, this can be combined with
+  <b>--userns</b> to check that the given user namespace has already been set up
+  to prevent the creation of further user namespaces.</div>
 <p class="Pp"><b>--pidns </b><b>FD</b></p>
 <div class="Bd-indent">Use an existing pid namespace instead of creating one.
   This is often used with --userns, because the pid namespace must be owned by
@@ -160,13 +180,26 @@
     are normally set to 0755 (rwxr-xr-x). However, if a <b>--perms</b> option is
     in effect, and it sets the permissions for group or other to zero, then
     newly-created parent directories will also have their corresponding
-    permission set to zero.</p>
+    permission set to zero. <b>--size</b> modifies the size of the created mount
+    when preceding a <b>--tmpfs</b> action; <b>--perms</b> and <b>--size</b> can
+    be combined.</p>
 <p class="Pp"><b>--perms </b><b>OCTAL</b></p>
 <div class="Bd-indent">This option does nothing on its own, and must be followed
   by one of the options that it affects. It sets the permissions for the next
   operation to OCTAL. Subsequent operations are not affected: for example,
   --perms 0700 --tmpfs /a --tmpfs /b will mount /a with permissions 0700, then
-  return to the default permissions for /b.</div>
+  return to the default permissions for /b. Note that <b>--perms</b> and
+  <b>--size</b> can be combined: --perms 0700 --size 10485760 --tmpfs /s will
+  apply permissions as well as a maximum size to the created tmpfs.</div>
+<p class="Pp"><b>--size </b><b>BYTES</b></p>
+<div class="Bd-indent">This option does nothing on its own, and must be followed
+  by --tmpfs. It sets the size in bytes for the next tmpfs. For example, --size
+  10485760 --tmpfs /tmp will create a tmpfs at /tmp of size 10MiB. Subsequent
+  operations are not affected: for example, --size 10485760 --tmpfs /a --tmpfs
+  /b will mount /a with size 10MiB, then return to the default size for /b. Note
+  that <b>--perms</b> and <b>--size</b> can be combined: --size 10485760 --perms
+  0700 --tmpfs /s will apply permissions as well as a maximum size to the
+  created tmpfs.</div>
 <p class="Pp"><b>--bind </b><b>SRC</b><b> </b><b>DEST</b></p>
 <div class="Bd-indent">Bind mount the host path SRC on DEST</div>
 <p class="Pp"><b>--bind-try </b><b>SRC</b><b> </b><b>DEST</b></p>
@@ -193,7 +226,8 @@
 <p class="Pp"><b>--tmpfs </b><b>DEST</b></p>
 <div class="Bd-indent">Mount new tmpfs on DEST. If the previous option was
   <b>--perms</b>, it sets the mode of the tmpfs. Otherwise, the tmpfs has mode
-  0755.</div>
+  0755. If the previous option was <b>--size</b>, it sets the size in bytes of
+  the tmpfs. Otherwise, the tmpfs has the default size.</div>
 <p class="Pp"><b>--mqueue </b><b>DEST</b></p>
 <div class="Bd-indent">Mount new mqueue on DEST</div>
 <p class="Pp"><b>--dir </b><b>DEST</b></p>
@@ -219,7 +253,12 @@
   sets the mode of the new file. Otherwise, the file has mode 0600 (note that
   this is not the same as <b>--file</b>).</div>
 <p class="Pp"><b>--symlink </b><b>SRC</b><b> </b><b>DEST</b></p>
-<div class="Bd-indent">Create a symlink at DEST with target SRC</div>
+<div class="Bd-indent">Create a symlink at DEST with target SRC.
+<p class="Pp">Since version 0.9.0, it is not considered to be an error if DEST
+    already exists as a symbolic link and its target is exactly SRC.</p>
+<p class="Pp">Before version 0.9.0, if DEST already existed, this would be
+    treated as an error (even if its target was identical to SRC).</p>
+</div>
 <p class="Pp"><b>--chmod </b><b>OCTAL</b><b> </b><b>PATH</b></p>
 <div class="Bd-indent">Set the permissions of PATH, which must already exist, to
   OCTAL.</div>
@@ -253,13 +292,31 @@
 <p class="Pp"><b>--info-fd </b><b>FD</b></p>
 <div class="Bd-indent">Write information in JSON format about the sandbox to
   FD.</div>
+<p class="Pp"><b>--json-status-fd </b><b>FD</b></p>
+<div class="Bd-indent">Multiple JSON documents are written to FD, one per line
+  (<b>&quot;JSON lines&quot; format</b>[1]). Each line is a single JSON object.
+  After <b>bwrap</b> has started the child process inside the sandbox, it writes
+  an object with a child-pid member to the <b>--json-status-fd</b> (this
+  duplicates the older <b>--info-fd</b>). The corresponding value is the process
+  ID of the child process in the pid namespace from which <b>bwrap</b> was run.
+  If available, the namespace IDs are also included in the object with the
+  child-pid; again, this duplicates the older <b>--info-fd</b>. When the child
+  process inside the sandbox exits, <b>bwrap</b> writes an object with an
+  exit-code member, and then closes the <b>--json-status-fd</b>. The value
+  corresponding to exit-code is the exit status of the child, in the usual shell
+  encoding (n if it exited normally with status n, or 128+n if it was killed by
+  signal n). Other members may be added to those objects in future versions of
+  <b>bwrap</b>, and other JSON objects may be added before or after the current
+  objects, so readers must ignore members and objects that they do not
+  understand.</div>
 <p class="Pp"><b>--new-session</b></p>
 <div class="Bd-indent">Create a new terminal session for the sandbox (calls
   setsid()). This disconnects the sandbox from the controlling terminal which
   means the sandbox can't for instance inject input into the terminal.
 <p class="Pp">Note: In a general sandbox, if you don't use --new-session, it is
     recommended to use seccomp to disallow the TIOCSTI ioctl, otherwise the
-    application can feed keyboard input to the terminal.</p>
+    application can feed keyboard input to the terminal which can e.g. lead to
+    out-of-sandbox command execution (see CVE-2017-5226).</p>
 </div>
 <p class="Pp"><b>--die-with-parent</b></p>
 <div class="Bd-indent">Ensures child process (COMMAND) dies when bwrap's parent
@@ -270,8 +327,9 @@
 <div class="Bd-indent">Do not create a process with PID=1 in the sandbox to reap
   child processes.</div>
 <p class="Pp"><b>--cap-add </b><b>CAP</b></p>
-<div class="Bd-indent">Add the specified capability when running as privileged
-  user. It accepts the special value ALL to add all the permitted caps.</div>
+<div class="Bd-indent">Add the specified capability CAP, e.g.
+  CAP_DAC_READ_SEARCH, when running as privileged user. It accepts the special
+  value ALL to add all the permitted caps.</div>
 <p class="Pp"><b>--cap-drop </b><b>CAP</b></p>
 <div class="Bd-indent">Drop the specified capability when running as privileged
   user. It accepts the special value ALL to drop all the caps. By default no
@@ -293,11 +351,19 @@
 <p class="Pp">The <b>bwrap</b> command returns the exit status of the initial
     application process (pid 2 in the sandbox).</p>
 </section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>&quot;JSON lines&quot; format</dd>
+</dl>
+<div class="Bd-indent">https://jsonlines.org/</div>
+</section>
 </div>
 <table class="foot">
   <tr>
     <td class="foot-date"></td>
-    <td class="foot-os">Project Atomic</td>
+    <td class="foot-os">Containers</td>
   </tr>
 </table>
 

@@ -23,7 +23,8 @@
 <main class="page">
   <nav class="toc" aria-label="Sections">
     <div class="toc-title">apparmor(7)</div>
-    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#ERRORS">ERRORS</a></li><li><a href="#DEBUGGING">DEBUGGING</a></li><li><a href="#Enable_debug_mode">Enable
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Complain_mode">Complain
+  mode</a></li><li><a href="#ERRORS">ERRORS</a></li><li><a href="#DEBUGGING">DEBUGGING</a></li><li><a href="#Enable_debug_mode">Enable
   debug mode</a></li><li><a href="#Turn_off_deny_audit_quieting">Turn
   off deny audit quieting</a></li><li><a href="#Force_audit_mode">Force
   audit mode</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
@@ -51,11 +52,10 @@
     attributes to programs rather than to users.</p>
 <p class="Pp">AppArmor confinement is provided via <i>profiles</i> loaded into
     the kernel via <b>apparmor_parser</b>(8), typically through the
-    <i>/etc/init.d/apparmor</i> SysV initscript, which is used like this:</p>
+    <i>apparmor.service</i> systemd unit, which is used like this:</p>
 <p class="Pp"></p>
-<pre>        # /etc/init.d/apparmor start
-        # /etc/init.d/apparmor stop
-        # /etc/init.d/apparmor restart
+<pre>        # systemctl start apparmor
+        # systemctl reload apparmor
 </pre>
 <p class="Pp">AppArmor can operate in two modes: <i>enforcement</i>, and
     <i>complain or learning</i>:</p>
@@ -102,6 +102,56 @@
         iopl(2) ptrace(2) reboot(2) setdomainname(2)
         sethostname(2) swapoff(2) swapon(2) sysctl(2)
 </pre>
+<section class="Ss">
+<h2 class="Ss" id="Complain_mode"><a class="permalink" href="#Complain_mode">Complain
+  mode</a></h2>
+<p class="Pp">Instead of denying access to resources the profile does not have a
+    rule for AppArmor can &quot;allow&quot; the access and log a message for the
+    operation that triggers it. This is called <i>complain mode</i>. It is
+    important to note that rules that are present in the profile are still
+    applied, so allow rules will still quiet or force audit messages, and deny
+    rules will still result in denials and quieting of denial messages (see
+    <i>Turn off deny audit quieting</i> if this is a problem).</p>
+<p class="Pp">Complain mode can be used to develop profiles incrementally as an
+    application is exercised. The logged accesses can be added to the profile
+    and then can the application further excercised to discover further
+    additions that are needed. Because AppArmor allows the accesses the
+    application will behave as it would if AppArmor was not confining it.</p>
+<p class="Pp"><b>Warning</b> complain mode does not provide any security, only
+    auditing, while it is enabled. It should not be used in a hostile
+    environment or bad behaviors may be logged and added to the profile as if
+    they are resource accesses that should be used by the application.</p>
+<p class="Pp"><b>Note</b> complain mode can be very noisy with new or empty
+    profiles, but with developed profiles might not log anything if the profile
+    covers the application behavior well. See <i>Audit Rate Limiting</i> if
+    complain mode is generating too many log messages.</p>
+<p class="Pp">To set a profile and any children or hat profiles the profile may
+    contain into complain mode use</p>
+<p class="Pp"></p>
+<pre>        aa-complain /etc/apparmor.d/&lt;the-application&gt;
+</pre>
+<p class="Pp">To manually set a specific profile in complain mode, add the
+    <span class="Li">&quot;complain&quot;</span> flag, and then manually reload
+    the profile:</p>
+<p class="Pp"></p>
+<pre>        profile foo flags=(complain) { ... }
+</pre>
+<p class="Pp">Note that the <span class="Li">&quot;complain&quot;</span> flag
+    must also be added manually to any hats or children profiles of the profile
+    or they will continue to use the previous mode.</p>
+<p class="Pp">To enable complain mode globally, run:</p>
+<p class="Pp"></p>
+<pre>        echo -n complain &gt; /sys/module/apparmor/parameters/mode
+</pre>
+<p class="Pp">or to set it on boot add:</p>
+<p class="Pp"></p>
+<pre>        apparmor.mode=complain
+</pre>
+<p class="Pp">as a kernel boot paramenter.</p>
+<p class="Pp"><b>Warning</b> Setting complain mode gloabally disables all
+    apparmor security protections. It can be useful during debugging or profile
+    development, but setting it selectively on a per profile basis is safer.</p>
+</section>
 </section>
 <section class="Sh">
 <h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
@@ -158,6 +208,11 @@
 <p class="Pp"></p>
 <pre>        echo 1 &gt; /sys/module/apparmor/parameters/debug
 </pre>
+<p class="Pp">or to set it on boot add:</p>
+<p class="Pp"></p>
+<pre>        apparmor.debug=1
+</pre>
+<p class="Pp">as a kernel boot paramenter.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Turn_off_deny_audit_quieting"><a class="permalink" href="#Turn_off_deny_audit_quieting">Turn
@@ -169,6 +224,11 @@
 <p class="Pp"></p>
 <pre>        echo -n noquiet &gt;/sys/module/apparmor/parameters/audit
 </pre>
+<p class="Pp">or to set it on boot add:</p>
+<p class="Pp"></p>
+<pre>        apparmor.audit=noquiet
+</pre>
+<p class="Pp">as a kernel boot paramenter.</p>
 </section>
 <section class="Ss">
 <h2 class="Ss" id="Force_audit_mode"><a class="permalink" href="#Force_audit_mode">Force
@@ -186,6 +246,12 @@
 <p class="Pp"></p>
 <pre>        echo -n all &gt; /sys/module/apparmor/parameters/audit
 </pre>
+<p class="Pp">or to set it on boot add:</p>
+<p class="Pp"></p>
+<pre>        apparmor.audit=all
+</pre>
+<p class="Pp">as a kernel boot paramenter.</p>
+<p class="Pp"><b>Audit Rate Limiting</b></p>
 <p class="Pp">If auditd is not running, to avoid losing too many of the extra
     log messages, you will likely have to turn off rate limiting by doing:</p>
 <p class="Pp"></p>
@@ -200,11 +266,9 @@
 <section class="Sh">
 <h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
 <dl class="Bl-tag">
-  <dt><i>/etc/init.d/apparmor</i></dt>
-  <dd></dd>
   <dt><i>/etc/apparmor.d/</i></dt>
   <dd></dd>
-  <dt><i>/var/lib/apparmor/</i></dt>
+  <dt><i>/var/cache/apparmor/</i></dt>
   <dd></dd>
   <dt><i>/var/log/audit/audit.log</i></dt>
   <dd></dd>
@@ -223,8 +287,8 @@
 </div>
 <table class="foot">
   <tr>
-    <td class="foot-date">2025-08-15</td>
-    <td class="foot-os">AppArmor 3.0.4</td>
+    <td class="foot-date">2026-04-13</td>
+    <td class="foot-os">AppArmor 4.0.1</td>
   </tr>
 </table>
 

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="bind sockets to privileged ports without root">
+<title>authbind(1) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">authbind(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#PORTS_512-1023">PORTS
+  512-1023</a></li><li><a href="#MECHANISM">MECHANISM</a></li><li><a href="#ERROR_HANDLING">ERROR
+  HANDLING</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#FILES_AND_ENVIRONMENT_VARIABLES">FILES
+  AND ENVIRONMENT VARIABLES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">AUTHBIND(1)</td>
+    <td class="head-vol">Debian Linux manual</td>
+    <td class="head-rtitle">AUTHBIND(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">authbind - bind sockets to privileged ports without root</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>authbind</b> [<i>options</i>] <i>program</i> [<i>argument</i>
+    ...]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>authbind</b> allows a program which does not or should not run
+    as root to bind to low-numbered ports in a controlled way.</p>
+<p class="Pp">You must invoke the program using <b>authbind</b>. <b>authbind</b>
+    will set up some environment variables, including an <b>LD_PRELOAD</b>,
+    which will allow the program (including any subprocesses it may run) to bind
+    to low-numbered (&lt;512) ports if the system is configured to allow
+  this.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="deep"><a class="permalink" href="#deep"><b>--deep</b></a></dt>
+  <dd>Normally, <b>authbind</b> arranges for only the program which it directly
+      invokes to be affected by its special version of <b>bind</b>(2). If you
+      specify <b>--deep</b> then all programs which that program invokes
+      directly or indirectly will be affected, so long as they do not unset the
+      environment variables set up by <b>authbind</b>.</dd>
+  <dt id="depth"><a class="permalink" href="#depth"><b>--depth</b><i>
+    levels</i></a></dt>
+  <dd>Causes <b>authbind</b> to affect programs which are <i>levels</i> deep in
+      the calling graph. The default is <b>--depth 1</b>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACCESS_CONTROL"><a class="permalink" href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></h1>
+<p class="Pp">Access to low numbered ports is controlled by permissions and
+    contents of files in a configuration area, <b>/etc/authbind</b>.</p>
+<p class="Pp">Firstly, <b>/etc/authbind/byport/</b><i>port</i> is tested. If
+    this file is accessible for execution to the calling user, according to
+    <b>access</b>(2), then binding to the port is authorised. If the file can be
+    seen not to exist (the existence check returns <b>ENOENT</b>) then further
+    tests will be used to find authorisation; otherwise, binding is not
+    authorised, and the <b>bind</b> call will return with the <b>errno</b> value
+    from the <b>access</b>(2) call, usually <b>EACCES</b> (<i>Permission
+    denied</i>).</p>
+<p class="Pp">Secondly, if that test fails to resolve the matter,
+    <b>/etc/authbind/byaddr/</b><i>addr</i><b>,</b><i>port</i> (any protocol) or
+    failing that <b>/etc/authbind/byaddr/</b><i>addr</i><b>:</b><i>port</i>
+    (IPv4 only) is tested, in the same manner as above. Here <i>addr</i> is as
+    from <b>inet_ntop</b>, and <i>port</i> is the (local) TCP or UDP port
+    number, expressed as an unsigned integer in the minimal non-zero number of
+    digits.</p>
+<p class="Pp">Thirdly, for IPv6 only: since the textual representation from
+    <b>inet_ntop</b> is complicated to predict, a variant of <i>addr</i> is also
+    tested which does not use the double colon abbreviation: each 16-byte chunk
+    expressed in the minimal nonzero number of hex digits (i.e. with leading
+    zeroes removed), the chunks being separated by colons as is
+  conventional.</p>
+<p class="Pp">Fourthly, if the question is still unresolved, the file
+    <b>/etc/authbind/byuid/</b><i>uid</i> will be opened and read. If the file
+    does not exist then the binding is not authorised and <b>bind</b> will
+    return <b>EPERM</b> (<i>Operation not permitted</i>, or <i>Not owner</i>).
+    If the file does exist it will be searched for a line of the form</p>
+<pre><i>	addrmin</i>[<b>-</b><i>addrmax</i>]<b>,</b><i>portmin</i>[<b>-</b><i>portmax</i>]
+<i>	addr</i>[<b>/</b><i>length</i>]<b>,</b><i>portmin</i>[<b>-</b><i>portmax</i>]
+<i>	addr4</i><b>/</b><i>length</i><b>:</b><i>portmin</i><b>,</b><i>portmax</i></pre>
+matching the request. The first form requires that the address lies in the
+  relevant range (inclusive at both ends). The second and third forms require
+  that the initial <i>length</i> bits of <i>addr</i> match those in the proposed
+  <b>bind</b> call. The third form is only available for IPv4 since IPv6
+  addresses contain colons. Addresses in the byuid file can be in any form
+  acceptable to inet_pton. In all cases the proposed port number must lie is in
+  the inclusive range specified. If such a line is found then the binding is
+  authorised. Otherwise it is not, and <b>bind</b> will fail with <b>ENOENT</b>
+  (<i>No such file or directory</i>).
+<p class="Pp">If a read error occurs, or the directory <b>/etc/authbind</b>
+    cannot be accessed, then not only will <b>bind</b> fail, but an error
+    message will be printed to stderr. Unrecognised lines in
+    <b>/etc/authbind/byuid/</b><i>uid</i> files are silently ignored, as are
+    lines whose <i>addr</i> has non-zero bits more than <i>length</i> from the
+    top or where some <i>min</i> is larger than <i>max</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<p class="Pp">So for example an attempt by uid 432 to bind to port 80 of address
+    [2620:106:e002:f00f::21] would result in authbind calling <i>access(2)</i>
+    on, in order,</p>
+<div class="Bd-indent"><b>/etc/authbind/byport/80</b>
+<br/>
+<b>/etc/authbind/byaddr/2620:106:e002:f00f::21,80</b>
+<br/>
+<b>/etc/authbind/byaddr/2620:106:e002:f00f:0:0:0:21,80</b></div>
+If none of these files exist, authbind will read
+<div class="Bd-indent"><b>/etc/authbind/byuid/432</b></div>
+and search for a line to permit the relevant access; examples of lines which
+  would do so are:
+<div class="Bd-indent"><b>2620:106:e002:f00f::21,80</b>
+<br/>
+<b>::/0,80</b></div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PORTS_512-1023"><a class="permalink" href="#PORTS_512-1023">PORTS
+  512-1023</a></h1>
+<p class="Pp">Authorising binding to ports from 512 to 1023 inclusive is not
+    recommended. Some protocols (including some versions of NFS) authorise
+    clients by seeing that they are using a port number in this range. So by
+    authorising a program to be a server for such a port, you are also
+    authorising it to impersonate the whole host for those protocols.</p>
+<p class="Pp">To make sure that this isn't done by accident, if the port number
+    requested is in the range 512-1023, authbind will expect the permission
+    files to have an additional <b>!</b> at the start of their leafname.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MECHANISM"><a class="permalink" href="#MECHANISM">MECHANISM</a></h1>
+<p class="Pp">The shared library loaded using <b>LD_PRELOAD</b> overrides the
+    <b>bind</b>(2) system call. When a program invoked via <b>authbind</b> calls
+    <b>bind</b> to bind a socket to a low-numbered TCP/IP port, and if the
+    program doesn't already have an effective uid of 0, the version of
+    <b>bind</b> supposed by <b>authbind</b> forks and executes a setuid-root
+    helper program. For non-TCP/IP sockets, high-numbered ports, or programs
+    which are already root, <b>authbind</b> passes the call to the original
+    <b>bind</b>(2) system call, which is found using <b>dlsym</b>(3) with the
+    handle <b>RTLD_NEXT</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERROR_HANDLING"><a class="permalink" href="#ERROR_HANDLING">ERROR
+  HANDLING</a></h1>
+<p class="Pp">Usually the normal C error handling mechanisms apply. If
+    <b>authbind</b> cannot find the program it has been asked to execute it will
+    print a message to stderr and exit with code 255.</p>
+<p class="Pp">The helper program usually reports back to the shared library with
+    an exit status containing an <b>errno</b> value which encodes whether the
+    <b>bind</b> was permitted and successful. This will be returned to the
+    calling program in the usual way.</p>
+<p class="Pp">In the case of apparent configuration or other serious errors the
+    library and/or the helper program may cause messages to be printed to the
+    program's stderr, was well as returning -1 from <b>bind</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp"><b>authbind</b> currently only supports IPv4 and IPv6 sockets.
+    Programs which open other kinds of sockets will not benefit from
+    <b>authbind</b>, but it won't get in their way.</p>
+<p class="Pp">The use of <b>LD_PRELOAD</b> makes an <b>authbind</b> installation
+    specific to a particular C library. This version is for GNU/Linux libc6
+    (glibc2).</p>
+<p class="Pp"><b>authbind</b> may not operate correctly with multithreaded
+    programs. It is inherently very difficult (if not impossible) to perform the
+    kind of trickery that authbind does while preventing all undesirable
+    interactions between authbind's activities and those of (say) a threading
+    runtime system.</p>
+<p class="Pp">It is quite possible that <b>authbind</b> and other programs and
+    facilities which use <b>LD_PRELOAD</b> may interfere with each other,
+    causing unpredictable behaviour or even core dumps. <b>authbind</b> is known
+    sometimes not to work correctly with <b>fakeroot</b>, for example (even
+    supposing it could be determined what `correctly' means in this
+  context).</p>
+<p class="Pp"><b>authbind</b> is ineffective with setuid programs, because they
+    do not honour <b>LD_PRELOAD</b> references outside the system directories,
+    for security reasons. (In fact, setuid programs should not honour
+    <b>LD_PRELOAD</b> at all.) Of course a setuid-root program does not need
+    <b>authbind</b>, but it might be useful to apply it to program which are
+    setuid to another user or setgid. If the author or builder of such a
+    programs wishes it to use authbind they could have it load the
+    <b>libauthbind</b> library explicitly rather than via <b>LD_PRELOAD</b>.</p>
+<p class="Pp">Some programs may have trouble because <b>authbind</b> spawns a
+    child process `under their feet', causing (for example) a <b>fork</b>(2) to
+    happen and <b>SIGCHLD</b> signal to be delivered. Unfortunately the Unix API
+    does not make it possible to deal with this problem in a sane way.</p>
+<p class="Pp">The access control configuration scheme is somewhat strange.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES_AND_ENVIRONMENT_VARIABLES"><a class="permalink" href="#FILES_AND_ENVIRONMENT_VARIABLES">FILES
+  AND ENVIRONMENT VARIABLES</a></h1>
+<dl class="Bl-tag">
+  <dt><i>/usr/lib/authbind/libauthbind.so.1.0</i></dt>
+  <dd>The shared library which <b>authbind</b> causes to be loaded using
+      <b>LD_PRELOAD</b>, and which actually implements the diversion of
+      <b>bind</b>(2) to an external program.</dd>
+  <dt id="LD_PRELOAD"><a class="permalink" href="#LD_PRELOAD"><i>LD_PRELOAD</i></a></dt>
+  <dd>The variable used by the dynamic linker when starting dynamically linked
+      programs and deciding which shared libraries to load and modifed by the
+      <b>authbind</b> program to allow it to override the usual meaning of
+      <b>bind</b>(2)<b>.</b></dd>
+  <dt id="AUTHBIND_LIB"><a class="permalink" href="#AUTHBIND_LIB"><i>AUTHBIND_LIB</i></a></dt>
+  <dd>If set, forces <b>authbind</b> to use its value as the path to the shared
+      library to put in <b>LD_PRELOAD</b>, instead of the compiled-in value. In
+      any case, unless <b>--deep</b> was specified, <b>authbind</b> will set
+      this variable to the name of the library actually added to
+      <b>LD_PRELOAD</b>, so that the library can find and remove the right
+      entry.</dd>
+  <dt id="AUTHBIND_LEVELS"><a class="permalink" href="#AUTHBIND_LEVELS"><i>AUTHBIND_LEVELS</i></a></dt>
+  <dd>This variable is set by <b>authbind</b> to the number of levels left from
+      the <b>--depth</b> or <b>--deep</b> option, minus one. It is decremented
+      during <b>_init</b> by the library on each program call, and the library
+      will remove itself from the <b>LD_PRELOAD</b> when it reaches zero. The
+      special value <b>y</b> means <b>--deep</b> was specified.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>bind</b>(2), <b>authbind-helper</b>(8), <b>dlsym</b>(3),
+    <b>ld.so</b>(8)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp"><b>authbind</b> and this manpage were written by Ian Jackson. They
+    are Copyright (C)1998,2012 by him and released under the GNU General Public
+    Licence; there is NO WARRANTY. See <b>/usr/doc/authbind/copyright</b> and
+    <b>/usr/doc/copyright/GPL</b> for details.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">30th August 1998</td>
+    <td class="foot-os">Debian Project</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

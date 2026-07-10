@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="map RBD devices at boot time">
+<title>rbdmap(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">rbdmap(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#AVAILABILITY">AVAILABILITY</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">RBDMAP(8)</td>
+    <td class="head-vol">Ceph</td>
+    <td class="head-rtitle">RBDMAP(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">rbdmap - map RBD devices at boot time</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>rbdmap map</b>
+<b>rbdmap unmap</b></pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>rbdmap</b> is a shell script that automates <b>rbd map</b> and
+    <b>rbd unmap</b> operations on one or more RBD (RADOS Block Device) images.
+    While the script can be run manually by the system administrator at any
+    time, the principal use case is automatic mapping/mounting of RBD images at
+    boot time (and unmounting/unmapping at shutdown), as triggered by the init
+    system (a systemd unit file, <b>rbdmap.service</b> is included with the
+    ceph-common package for this purpose).</p>
+<p class="Pp">The script takes a single argument, which can be either
+    &quot;map&quot; or &quot;unmap&quot;. In either case, the script parses a
+    configuration file (defaults to <b>/etc/ceph/rbdmap</b>, but can be
+    overridden via an environment variable <b>RBDMAPFILE</b>). Each line of the
+    configuration file corresponds to an RBD image which is to be mapped, or
+    unmapped.</p>
+<p class="Pp">The configuration file format is:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>IMAGESPEC RBDOPTS
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">where <b>IMAGESPEC</b> should be specified as
+    <b>POOLNAME/IMAGENAME</b> (the pool name, a forward slash, and the image
+    name), or merely <b>IMAGENAME</b>, in which case the <b>POOLNAME</b>
+    defaults to &quot;rbd&quot;. <b>RBDOPTS</b> is an optional list of
+    parameters to be passed to the underlying <b>rbd map</b> command. These
+    parameters and their values should be specified as a comma-separated
+  string:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>PARAM1=VAL1,PARAM2=VAL2,...,PARAMN=VALN
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This will cause the script to issue an <b>rbd map</b> command like
+    the following:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>rbd map POOLNAME/IMAGENAME --PARAM1 VAL1 --PARAM2 VAL2
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">(See the <b>rbd</b> manpage for a full list of possible options.)
+    For parameters and values which contain commas or equality signs, a simple
+    apostrophe can be used to prevent replacing them.</p>
+<p class="Pp">When run as <b>rbdmap map</b>, the script parses the configuration
+    file, and for each RBD image specified attempts to first map the image
+    (using the <b>rbd map</b> command) and, second, to mount the image.</p>
+<p class="Pp">When run as <b>rbdmap unmap</b>, images listed in the
+    configuration file will be unmounted and unmapped.</p>
+<p class="Pp"><b>rbdmap unmap-all</b> attempts to unmount and subsequently unmap
+    all currently mapped RBD images, regardless of whether or not they are
+    listed in the configuration file.</p>
+<p class="Pp">If successful, the <b>rbd map</b> operation maps the image to a
+    <b>/dev/rbdX</b> device, at which point a udev rule is triggered to create a
+    friendly device name symlink, <b>/dev/rbd/POOLNAME/IMAGENAME</b>, pointing
+    to the real mapped device.</p>
+<p class="Pp">In order for mounting/unmounting to succeed, the friendly device
+    name must have a corresponding entry in <b>/etc/fstab</b>.</p>
+<p class="Pp">When writing <b>/etc/fstab</b> entries for RBD images, it's a good
+    idea to specify the &quot;noauto&quot; (or &quot;nofail&quot;) mount option.
+    This prevents the init system from trying to mount the device too early -
+    before the device in question even exists. (Since <b>rbdmap.service</b>
+    executes a shell script, it is typically triggered quite late in the boot
+    sequence.)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Example <b>/etc/ceph/rbdmap</b> for three RBD images called
+    &quot;bar1&quot;, &quot;bar2&quot; and &quot;bar3&quot;, which are in pool
+    &quot;foopool&quot;:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>foopool/bar1    id=admin,keyring=/etc/ceph/ceph.client.admin.keyring
+foopool/bar2    id=admin,keyring=/etc/ceph/ceph.client.admin.keyring
+foopool/bar3    id=admin,keyring=/etc/ceph/ceph.client.admin.keyring,options='lock_on_read,queue_depth=1024'
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Each line in the file contains two strings: the image spec and the
+    options to be passed to <b>rbd map</b>. These two lines get transformed into
+    the following commands:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>rbd map foopool/bar1 --id admin --keyring /etc/ceph/ceph.client.admin.keyring
+rbd map foopool/bar2 --id admin --keyring /etc/ceph/ceph.client.admin.keyring
+rbd map foopool/bar2 --id admin --keyring /etc/ceph/ceph.client.admin.keyring --options lock_on_read,queue_depth=1024
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">If the images had XFS file systems on them, the corresponding
+    <b>/etc/fstab</b> entries might look like this:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>/dev/rbd/foopool/bar1 /mnt/bar1 xfs noauto 0 0
+/dev/rbd/foopool/bar2 /mnt/bar2 xfs noauto 0 0
+/dev/rbd/foopool/bar3 /mnt/bar3 xfs noauto 0 0
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">After creating the images and populating the
+    <b>/etc/ceph/rbdmap</b> file, making the images get automatically mapped and
+    mounted at boot is just a matter of enabling that unit:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>systemctl enable rbdmap.service
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">None</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+<p class="Pp"><b>rbdmap</b> is part of Ceph, a massively scalable, open-source,
+    distributed storage system. Please refer to the Ceph documentation at
+    <i>https://docs.ceph.com</i> for more information.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><i>rbd</i>(8),</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">2010-2026, Inktank Storage, Inc. and contributors. Licensed under
+    Creative Commons Attribution Share Alike 3.0 (CC-BY-SA-3.0)</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">February 8, 2026</td>
+    <td class="foot-os">dev</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

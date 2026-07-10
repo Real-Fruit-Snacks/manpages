@@ -1,0 +1,3511 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="CMake Generator Expressions">
+<title>cmake-generator-expressions(7) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">cmake-generator-expressions(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#INTRODUCTION">INTRODUCTION</a></li><li><a href="#WHITESPACE_AND_QUOTING">WHITESPACE
+  AND QUOTING</a></li><li><a href="#DEBUGGING">DEBUGGING</a></li><li><a href="#GENERATOR_EXPRESSION_REFERENCE">GENERATOR
+  EXPRESSION REFERENCE</a></li><li><a href="#Conditional_Expressions">Conditional
+  Expressions</a></li><li><a href="#Logical_Operators">Logical
+  Operators</a></li><li><a href="#Primary_Comparison_Expressions">Primary
+  Comparison Expressions</a></li><li><a href="#String_Comparisons">String
+  Comparisons</a></li><li><a href="#Version_Comparisons">Version
+  Comparisons</a></li><li><a href="#String_Transformations">String
+  Transformations</a></li><li><a href="#List_Expressions">List
+  Expressions</a></li><li><a href="#List_Comparisons">List
+  Comparisons</a></li><li><a href="#List_Queries">List
+  Queries</a></li><li><a href="#List_Transformations">List
+  Transformations</a></li><li><a href="#List_Ordering">List
+  Ordering</a></li><li><a href="#Path_Expressions">Path
+  Expressions</a></li><li><a href="#Path_Comparisons">Path
+  Comparisons</a></li><li><a href="#Path_Queries">Path
+  Queries</a></li><li><a href="#Path_Decomposition">Path
+  Decomposition</a></li><li><a href="#Path_Transformations">Path
+  Transformations</a></li><li><a href="#Shell_Paths">Shell
+  Paths</a></li><li><a href="#Configuration_Expressions">Configuration
+  Expressions</a></li><li><a href="#Toolchain_And_Language_Expressions">Toolchain
+  And Language Expressions</a></li><li><a href="#Platform">Platform</a></li><li><a href="#Compiler_Version">Compiler
+  Version</a></li><li><a href="#Compiler_Language_And_ID">Compiler
+  Language And ID</a></li><li><a href="#Compile_Features">Compile
+  Features</a></li><li><a href="#Compile_Context">Compile
+  Context</a></li><li><a href="#Linker_Language_And_ID">Linker
+  Language And ID</a></li><li><a href="#Link_Features">Link
+  Features</a></li><li><a href="#Link_Context">Link
+  Context</a></li><li><a href="#Target">Target-Dependent
+  Expressions</a></li><li><a href="#Export_And_Install_Expressions">Export
+  And Install Expressions</a></li><li><a href="#Multi">Multi-level
+  Expression Evaluation</a></li><li><a href="#Escaped_Characters">Escaped
+  Characters</a></li><li><a href="#Deprecated_Expressions">Deprecated
+  Expressions</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CMAKE-GENERATOR-EXPRESSIONS(7)</td>
+    <td class="head-vol">CMake</td>
+    <td class="head-rtitle">CMAKE-GENERATOR-EXPRESSIONS(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">cmake-generator-expressions - CMake Generator Expressions</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INTRODUCTION"><a class="permalink" href="#INTRODUCTION">INTRODUCTION</a></h1>
+<p class="Pp">Generator expressions are evaluated during build system generation
+    to produce information specific to each build configuration. They have the
+    form <b>$&lt;...&gt;</b>. For example:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>target_include_directories(tgt PRIVATE /opt/include/$&lt;CXX_COMPILER_ID&gt;)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This would expand to <b>/opt/include/GNU</b>,
+    <b>/opt/include/Clang</b>, etc. depending on the C++ compiler used.</p>
+<p class="Pp">Generator expressions are allowed in the context of many target
+    properties, such as <i>LINK_LIBRARIES</i>, <i>INCLUDE_DIRECTORIES</i>,
+    <i>COMPILE_DEFINITIONS</i> and others. They may also be used when using
+    commands to populate those properties, such as
+    <i>target_link_libraries()</i>, <i>target_include_directories()</i>,
+    <i>target_compile_definitions()</i> and others. They enable conditional
+    linking, conditional definitions used when compiling, conditional include
+    directories, and more. The conditions may be based on the build
+    configuration, target properties, platform information, or any other
+    queryable information.</p>
+<p class="Pp">Generator expressions can be nested:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>target_compile_definitions(tgt PRIVATE
+<br/>
+  $&lt;$&lt;VERSION_LESS:$&lt;CXX_COMPILER_VERSION&gt;,4.2.0&gt;:OLD_COMPILER&gt;
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The above would expand to <b>OLD_COMPILER</b> if the
+    <i>CMAKE_CXX_COMPILER_VERSION</i> is less than 4.2.0.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WHITESPACE_AND_QUOTING"><a class="permalink" href="#WHITESPACE_AND_QUOTING">WHITESPACE
+  AND QUOTING</a></h1>
+<p class="Pp">Generator expressions are typically parsed after command
+    arguments. If a generator expression contains spaces, new lines, semicolons
+    or other characters that may be interpreted as command argument separators,
+    the whole expression should be surrounded by quotes when passed to a
+    command. Failure to do so may result in the expression being split and it
+    may no longer be recognized as a generator expression.</p>
+<p class="Pp">When using <i>add_custom_command()</i> or
+    <i>add_custom_target()</i>, use the <b>VERBATIM</b> and
+    <b>COMMAND_EXPAND_LISTS</b> options to obtain robust argument splitting and
+    quoting.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre># WRONG: Embedded space will be treated as an argument separator.
+# This ends up not being seen as a generator expression at all.
+add_custom_target(run_some_tool
+<br/>
+  COMMAND some_tool -I$&lt;JOIN:$&lt;TARGET_PROPERTY:tgt,INCLUDE_DIRECTORIES&gt;, -I&gt;
+<br/>
+  VERBATIM
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre># Better, but still not robust. Quotes prevent the space from splitting the
+# expression. However, the tool will receive the expanded value as a single
+# argument.
+add_custom_target(run_some_tool
+<br/>
+  COMMAND some_tool &quot;-I$&lt;JOIN:$&lt;TARGET_PROPERTY:tgt,INCLUDE_DIRECTORIES&gt;, -I&gt;&quot;
+<br/>
+  VERBATIM
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre># Nearly correct. Using a semicolon to separate arguments and adding the
+# COMMAND_EXPAND_LISTS option means that paths with spaces will be handled
+# correctly. Quoting the whole expression ensures it is seen as a generator
+# expression. But if the target property is empty, we will get a bare -I
+# with nothing after it.
+add_custom_target(run_some_tool
+<br/>
+  COMMAND some_tool &quot;-I$&lt;JOIN:$&lt;TARGET_PROPERTY:tgt,INCLUDE_DIRECTORIES&gt;,;-I&gt;&quot;
+<br/>
+  COMMAND_EXPAND_LISTS
+<br/>
+  VERBATIM
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Using variables to build up a more complex generator expression is
+    also a good way to reduce errors and improve readability. The above example
+    can be improved further like so:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre># The $&lt;BOOL:...&gt; check prevents adding anything if the property is empty,
+# assuming the property value cannot be one of CMake's false constants.
+set(prop &quot;$&lt;TARGET_PROPERTY:tgt,INCLUDE_DIRECTORIES&gt;&quot;)
+add_custom_target(run_some_tool
+<br/>
+  COMMAND some_tool &quot;$&lt;$&lt;BOOL:${prop}&gt;:-I$&lt;JOIN:${prop},;-I&gt;&gt;&quot;
+<br/>
+  COMMAND_EXPAND_LISTS
+<br/>
+  VERBATIM
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Finally, the above example can be expressed in a more simple and
+    robust way using an alternate generator expression:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_custom_target(run_some_tool
+<br/>
+  COMMAND some_tool &quot;$&lt;LIST:TRANSFORM,$&lt;TARGET_PROPERTY:tgt,INCLUDE_DIRECTORIES&gt;,PREPEND,-I&gt;&quot;
+<br/>
+  COMMAND_EXPAND_LISTS
+<br/>
+  VERBATIM
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">A common mistake is to try to split a generator expression across
+    multiple lines with indenting:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre># WRONG: New lines and spaces all treated as argument separators, so the
+# generator expression is split and not recognized correctly.
+target_compile_definitions(tgt PRIVATE
+<br/>
+  $&lt;$&lt;AND:
+<br/>
+      $&lt;CXX_COMPILER_ID:GNU&gt;,
+<br/>
+      $&lt;VERSION_GREATER_EQUAL:$&lt;CXX_COMPILER_VERSION&gt;,5&gt;
+<br/>
+    &gt;:HAVE_5_OR_LATER&gt;
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Again, use helper variables with well-chosen names to build up a
+    readable expression instead:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>set(is_gnu &quot;$&lt;CXX_COMPILER_ID:GNU&gt;&quot;)
+set(v5_or_later &quot;$&lt;VERSION_GREATER_EQUAL:$&lt;CXX_COMPILER_VERSION&gt;,5&gt;&quot;)
+set(meet_requirements &quot;$&lt;AND:${is_gnu},${v5_or_later}&gt;&quot;)
+target_compile_definitions(tgt PRIVATE
+<br/>
+  &quot;$&lt;${meet_requirements}:HAVE_5_OR_LATER&gt;&quot;
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEBUGGING"><a class="permalink" href="#DEBUGGING">DEBUGGING</a></h1>
+<p class="Pp">Since generator expressions are evaluated during generation of the
+    buildsystem, and not during processing of <b>CMakeLists.txt</b> files, it is
+    not possible to inspect their result with the <i>message()</i> command. One
+    possible way to generate debug messages is to add a custom target:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_custom_target(genexdebug COMMAND ${CMAKE_COMMAND} -E echo &quot;$&lt;...&gt;&quot;)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">After running <b>cmake</b>, you can then build the
+    <b>genexdebug</b> target to print the result of the <b>$&lt;...&gt;</b>
+    expression (i.e. run the command <i>cmake --build ... --target
+    genexdebug</i>).</p>
+<p class="Pp">Another way is to write debug messages to a file with
+    <i>file(GENERATE)</i>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>file(GENERATE OUTPUT filename CONTENT &quot;$&lt;...&gt;&quot;)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GENERATOR_EXPRESSION_REFERENCE"><a class="permalink" href="#GENERATOR_EXPRESSION_REFERENCE">GENERATOR
+  EXPRESSION REFERENCE</a></h1>
+<p class="Pp"><b>NOTE:</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent">This reference deviates from most of the CMake
+  documentation in that it omits angular brackets <b>&lt;...&gt;</b> around
+  placeholders like <b>condition</b>, <b>string</b>, <b>target</b>, etc. This is
+  to prevent an opportunity for those placeholders to be misinterpreted as
+  generator expressions.</div>
+<br/>
+</div>
+<br/>
+<section class="Ss">
+<h2 class="Ss" id="Conditional_Expressions"><a class="permalink" href="#Conditional_Expressions">Conditional
+  Expressions</a></h2>
+<p class="Pp">A fundamental category of generator expressions relates to
+    conditional logic. Two forms of conditional generator expressions are
+    supported:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;condition:true_string&gt;</b></dt>
+  <dd>Evaluates to <b>true_string</b> if <b>condition</b> is <b>1</b>, or an
+      empty string if <b>condition</b> evaluates to <b>0</b>. Any other value
+      for <b>condition</b> results in an error.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;IF:condition,true_string,false_string&gt;</b></dt>
+  <dd>New in version 3.8.
+    <p class="Pp"></p>
+    <p class="Pp">Evaluates to <b>true_string</b> if <b>condition</b> is
+        <b>1</b>, or <b>false_string</b> if <b>condition</b> is <b>0</b>. Any
+        other value for <b>condition</b> results in an error.</p>
+    <p class="Pp">New in version 3.28: This generator expression short-circuits
+        such that generator expressions in <b>false_string</b> will not evaluate
+        when <b>condition</b> is <b>1</b>, and generator expressions in
+        <b>true_string</b> will not evaluate when condition is <b>0</b>.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">Typically, the <b>condition</b> is itself a generator expression.
+    For instance, the following expression expands to <b>DEBUG_MODE</b> when the
+    <b>Debug</b> configuration is used, and the empty string for all other
+    configurations:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;$&lt;CONFIG:Debug&gt;:DEBUG_MODE&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Boolean-like <b>condition</b> values other than <b>1</b> or
+    <b>0</b> can be handled by wrapping them with the <b>$&lt;BOOL:...&gt;</b>
+    generator expression:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;BOOL:string&gt;</b></dt>
+  <dd>Converts <b>string</b> to <b>0</b> or <b>1</b>. Evaluates to <b>0</b> if
+      any of the following is true:</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>string</b> is empty,</li>
+  <li><b>string</b> is a case-insensitive equal of <b>0</b>, <b>FALSE</b>,
+      <b>OFF</b>, <b>N</b>, <b>NO</b>, <b>IGNORE</b>, or <b>NOTFOUND</b>,
+    or</li>
+  <li><b>string</b> ends in the suffix <b>-NOTFOUND</b> (case-sensitive).</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">Otherwise evaluates to <b>1</b>.</p>
+</div>
+<br/>
+<p class="Pp">The <b>$&lt;BOOL:...&gt;</b> generator expression is often used
+    when a <b>condition</b> is provided by a CMake variable:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;$&lt;BOOL:${HAVE_SOME_FEATURE}&gt;:-DENABLE_SOME_FEATURE&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Logical_Operators"><a class="permalink" href="#Logical_Operators">Logical
+  Operators</a></h2>
+<p class="Pp">The common boolean logic operators are supported:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;AND:conditions&gt;</b></dt>
+  <dd>where <b>conditions</b> is a comma-separated list of boolean expressions,
+      all of which must evaluate to either <b>1</b> or <b>0</b>. The whole
+      expression evaluates to <b>1</b> if all conditions are <b>1</b>. If any
+      condition is <b>0</b>, the whole expression evaluates to <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;OR:conditions&gt;</b></dt>
+  <dd>where <b>conditions</b> is a comma-separated list of boolean expressions.
+      all of which must evaluate to either <b>1</b> or <b>0</b>. The whole
+      expression evaluates to <b>1</b> if at least one of the <b>conditions</b>
+      is <b>1</b>. If all <b>conditions</b> evaluate to <b>0</b>, the whole
+      expression evaluates to <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;NOT:condition&gt;</b></dt>
+  <dd><b>condition</b> must be <b>0</b> or <b>1</b>. The result of the
+      expression is <b>0</b> if <b>condition</b> is <b>1</b>, else
+    <b>1</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">New in version 3.28: Logical operators short-circuit such that
+    generator expressions in the arguments list will not be evaluated once a
+    return value can be determined.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Primary_Comparison_Expressions"><a class="permalink" href="#Primary_Comparison_Expressions">Primary
+  Comparison Expressions</a></h2>
+<p class="Pp">CMake supports a variety of generator expressions that compare
+    things. This section covers the primary and most widely used comparison
+    types. Other more specific comparison types are documented in their own
+    separate sections further below.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="String_Comparisons"><a class="permalink" href="#String_Comparisons">String
+  Comparisons</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;STREQUAL:string1,string2&gt;</b></dt>
+  <dd><b>1</b> if <b>string1</b> and <b>string2</b> are equal, else <b>0</b>.
+      The comparison is case-sensitive. For a case-insensitive comparison,
+      combine with a <i>string transforming generator expression</i>. For
+      example, the following evaluates to <b>1</b> if <b>${foo}</b> is any of
+      <b>BAR</b>, <b>Bar</b>, <b>bar</b>, etc.</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;STREQUAL:$&lt;UPPER_CASE:${foo}&gt;,BAR&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;EQUAL:value1,value2&gt;</b></dt>
+  <dd><b>1</b> if <b>value1</b> and <b>value2</b> are numerically equal, else
+      <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Version_Comparisons"><a class="permalink" href="#Version_Comparisons">Version
+  Comparisons</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;VERSION_LESS:v1,v2&gt;</b></dt>
+  <dd><b>1</b> if <b>v1</b> is a version less than <b>v2</b>, else
+    <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;VERSION_GREATER:v1,v2&gt;</b></dt>
+  <dd><b>1</b> if <b>v1</b> is a version greater than <b>v2</b>, else
+    <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;VERSION_EQUAL:v1,v2&gt;</b></dt>
+  <dd><b>1</b> if <b>v1</b> is the same version as <b>v2</b>, else
+    <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;VERSION_LESS_EQUAL:v1,v2&gt;</b></dt>
+  <dd>New in version 3.7.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> if <b>v1</b> is a version less than or equal to
+        <b>v2</b>, else <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;VERSION_GREATER_EQUAL:v1,v2&gt;</b></dt>
+  <dd>New in version 3.7.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> if <b>v1</b> is a version greater than or equal to
+        <b>v2</b>, else <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="String_Transformations"><a class="permalink" href="#String_Transformations">String
+  Transformations</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LOWER_CASE:string&gt;</b></dt>
+  <dd>Content of <b>string</b> converted to lower case.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;UPPER_CASE:string&gt;</b></dt>
+  <dd>Content of <b>string</b> converted to upper case.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;MAKE_C_IDENTIFIER:...&gt;</b></dt>
+  <dd>Content of <b>...</b> converted to a C identifier. The conversion follows
+      the same behavior as <i>string(MAKE_C_IDENTIFIER)</i>.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="List_Expressions"><a class="permalink" href="#List_Expressions">List
+  Expressions</a></h2>
+<p class="Pp">Most of the expressions in this section are closely associated
+    with the <i>list()</i> command, providing the same capabilities, but in the
+    form of a generator expression.</p>
+<p class="Pp">In each of the following list-related generator expressions, the
+    <b>list</b> must not contain any commas if that generator expression expects
+    something to be provided after the <b>list</b>. For example, the expression
+    <b>$&lt;LIST:FIND,list,value&gt;</b> requires a <b>value</b> after the
+    <b>list</b>. Since a comma is used to separate the <b>list</b> and the
+    <b>value</b>, the <b>list</b> cannot itself contain a comma. This
+    restriction does not apply to the <i>list()</i> command, it is specific to
+    the list-handling generator expressions only.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="List_Comparisons"><a class="permalink" href="#List_Comparisons">List
+  Comparisons</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;IN_LIST:string,list&gt;</b></dt>
+  <dd>New in version 3.12.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> if <b>string</b> is an item in the
+        semicolon-separated <b>list</b>, else <b>0</b>. It uses case-sensitive
+        comparisons.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="List_Queries"><a class="permalink" href="#List_Queries">List
+  Queries</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:LENGTH,list&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The number of items in the <b>list</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:GET,list,index,...&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Expands to the list of items specified by indices from the
+        <b>list</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:SUBLIST,list,begin,length&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">A sublist of the given <b>list</b>. If <b>length</b> is 0, an
+        empty list will be returned. If <b>length</b> is -1 or the list is
+        smaller than <b>begin + length</b>, the remaining items of the list
+        starting at <b>begin</b> will be returned.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:FIND,list,value&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The index of the first item in <b>list</b> with the specified
+        <b>value</b>, or -1 if <b>value</b> is not in the <b>list</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="List_Transformations"><a class="permalink" href="#List_Transformations">List
+  Transformations</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:JOIN,list,glue&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Converts <b>list</b> to a single string with the content of
+        the <b>glue</b> string inserted between each item. This is conceptually
+        the same operation as <i>$&lt;JOIN:list,glue&gt;</i>, but the two have
+        different behavior with regard to empty items.
+        <b>$&lt;LIST:JOIN,list,glue&gt;</b> preserves all empty items, whereas
+        <i>$&lt;JOIN:list,glue&gt;</i> drops all empty items from the list.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:APPEND,list,item,...&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> with each <b>item</b> appended. Multiple items
+        should be separated by commas.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:PREPEND,list,item,...&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> with each <b>item</b> inserted at the
+        beginning. If there are multiple items, they should be separated by
+        commas, and the order of the prepended items will be preserved.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:INSERT,list,index,item,...&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> with the <b>item</b> (or multiple items)
+        inserted at the specified <b>index</b>. Multiple items should be
+        separated by commas.</p>
+    <p class="Pp">It is an error to specify an out-of-range <b>index</b>. Valid
+        indexes are 0 to N, where N is the length of the list, inclusive. An
+        empty list has length 0.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:POP_BACK,list&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> with the last item removed.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:POP_FRONT,list&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> with the first item removed.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:REMOVE_ITEM,list,value,...&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> with all instances of the given <b>value</b>
+        (or values) removed. If multiple values are given, they should be
+        separated by commas.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:REMOVE_AT,list,index,...&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> with the item at each given <b>index</b>
+        removed.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:REMOVE_DUPLICATES,list&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> with all duplicated items removed. The
+        relative order of items is preserved, but if duplicates are encountered,
+        only the first instance is preserved. The result is the same as
+        <i>$&lt;REMOVE_DUPLICATES:list&gt;</i>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:FILTER,list,INCLUDE|EXCLUDE,regex&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">A list of items from the <b>list</b> which match
+        (<b>INCLUDE</b>) or do not match (<b>EXCLUDE</b>) the regular expression
+        <b>regex</b>. The result is the same as
+        <i>$&lt;FILTER:list,INCLUDE|EXCLUDE,regex&gt;</i>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:TRANSFORM,list,ACTION[,SELECTOR]&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> transformed by applying an <b>ACTION</b> to
+        all or, by specifying a <b>SELECTOR</b>, to the selected list items.</p>
+    <p class="Pp"><b>NOTE:</b></p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">The <b>TRANSFORM</b> sub-command does not change the
+  number of items in the list. If a <b>SELECTOR</b> is specified, only some
+  items will be changed, the other ones will remain the same as before the
+  transformation.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><b>ACTION</b> specifies the action to apply to the items of the
+    list. The actions have exactly the same semantics as for the
+    <i>list(TRANSFORM)</i> command. <b>ACTION</b> must be one of the
+  following:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="APPEND"><a class="permalink" href="#APPEND"><b><i>APPEND</i>,
+    <i>PREPEND</i></b></a></dt>
+  <dd>Append, prepend specified value to each item of the list.</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;LIST:TRANSFORM,list,(APPEND|PREPEND),value[,SELECTOR]&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt id="TOLOWER"><a class="permalink" href="#TOLOWER"><b><i>TOLOWER</i>,
+    <i>TOUPPER</i></b></a></dt>
+  <dd>Convert each item of the list to lower, upper characters.</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;LIST:TRANSFORM,list,(TOLOWER|TOUPPER)[,SELECTOR]&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt id="STRIP"><a class="permalink" href="#STRIP"><b><i>STRIP</i></b></a></dt>
+  <dd>Remove leading and trailing spaces from each item of the list.</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;LIST:TRANSFORM,list,STRIP[,SELECTOR]&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt id="REPLACE"><a class="permalink" href="#REPLACE"><b><i>REPLACE</i>:</b></a></dt>
+  <dd>Match the regular expression as many times as possible and substitute the
+      replacement expression for the match for each item of the list.</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;LIST:TRANSFORM,list,REPLACE,regular_expression,replace_expression[,SELECTOR]&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><b>SELECTOR</b> determines which items of the list will be
+    transformed. Only one type of selector can be specified at a time. When
+    given, <b>SELECTOR</b> must be one of the following:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="AT"><a class="permalink" href="#AT"><b><b>AT</b></b></a></dt>
+  <dd>Specify a list of indexes.</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;LIST:TRANSFORM,list,ACTION,AT,index[,index...]&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt id="FOR"><a class="permalink" href="#FOR"><b><b>FOR</b></b></a></dt>
+  <dd>Specify a range with, optionally, an increment used to iterate over the
+      range.</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;LIST:TRANSFORM,list,ACTION,FOR,start,stop[,step]&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt id="REGEX"><a class="permalink" href="#REGEX"><b><b>REGEX</b></b></a></dt>
+  <dd>Specify a regular expression. Only items matching the regular expression
+      will be transformed.</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;LIST:TRANSFORM,list,ACTION,REGEX,regular_expression&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;JOIN:list,glue&gt;</b></dt>
+  <dd>Joins the <b>list</b> with the content of the <b>glue</b> string inserted
+      between each item. This is conceptually the same operation as
+      <i>$&lt;LIST:JOIN,list,glue&gt;</i>, but the two have different behavior
+      with regard to empty items. <i>$&lt;LIST:JOIN,list,glue&gt;</i> preserves
+      all empty items, whereas <b>$&lt;JOIN,list,glue&gt;</b> drops all empty
+      items from the list.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;REMOVE_DUPLICATES:list&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">Removes duplicated items in the given <b>list</b>. The
+        relative order of items is preserved, and if duplicates are encountered,
+        only the first instance is retained. The result is the same as
+        <i>$&lt;LIST:REMOVE_DUPLICATES,list&gt;</i>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;FILTER:list,INCLUDE|EXCLUDE,regex&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">Includes or removes items from <b>list</b> that match the
+        regular expression <b>regex</b>. The result is the same as
+        <i>$&lt;LIST:FILTER,list,INCLUDE|EXCLUDE,regex&gt;</i>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="List_Ordering"><a class="permalink" href="#List_Ordering">List
+  Ordering</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:REVERSE,list&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> with the items in reverse order.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LIST:SORT,list[,(COMPARE:option|CASE:option|ORDER:option)]...&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">The <b>list</b> sorted according to the specified options.</p>
+    <p class="Pp">Use one of the <b>COMPARE</b> options to select the comparison
+        method for sorting:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="STRING"><a class="permalink" href="#STRING"><b><b>STRING</b></b></a></dt>
+  <dd>Sorts a list of strings alphabetically. This is the default behavior if
+      the <b>COMPARE</b> option is not given.</dd>
+  <dt id="FILE_BASENAME"><a class="permalink" href="#FILE_BASENAME"><b><b>FILE_BASENAME</b></b></a></dt>
+  <dd>Sorts a list of file paths by their basenames.</dd>
+  <dt id="NATURAL"><a class="permalink" href="#NATURAL"><b><b>NATURAL</b></b></a></dt>
+  <dd>Sorts a list of strings using natural order (see the man page for
+      <b>strverscmp(3)</b>), such that contiguous digits are compared as whole
+      numbers. For example, the following list <b>10.0 1.1 2.1 8.0 2.0 3.1</b>
+      will be sorted as <b>1.1 2.0 2.1 3.1 8.0 10.0</b> if the <b>NATURAL</b>
+      comparison is selected, whereas it will be sorted as <b>1.1 10.0 2.0 2.1
+      3.1 8.0</b> with the <b>STRING</b> comparison.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Use one of the <b>CASE</b> options to select a case-sensitive or
+    case-insensitive sort mode:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="SENSITIVE"><a class="permalink" href="#SENSITIVE"><b><b>SENSITIVE</b></b></a></dt>
+  <dd>List items are sorted in a case-sensitive manner. This is the default
+      behavior if the <b>CASE</b> option is not given.</dd>
+  <dt id="INSENSITIVE"><a class="permalink" href="#INSENSITIVE"><b><b>INSENSITIVE</b></b></a></dt>
+  <dd>List items are sorted in a case-insensitive manner. The order of items
+      which differ only by upper/lowercase is not specified.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">To control the sort order, one of the <b>ORDER</b> options can be
+    given:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="ASCENDING"><a class="permalink" href="#ASCENDING"><b><b>ASCENDING</b></b></a></dt>
+  <dd>Sorts the list in ascending order. This is the default behavior when the
+      <b>ORDER</b> option is not given.</dd>
+  <dt id="DESCENDING"><a class="permalink" href="#DESCENDING"><b><b>DESCENDING</b></b></a></dt>
+  <dd>Sorts the list in descending order.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Options can be specified in any order, but it is an error to
+    specify the same option multiple times.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;LIST:SORT,list,CASE:SENSITIVE,COMPARE:STRING,ORDER:DESCENDING&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Path_Expressions"><a class="permalink" href="#Path_Expressions">Path
+  Expressions</a></h2>
+<p class="Pp">Most of the expressions in this section are closely associated
+    with the <i>cmake_path()</i> command, providing the same capabilities, but
+    in the form of a generator expression.</p>
+<p class="Pp">For all generator expressions in this section, paths are expected
+    to be in cmake-style format. The <i>$&lt;PATH:CMAKE_PATH&gt;</i> generator
+    expression can be used to convert a native path to a cmake-style one.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Path_Comparisons"><a class="permalink" href="#Path_Comparisons">Path
+  Comparisons</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH_EQUAL:path1,path2&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Compares the lexical representations of two paths. No
+        normalization is performed on either path. Returns <b>1</b> if the paths
+        are equal, <b>0</b> otherwise.</p>
+    <p class="Pp">See <i>cmake_path(COMPARE)</i> for more details.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Path_Queries"><a class="permalink" href="#Path_Queries">Path
+  Queries</a></h2>
+<p class="Pp">These expressions provide the generation-time capabilities
+    equivalent to the <i>Query</i> options of the <i>cmake_path()</i> command.
+    All paths are expected to be in cmake-style format.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:HAS_*,path&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">The following operations return <b>1</b> if the particular
+        path component is present, <b>0</b> otherwise. See <i>Path Structure And
+        Terminology</i> for the meaning of each path component.</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;PATH:HAS_ROOT_NAME,path&gt;
+$&lt;PATH:HAS_ROOT_DIRECTORY,path&gt;
+$&lt;PATH:HAS_ROOT_PATH,path&gt;
+$&lt;PATH:HAS_FILENAME,path&gt;
+$&lt;PATH:HAS_EXTENSION,path&gt;
+$&lt;PATH:HAS_STEM,path&gt;
+$&lt;PATH:HAS_RELATIVE_PART,path&gt;
+$&lt;PATH:HAS_PARENT_PATH,path&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Note the following special cases:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>For <b>HAS_ROOT_PATH</b>, a true result will only be returned if at least
+      one of <b>root-name</b> or <b>root-directory</b> is non-empty.</li>
+  <li>For <b>HAS_PARENT_PATH</b>, the root directory is also considered to have
+      a parent, which will be itself. The result is true except if the path
+      consists of just a <i>filename</i>.</li>
+</ul>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:IS_ABSOLUTE,path&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns <b>1</b> if the path is <i>absolute</i>, <b>0</b>
+        otherwise.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:IS_RELATIVE,path&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">This will return the opposite of <b>IS_ABSOLUTE</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:IS_PREFIX[,NORMALIZE],path,input&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns <b>1</b> if <b>path</b> is the prefix of <b>input</b>,
+        <b>0</b> otherwise.</p>
+    <p class="Pp">When the <b>NORMALIZE</b> option is specified, <b>path</b> and
+        <b>input</b> are <i>normalized</i> before the check.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Path_Decomposition"><a class="permalink" href="#Path_Decomposition">Path
+  Decomposition</a></h2>
+<p class="Pp">These expressions provide the generation-time capabilities
+    equivalent to the <i>Decomposition</i> options of the <i>cmake_path()</i>
+    command. All paths are expected to be in cmake-style format.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:GET_*,...&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">The following operations retrieve a different component or
+        group of components from a path. See <i>Path Structure And
+        Terminology</i> for the meaning of each path component.</p>
+    <p class="Pp">Changed in version 3.27: All operations now accept a list of
+        paths as argument. When a list of paths is specified, the operation will
+        be applied to each path.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$&lt;PATH:GET_ROOT_NAME,path...&gt;
+$&lt;PATH:GET_ROOT_DIRECTORY,path...&gt;
+$&lt;PATH:GET_ROOT_PATH,path...&gt;
+$&lt;PATH:GET_FILENAME,path...&gt;
+$&lt;PATH:GET_EXTENSION[,LAST_ONLY],path...&gt;
+$&lt;PATH:GET_STEM[,LAST_ONLY],path...&gt;
+$&lt;PATH:GET_RELATIVE_PART,path...&gt;
+$&lt;PATH:GET_PARENT_PATH,path...&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">If a requested component is not present in the path, an empty
+    string is returned.</p>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Path_Transformations"><a class="permalink" href="#Path_Transformations">Path
+  Transformations</a></h2>
+<p class="Pp">These expressions provide the generation-time capabilities
+    equivalent to the <i>Modification</i> and <i>Generation</i> options of the
+    <i>cmake_path()</i> command. All paths are expected to be in cmake-style
+    format.</p>
+<p class="Pp">Changed in version 3.27: All operations now accept a list of paths
+    as argument. When a list of paths is specified, the operation will be
+    applied to each path.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:CMAKE_PATH[,NORMALIZE],path...&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns <b>path</b>. If <b>path</b> is a native path, it is
+        converted into a cmake-style path with forward-slashes (<b>/</b>). On
+        Windows, the long filename marker is taken into account.</p>
+    <p class="Pp">When the <b>NORMALIZE</b> option is specified, the path is
+        <i>normalized</i> after the conversion.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:APPEND,path...,input,...&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns all the <b>input</b> arguments appended to <b>path</b>
+        using <b>/</b> as the <b>directory-separator</b>. Depending on the
+        <b>input</b>, the value of <b>path</b> may be discarded.</p>
+    <p class="Pp">See <i>cmake_path(APPEND)</i> for more details.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:REMOVE_FILENAME,path...&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns <b>path</b> with filename component (as returned by
+        <b>$&lt;PATH:GET_FILENAME&gt;</b>) removed. After removal, any trailing
+        <b>directory-separator</b> is left alone, if present.</p>
+    <p class="Pp">See <i>cmake_path(REMOVE_FILENAME)</i> for more details.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:REPLACE_FILENAME,path...,input&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns <b>path</b> with the filename component replaced by
+        <b>input</b>. If <b>path</b> has no filename component (i.e.
+        <b>$&lt;PATH:HAS_FILENAME&gt;</b> returns <b>0</b>), <b>path</b> is
+        unchanged.</p>
+    <p class="Pp">See <i>cmake_path(REPLACE_FILENAME)</i> for more details.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:REMOVE_EXTENSION[,LAST_ONLY],path...&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns <b>path</b> with the <i>extension</i> removed, if
+      any.</p>
+    <p class="Pp">See <i>cmake_path(REMOVE_EXTENSION)</i> for more details.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:REPLACE_EXTENSION[,LAST_ONLY],path...,input&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns <b>path</b> with the <i>extension</i> replaced by
+        <b>input</b>, if any.</p>
+    <p class="Pp">See <i>cmake_path(REPLACE_EXTENSION)</i> for more details.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:NORMAL_PATH,path...&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns <b>path</b> normalized according to the steps
+        described in <i>Normalization</i>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:RELATIVE_PATH,path...,base_directory&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns <b>path</b>, modified to make it relative to the
+        <b>base_directory</b> argument.</p>
+    <p class="Pp">See <i>cmake_path(RELATIVE_PATH)</i> for more details.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PATH:ABSOLUTE_PATH[,NORMALIZE],path...,base_directory&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Returns <b>path</b> as absolute. If <b>path</b> is a relative
+        path (<b>$&lt;PATH:IS_RELATIVE&gt;</b> returns <b>1</b>), it is
+        evaluated relative to the given base directory specified by
+        <b>base_directory</b> argument.</p>
+    <p class="Pp">When the <b>NORMALIZE</b> option is specified, the path is
+        <i>normalized</i> after the path computation.</p>
+    <p class="Pp">See <i>cmake_path(ABSOLUTE_PATH)</i> for more details.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Shell_Paths"><a class="permalink" href="#Shell_Paths">Shell
+  Paths</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;SHELL_PATH:...&gt;</b></dt>
+  <dd>New in version 3.4.
+    <p class="Pp"></p>
+    <p class="Pp">Content of <b>...</b> converted to shell path style. For
+        example, slashes are converted to backslashes in Windows shells and
+        drive letters are converted to posix paths in MSYS shells. The
+        <b>...</b> must be an absolute path.</p>
+    <p class="Pp">New in version 3.14: The <b>...</b> may be a
+        <i>semicolon-separated list</i> of paths, in which case each path is
+        converted individually and a result list is generated using the shell
+        path separator (<b>:</b> on POSIX and <b>;</b> on Windows). Be sure to
+        enclose the argument containing this genex in double quotes in CMake
+        source code so that <b>;</b> does not split arguments.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Configuration_Expressions"><a class="permalink" href="#Configuration_Expressions">Configuration
+  Expressions</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CONFIG&gt;</b></dt>
+  <dd>Configuration name. Use this instead of the deprecated
+      <i>CONFIGURATION</i> generator expression.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CONFIG:cfgs&gt;</b></dt>
+  <dd><b>1</b> if config is any one of the entries in comma-separated list
+      <b>cfgs</b>, else <b>0</b>. This is a case-insensitive comparison. The
+      mapping in <i>MAP_IMPORTED_CONFIG_&lt;CONFIG&gt;</i> is also considered by
+      this expression when it is evaluated on a property of an <i>IMPORTED</i>
+      target.
+    <p class="Pp">Changed in version 3.19: Multiple configurations can be
+        specified for <b>cfgs</b>. CMake 3.18 and earlier only accepted a single
+        configuration.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;OUTPUT_CONFIG:...&gt;</b></dt>
+  <dd>New in version 3.20.
+    <p class="Pp"></p>
+    <p class="Pp">Only valid in <i>add_custom_command()</i> and
+        <i>add_custom_target()</i> as the outer-most generator expression in an
+        argument. With the <i>Ninja Multi-Config</i> generator, generator
+        expressions in <b>...</b> are evaluated using the custom command's
+        &quot;output config&quot;. With other generators, the content of
+        <b>...</b> is evaluated normally.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;COMMAND_CONFIG:...&gt;</b></dt>
+  <dd>New in version 3.20.
+    <p class="Pp"></p>
+    <p class="Pp">Only valid in <i>add_custom_command()</i> and
+        <i>add_custom_target()</i> as the outer-most generator expression in an
+        argument. With the <i>Ninja Multi-Config</i> generator, generator
+        expressions in <b>...</b> are evaluated using the custom command's
+        &quot;command config&quot;. With other generators, the content of
+        <b>...</b> is evaluated normally.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Toolchain_And_Language_Expressions"><a class="permalink" href="#Toolchain_And_Language_Expressions">Toolchain
+  And Language Expressions</a></h2>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Platform"><a class="permalink" href="#Platform">Platform</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PLATFORM_ID&gt;</b></dt>
+  <dd>The current system's CMake platform id. See also the
+      <i>CMAKE_SYSTEM_NAME</i> variable.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;PLATFORM_ID:platform_ids&gt;</b></dt>
+  <dd><b>1</b> if CMake's platform id matches any one of the entries in
+      comma-separated list <b>platform_ids</b>, otherwise <b>0</b>. See also the
+      <i>CMAKE_SYSTEM_NAME</i> variable.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Compiler_Version"><a class="permalink" href="#Compiler_Version">Compiler
+  Version</a></h2>
+<p class="Pp">See also the <i>CMAKE_&lt;LANG&gt;_COMPILER_VERSION</i> variable,
+    which is closely related to the expressions in this sub-section.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;C_COMPILER_VERSION&gt;</b></dt>
+  <dd>The version of the C compiler used.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;C_COMPILER_VERSION:version&gt;</b></dt>
+  <dd><b>1</b> if the version of the C compiler matches <b>version</b>,
+      otherwise <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CXX_COMPILER_VERSION&gt;</b></dt>
+  <dd>The version of the CXX compiler used.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CXX_COMPILER_VERSION:version&gt;</b></dt>
+  <dd><b>1</b> if the version of the CXX compiler matches <b>version</b>,
+      otherwise <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CUDA_COMPILER_VERSION&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">The version of the CUDA compiler used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CUDA_COMPILER_VERSION:version&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> if the version of the CXX compiler matches
+        <b>version</b>, otherwise <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;OBJC_COMPILER_VERSION&gt;</b></dt>
+  <dd>New in version 3.16.
+    <p class="Pp"></p>
+    <p class="Pp">The version of the OBJC compiler used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;OBJC_COMPILER_VERSION:version&gt;</b></dt>
+  <dd>New in version 3.16.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> if the version of the OBJC compiler matches
+        <b>version</b>, otherwise <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;OBJCXX_COMPILER_VERSION&gt;</b></dt>
+  <dd>New in version 3.16.
+    <p class="Pp"></p>
+    <p class="Pp">The version of the OBJCXX compiler used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;OBJCXX_COMPILER_VERSION:version&gt;</b></dt>
+  <dd>New in version 3.16.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> if the version of the OBJCXX compiler matches
+        <b>version</b>, otherwise <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;Fortran_COMPILER_VERSION&gt;</b></dt>
+  <dd>The version of the Fortran compiler used.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;Fortran_COMPILER_VERSION:version&gt;</b></dt>
+  <dd><b>1</b> if the version of the Fortran compiler matches <b>version</b>,
+      otherwise <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;HIP_COMPILER_VERSION&gt;</b></dt>
+  <dd>New in version 3.21.
+    <p class="Pp"></p>
+    <p class="Pp">The version of the HIP compiler used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;HIP_COMPILER_VERSION:version&gt;</b></dt>
+  <dd>New in version 3.21.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> if the version of the HIP compiler matches
+        <b>version</b>, otherwise <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;ISPC_COMPILER_VERSION&gt;</b></dt>
+  <dd>New in version 3.19.
+    <p class="Pp"></p>
+    <p class="Pp">The version of the ISPC compiler used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;ISPC_COMPILER_VERSION:version&gt;</b></dt>
+  <dd>New in version 3.19.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> if the version of the ISPC compiler matches
+        <b>version</b>, otherwise <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Compiler_Language_And_ID"><a class="permalink" href="#Compiler_Language_And_ID">Compiler
+  Language And ID</a></h2>
+<p class="Pp">See also the <i>CMAKE_&lt;LANG&gt;_COMPILER_ID</i> variable, which
+    is closely related to most of the expressions in this sub-section.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;C_COMPILER_ID&gt;</b></dt>
+  <dd>CMake's compiler id of the C compiler used.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;C_COMPILER_ID:compiler_ids&gt;</b></dt>
+  <dd>where <b>compiler_ids</b> is a comma-separated list. <b>1</b> if CMake's
+      compiler id of the C compiler matches any one of the entries in
+      <b>compiler_ids</b>, otherwise <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CXX_COMPILER_ID&gt;</b></dt>
+  <dd>CMake's compiler id of the CXX compiler used.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CXX_COMPILER_ID:compiler_ids&gt;</b></dt>
+  <dd>where <b>compiler_ids</b> is a comma-separated list. <b>1</b> if CMake's
+      compiler id of the CXX compiler matches any one of the entries in
+      <b>compiler_ids</b>, otherwise <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CUDA_COMPILER_ID&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">CMake's compiler id of the CUDA compiler used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CUDA_COMPILER_ID:compiler_ids&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">where <b>compiler_ids</b> is a comma-separated list. <b>1</b>
+        if CMake's compiler id of the CUDA compiler matches any one of the
+        entries in <b>compiler_ids</b>, otherwise <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;OBJC_COMPILER_ID&gt;</b></dt>
+  <dd>New in version 3.16.
+    <p class="Pp"></p>
+    <p class="Pp">CMake's compiler id of the OBJC compiler used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;OBJC_COMPILER_ID:compiler_ids&gt;</b></dt>
+  <dd>New in version 3.16.
+    <p class="Pp"></p>
+    <p class="Pp">where <b>compiler_ids</b> is a comma-separated list. <b>1</b>
+        if CMake's compiler id of the Objective-C compiler matches any one of
+        the entries in <b>compiler_ids</b>, otherwise <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;OBJCXX_COMPILER_ID&gt;</b></dt>
+  <dd>New in version 3.16.
+    <p class="Pp"></p>
+    <p class="Pp">CMake's compiler id of the OBJCXX compiler used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;OBJCXX_COMPILER_ID:compiler_ids&gt;</b></dt>
+  <dd>New in version 3.16.
+    <p class="Pp"></p>
+    <p class="Pp">where <b>compiler_ids</b> is a comma-separated list. <b>1</b>
+        if CMake's compiler id of the Objective-C++ compiler matches any one of
+        the entries in <b>compiler_ids</b>, otherwise <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;Fortran_COMPILER_ID&gt;</b></dt>
+  <dd>CMake's compiler id of the Fortran compiler used.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;Fortran_COMPILER_ID:compiler_ids&gt;</b></dt>
+  <dd>where <b>compiler_ids</b> is a comma-separated list. <b>1</b> if CMake's
+      compiler id of the Fortran compiler matches any one of the entries in
+      <b>compiler_ids</b>, otherwise <b>0</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;HIP_COMPILER_ID&gt;</b></dt>
+  <dd>New in version 3.21.
+    <p class="Pp"></p>
+    <p class="Pp">CMake's compiler id of the HIP compiler used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;HIP_COMPILER_ID:compiler_ids&gt;</b></dt>
+  <dd>New in version 3.21.
+    <p class="Pp"></p>
+    <p class="Pp">where <b>compiler_ids</b> is a comma-separated list. <b>1</b>
+        if CMake's compiler id of the HIP compiler matches any one of the
+        entries in <b>compiler_ids</b>, otherwise <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;ISPC_COMPILER_ID&gt;</b></dt>
+  <dd>New in version 3.19.
+    <p class="Pp"></p>
+    <p class="Pp">CMake's compiler id of the ISPC compiler used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;ISPC_COMPILER_ID:compiler_ids&gt;</b></dt>
+  <dd>New in version 3.19.
+    <p class="Pp"></p>
+    <p class="Pp">where <b>compiler_ids</b> is a comma-separated list. <b>1</b>
+        if CMake's compiler id of the ISPC compiler matches any one of the
+        entries in <b>compiler_ids</b>, otherwise <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;COMPILE_LANGUAGE&gt;</b></dt>
+  <dd>New in version 3.3.
+    <p class="Pp"></p>
+    <p class="Pp">The compile language of source files when evaluating compile
+        options. See <i>the related boolean expression</i>
+        <b>$&lt;COMPILE_LANGUAGE:language&gt;</b> for notes about the
+        portability of this generator expression.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;COMPILE_LANGUAGE:languages&gt;</b></dt>
+  <dd>New in version 3.3.
+    <p class="Pp"></p>
+    <p class="Pp">Changed in version 3.15: Multiple languages can be specified
+        for <b>languages</b>. CMake 3.14 and earlier only accepted a single
+        language.</p>
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> when the language used for compilation unit matches
+        any of the comma-separated entries in <b>languages</b>, otherwise
+        <b>0</b>. This expression may be used to specify compile options,
+        compile definitions, and include directories for source files of a
+        particular language in a target. For example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_executable(myapp main.cpp foo.c bar.cpp zot.cu)
+target_compile_options(myapp
+<br/>
+  PRIVATE $&lt;$&lt;COMPILE_LANGUAGE:CXX&gt;:-fno-exceptions&gt;
+)
+target_compile_definitions(myapp
+<br/>
+  PRIVATE $&lt;$&lt;COMPILE_LANGUAGE:CXX&gt;:COMPILING_CXX&gt;
+<br/>
+          $&lt;$&lt;COMPILE_LANGUAGE:CUDA&gt;:COMPILING_CUDA&gt;
+)
+target_include_directories(myapp
+<br/>
+  PRIVATE $&lt;$&lt;COMPILE_LANGUAGE:CXX,CUDA&gt;:/opt/foo/headers&gt;
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This specifies the use of the <b>-fno-exceptions</b> compile
+    option, <b>COMPILING_CXX</b> compile definition, and <b>cxx_headers</b>
+    include directory for C++ only (compiler id checks elided). It also
+    specifies a <b>COMPILING_CUDA</b> compile definition for CUDA.</p>
+<p class="Pp">Note that with <i>Visual Studio Generators</i> and <i>Xcode</i>
+    there is no way to represent target-wide compile definitions or include
+    directories separately for <b>C</b> and <b>CXX</b> languages. Also, with
+    <i>Visual Studio Generators</i> there is no way to represent target-wide
+    flags separately for <b>C</b> and <b>CXX</b> languages. Under these
+    generators, expressions for both C and C++ sources will be evaluated using
+    <b>CXX</b> if there are any C++ sources and otherwise using <b>C</b>. A
+    workaround is to create separate libraries for each source file language
+    instead:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(myapp_c foo.c)
+add_library(myapp_cxx bar.cpp)
+target_compile_options(myapp_cxx PUBLIC -fno-exceptions)
+add_executable(myapp main.cpp)
+target_link_libraries(myapp myapp_c myapp_cxx)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;COMPILE_LANG_AND_ID:language,compiler_ids&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> when the language used for compilation unit matches
+        <b>language</b> and CMake's compiler id of the <b>language</b> compiler
+        matches any one of the comma-separated entries in <b>compiler_ids</b>,
+        otherwise <b>0</b>. This expression is a short form for the combination
+        of <b>$&lt;COMPILE_LANGUAGE:language&gt;</b> and
+        <b>$&lt;LANG_COMPILER_ID:compiler_ids&gt;</b>. This expression may be
+        used to specify compile options, compile definitions, and include
+        directories for source files of a particular language and compiler
+        combination in a target. For example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_executable(myapp main.cpp foo.c bar.cpp zot.cu)
+target_compile_definitions(myapp
+<br/>
+  PRIVATE $&lt;$&lt;COMPILE_LANG_AND_ID:CXX,AppleClang,Clang&gt;:COMPILING_CXX_WITH_CLANG&gt;
+<br/>
+          $&lt;$&lt;COMPILE_LANG_AND_ID:CXX,Intel&gt;:COMPILING_CXX_WITH_INTEL&gt;
+<br/>
+          $&lt;$&lt;COMPILE_LANG_AND_ID:C,Clang&gt;:COMPILING_C_WITH_CLANG&gt;
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This specifies the use of different compile definitions based on
+    both the compiler id and compilation language. This example will have a
+    <b>COMPILING_CXX_WITH_CLANG</b> compile definition when Clang is the CXX
+    compiler, and <b>COMPILING_CXX_WITH_INTEL</b> when Intel is the CXX
+    compiler. Likewise, when the C compiler is Clang, it will only see the
+    <b>COMPILING_C_WITH_CLANG</b> definition.</p>
+<p class="Pp">Without the <b>COMPILE_LANG_AND_ID</b> generator expression, the
+    same logic would be expressed as:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>target_compile_definitions(myapp
+<br/>
+  PRIVATE $&lt;$&lt;AND:$&lt;COMPILE_LANGUAGE:CXX&gt;,$&lt;CXX_COMPILER_ID:AppleClang,Clang&gt;&gt;:COMPILING_CXX_WITH_CLANG&gt;
+<br/>
+          $&lt;$&lt;AND:$&lt;COMPILE_LANGUAGE:CXX&gt;,$&lt;CXX_COMPILER_ID:Intel&gt;&gt;:COMPILING_CXX_WITH_INTEL&gt;
+<br/>
+          $&lt;$&lt;AND:$&lt;COMPILE_LANGUAGE:C&gt;,$&lt;C_COMPILER_ID:Clang&gt;&gt;:COMPILING_C_WITH_CLANG&gt;
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Compile_Features"><a class="permalink" href="#Compile_Features">Compile
+  Features</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;COMPILE_FEATURES:features&gt;</b></dt>
+  <dd>New in version 3.1.
+    <p class="Pp"></p>
+    <p class="Pp">where <b>features</b> is a comma-separated list. Evaluates to
+        <b>1</b> if all of the <b>features</b> are available for the 'head'
+        target, and <b>0</b> otherwise. If this expression is used while
+        evaluating the link implementation of a target and if any dependency
+        transitively increases the required <i>C_STANDARD</i> or
+        <i>CXX_STANDARD</i> for the 'head' target, an error is reported. See the
+        <i>cmake-compile-features(7)</i> manual for information on compile
+        features and a list of supported compilers.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Compile_Context"><a class="permalink" href="#Compile_Context">Compile
+  Context</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;COMPILE_ONLY:...&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Content of <b>...</b>, when collecting <i>Transitive Usage
+        Requirements</i>, otherwise it is the empty string. This is intended for
+        use in an <i>INTERFACE_LINK_LIBRARIES</i> and <i>LINK_LIBRARIES</i>
+        target properties, typically populated via the
+        <i>target_link_libraries()</i> command. Provides compilation usage
+        requirements without any linking requirements.</p>
+    <p class="Pp">Use cases include header-only usage where all usages are known
+        to not have linking requirements (e.g., all-<b>inline</b> or C++
+        template libraries).</p>
+    <p class="Pp">Note that for proper evaluation of this expression requires
+        policy <i>CMP0099</i> to be set to <i>NEW</i>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Linker_Language_And_ID"><a class="permalink" href="#Linker_Language_And_ID">Linker
+  Language And ID</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LINK_LANGUAGE&gt;</b></dt>
+  <dd>New in version 3.18.
+    <p class="Pp"></p>
+    <p class="Pp">The link language of the target when evaluating link options.
+        See <i>the related boolean expression</i>
+        <b>$&lt;LINK_LANGUAGE:languages&gt;</b> for notes about the portability
+        of this generator expression.</p>
+    <p class="Pp"><b>NOTE:</b></p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">This generator expression is not supported by the link
+  libraries properties to avoid side-effects due to the double evaluation of
+  these properties.</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LINK_LANGUAGE:languages&gt;</b></dt>
+  <dd>New in version 3.18.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> when the language used for link step matches any of
+        the comma-separated entries in <b>languages</b>, otherwise <b>0</b>.
+        This expression may be used to specify link libraries, link options,
+        link directories and link dependencies of a particular language in a
+        target. For example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(api_C ...)
+add_library(api_CXX ...)
+add_library(api INTERFACE)
+target_link_options(api   INTERFACE $&lt;$&lt;LINK_LANGUAGE:C&gt;:-opt_c&gt;
+<br/>
+                                    $&lt;$&lt;LINK_LANGUAGE:CXX&gt;:-opt_cxx&gt;)
+target_link_libraries(api INTERFACE $&lt;$&lt;LINK_LANGUAGE:C&gt;:api_C&gt;
+<br/>
+                                    $&lt;$&lt;LINK_LANGUAGE:CXX&gt;:api_CXX&gt;)
+add_executable(myapp1 main.c)
+target_link_options(myapp1 PRIVATE api)
+add_executable(myapp2 main.cpp)
+target_link_options(myapp2 PRIVATE api)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This specifies to use the <b>api</b> target for linking targets
+    <b>myapp1</b> and <b>myapp2</b>. In practice, <b>myapp1</b> will link with
+    target <b>api_C</b> and option <b>-opt_c</b> because it will use <b>C</b> as
+    link language. And <b>myapp2</b> will link with <b>api_CXX</b> and option
+    <b>-opt_cxx</b> because <b>CXX</b> will be the link language.</p>
+<p class="Pp"><b>NOTE:</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent">To determine the link language of a target, it is
+  required to collect, transitively, all the targets which will be linked to it.
+  So, for link libraries properties, a double evaluation will be done. During
+  the first evaluation, <b>$&lt;LINK_LANGUAGE:..&gt;</b> expressions will always
+  return <b>0</b>. The link language computed after this first pass will be used
+  to do the second pass. To avoid inconsistency, it is required that the second
+  pass do not change the link language. Moreover, to avoid unexpected
+  side-effects, it is required to specify complete entities as part of the
+  <b>$&lt;LINK_LANGUAGE:..&gt;</b> expression. For example:
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(lib STATIC file.cxx)
+add_library(libother STATIC file.c)
+# bad usage
+add_executable(myapp1 main.c)
+target_link_libraries(myapp1 PRIVATE lib$&lt;$&lt;LINK_LANGUAGE:C&gt;:other&gt;)
+# correct usage
+add_executable(myapp2 main.c)
+target_link_libraries(myapp2 PRIVATE $&lt;$&lt;LINK_LANGUAGE:C&gt;:libother&gt;)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">In this example, for <b>myapp1</b>, the first pass will,
+    unexpectedly, determine that the link language is <b>CXX</b> because the
+    evaluation of the generator expression will be an empty string so
+    <b>myapp1</b> will depends on target <b>lib</b> which is <b>C++</b>. On the
+    contrary, for <b>myapp2</b>, the first evaluation will give <b>C</b> as link
+    language, so the second pass will correctly add target <b>libother</b> as
+    link dependency.</p>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LINK_LANG_AND_ID:language,compiler_ids&gt;</b></dt>
+  <dd>New in version 3.18.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> when the language used for link step matches
+        <b>language</b> and the CMake's compiler id of the language linker
+        matches any one of the comma-separated entries in <b>compiler_ids</b>,
+        otherwise <b>0</b>. This expression is a short form for the combination
+        of <b>$&lt;LINK_LANGUAGE:language&gt;</b> and
+        <b>$&lt;LANG_COMPILER_ID:compiler_ids&gt;</b>. This expression may be
+        used to specify link libraries, link options, link directories and link
+        dependencies of a particular language and linker combination in a
+        target. For example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(libC_Clang ...)
+add_library(libCXX_Clang ...)
+add_library(libC_Intel ...)
+add_library(libCXX_Intel ...)
+add_executable(myapp main.c)
+if (CXX_CONFIG)
+<br/>
+  target_sources(myapp PRIVATE file.cxx)
+endif()
+target_link_libraries(myapp
+<br/>
+  PRIVATE $&lt;$&lt;LINK_LANG_AND_ID:CXX,Clang,AppleClang&gt;:libCXX_Clang&gt;
+<br/>
+          $&lt;$&lt;LINK_LANG_AND_ID:C,Clang,AppleClang&gt;:libC_Clang&gt;
+<br/>
+          $&lt;$&lt;LINK_LANG_AND_ID:CXX,Intel&gt;:libCXX_Intel&gt;
+<br/>
+          $&lt;$&lt;LINK_LANG_AND_ID:C,Intel&gt;:libC_Intel&gt;)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This specifies the use of different link libraries based on both
+    the compiler id and link language. This example will have target
+    <b>libCXX_Clang</b> as link dependency when <b>Clang</b> or
+    <b>AppleClang</b> is the <b>CXX</b> linker, and <b>libCXX_Intel</b> when
+    <b>Intel</b> is the <b>CXX</b> linker. Likewise when the <b>C</b> linker is
+    <b>Clang</b> or <b>AppleClang</b>, target <b>libC_Clang</b> will be added as
+    link dependency and <b>libC_Intel</b> when <b>Intel</b> is the <b>C</b>
+    linker.</p>
+<p class="Pp">See <i>the note related to</i>
+    <b>$&lt;LINK_LANGUAGE:language&gt;</b> for constraints about the usage of
+    this generator expression.</p>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Link_Features"><a class="permalink" href="#Link_Features">Link
+  Features</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LINK_LIBRARY:feature,library-list&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Specify a set of libraries to link to a target, along with a
+        <b>feature</b> which provides details about <i>how</i> they should be
+        linked. For example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(lib1 STATIC ...)
+add_library(lib2 ...)
+target_link_libraries(lib2 PRIVATE &quot;$&lt;LINK_LIBRARY:WHOLE_ARCHIVE,lib1&gt;&quot;)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This specifies that <b>lib2</b> should link to <b>lib1</b> and use
+    the <b>WHOLE_ARCHIVE</b> feature when doing so.</p>
+<p class="Pp">Feature names are case-sensitive and may only contain letters,
+    numbers and underscores. Feature names defined in all uppercase are reserved
+    for CMake's own built-in features. The pre-defined built-in library features
+    are:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="DEFAULT"><a class="permalink" href="#DEFAULT"><b><b>DEFAULT</b></b></a></dt>
+  <dd>This feature corresponds to standard linking, essentially equivalent to
+      using no feature at all. It is typically only used with the
+      <i>LINK_LIBRARY_OVERRIDE</i> and
+      <i>LINK_LIBRARY_OVERRIDE_&lt;LIBRARY&gt;</i> target properties.</dd>
+  <dt id="WHOLE_ARCHIVE"><a class="permalink" href="#WHOLE_ARCHIVE"><b><b>WHOLE_ARCHIVE</b></b></a></dt>
+  <dd>Force inclusion of all members of a static library. This feature is only
+      supported for the following platforms, with limitations as noted:</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>Linux.</li>
+  <li>All BSD variants.</li>
+  <li>SunOS.</li>
+  <li>All Apple variants. The library must be specified as a CMake target name,
+      a library file name (such as <b>libfoo.a</b>), or a library file path
+      (such as <b>/path/to/libfoo.a</b>). Due to a limitation of the Apple
+      linker, it cannot be specified as a plain library name like <b>foo</b>,
+      where <b>foo</b> is not a CMake target.</li>
+  <li>Windows. When using a MSVC or MSVC-like toolchain, the MSVC version must
+      be greater than 1900.</li>
+  <li>Cygwin.</li>
+  <li>MSYS.</li>
+</ul>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt id="FRAMEWORK"><a class="permalink" href="#FRAMEWORK"><b><b>FRAMEWORK</b></b></a></dt>
+  <dd>This option tells the linker to search for the specified framework using
+      the <b>-framework</b> linker option. It can only be used on Apple
+      platforms, and only with a linker that understands the option used (i.e.
+      the linker provided with Xcode, or one compatible with it).
+    <p class="Pp">The framework can be specified as a CMake framework target, a
+        bare framework name, or a file path. If a target is given, that target
+        must have the <i>FRAMEWORK</i> target property set to true. For a file
+        path, if it contains a directory part, that directory will be added as a
+        framework search path.</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(lib SHARED ...)
+target_link_libraries(lib PRIVATE &quot;$&lt;LINK_LIBRARY:FRAMEWORK,/path/to/my_framework&gt;&quot;)
+# The constructed linker command line will contain:
+#   -F/path/to -framework my_framework
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">File paths must conform to one of the following patterns (<b>*</b>
+    is a wildcard, and optional parts are shown as <b>[...]</b>):</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>[/path/to/]FwName[.framework]</b></li>
+  <li><b>[/path/to/]FwName.framework/FwName[suffix]</b></li>
+  <li><b>[/path/to/]FwName.framework/Versions/*/FwName[suffix]</b></li>
+</ul>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Note that CMake recognizes and automatically handles framework
+    targets, even without using the <i>$&lt;LINK_LIBRARY:FRAMEWORK,...&gt;</i>
+    expression. The generator expression can still be used with a CMake target
+    if the project wants to be explicit about it, but it is not required to do
+    so. The linker command line may have some differences between using the
+    generator expression or not, but the final result should be the same. On the
+    other hand, if a file path is given, CMake will recognize some paths
+    automatically, but not all cases. The project may want to use
+    <i>$&lt;LINK_LIBRARY:FRAMEWORK,...&gt;</i> for file paths so that the
+    expected behavior is clear.</p>
+<p class="Pp">New in version 3.25: The
+    <i>FRAMEWORK_MULTI_CONFIG_POSTFIX_&lt;CONFIG&gt;</i> target property as well
+    as the <b>suffix</b> of the framework library name are now supported by the
+    <b>FRAMEWORK</b> features.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="NEEDED_FRAMEWORK"><a class="permalink" href="#NEEDED_FRAMEWORK"><b><b>NEEDED_FRAMEWORK</b></b></a></dt>
+  <dd>This is similar to the <b>FRAMEWORK</b> feature, except it forces the
+      linker to link with the framework even if no symbols are used from it. It
+      uses the <b>-needed_framework</b> option and has the same linker
+      constraints as <b>FRAMEWORK</b>.</dd>
+  <dt id="REEXPORT_FRAMEWORK"><a class="permalink" href="#REEXPORT_FRAMEWORK"><b><b>REEXPORT_FRAMEWORK</b></b></a></dt>
+  <dd>This is similar to the <b>FRAMEWORK</b> feature, except it tells the
+      linker that the framework should be available to clients linking to the
+      library being created. It uses the <b>-reexport_framework</b> option and
+      has the same linker constraints as <b>FRAMEWORK</b>.</dd>
+  <dt id="WEAK_FRAMEWORK"><a class="permalink" href="#WEAK_FRAMEWORK"><b><b>WEAK_FRAMEWORK</b></b></a></dt>
+  <dd>This is similar to the <b>FRAMEWORK</b> feature, except it forces the
+      linker to mark the framework and all references to it as weak imports. It
+      uses the <b>-weak_framework</b> option and has the same linker constraints
+      as <b>FRAMEWORK</b>.</dd>
+  <dt id="NEEDED_LIBRARY"><a class="permalink" href="#NEEDED_LIBRARY"><b><b>NEEDED_LIBRARY</b></b></a></dt>
+  <dd>This is similar to the <b>NEEDED_FRAMEWORK</b> feature, except it is for
+      use with non-framework targets or libraries (Apple platforms only). It
+      uses the <b>-needed_library</b> or <b>-needed-l</b> option as appropriate,
+      and has the same linker constraints as <b>NEEDED_FRAMEWORK</b>.</dd>
+  <dt id="REEXPORT_LIBRARY"><a class="permalink" href="#REEXPORT_LIBRARY"><b><b>REEXPORT_LIBRARY</b></b></a></dt>
+  <dd>This is similar to the <b>REEXPORT_FRAMEWORK</b> feature, except it is for
+      use with non-framework targets or libraries (Apple platforms only). It
+      uses the <b>-reexport_library</b> or <b>-reexport-l</b> option as
+      appropriate, and has the same linker constraints as
+      <b>REEXPORT_FRAMEWORK</b>.</dd>
+  <dt id="WEAK_LIBRARY"><a class="permalink" href="#WEAK_LIBRARY"><b><b>WEAK_LIBRARY</b></b></a></dt>
+  <dd>This is similar to the <b>WEAK_FRAMEWORK</b> feature, except it is for use
+      with non-framework targets or libraries (Apple platforms only). It uses
+      the <b>-weak_library</b> or <b>-weak-l</b> option as appropriate, and has
+      the same linker constraints as <b>WEAK_FRAMEWORK</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">Built-in and custom library features are defined in terms of the
+    following variables:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><i>CMAKE_&lt;LANG&gt;_LINK_LIBRARY_USING_&lt;FEATURE&gt;_SUPPORTED</i></li>
+  <li><i>CMAKE_&lt;LANG&gt;_LINK_LIBRARY_USING_&lt;FEATURE&gt;</i></li>
+  <li><i>CMAKE_LINK_LIBRARY_USING_&lt;FEATURE&gt;_SUPPORTED</i></li>
+  <li><i>CMAKE_LINK_LIBRARY_USING_&lt;FEATURE&gt;</i></li>
+</ul>
+</div>
+<br/>
+<p class="Pp">The value used for each of these variables is the value as set at
+    the end of the directory scope in which the target was created. The usage is
+    as follows:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>If the language-specific
+      <i>CMAKE_&lt;LANG&gt;_LINK_LIBRARY_USING_&lt;FEATURE&gt;_SUPPORTED</i>
+      variable is true, the <b>feature</b> must be defined by the corresponding
+      <i>CMAKE_&lt;LANG&gt;_LINK_LIBRARY_USING_&lt;FEATURE&gt;</i>
+    variable.</dd>
+  <dt>2.</dt>
+  <dd>If no language-specific <b>feature</b> is supported, then the
+      <i>CMAKE_LINK_LIBRARY_USING_&lt;FEATURE&gt;_SUPPORTED</i> variable must be
+      true and the <b>feature</b> must be defined by the corresponding
+      <i>CMAKE_LINK_LIBRARY_USING_&lt;FEATURE&gt;</i> variable.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">The following limitations should be noted:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>The <b>library-list</b> can specify CMake targets or libraries. Any CMake
+      target of type <i>OBJECT</i> or <i>INTERFACE</i> will ignore the feature
+      aspect of the expression and instead be linked in the standard way.</li>
+  <li>The <b>$&lt;LINK_LIBRARY:...&gt;</b> generator expression can only be used
+      to specify link libraries. In practice, this means it can appear in the
+      <i>LINK_LIBRARIES</i>, <i>INTERFACE_LINK_LIBRARIES</i>, and
+      <i>INTERFACE_LINK_LIBRARIES_DIRECT</i> target properties, and be specified
+      in <i>target_link_libraries()</i> and <i>link_libraries()</i>
+    commands.</li>
+  <li>If a <b>$&lt;LINK_LIBRARY:...&gt;</b> generator expression appears in the
+      <i>INTERFACE_LINK_LIBRARIES</i> property of a target, it will be included
+      in the imported target generated by a <i>install(EXPORT)</i> command. It
+      is the responsibility of the environment consuming this import to define
+      the link feature used by this expression.</li>
+  <li>Each target or library involved in the link step must have at most only
+      one kind of library feature. The absence of a feature is also incompatible
+      with all other features. For example:</li>
+</ul>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(lib1 ...)
+add_library(lib2 ...)
+add_library(lib3 ...)
+# lib1 will be associated with feature1
+target_link_libraries(lib2 PUBLIC &quot;$&lt;LINK_LIBRARY:feature1,lib1&gt;&quot;)
+# lib1 is being linked with no feature here. This conflicts with the
+# use of feature1 in the line above and would result in an error.
+target_link_libraries(lib3 PRIVATE lib1 lib2)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Where it isn't possible to use the same feature throughout a build
+    for a given target or library, the <i>LINK_LIBRARY_OVERRIDE</i> and
+    <i>LINK_LIBRARY_OVERRIDE_&lt;LIBRARY&gt;</i> target properties can be used
+    to resolve such incompatibilities.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>The <b>$&lt;LINK_LIBRARY:...&gt;</b> generator expression does not
+      guarantee that the list of specified targets and libraries will be kept
+      grouped together. To manage constructs like <b>--start-group</b> and
+      <b>--end-group</b>, as supported by the GNU <b>ld</b> linker, use the
+      <i>LINK_GROUP</i> generator expression instead.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LINK_GROUP:feature,library-list&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Specify a group of libraries to link to a target, along with a
+        <b>feature</b> which defines how that group should be linked. For
+        example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(lib1 STATIC ...)
+add_library(lib2 ...)
+target_link_libraries(lib2 PRIVATE &quot;$&lt;LINK_GROUP:RESCAN,lib1,external&gt;&quot;)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This specifies that <b>lib2</b> should link to <b>lib1</b> and
+    <b>external</b>, and that both of those two libraries should be included on
+    the linker command line according to the definition of the <b>RESCAN</b>
+    feature.</p>
+<p class="Pp">Feature names are case-sensitive and may only contain letters,
+    numbers and underscores. Feature names defined in all uppercase are reserved
+    for CMake's own built-in features. Currently, there is only one pre-defined
+    built-in group feature:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="RESCAN"><a class="permalink" href="#RESCAN"><b><b>RESCAN</b></b></a></dt>
+  <dd>Some linkers are single-pass only. For such linkers, circular references
+      between libraries typically result in unresolved symbols. This feature
+      instructs the linker to search the specified static libraries repeatedly
+      until no new undefined references are created.
+    <p class="Pp">Normally, a static library is searched only once in the order
+        that it is specified on the command line. If a symbol in that library is
+        needed to resolve an undefined symbol referred to by an object in a
+        library that appears later on the command line, the linker would not be
+        able to resolve that reference. By grouping the static libraries with
+        the <b>RESCAN</b> feature, they will all be searched repeatedly until
+        all possible references are resolved. This will use linker options like
+        <b>--start-group</b> and <b>--end-group</b>, or on SunOS, <b>-z
+        rescan-start</b> and <b>-z rescan-end</b>.</p>
+    <p class="Pp">Using this feature has a significant performance cost. It is
+        best to use it only when there are unavoidable circular references
+        between two or more static libraries.</p>
+    <p class="Pp">This feature is available when using toolchains that target
+        Linux, BSD, and SunOS. It can also be used when targeting Windows
+        platforms if the GNU toolchain is used.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">Built-in and custom group features are defined in terms of the
+    following variables:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><i>CMAKE_&lt;LANG&gt;_LINK_GROUP_USING_&lt;FEATURE&gt;_SUPPORTED</i></li>
+  <li><i>CMAKE_&lt;LANG&gt;_LINK_GROUP_USING_&lt;FEATURE&gt;</i></li>
+  <li><i>CMAKE_LINK_GROUP_USING_&lt;FEATURE&gt;_SUPPORTED</i></li>
+  <li><i>CMAKE_LINK_GROUP_USING_&lt;FEATURE&gt;</i></li>
+</ul>
+</div>
+<br/>
+<p class="Pp">The value used for each of these variables is the value as set at
+    the end of the directory scope in which the target was created. The usage is
+    as follows:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>If the language-specific
+      <i>CMAKE_&lt;LANG&gt;_LINK_GROUP_USING_&lt;FEATURE&gt;_SUPPORTED</i>
+      variable is true, the <b>feature</b> must be defined by the corresponding
+      <i>CMAKE_&lt;LANG&gt;_LINK_GROUP_USING_&lt;FEATURE&gt;</i> variable.</dd>
+  <dt>2.</dt>
+  <dd>If no language-specific <b>feature</b> is supported, then the
+      <i>CMAKE_LINK_GROUP_USING_&lt;FEATURE&gt;_SUPPORTED</i> variable must be
+      true and the <b>feature</b> must be defined by the corresponding
+      <i>CMAKE_LINK_GROUP_USING_&lt;FEATURE&gt;</i> variable.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">The <b>LINK_GROUP</b> generator expression is compatible with the
+    <i>LINK_LIBRARY</i> generator expression. The libraries involved in a group
+    can be specified using the <i>LINK_LIBRARY</i> generator expression.</p>
+<p class="Pp">Each target or external library involved in the link step is
+    allowed to be part of multiple groups, but only if all the groups involved
+    specify the same <b>feature</b>. Such groups will not be merged on the
+    linker command line, the individual groups will still be preserved. Mixing
+    different group features for the same target or library is forbidden.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(lib1 ...)
+add_library(lib2 ...)
+add_library(lib3 ...)
+add_library(lib4 ...)
+add_library(lib5 ...)
+target_link_libraries(lib3 PUBLIC  &quot;$&lt;LINK_GROUP:feature1,lib1,lib2&gt;&quot;)
+target_link_libraries(lib4 PRIVATE &quot;$&lt;LINK_GROUP:feature1,lib1,lib3&gt;&quot;)
+# lib4 will be linked with the groups {lib1,lib2} and {lib1,lib3}.
+# Both groups specify the same feature, so this is fine.
+target_link_libraries(lib5 PRIVATE &quot;$&lt;LINK_GROUP:feature2,lib1,lib3&gt;&quot;)
+# An error will be raised here because both lib1 and lib3 are part of two
+# groups with different features.
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">When a target or an external library is involved in the link step
+    as part of a group and also as not part of any group, any occurrence of the
+    non-group link item will be replaced by the groups it belongs to.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(lib1 ...)
+add_library(lib2 ...)
+add_library(lib3 ...)
+add_library(lib4 ...)
+target_link_libraries(lib3 PUBLIC lib1)
+target_link_libraries(lib4 PRIVATE lib3 &quot;$&lt;LINK_GROUP:feature1,lib1,lib2&gt;&quot;)
+# lib4 will only be linked with lib3 and the group {lib1,lib2}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Because <b>lib1</b> is part of the group defined for <b>lib4</b>,
+    that group then gets applied back to the use of <b>lib1</b> for <b>lib3</b>.
+    The end result will be as though the linking relationship for <b>lib3</b>
+    had been specified as:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>target_link_libraries(lib3 PUBLIC &quot;$&lt;LINK_GROUP:feature1,lib1,lib2&gt;&quot;)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Be aware that the precedence of the group over the non-group link
+    item can result in circular dependencies between groups. If this occurs, a
+    fatal error is raised because circular dependencies are not allowed for
+    groups.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(lib1A ...)
+add_library(lib1B ...)
+add_library(lib2A ...)
+add_library(lib2B ...)
+add_library(lib3 ...)
+# Non-group linking relationships, these are non-circular so far
+target_link_libraries(lib1A PUBLIC lib2A)
+target_link_libraries(lib2B PUBLIC lib1B)
+# The addition of these groups creates circular dependencies
+target_link_libraries(lib3 PRIVATE
+<br/>
+  &quot;$&lt;LINK_GROUP:feat,lib1A,lib1B&gt;&quot;
+<br/>
+  &quot;$&lt;LINK_GROUP:feat,lib2A,lib2B&gt;&quot;
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Because of the groups defined for <b>lib3</b>, the linking
+    relationships for <b>lib1A</b> and <b>lib2B</b> effectively get expanded to
+    the equivalent of:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>target_link_libraries(lib1A PUBLIC &quot;$&lt;LINK_GROUP:feat,lib2A,lib2B&gt;&quot;)
+target_link_libraries(lib2B PUBLIC &quot;$&lt;LINK_GROUP:feat,lib1A,lib1B&gt;&quot;)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This creates a circular dependency between groups: <b>lib1A --&gt;
+    lib2B --&gt; lib1A</b>.</p>
+<p class="Pp">The following limitations should also be noted:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>The <b>library-list</b> can specify CMake targets or libraries. Any CMake
+      target of type <i>OBJECT</i> or <i>INTERFACE</i> will ignore the feature
+      aspect of the expression and instead be linked in the standard way.</li>
+  <li>The <b>$&lt;LINK_GROUP:...&gt;</b> generator expression can only be used
+      to specify link libraries. In practice, this means it can appear in the
+      <i>LINK_LIBRARIES</i>, <i>INTERFACE_LINK_LIBRARIES</i>,and
+      <i>INTERFACE_LINK_LIBRARIES_DIRECT</i> target properties, and be specified
+      in <i>target_link_libraries()</i> and <i>link_libraries()</i>
+    commands.</li>
+  <li>If a <b>$&lt;LINK_GROUP:...&gt;</b> generator expression appears in the
+      <i>INTERFACE_LINK_LIBRARIES</i> property of a target, it will be included
+      in the imported target generated by a <i>install(EXPORT)</i> command. It
+      is the responsibility of the environment consuming this import to define
+      the link feature used by this expression.</li>
+</ul>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Link_Context"><a class="permalink" href="#Link_Context">Link
+  Context</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;LINK_ONLY:...&gt;</b></dt>
+  <dd>New in version 3.1.
+    <p class="Pp"></p>
+    <p class="Pp">Content of <b>...</b>, except while collecting <i>Transitive
+        Usage Requirements</i>, in which case it is the empty string. This is
+        intended for use in an <i>INTERFACE_LINK_LIBRARIES</i> target property,
+        typically populated via the <i>target_link_libraries()</i> command, to
+        specify private link dependencies without other usage requirements such
+        as include directories or compile options.</p>
+    <p class="Pp">New in version 3.24: <b>LINK_ONLY</b> may also be used in a
+        <i>LINK_LIBRARIES</i> target property. See policy <i>CMP0131</i>.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;DEVICE_LINK:list&gt;</b></dt>
+  <dd>New in version 3.18.
+    <p class="Pp"></p>
+    <p class="Pp">Returns the list if it is the device link step, an empty list
+        otherwise. The device link step is controlled by
+        <i>CUDA_SEPARABLE_COMPILATION</i> and <i>CUDA_RESOLVE_DEVICE_SYMBOLS</i>
+        properties and policy <i>CMP0105</i>. This expression can only be used
+        to specify link options.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;HOST_LINK:list&gt;</b></dt>
+  <dd>New in version 3.18.
+    <p class="Pp"></p>
+    <p class="Pp">Returns the list if it is the normal link step, an empty list
+        otherwise. This expression is mainly useful when a device link step is
+        also involved (see <i>$&lt;DEVICE_LINK:list&gt;</i> generator
+        expression). This expression can only be used to specify link
+      options.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Target"><a class="permalink" href="#Target">Target-Dependent
+  Expressions</a></h2>
+<p class="Pp">These queries refer to a target <b>tgt</b>. Unless otherwise
+    stated, this can be any runtime artifact, namely:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>An executable target created by <i>add_executable()</i>.</li>
+  <li>A shared library target (<b>.so</b>, <b>.dll</b> but not their <b>.lib</b>
+      import library) created by <i>add_library()</i>.</li>
+  <li>A static library target created by <i>add_library()</i>.</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">In the following, the phrase &quot;the <b>tgt</b> filename&quot;
+    means the name of the <b>tgt</b> binary file. This has to be distinguished
+    from the phrase &quot;the target name&quot;, which is just the string
+    <b>tgt</b>.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_EXISTS:tgt&gt;</b></dt>
+  <dd>New in version 3.12.
+    <p class="Pp"></p>
+    <p class="Pp"><b>1</b> if <b>tgt</b> exists as a CMake target, else
+        <b>0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_NAME_IF_EXISTS:tgt&gt;</b></dt>
+  <dd>New in version 3.12.
+    <p class="Pp"></p>
+    <p class="Pp">The target name <b>tgt</b> if the target exists, an empty
+        string otherwise.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_NAME:...&gt;</b></dt>
+  <dd>Marks <b>...</b> as being the name of a target. This is required if
+      exporting targets to multiple dependent export sets. The <b>...</b> must
+      be a literal name of a target, it may not contain generator
+    expressions.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_PROPERTY:tgt,prop&gt;</b></dt>
+  <dd>Value of the property <b>prop</b> on the target <b>tgt</b>.
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+    <p class="Pp">Changed in version 3.26: When encountered during evaluation of
+        <i>Transitive Usage Requirements</i>, typically in an <b>INTERFACE_*</b>
+        target property, lookup of the <b>tgt</b> name occurs in the directory
+        of the target specifying the requirement, rather than the directory of
+        the consuming target for which the expression is being evaluated.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_PROPERTY:prop&gt;</b></dt>
+  <dd>Value of the property <b>prop</b> on the target for which the expression
+      is being evaluated. Note that for generator expressions in <i>Transitive
+      Usage Requirements</i> this is the consuming target rather than the target
+      specifying the requirement.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_OBJECTS:tgt&gt;</b></dt>
+  <dd>New in version 3.1.
+    <p class="Pp"></p>
+    <p class="Pp">List of objects resulting from building <b>tgt</b>. This would
+        typically be used on <i>object library</i> targets.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_POLICY:policy&gt;</b></dt>
+  <dd><b>1</b> if the <b>policy</b> was <b>NEW</b> when the 'head' target was
+      created, else <b>0</b>. If the <b>policy</b> was not set, the warning
+      message for the policy will be emitted. This generator expression only
+      works for a subset of policies.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_FILE:tgt&gt;</b></dt>
+  <dd>Full path to the <b>tgt</b> binary file.
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on, unless the expression is being
+        used in <i>add_custom_command()</i> or <i>add_custom_target()</i>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_FILE_BASE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">Base name of <b>tgt</b>, i.e.
+        <b>$&lt;TARGET_FILE_NAME:tgt&gt;</b> without prefix and suffix. For
+        example, if the <b>tgt</b> filename is <b>libbase.so</b>, the base name
+        is <b>base</b>.</p>
+    <p class="Pp">See also the <i>OUTPUT_NAME</i>, <i>ARCHIVE_OUTPUT_NAME</i>,
+        <i>LIBRARY_OUTPUT_NAME</i> and <i>RUNTIME_OUTPUT_NAME</i> target
+        properties and their configuration specific variants
+        <i>OUTPUT_NAME_&lt;CONFIG&gt;</i>,
+        <i>ARCHIVE_OUTPUT_NAME_&lt;CONFIG&gt;</i>,
+        <i>LIBRARY_OUTPUT_NAME_&lt;CONFIG&gt;</i> and
+        <i>RUNTIME_OUTPUT_NAME_&lt;CONFIG&gt;</i>.</p>
+    <p class="Pp">The <i>&lt;CONFIG&gt;_POSTFIX</i> and <i>DEBUG_POSTFIX</i>
+        target properties can also be considered.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_FILE_PREFIX:tgt&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">Prefix of the <b>tgt</b> filename (such as <b>lib</b>).</p>
+    <p class="Pp">See also the <i>PREFIX</i> target property.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_FILE_SUFFIX:tgt&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">Suffix of the <b>tgt</b> filename (extension such as
+        <b>.so</b> or <b>.exe</b>).</p>
+    <p class="Pp">See also the <i>SUFFIX</i> target property.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_FILE_NAME:tgt&gt;</b></dt>
+  <dd>The <b>tgt</b> filename.
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_FILE_DIR:tgt&gt;</b></dt>
+  <dd>Directory of the <b>tgt</b> binary file.
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_IMPORT_FILE:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Full path to the linker import file. On DLL platforms, it
+        would be the <b>.lib</b> file. For executables on AIX, and for shared
+        libraries on macOS, it could be, respectively, the <b>.imp</b> or
+        <b>.tbd</b> import file, depending on the value of the
+        <i>ENABLE_EXPORTS</i> property.</p>
+    <p class="Pp">This expands to an empty string when there is no import file
+        associated with the target.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_IMPORT_FILE_BASE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Base name of the linker import file of the target <b>tgt</b>
+        without prefix or suffix. For example, if the target file name is
+        <b>libbase.tbd</b>, the base name is <b>base</b>.</p>
+    <p class="Pp">See also the <i>OUTPUT_NAME</i> and <i>ARCHIVE_OUTPUT_NAME</i>
+        target properties and their configuration specific variants
+        <i>OUTPUT_NAME_&lt;CONFIG&gt;</i> and
+        <i>ARCHIVE_OUTPUT_NAME_&lt;CONFIG&gt;</i>.</p>
+    <p class="Pp">The <i>&lt;CONFIG&gt;_POSTFIX</i> and <i>DEBUG_POSTFIX</i>
+        target properties can also be considered.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_IMPORT_FILE_PREFIX:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Prefix of the import file of the target <b>tgt</b>.</p>
+    <p class="Pp">See also the <i>IMPORT_PREFIX</i> target property.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_IMPORT_FILE_SUFFIX:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Suffix of the import file of the target <b>tgt</b>.</p>
+    <p class="Pp">The suffix corresponds to the file extension (such as
+        <b>.lib</b> or <b>.tbd</b>).</p>
+    <p class="Pp">See also the <i>IMPORT_SUFFIX</i> target property.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_IMPORT_FILE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Name of the import file of the target <b>tgt</b>.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_IMPORT_FILE_DIR:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Directory of the import file of the target <b>tgt</b>.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_FILE:tgt&gt;</b></dt>
+  <dd>File used when linking to the <b>tgt</b> target. This will usually be the
+      library that <b>tgt</b> represents (<b>.a</b>, <b>.lib</b>, <b>.so</b>),
+      but for a shared library on DLL platforms, it would be the <b>.lib</b>
+      import library associated with the DLL.
+    <p class="Pp">New in version 3.27: On macOS, it could be the <b>.tbd</b>
+        import file associated with the shared library, depending on the value
+        of the <i>ENABLE_EXPORTS</i> property.</p>
+    <p class="Pp"></p>
+    <p class="Pp">This generator expression is equivalent to
+        <i>$&lt;TARGET_LINKER_LIBRARY_FILE&gt;</i> or
+        <i>$&lt;TARGET_LINKER_IMPORT_FILE&gt;</i> generator expressions,
+        depending on the characteristics of the target and the platform.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_FILE_BASE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">Base name of file used to link the target <b>tgt</b>, i.e.
+        <i>$&lt;TARGET_LINKER_FILE_NAME:tgt&gt;</i> without prefix and suffix.
+        For example, if target file name is <b>libbase.a</b>, the base name is
+        <b>base</b>.</p>
+    <p class="Pp">See also the <i>OUTPUT_NAME</i>, <i>ARCHIVE_OUTPUT_NAME</i>,
+        and <i>LIBRARY_OUTPUT_NAME</i> target properties and their configuration
+        specific variants <i>OUTPUT_NAME_&lt;CONFIG&gt;</i>,
+        <i>ARCHIVE_OUTPUT_NAME_&lt;CONFIG&gt;</i> and
+        <i>LIBRARY_OUTPUT_NAME_&lt;CONFIG&gt;</i>.</p>
+    <p class="Pp">The <i>&lt;CONFIG&gt;_POSTFIX</i> and <i>DEBUG_POSTFIX</i>
+        target properties can also be considered.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_FILE_PREFIX:tgt&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">Prefix of file used to link target <b>tgt</b>.</p>
+    <p class="Pp">See also the <i>PREFIX</i> and <i>IMPORT_PREFIX</i> target
+        properties.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_FILE_SUFFIX:tgt&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">Suffix of file used to link where <b>tgt</b> is the name of a
+        target.</p>
+    <p class="Pp">The suffix corresponds to the file extension (such as
+        &quot;.so&quot; or &quot;.lib&quot;).</p>
+    <p class="Pp">See also the <i>SUFFIX</i> and <i>IMPORT_SUFFIX</i> target
+        properties.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_FILE_NAME:tgt&gt;</b></dt>
+  <dd>Name of file used to link target <b>tgt</b>.
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_FILE_DIR:tgt&gt;</b></dt>
+  <dd>Directory of file used to link target <b>tgt</b>.
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_LIBRARY_FILE:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">File used when linking o the <b>tgt</b> target is done using
+        directly the library, and not an import file. This will usually be the
+        library that <b>tgt</b> represents (<b>.a</b>, <b>.so</b>,
+        <b>.dylib</b>). So, on DLL platforms, it will be an empty string.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_LIBRARY_FILE_BASE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Base name of library file used to link the target <b>tgt</b>,
+        i.e. <i>$&lt;TARGET_LINKER_LIBRARY_FILE_NAME:tgt&gt;</i> without prefix
+        and suffix. For example, if target file name is <b>libbase.a</b>, the
+        base name is <b>base</b>.</p>
+    <p class="Pp">See also the <i>OUTPUT_NAME</i>, <i>ARCHIVE_OUTPUT_NAME</i>,
+        and <i>LIBRARY_OUTPUT_NAME</i> target properties and their configuration
+        specific variants <i>OUTPUT_NAME_&lt;CONFIG&gt;</i>,
+        <i>ARCHIVE_OUTPUT_NAME_&lt;CONFIG&gt;</i> and
+        <i>LIBRARY_OUTPUT_NAME_&lt;CONFIG&gt;</i>.</p>
+    <p class="Pp">The <i>&lt;CONFIG&gt;_POSTFIX</i> and <i>DEBUG_POSTFIX</i>
+        target properties can also be considered.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_LIBRARY_FILE_PREFIX:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Prefix of the library file used to link target <b>tgt</b>.</p>
+    <p class="Pp">See also the <i>PREFIX</i> target property.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_LIBRARY_FILE_SUFFIX:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Suffix of the library file used to link target <b>tgt</b>.</p>
+    <p class="Pp">The suffix corresponds to the file extension (such as
+        &quot;.a&quot; or &quot;.dylib&quot;).</p>
+    <p class="Pp">See also the <i>SUFFIX</i> target property.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_LIBRARY_FILE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Name of the library file used to link target <b>tgt</b>.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_LIBRARY_FILE_DIR:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Directory of the library file used to link target
+      <b>tgt</b>.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_IMPORT_FILE:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">File used when linking to the <b>tgt</b> target is done using
+        an import file. This will usually be the import file that <b>tgt</b>
+        represents (<b>.lib</b>, <b>.tbd</b>). So, when no import file is
+        involved in the link step, an empty string is returned.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_IMPORT_FILE_BASE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Base name of the import file used to link the target
+        <b>tgt</b>, i.e. <i>$&lt;TARGET_LINKER_IMPORT_FILE_NAME:tgt&gt;</i>
+        without prefix and suffix. For example, if target file name is
+        <b>libbase.tbd</b>, the base name is <b>base</b>.</p>
+    <p class="Pp">See also the <i>OUTPUT_NAME</i> and
+        <i>ARCHIVE_OUTPUT_NAME</i>, target properties and their configuration
+        specific variants <i>OUTPUT_NAME_&lt;CONFIG&gt;</i> and
+        <i>ARCHIVE_OUTPUT_NAME_&lt;CONFIG&gt;</i>.</p>
+    <p class="Pp">The <i>&lt;CONFIG&gt;_POSTFIX</i> and <i>DEBUG_POSTFIX</i>
+        target properties can also be considered.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_IMPORT_FILE_PREFIX:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Prefix of the import file used to link target <b>tgt</b>.</p>
+    <p class="Pp">See also the <i>IMPORT_PREFIX</i> target property.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_IMPORT_FILE_SUFFIX:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Suffix of the import file used to link target <b>tgt</b>.</p>
+    <p class="Pp">The suffix corresponds to the file extension (such as
+        &quot;.lib&quot; or &quot;.tbd&quot;).</p>
+    <p class="Pp">See also the <i>IMPORT_SUFFIX</i> target property.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_IMPORT_FILE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Name of the import file used to link target <b>tgt</b>.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_LINKER_IMPORT_FILE_DIR:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Directory of the import file used to link target
+      <b>tgt</b>.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_SONAME_FILE:tgt&gt;</b></dt>
+  <dd>File with soname (<b>.so.3</b>) where <b>tgt</b> is the name of a
+    target.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_SONAME_FILE_NAME:tgt&gt;</b></dt>
+  <dd>Name of file with soname (<b>.so.3</b>).
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_SONAME_FILE_DIR:tgt&gt;</b></dt>
+  <dd>Directory of file with soname (<b>.so.3</b>).
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_SONAME_IMPORT_FILE:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Import file with soname (<b>.3.tbd</b>) where <b>tgt</b> is
+        the name of a target.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_SONAME_IMPORT_FILE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Name of the import file with soname (<b>.3.tbd</b>).</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_SONAME_IMPORT_FILE_DIR:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">Directory of the import file with soname (<b>.3.tbd</b>).</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_PDB_FILE:tgt&gt;</b></dt>
+  <dd>New in version 3.1.
+    <p class="Pp"></p>
+    <p class="Pp">Full path to the linker generated program database file (.pdb)
+        where <b>tgt</b> is the name of a target.</p>
+    <p class="Pp">See also the <i>PDB_NAME</i> and <i>PDB_OUTPUT_DIRECTORY</i>
+        target properties and their configuration specific variants
+        <i>PDB_NAME_&lt;CONFIG&gt;</i> and
+        <i>PDB_OUTPUT_DIRECTORY_&lt;CONFIG&gt;</i>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_PDB_FILE_BASE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.15.
+    <p class="Pp"></p>
+    <p class="Pp">Base name of the linker generated program database file (.pdb)
+        where <b>tgt</b> is the name of a target.</p>
+    <p class="Pp">The base name corresponds to the target PDB file name (see
+        <b>$&lt;TARGET_PDB_FILE_NAME:tgt&gt;</b>) without prefix and suffix. For
+        example, if target file name is <b>base.pdb</b>, the base name is
+        <b>base</b>.</p>
+    <p class="Pp">See also the <i>PDB_NAME</i> target property and its
+        configuration specific variant <i>PDB_NAME_&lt;CONFIG&gt;</i>.</p>
+    <p class="Pp">The <i>&lt;CONFIG&gt;_POSTFIX</i> and <i>DEBUG_POSTFIX</i>
+        target properties can also be considered.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_PDB_FILE_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.1.
+    <p class="Pp"></p>
+    <p class="Pp">Name of the linker generated program database file (.pdb).</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_PDB_FILE_DIR:tgt&gt;</b></dt>
+  <dd>New in version 3.1.
+    <p class="Pp"></p>
+    <p class="Pp">Directory of the linker generated program database file
+        (.pdb).</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_BUNDLE_DIR:tgt&gt;</b></dt>
+  <dd>New in version 3.9.
+    <p class="Pp"></p>
+    <p class="Pp">Full path to the bundle directory (<b>/path/to/my.app</b>,
+        <b>/path/to/my.framework</b>, or <b>/path/to/my.bundle</b>), where
+        <b>tgt</b> is the name of a target.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_BUNDLE_DIR_NAME:tgt&gt;</b></dt>
+  <dd>New in version 3.24.
+    <p class="Pp"></p>
+    <p class="Pp">Name of the bundle directory (<b>my.app</b>,
+        <b>my.framework</b>, or <b>my.bundle</b>), where <b>tgt</b> is the name
+        of a target.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_BUNDLE_CONTENT_DIR:tgt&gt;</b></dt>
+  <dd>New in version 3.9.
+    <p class="Pp"></p>
+    <p class="Pp">Full path to the bundle content directory where <b>tgt</b> is
+        the name of a target. For the macOS SDK it leads to
+        <b>/path/to/my.app/Contents</b>, <b>/path/to/my.framework</b>, or
+        <b>/path/to/my.bundle/Contents</b>. For all other SDKs (e.g. iOS) it
+        leads to <b>/path/to/my.app</b>, <b>/path/to/my.framework</b>, or
+        <b>/path/to/my.bundle</b> due to the flat bundle structure.</p>
+    <p class="Pp">Note that <b>tgt</b> is not added as a dependency of the
+        target this expression is evaluated on (see policy <i>CMP0112</i>).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_RUNTIME_DLLS:tgt&gt;</b></dt>
+  <dd>New in version 3.21.
+    <p class="Pp"></p>
+    <p class="Pp">List of DLLs that the target depends on at runtime. This is
+        determined by the locations of all the <b>SHARED</b> targets in the
+        target's transitive dependencies. If only the directories of the DLLs
+        are needed, see the <i>TARGET_RUNTIME_DLL_DIRS</i> generator expression.
+        Using this generator expression on targets other than executables,
+        <b>SHARED</b> libraries, and <b>MODULE</b> libraries is an error. <b>On
+        non-DLL platforms, this expression always evaluates to an empty
+        string</b>.</p>
+    <p class="Pp">This generator expression can be used to copy all of the DLLs
+        that a target depends on into its output directory in a
+        <b>POST_BUILD</b> custom command using the <i>cmake -E copy -t</i>
+        command. For example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>find_package(foo CONFIG REQUIRED) # package generated by install(EXPORT)
+add_executable(exe main.c)
+target_link_libraries(exe PRIVATE foo::foo foo::bar)
+add_custom_command(TARGET exe POST_BUILD
+<br/>
+  COMMAND ${CMAKE_COMMAND} -E copy -t $&lt;TARGET_FILE_DIR:exe&gt; $&lt;TARGET_RUNTIME_DLLS:exe&gt;
+<br/>
+  COMMAND_EXPAND_LISTS
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><b>NOTE:</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent"><i>Imported Targets</i> are supported only if they know
+  the location of their <b>.dll</b> files. An imported <b>SHARED</b> library
+  must have <i>IMPORTED_LOCATION</i> set to its <b>.dll</b> file. See the
+  <i>add_library imported libraries</i> section for details. Many <i>Find
+  Modules</i> produce imported targets with the <b>UNKNOWN</b> type and
+  therefore will be ignored.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">On platforms that support runtime paths (<b>RPATH</b>), refer to
+    the <i>INSTALL_RPATH</i> target property. On Apple platforms, refer to the
+    <i>INSTALL_NAME_DIR</i> target property.</p>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_RUNTIME_DLL_DIRS:tgt&gt;</b></dt>
+  <dd>New in version 3.27.
+    <p class="Pp"></p>
+    <p class="Pp">List of the directories which contain the DLLs that the target
+        depends on at runtime (see <i>TARGET_RUNTIME_DLLS</i>). This is
+        determined by the locations of all the <b>SHARED</b> targets in the
+        target's transitive dependencies. Using this generator expression on
+        targets other than executables, <b>SHARED</b> libraries, and
+        <b>MODULE</b> libraries is an error. <b>On non-DLL platforms, this
+        expression always evaluates to an empty string</b>.</p>
+    <p class="Pp">This generator expression can e.g. be used to create a batch
+        file using <i>file(GENERATE)</i> which sets the PATH environment
+        variable accordingly.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Export_And_Install_Expressions"><a class="permalink" href="#Export_And_Install_Expressions">Export
+  And Install Expressions</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;INSTALL_INTERFACE:...&gt;</b></dt>
+  <dd>Content of <b>...</b> when the property is exported using
+      <i>install(EXPORT)</i>, and empty otherwise.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;BUILD_INTERFACE:...&gt;</b></dt>
+  <dd>Content of <b>...</b> when the property is exported using <i>export()</i>,
+      or when the target is used by another target in the same buildsystem.
+      Expands to the empty string otherwise.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;BUILD_LOCAL_INTERFACE:...&gt;</b></dt>
+  <dd>New in version 3.26.
+    <p class="Pp"></p>
+    <p class="Pp">Content of <b>...</b> when the target is used by another
+        target in the same buildsystem. Expands to the empty string
+      otherwise.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;INSTALL_PREFIX&gt;</b></dt>
+  <dd>Content of the install prefix when the target is exported via
+      <i>install(EXPORT)</i>, or when evaluated in the <i>INSTALL_NAME_DIR</i>
+      property, the <b>INSTALL_NAME_DIR</b> argument of
+      <i>install(RUNTIME_DEPENDENCY_SET)</i>, the code argument of
+      <i>install(CODE)</i>, or the file argument of <i>install(SCRIPT)</i>, and
+      empty otherwise.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Multi"><a class="permalink" href="#Multi">Multi-level
+  Expression Evaluation</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;GENEX_EVAL:expr&gt;</b></dt>
+  <dd>New in version 3.12.
+    <p class="Pp"></p>
+    <p class="Pp">Content of <b>expr</b> evaluated as a generator expression in
+        the current context. This enables consumption of generator expressions
+        whose evaluation results itself in generator expressions.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;TARGET_GENEX_EVAL:tgt,expr&gt;</b></dt>
+  <dd>New in version 3.12.
+    <p class="Pp"></p>
+    <p class="Pp">Content of <b>expr</b> evaluated as a generator expression in
+        the context of <b>tgt</b> target. This enables consumption of custom
+        target properties that themselves contain generator expressions.</p>
+    <p class="Pp">Having the capability to evaluate generator expressions is
+        very useful when you want to manage custom properties supporting
+        generator expressions. For example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_library(foo ...)
+set_property(TARGET foo PROPERTY
+<br/>
+  CUSTOM_KEYS $&lt;$&lt;CONFIG:DEBUG&gt;:FOO_EXTRA_THINGS&gt;
+)
+add_custom_target(printFooKeys
+<br/>
+  COMMAND ${CMAKE_COMMAND} -E echo $&lt;TARGET_PROPERTY:foo,CUSTOM_KEYS&gt;
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This naive implementation of the <b>printFooKeys</b> custom
+    command is wrong because <b>CUSTOM_KEYS</b> target property is not evaluated
+    and the content is passed as is (i.e.
+    <b>$&lt;$&lt;CONFIG:DEBUG&gt;:FOO_EXTRA_THINGS&gt;</b>).</p>
+<p class="Pp">To have the expected result (i.e. <b>FOO_EXTRA_THINGS</b> if
+    config is <b>Debug</b>), it is required to evaluate the output of
+    <b>$&lt;TARGET_PROPERTY:foo,CUSTOM_KEYS&gt;</b>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>add_custom_target(printFooKeys
+<br/>
+  COMMAND ${CMAKE_COMMAND} -E
+<br/>
+    echo $&lt;TARGET_GENEX_EVAL:foo,$&lt;TARGET_PROPERTY:foo,CUSTOM_KEYS&gt;&gt;
+)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Escaped_Characters"><a class="permalink" href="#Escaped_Characters">Escaped
+  Characters</a></h2>
+<p class="Pp">These expressions evaluate to specific string literals. Use them
+    in place of the actual string literal where you need to prevent them from
+    having their special meaning.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;ANGLE-R&gt;</b></dt>
+  <dd>A literal <b>&gt;</b>. Used for example to compare strings that contain a
+      <b>&gt;</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;COMMA&gt;</b></dt>
+  <dd>A literal <b>,</b>. Used for example to compare strings which contain a
+      <b>,</b>.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;SEMICOLON&gt;</b></dt>
+  <dd>A literal <b>;</b>. Used to prevent list expansion on an argument with
+      <b>;</b>.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Deprecated_Expressions"><a class="permalink" href="#Deprecated_Expressions">Deprecated
+  Expressions</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>$&lt;CONFIGURATION&gt;</b></dt>
+  <dd>Configuration name. Deprecated since CMake 3.0. Use <i>CONFIG</i>
+    instead.</dd>
+</dl>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">2000-2024 Kitware, Inc. and Contributors</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">April 15, 2024</td>
+    <td class="foot-os">3.28.3</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-09 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

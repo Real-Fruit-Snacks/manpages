@@ -16,7 +16,7 @@ for p in sample:
     t = p.read_text(encoding='utf-8', errors='replace')
     if '</html>' not in t or '<article' not in t:
         bad.append((p, 'broken structure'))
-    elif not re.search(r'id="NAME"|>NAME<|class="plain-roff"', t, re.I):
+    elif not re.search(r'id="NAME|>NAME<|class="plain-roff"', t, re.I):
         bad.append((p, 'no NAME section'))
 print('checked %d of %d pages, %d bad' % (len(sample), len(pages), len(bad)))
 for p, why in bad[:20]:

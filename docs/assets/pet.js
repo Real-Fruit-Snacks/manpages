@@ -106,8 +106,8 @@
     } catch (e) { /* private mode */ }
   }
 
-  // Per-quirk flags + appearance, read from localStorage (default on; speech off).
-  var cfgNap = true, cfgFlee = true, cfgRead = true, cfgTricks = true, cfgSpeech = false;
+  // Per-quirk flags + appearance, read from localStorage (all default on).
+  var cfgNap = true, cfgFlee = true, cfgRead = true, cfgTricks = true, cfgSpeech = true;
   function boolKey(k, dflt) {
     try {
       var v = localStorage.getItem(k);
@@ -132,7 +132,7 @@
     cfgFlee = boolKey("twb-pet-flee", true);
     cfgRead = boolKey("twb-pet-read", true);
     cfgTricks = boolKey("twb-pet-tricks", true);
-    cfgSpeech = boolKey("twb-pet-speech", false);
+    cfgSpeech = boolKey("twb-pet-speech", true);
     var c = parseInt(localStorage.getItem("twb-pet-color"), 10);
     petColor = (c >= 1 && c < COLOR_COUNT) ? c : 0;
     applyPetColor();

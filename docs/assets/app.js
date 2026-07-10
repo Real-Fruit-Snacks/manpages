@@ -105,7 +105,7 @@
     var col = num('twb-pet-color', 0);
     var sw = panel.querySelectorAll('#pet-color button');
     for (var j = 0; j < sw.length; j++) sw[j].classList.toggle('on', (+sw[j].getAttribute('data-color')) === col);
-    var q = [['nap', true], ['flee', true], ['read', true], ['tricks', true], ['speech', false]];
+    var q = [['nap', true], ['flee', true], ['read', true], ['tricks', true], ['speech', true]];
     for (var n = 0; n < q.length; n++) {
       var b = panel.querySelector('#pet-q-' + q[n][0]);
       if (b) b.classList.toggle('on', onq('twb-pet-' + q[n][0], q[n][1]));
@@ -151,7 +151,7 @@
     var b = panel.querySelector('#pet-q-' + id);
     if (!b) return;
     b.addEventListener('click', function () {
-      var cur = onq('twb-pet-' + id, id === 'speech' ? false : true);
+      var cur = onq('twb-pet-' + id, true);
       setKey('twb-pet-' + id, cur ? 'off' : 'on');
       sync(); fire();
     });

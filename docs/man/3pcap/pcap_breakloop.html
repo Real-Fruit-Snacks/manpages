@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="force a pcap_dispatch() or pcap_loop() call to return">
+<title>pcap_breakloop(3pcap) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pcap_breakloop(3pcap)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#BACKWARD_COMPATIBILITY">BACKWARD
+  COMPATIBILITY</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PCAP_BREAKLOOP(3PCAP)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">PCAP_BREAKLOOP(3PCAP)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pcap_breakloop - force a pcap_dispatch() or pcap_loop() call to
+    return</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>
+<b>#include &lt;pcap/pcap.h&gt;</b>
+</pre>
+<pre>
+<b>void pcap_breakloop(pcap_t *);</b>
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>pcap_breakloop</b>() sets a flag that will force
+    <b>pcap_dispatch</b>(3PCAP) or <a class="Xr" href="../3pcap/pcap_loop.html"><b>pcap_loop</b>(3PCAP)</a> to return rather than
+    looping; they will return the number of packets that have been processed so
+    far, or <b>PCAP_ERROR_BREAK</b> if no packets have been processed so far. If
+    the loop is currently blocked waiting for packets to arrive,
+    <b>pcap_breakloop</b>() will also, on some platforms, wake up the thread
+    that is blocked. In this version of libpcap, the only platforms on which a
+    wakeup is caused by <b>pcap_breakloop</b>() are Linux and Windows, and the
+    wakeup will only be caused when capturing on network interfaces; it will not
+    be caused on other operating systems, and will not be caused on any OS when
+    capturing on other types of devices.</p>
+<p class="Pp">This routine is safe to use inside a signal handler on UNIX or a
+    console control handler on Windows, or in a thread other than the one in
+    which the loop is running, as it merely sets a flag that is checked within
+    the loop and, on some platforms, performs a signal-safe and thread-safe API
+    call.</p>
+<p class="Pp">The flag is checked in loops reading packets from the OS - a
+    signal by itself will not necessarily terminate those loops - as well as in
+    loops processing a set of packets returned by the OS. <b>Note that if you
+    are catching signals on UNIX systems that support</b> <b>restarting system
+    calls after a signal, and calling pcap_breakloop()</b> <b>in the signal
+    handler, you must specify, when catching those signals,</b> <b>that system
+    calls should NOT be restarted by that signal. Otherwise,</b> <b>if the
+    signal interrupted a call reading packets in a live capture,</b> <b>when
+    your signal handler returns after calling pcap_breakloop(), the</b> <b>call
+    will be restarted, and the loop will not terminate until more</b> <b>packets
+    arrive and the call completes.</b></p>
+<p class="Pp"><b>Note also that, in a multi-threaded application, if one thread
+    is</b> <b>blocked in pcap_dispatch(), pcap_loop(), pcap_next(3PCAP), or</b>
+    <b>pcap_next_ex(3PCAP), a call to pcap_breakloop() in a different thread</b>
+    <b>will only unblock that thread on the platforms and capture devices</b>
+    <b>listed above.</b></p>
+<p class="Pp">If a non-zero packet buffer timeout is set on the <b>pcap_t</b>,
+    and you are capturing on a network interface, the thread will be unblocked
+    with the timeout expires. This is not guaranteed to happen unless at least
+    one packet has arrived; the only platforms on which it happens are macOS,
+    the BSDs, Solaris 11, AIX, Tru64 UNIX, and Windows.</p>
+<p class="Pp">If you want to ensure that the loop will eventually be unblocked
+    on any other platforms, or unblocked when capturing on a device other than a
+    network interface, you will need to use whatever mechanism the OS provides
+    for breaking a thread out of blocking calls in order to unblock the thread,
+    such as thread cancellation or thread signalling in systems that support
+    POSIX threads.</p>
+<p class="Pp"><b>Note that if pcap_breakloop() unblocks the thread capturing
+    packets, and</b> <b>you are running on a platform that supports packet
+    buffering, there may</b> <b>be packets in the buffer that arrived before
+    pcap_breakloop() were</b> <b>called but that weren't yet provided to
+    libpcap, those packets will not</b> <b>have been processed by
+    pcap_dispatch() or pcap_loop(). If</b> <b>pcap_breakloop() was called in
+    order to terminate the capture process,</b> <b>then, in order to process
+    those packets, you would have to call</b> <b>pcap_dispatch() one time in
+    order to process the last batch of packets.</b> <b>This may block until the
+    packet buffer timeout expires, so a non-zero</b> <b>packet buffer timeout
+    must be used.</b></p>
+<p class="Pp">Note that <b>pcap_next</b>() and <b>pcap_next_ex</b>() will, on
+    some platforms, loop reading packets from the OS; that loop will not
+    necessarily be terminated by a signal, so <b>pcap_breakloop</b>() should be
+    used to terminate packet processing even if <b>pcap_next</b>() or
+    <b>pcap_next_ex</b>() is being used.</p>
+<p class="Pp"><b>pcap_breakloop</b>() does not guarantee that no further packets
+    will be processed by <b>pcap_dispatch</b>() or <b>pcap_loop</b>() after it
+    is called; at most one more packet might be processed.</p>
+<p class="Pp">If <b>PCAP_ERROR_BREAK</b> is returned from <b>pcap_dispatch</b>()
+    or <b>pcap_loop</b>(), the flag is cleared, so a subsequent call will resume
+    reading packets. If a positive number is returned, the flag is not cleared,
+    so a subsequent call will return <b>PCAP_ERROR_BREAK</b> and clear the
+  flag.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BACKWARD_COMPATIBILITY"><a class="permalink" href="#BACKWARD_COMPATIBILITY">BACKWARD
+  COMPATIBILITY</a></h1>
+<p class="Pp">This function became available in libpcap release 0.8.1.</p>
+<p class="Pp">In releases prior to libpcap 1.10.0, <b>pcap_breakloop</b>() will
+    not wake up a blocked thread on any platform.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3pcap/pcap.html"><b>pcap</b>(3PCAP)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">8 December 2022</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

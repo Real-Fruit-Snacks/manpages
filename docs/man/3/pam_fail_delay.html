@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="request a delay on failure">
+<title>pam_fail_delay(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pam_fail_delay(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RATIONALE">RATIONALE</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#RETURN_VALUES">RETURN
+  VALUES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#STANDARDS">STANDARDS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PAM_FAIL_DELAY(3)</td>
+    <td class="head-vol">Linux-PAM Manual</td>
+    <td class="head-rtitle">PAM_FAIL_DELAY(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pam_fail_delay - request a delay on failure</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>#include &lt;security/pam_appl.h&gt;</pre>
+<p class="Pp HP"><b>int pam_fail_delay(pam_handle_t&#x00A0;*</b><i>pamh</i><b>,
+    unsigned&#x00A0;int&#x00A0;</b><i>usec</i><b>);</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <b>pam_fail_delay</b> function provides a mechanism by which
+    an application or module can suggest a minimum delay of <i>usec</i>
+    micro-seconds. The function keeps a record of the longest time requested
+    with this function. Should <a class="Xr" href="../3/pam_authenticate.html"><b>pam_authenticate</b>(3)</a> fail, the failing
+    return to the application is delayed by an amount of time randomly
+    distributed (by up to 50%) about this longest value.</p>
+<p class="Pp">Independent of success, the delay time is reset to its zero
+    default value when the PAM service module returns control to the
+    application. The delay occurs <i>after</i> all authentication modules have
+    been called, but <i>before</i> control is returned to the service
+    application.</p>
+<p class="Pp">When using this function the programmer should check if it is
+    available with:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>#ifdef HAVE_PAM_FAIL_DELAY
+<br/>
+    ....
+#endif /* HAVE_PAM_FAIL_DELAY */
+<br/>
+      </pre>
+</div>
+<p class="Pp">For applications written with a single thread that are event
+    driven in nature, generating this delay may be undesirable. Instead, the
+    application may want to register the delay in some other way. For example,
+    in a single threaded server that serves multiple authentication requests
+    from a single event loop, the application might want to simply mark a given
+    connection as blocked until an application timer expires. For this reason
+    the delay function can be changed with the <i>PAM_FAIL_DELAY</i> item. It
+    can be queried and set with <a class="Xr" href="../3/pam_get_item.html"><b>pam_get_item</b>(3)</a> and
+    <a class="Xr" href="../3/pam_set_item.html"><b>pam_set_item</b>(3)</a> respectively. The value used to set it should be a
+    function pointer of the following prototype:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>void (*delay_fn)(int retval, unsigned usec_delay, void *appdata_ptr);
+<br/>
+      </pre>
+</div>
+<p class="Pp">The arguments being the <i>retval</i> return code of the module
+    stack, the <i>usec_delay</i> micro-second delay that libpam is requesting
+    and the <i>appdata_ptr</i> that the application has associated with the
+    current <i>pamh</i>. This last value was set by the application when it
+    called <a class="Xr" href="../3/pam_start.html"><b>pam_start</b>(3)</a> or explicitly with <a class="Xr" href="../3/pam_set_item.html"><b>pam_set_item</b>(3)</a>.</p>
+<p class="Pp">Note that the PAM_FAIL_DELAY item is set to NULL by default. This
+    indicates that PAM should perform a random delay as described above when
+    authentication fails and a delay has been suggested. If an application does
+    not want the PAM library to perform any delay on authentication failure,
+    then the application must define a custom delay function that executes no
+    statements and set the PAM_FAIL_DELAY item to point to this function.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RATIONALE"><a class="permalink" href="#RATIONALE">RATIONALE</a></h1>
+<p class="Pp">It is often possible to attack an authentication scheme by
+    exploiting the time it takes the scheme to deny access to an applicant user.
+    In cases of <i>short</i> timeouts, it may prove possible to attempt a
+    <i>brute force</i> dictionary attack -- with an automated process, the
+    attacker tries all possible passwords to gain access to the system. In other
+    cases, where individual failures can take measurable amounts of time
+    (indicating the nature of the failure), an attacker can obtain useful
+    information about the authentication process. These latter attacks make use
+    of procedural delays that constitute a <i>covert channel</i> of useful
+    information.</p>
+<p class="Pp">To minimize the effectiveness of such attacks, it is desirable to
+    introduce a random delay in a failed authentication process. Preferable this
+    value should be set by the application or a special PAM module. Standard PAM
+    modules should not modify the delay unconditional.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<p class="Pp">For example, a login application may require a failure delay of
+    roughly 3 seconds. It will contain the following code:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<br/>
+    pam_fail_delay (pamh, 3000000 /* micro-seconds */ );
+<br/>
+    pam_authenticate (pamh, 0);
+<br/>
+    </pre>
+</div>
+<p class="Pp">if the modules do not request a delay, the failure delay will be
+    between 1.5 and 4.5 seconds.</p>
+<p class="Pp">However, the modules, invoked in the authentication process, may
+    also request delays:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>module #1:    pam_fail_delay (pamh, 2000000);
+module #2:    pam_fail_delay (pamh, 4000000);
+<br/>
+    </pre>
+</div>
+<p class="Pp">in this case, it is the largest requested value that is used to
+    compute the actual failed delay: here between 2 and 6 seconds.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp">PAM_SUCCESS</p>
+<div class="Bd-indent">Delay was successful adjusted.</div>
+<p class="Pp">PAM_SYSTEM_ERR</p>
+<div class="Bd-indent">A NULL pointer was submitted as PAM handle.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/pam_start.html"><b>pam_start</b>(3)</a>, <a class="Xr" href="../3/pam_get_item.html"><b>pam_get_item</b>(3)</a>,
+    <a class="Xr" href="../3/pam_strerror.html"><b>pam_strerror</b>(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp">The <b>pam_fail_delay</b> function is an Linux-PAM extension.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">05/07/2023</td>
+    <td class="foot-os">Linux-PAM</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

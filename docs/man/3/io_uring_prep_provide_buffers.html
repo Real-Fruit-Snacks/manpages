@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="prepare a provide buffers request">
+<title>io_uring_prep_provide_buffers(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">io_uring_prep_provide_buffers(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#ERRORS">ERRORS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">io_uring_prep_provide_buffers(3)</td>
+    <td class="head-vol">liburing Manual</td>
+    <td class="head-rtitle">io_uring_prep_provide_buffers(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">io_uring_prep_provide_buffers - prepare a provide buffers
+  request</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;liburing.h&gt;</b></pre>
+<pre><b>void io_uring_prep_provide_buffers(struct io_uring_sqe *</b><i>sqe</i><b>,</b>
+<b>                                   void *</b><i>addr</i><b>,</b>
+<b>                                   int </b><i>len</i><b>,</b>
+<b>                                   int </b><i>nr</i><b>,</b>
+<b>                                   int </b><i>bgid</i><b>,</b>
+<b>                                   int </b><i>bid</i><b>);</b></pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <a class="Xr" href="../3/io_uring_prep_provide_buffers.html"><b>io_uring_prep_provide_buffers</b>(3)</a> function prepares a
+    request for providing the kernel with buffers. The submission queue entry
+    <i>sqe</i> is setup to consume <i>nr</i> number of <i>len</i> sized buffers
+    starting at <i>addr</i> and identified by the buffer group ID of <i>bgid</i>
+    and numbered sequentially starting at <i>bid</i>.</p>
+<p class="Pp">This function sets up a request to provide buffers to the io_uring
+    context that can be used by read or receive operations. This is done by
+    filling in the SQE <i>buf_group</i> field and setting
+    <b>IOSQE_BUFFER_SELECT</b> in the SQE <i>flags</i> member. If buffer
+    selection is used for a request, no buffer should be provided in the address
+    field. Instead, the group ID is set to match one that was previously
+    provided to the kernel. The kernel will then select a buffer from this group
+    for the IO operation. On successful completion of the IO request, the CQE
+    <i>flags</i> field will have <b>IORING_CQE_F_BUFFER</b> set and the selected
+    buffer ID will be indicated by the upper 16-bits of the <i>flags</i>
+  field.</p>
+<p class="Pp">Different buffer group IDs can be used by the application to have
+    different sizes or types of buffers available. Once a buffer has been
+    consumed for an operation, it is no longer known to io_uring. It must be
+    re-provided if so desired or freed by the application if no longer
+  needed.</p>
+<p class="Pp">The buffer IDs are internally tracked from <i>bid</i> and
+    sequentially ascending from that value. If <b>16</b> buffers are provided
+    and start with an initial <i>bid</i> of 0, then the buffer IDs will range
+    from <b>0..15</b>. The application must be aware of this to make sense of
+    the buffer ID passed back in the CQE.</p>
+<p class="Pp">Buffer IDs always range from <b>0</b> to <b>65535 ,</b> as there
+    are only 16-bits available in the CQE to pass them back. This range is
+    independent of how the buffer group initially got created. Attempting to add
+    buffer IDs larger than that, or buffer IDs that will wrap when cast to a
+    16-bit value, will cause the request to fail with <b>-E2BIG</b> or
+    <b>-EINVAL .</b></p>
+<p class="Pp">Not all requests support buffer selection, as it only really makes
+    sense for requests that receive data from the kernel rather than write or
+    provide data. Currently, this mode of operation is supported for any file
+    read or socket receive request. Attempting to use <b>IOSQE_BUFFER_SELECT</b>
+    with a command that doesn't support it will result in a CQE <i>res</i> error
+    of <b>-EINVAL</b>. Buffer selection will work with operations that take a
+    <b>struct iovec</b> as its data destination, but only if 1 iovec is
+    provided.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">None</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+<p class="Pp">These are the errors that are reported in the CQE <i>res</i>
+    field. On success, <i>res</i> will contain <b>0</b> or the number of
+    successfully provided buffers.</p>
+<dl class="Bl-tag">
+  <dt id="ENOMEM"><a class="permalink" href="#ENOMEM"><b>-ENOMEM</b></a></dt>
+  <dd>The kernel was unable to allocate memory for the request.</dd>
+  <dt id="EINVAL"><a class="permalink" href="#EINVAL"><b>-EINVAL</b></a></dt>
+  <dd>One of the fields set in the SQE was invalid.</dd>
+  <dt id="E2BIG"><a class="permalink" href="#E2BIG"><b>-E2BIG</b></a></dt>
+  <dd>The number of buffers provided was too big, or the <i>bid</i> was too big.
+      A max value of <b>USHRT_MAX</b> buffers can be specified.</dd>
+  <dt id="EFAULT"><a class="permalink" href="#EFAULT"><b>-EFAULT</b></a></dt>
+  <dd>Some of the user memory given was invalid for the application.</dd>
+  <dt id="EOVERFLOW"><a class="permalink" href="#EOVERFLOW"><b>-EOVERFLOW</b></a></dt>
+  <dd>The product of <i>len</i> and <i>nr</i> exceed the valid amount or
+      overflowed, or the sum of <i>addr</i> and the length of buffers
+      overflowed.</dd>
+  <dt id="EBUSY"><a class="permalink" href="#EBUSY"><b>-EBUSY</b></a></dt>
+  <dd>Attempt to update a slot that is already used.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/io_uring_get_sqe.html"><b>io_uring_get_sqe</b>(3)</a>, <a class="Xr" href="../3/io_uring_submit.html"><b>io_uring_submit</b>(3)</a>,
+    <a class="Xr" href="../2/io_uring_register.html"><b>io_uring_register</b>(2)</a>, <a class="Xr" href="../3/io_uring_prep_remove_buffers.html"><b>io_uring_prep_remove_buffers</b>(3)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">March 13, 2022</td>
+    <td class="foot-os">liburing-2.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Journal change notification interface">
+<title>sd_journal_get_fd(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">sd_journal_get_fd(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#SIGNAL_SAFETY">SIGNAL
+  SAFETY</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#HISTORY">HISTORY</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SD_JOURNAL_GET_FD(3)</td>
+    <td class="head-vol">sd_journal_get_fd</td>
+    <td class="head-rtitle">SD_JOURNAL_GET_FD(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">sd_journal_get_fd, sd_journal_get_events, sd_journal_get_timeout,
+    sd_journal_process, sd_journal_wait, sd_journal_reliable_fd, SD_JOURNAL_NOP,
+    SD_JOURNAL_APPEND, SD_JOURNAL_INVALIDATE - Journal change notification
+    interface</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>#include &lt;systemd/sd-journal.h&gt;</pre>
+<p class="Pp HP"><b>int
+    sd_journal_get_fd(sd_journal&#x00A0;*</b><i>j</i><b>);</b></p>
+<p class="Pp HP"><b>int
+    sd_journal_get_events(sd_journal&#x00A0;*</b><i>j</i><b>);</b></p>
+<p class="Pp HP"><b>int
+    sd_journal_get_timeout(sd_journal&#x00A0;*</b><i>j</i><b>,
+    uint64_t&#x00A0;*</b><i>timeout_usec</i><b>);</b></p>
+<p class="Pp HP"><b>int
+    sd_journal_process(sd_journal&#x00A0;*</b><i>j</i><b>);</b></p>
+<p class="Pp HP"><b>int sd_journal_wait(sd_journal&#x00A0;*</b><i>j</i><b>,
+    uint64_t&#x00A0;</b><i>timeout_usec</i><b>);</b></p>
+<p class="Pp HP"><b>int
+    sd_journal_reliable_fd(sd_journal&#x00A0;*</b><i>j</i><b>);</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>sd_journal_get_fd()</b> returns a file descriptor that may be
+    asynchronously polled in an external event loop and is signaled as soon as
+    the journal changes, because new entries or files were added, rotation took
+    place, or files have been deleted, and similar. The file descriptor is
+    suitable for usage in <a class="Xr" href="../2/poll.html"><b>poll</b>(2)</a>. Use <b>sd_journal_get_events()</b> for
+    an events mask to watch for. The call takes one argument: the journal
+    context object. Note that not all file systems are capable of generating the
+    necessary events for wakeups from this file descriptor for changes to be
+    noticed immediately. In particular network files systems do not generate
+    suitable file change events in all cases. Cases like this can be detected
+    with <b>sd_journal_reliable_fd()</b>, below. <b>sd_journal_get_timeout()</b>
+    will ensure in these cases that wake-ups happen frequently enough for
+    changes to be noticed, although with a certain latency.</p>
+<p class="Pp"><b>sd_journal_get_events()</b> will return the <b>poll()</b> mask
+    to wait for. This function will return a combination of <b>POLLIN</b> and
+    <b>POLLOUT</b> and similar to fill into the &quot;.events&quot; field of
+    <i>struct pollfd</i>.</p>
+<p class="Pp"><b>sd_journal_get_timeout()</b> will return a timeout value for
+    usage in <b>poll()</b>. This returns a value in microseconds since the epoch
+    of <b>CLOCK_MONOTONIC</b> for timing out <b>poll()</b> in
+    <i>timeout_usec</i>. See <a class="Xr" href="../2/clock_getres.html"><b>clock_gettime</b>(2)</a> for details about
+    <b>CLOCK_MONOTONIC</b>. If there is no timeout to wait for, this will fill
+    in <b>(uint64_t) -1</b> instead. Note that <b>poll()</b> takes a relative
+    timeout in milliseconds rather than an absolute timeout in microseconds. To
+    convert the absolute 'us' timeout into relative 'ms', use code like the
+    following:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>uint64_t t;
+int msec;
+sd_journal_get_timeout(m, &amp;t);
+if (t == (uint64_t) -1)
+<br/>
+  msec = -1;
+else {
+<br/>
+  struct timespec ts;
+<br/>
+  uint64_t n;
+<br/>
+  clock_gettime(CLOCK_MONOTONIC, &amp;ts);
+<br/>
+  n = (uint64_t) ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+<br/>
+  msec = t &gt; n ? (int) ((t - n + 999) / 1000) : 0;
+}</pre>
+</div>
+<p class="Pp">The code above does not do any error checking for brevity's sake.
+    The calculated <i>msec</i> integer can be passed directly as <b>poll()</b>'s
+    timeout parameter.</p>
+<p class="Pp">After each <b>poll()</b> wake-up <b>sd_journal_process()</b> needs
+    to be called to process events. This call will also indicate what kind of
+    change has been detected (see below; note that spurious wake-ups are
+    possible).</p>
+<p class="Pp">A synchronous alternative for using <b>sd_journal_get_fd()</b>,
+    <b>sd_journal_get_events()</b>, <b>sd_journal_get_timeout()</b> and
+    <b>sd_journal_process()</b> is <b>sd_journal_wait()</b>. It will
+    synchronously wait until the journal gets changed. The maximum time this
+    call sleeps may be controlled with the <i>timeout_usec</i> parameter. Pass
+    <b>(uint64_t) -1</b> to wait indefinitely. Internally this call simply
+    combines <b>sd_journal_get_fd()</b>, <b>sd_journal_get_events()</b>,
+    <b>sd_journal_get_timeout()</b>, <b>poll()</b> and
+    <b>sd_journal_process()</b> into one.</p>
+<p class="Pp"><b>sd_journal_reliable_fd()</b> may be used to check whether the
+    wake-up events from the file descriptor returned by
+    <b>sd_journal_get_fd()</b> are known to be quickly triggered. On certain
+    file systems where file change events from the OS are not available (such as
+    NFS) changes need to be polled for repeatedly, and hence are detected only
+    with a considerable latency. This call will return a positive value if the
+    journal changes are detected quickly and zero when they need to be polled
+    for. Note that there is usually no need to invoke this function directly as
+    <b>sd_journal_get_timeout()</b> will request appropriate timeouts
+  anyway.</p>
+<p class="Pp">Note that all of the above change notification interfaces do not
+    report changes instantly. Latencies are introduced for multiple reasons: as
+    mentioned certain storage backends require time-based polling, in other
+    cases wake-ups are optimized by coalescing events, and the OS introduces
+    additional IO/CPU scheduling latencies.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp"><b>sd_journal_get_fd()</b> returns a valid file descriptor on
+    success or a negative errno-style error code.</p>
+<p class="Pp"><b>sd_journal_get_events()</b> returns a combination of
+    <b>POLLIN</b>, <b>POLLOUT</b> and suchlike on success or a negative
+    errno-style error code.</p>
+<p class="Pp"><b>sd_journal_reliable_fd()</b> returns a positive integer if the
+    file descriptor returned by <b>sd_journal_get_fd()</b> will generate
+    wake-ups immediately for all journal changes. Returns 0 if there might be a
+    latency involved.</p>
+<p class="Pp"><b>sd_journal_process()</b> and <b>sd_journal_wait()</b> return a
+    negative errno-style error code, or one of <b>SD_JOURNAL_NOP</b>,
+    <b>SD_JOURNAL_APPEND</b> or <b>SD_JOURNAL_INVALIDATE</b> on success:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;If <b>SD_JOURNAL_NOP</b> is returned, the journal
+  did not change since the last invocation.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;If <b>SD_JOURNAL_APPEND</b> is returned, new
+  entries have been appended to the end of the journal. In this case it is
+  sufficient to simply continue reading at the previous end location of the
+  journal, to read the newly added entries.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;If <b>SD_JOURNAL_INVALIDATE</b>, journal files
+  were added to or removed from the set of journal files watched (e.g. due to
+  rotation or vacuuming), and thus entries might have appeared or disappeared at
+  arbitrary places in the log stream, possibly before or after the previous end
+  of the log stream. If <b>SD_JOURNAL_INVALIDATE</b> is returned, live-view UIs
+  that want to reflect on screen the precise state of the log data on disk
+  should probably refresh their entire display (relative to the cursor of the
+  log entry on the top of the screen). Programs only interested in a strictly
+  sequential stream of log data may treat <b>SD_JOURNAL_INVALIDATE</b> the same
+  way as <b>SD_JOURNAL_APPEND</b>, thus ignoring any changes to the log view
+  earlier than the old end of the log stream.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SIGNAL_SAFETY"><a class="permalink" href="#SIGNAL_SAFETY">SIGNAL
+  SAFETY</a></h1>
+<p class="Pp">In general, <b>sd_journal_get_fd()</b>,
+    <b>sd_journal_get_events()</b>, and <b>sd_journal_get_timeout()</b> are
+    <i>not</i> &quot;async signal safe&quot; in the meaning of
+    <a class="Xr" href="../7/signal-safety.html"><b>signal-safety</b>(7)</a>. Nevertheless, only the first call to any of those
+    three functions performs unsafe operations, so subsequent calls <i>are</i>
+    safe.</p>
+<p class="Pp"><b>sd_journal_process()</b> and <b>sd_journal_wait()</b> are not
+    safe. <b>sd_journal_reliable_fd()</b> is safe.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">All functions listed here are thread-agnostic and only a single
+    specific thread may operate on a given object during its entire lifetime.
+    It's safe to allocate multiple independent objects and use each from a
+    specific thread in parallel. However, it's not safe to allocate such an
+    object in one thread, and operate or free it from any other, even if locking
+    is used to ensure these threads don't operate on it at the very same
+  time.</p>
+<p class="Pp">Functions described here are available as a shared library, which
+    can be compiled against and linked to with the
+    <b>libsystemd</b>&#x00A0;<a class="Xr" href="../1/pkgconf.html"><b>pkg-config</b>(1)</a> file.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Iterating through the journal, in a live view tracking all
+    changes:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>/* SPDX-License-Identifier: MIT-0 */
+#include &lt;errno.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;systemd/sd-journal.h&gt;
+int main(int argc, char *argv[]) {
+<br/>
+  int r;
+<br/>
+  sd_journal *j;
+<br/>
+  r = sd_journal_open(&amp;j, SD_JOURNAL_LOCAL_ONLY);
+<br/>
+  if (r &lt; 0) {
+<br/>
+    errno = -r;
+<br/>
+    fprintf(stderr, &quot;Failed to open journal: %m\n&quot;);
+<br/>
+    return 1;
+<br/>
+  }
+<br/>
+  for (;;)  {
+<br/>
+    const void *d;
+<br/>
+    size_t l;
+<br/>
+    r = sd_journal_next(j);
+<br/>
+    if (r &lt; 0) {
+<br/>
+      errno = -r;
+<br/>
+      fprintf(stderr, &quot;Failed to iterate to next entry: %m\n&quot;);
+<br/>
+      break;
+<br/>
+    }
+<br/>
+    if (r == 0) {
+<br/>
+      /* Reached the end, let's wait for changes, and try again */
+<br/>
+      r = sd_journal_wait(j, (uint64_t) -1);
+<br/>
+      if (r &lt; 0) {
+<br/>
+        errno = -r;
+<br/>
+        fprintf(stderr, &quot;Failed to wait for changes: %m\n&quot;);
+<br/>
+        break;
+<br/>
+      }
+<br/>
+      continue;
+<br/>
+    }
+<br/>
+    r = sd_journal_get_data(j, &quot;MESSAGE&quot;, &amp;d, &amp;l);
+<br/>
+    if (r &lt; 0) {
+<br/>
+      errno = -r;
+<br/>
+      fprintf(stderr, &quot;Failed to read message field: %m\n&quot;);
+<br/>
+      continue;
+<br/>
+    }
+<br/>
+    printf(&quot;%.*s\n&quot;, (int) l, (const char*) d);
+<br/>
+  }
+<br/>
+  sd_journal_close(j);
+<br/>
+  return 0;
+}</pre>
+</div>
+<p class="Pp">Waiting with <b>poll()</b> (this example lacks all error checking
+    for the sake of simplicity):</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>/* SPDX-License-Identifier: MIT-0 */
+#include &lt;poll.h&gt;
+#include &lt;time.h&gt;
+#include &lt;systemd/sd-journal.h&gt;
+int wait_for_changes(sd_journal *j) {
+<br/>
+  uint64_t t;
+<br/>
+  int msec;
+<br/>
+  struct pollfd pollfd;
+<br/>
+  sd_journal_get_timeout(j, &amp;t);
+<br/>
+  if (t == (uint64_t) -1)
+<br/>
+    msec = -1;
+<br/>
+  else {
+<br/>
+    struct timespec ts;
+<br/>
+    uint64_t n;
+<br/>
+    clock_gettime(CLOCK_MONOTONIC, &amp;ts);
+<br/>
+    n = (uint64_t) ts.tv_sec * 1000000 + ts.tv_nsec / 1000;
+<br/>
+    msec = t &gt; n ? (int) ((t - n + 999) / 1000) : 0;
+<br/>
+  }
+<br/>
+  pollfd.fd = sd_journal_get_fd(j);
+<br/>
+  pollfd.events = sd_journal_get_events(j);
+<br/>
+  poll(&amp;pollfd, 1, msec);
+<br/>
+  return sd_journal_process(j);
+}</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp"><b>sd_journal_get_fd()</b>, <b>sd_journal_process()</b>, and
+    <b>sd_journal_wait()</b> were added in version 187.</p>
+<p class="Pp"><b>sd_journal_reliable_fd()</b> was added in version 196.</p>
+<p class="Pp"><b>sd_journal_get_events()</b> and <b>sd_journal_get_timeout()</b>
+    were added in version 201.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/systemd.html"><b>systemd</b>(1)</a>, <a class="Xr" href="../3/sd-journal.html"><b>sd-journal</b>(3)</a>,
+    <a class="Xr" href="../3/sd_journal_open.html"><b>sd_journal_open</b>(3)</a>, <a class="Xr" href="../3/sd_journal_next.html"><b>sd_journal_next</b>(3)</a>, <a class="Xr" href="../2/poll.html"><b>poll</b>(2)</a>,
+    <a class="Xr" href="../2/clock_getres.html"><b>clock_gettime</b>(2)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os">systemd 255</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

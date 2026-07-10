@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Random Early Detection">
+<title>tc-red(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">tc-red(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#ALGORITHM">ALGORITHM</a></li><li><a href="#PARAMETERS">PARAMETERS</a></li><li><a href="#QEVENTS">QEVENTS</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#SOURCES">SOURCES</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">RED(8)</td>
+    <td class="head-vol">Linux</td>
+    <td class="head-rtitle">RED(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">red - Random Early Detection</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>tc qdisc ... red</b> <b>limit</b> bytes <b>[ min</b> bytes <b>]
+    [ max</b> bytes <b>] avpkt</b> bytes <b>[ burst</b> packets <b>] [ ecn ] [
+    harddrop ] [ nodrop ] [ bandwidth</b> rate <b>] [ probability</b> chance
+    <b>] [ adaptive ] [ qevent early_drop block</b> index <b>] [ qevent mark
+    block</b> index <b>]</b></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Random Early Detection is a classless qdisc which manages its
+    queue size smartly. Regular queues simply drop packets from the tail when
+    they are full, which may not be the optimal behaviour. RED also performs
+    tail drop, but does so in a more gradual way.</p>
+<p class="Pp">Once the queue hits a certain average length, packets enqueued
+    have a configurable chance of being marked (which may mean dropped). This
+    chance increases linearly up to a point called the <b>max</b> average queue
+    length, although the queue might get bigger.</p>
+<p class="Pp">This has a host of benefits over simple taildrop, while not being
+    processor intensive. It prevents synchronous retransmits after a burst in
+    traffic, which cause further retransmits, etc.</p>
+<p class="Pp">The goal is to have a small queue size, which is good for
+    interactivity while not disturbing TCP/IP traffic with too many sudden drops
+    after a burst of traffic.</p>
+<p class="Pp">Depending on if ECN is configured, marking either means dropping
+    or purely marking a packet as overlimit.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ALGORITHM"><a class="permalink" href="#ALGORITHM">ALGORITHM</a></h1>
+<p class="Pp">The average queue size is used for determining the marking
+    probability. This is calculated using an Exponential Weighted Moving
+    Average, which can be more or less sensitive to bursts.</p>
+<p class="Pp">When the average queue size is below <b>min</b> bytes, no packet
+    will ever be marked. When it exceeds <b>min,</b> the probability of doing so
+    climbs linearly up to <b>probability,</b> until the average queue size hits
+    <b>max</b> bytes. Because <b>probability</b> is normally not set to 100%,
+    the queue size might conceivably rise above <b>max</b> bytes, so the
+    <b>limit</b> parameter is provided to set a hard maximum for the size of the
+    queue.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARAMETERS"><a class="permalink" href="#PARAMETERS">PARAMETERS</a></h1>
+<dl class="Bl-tag">
+  <dt id="min"><a class="permalink" href="#min">min</a></dt>
+  <dd>Average queue size at which marking becomes a possibility. Defaults to
+      <b>max</b> /3
+    <p class="Pp"></p>
+  </dd>
+  <dt id="max"><a class="permalink" href="#max">max</a></dt>
+  <dd>At this average queue size, the marking probability is maximal. Should be
+      at least twice <b>min</b> to prevent synchronous retransmits, higher for
+      low <b>min.</b> Default to <b>limit</b> /4</dd>
+  <dt id="probability"><a class="permalink" href="#probability">probability</a></dt>
+  <dd>Maximum probability for marking, specified as a floating point number from
+      0.0 to 1.0. Suggested values are 0.01 or 0.02 (1 or 2%, respectively).
+      Default : 0.02</dd>
+  <dt id="limit"><a class="permalink" href="#limit">limit</a></dt>
+  <dd>Hard limit on the real (not average) queue size in bytes. Further packets
+      are dropped. Should be set higher than max+burst. It is advised to set
+      this a few times higher than <b>max.</b></dd>
+  <dt id="burst"><a class="permalink" href="#burst">burst</a></dt>
+  <dd>Used for determining how fast the average queue size is influenced by the
+      real queue size. Larger values make the calculation more sluggish,
+      allowing longer bursts of traffic before marking starts. Real life
+      experiments support the following guideline: (min+min+max)/(3*avpkt).</dd>
+  <dt id="avpkt"><a class="permalink" href="#avpkt">avpkt</a></dt>
+  <dd>Specified in bytes. Used with burst to determine the time constant for
+      average queue size calculations. 1000 is a good value.</dd>
+  <dt id="bandwidth"><a class="permalink" href="#bandwidth">bandwidth</a></dt>
+  <dd>This rate is used for calculating the average queue size after some idle
+      time. Should be set to the bandwidth of your interface. Does not mean that
+      RED will shape for you! Optional. Default : 10Mbit</dd>
+  <dt id="ecn"><a class="permalink" href="#ecn">ecn</a></dt>
+  <dd>As mentioned before, RED can either 'mark' or 'drop'. Explicit Congestion
+      Notification allows RED to notify remote hosts that their rate exceeds the
+      amount of bandwidth available. Non-ECN capable hosts can only be notified
+      by dropping a packet. If this parameter is specified, packets which
+      indicate that their hosts honor ECN will only be marked and not dropped,
+      unless the queue size hits <b>limit</b> bytes. Recommended.</dd>
+  <dt id="harddrop"><a class="permalink" href="#harddrop">harddrop</a></dt>
+  <dd>If average flow queue size is above <b>max</b> bytes, this parameter
+      forces a drop instead of ecn marking.</dd>
+  <dt id="nodrop"><a class="permalink" href="#nodrop">nodrop</a></dt>
+  <dd>With this parameter, traffic that should be marked, but is not
+      ECN-capable, is enqueued. Without the parameter it is early-dropped.</dd>
+  <dt id="adaptive"><a class="permalink" href="#adaptive">adaptive</a></dt>
+  <dd>(Added in linux-3.3) Sets RED in adaptive mode as described in
+      http://icir.org/floyd/papers/adaptiveRed.pdf
+    <pre>Goal of Adaptive RED is to make 'probability' dynamic value between 1% and 50% to reach the target average queue :
+<b>(max - min) / 2</b></pre>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="QEVENTS"><a class="permalink" href="#QEVENTS">QEVENTS</a></h1>
+<p class="Pp">See tc (8) for some general notes about qevents. The RED qdisc
+    supports the following qevents:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="early_drop"><a class="permalink" href="#early_drop">early_drop</a></dt>
+  <dd>The associated block is executed when packets are early-dropped. This
+      includes non-ECT packets in ECN mode.</dd>
+  <dt id="mark"><a class="permalink" href="#mark">mark</a></dt>
+  <dd>The associated block is executed when packets are marked in ECN mode.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<p class="Pp"># tc qdisc add dev eth0 parent 1:1 handle 10: red
+  <br/>
+   limit 400000 min 30000 max 90000 avpkt 1000
+  <br/>
+   burst 55 ecn adaptive bandwidth 10Mbit</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/tc.html"><b>tc</b>(8)</a>, <a class="Xr" href="../8/tc-choke.html"><b>tc-choke</b>(8)</a></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SOURCES"><a class="permalink" href="#SOURCES">SOURCES</a></h1>
+<dl class="Bl-tag">
+  <dt id="o"><a class="permalink" href="#o">o</a></dt>
+  <dd>Floyd, S., and Jacobson, V., Random Early Detection gateways for
+      Congestion Avoidance. http://www.aciri.org/floyd/papers/red/red.html</dd>
+  <dt id="o~2"><a class="permalink" href="#o~2">o</a></dt>
+  <dd>Some changes to the algorithm by Alexey N. Kuznetsov.</dd>
+  <dt id="o~3"><a class="permalink" href="#o~3">o</a></dt>
+  <dd>Adaptive RED : http://icir.org/floyd/papers/adaptiveRed.pdf
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Alexey N. Kuznetsov, &lt;kuznet@ms2.inr.ac.ru&gt;, Alexey
+    Makarenko &lt;makar@phoenix.kharkov.ua&gt;, J Hadi Salim
+    &lt;hadi@nortelnetworks.com&gt;, Eric Dumazet
+    &lt;eric.dumazet@gmail.com&gt;. This manpage maintained by bert hubert
+    &lt;ahu@ds9a.nl&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">13 December 2001</td>
+    <td class="foot-os">iproute2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

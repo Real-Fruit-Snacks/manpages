@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="c-ares library Android initialization">
+<title>ares_library_init_android(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">ares_library_init_android(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUES">RETURN
+  VALUES</a></li><li><a href="#THREAD_SAFETY">THREAD
+  SAFETY</a></li><li><a href="#JNI">JNI</a></li><li><a href="#AVAILABILITY">AVAILABILITY</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ARES_LIBRARY_INIT_ANDROID(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">ARES_LIBRARY_INIT_ANDROID(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">ares_library_init_android - c-ares library Android
+  initialization</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>#include &lt;ares.h&gt;
+int ares_library_init_android(jobject <i>connectivity_manager</i>)
+int ares_library_android_initialized();
+void ares_library_init_jvm(JavaVM *<i>jvm</i>)
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <i>ares_library_init_android(3)</i> function performs
+    initializations internally required by the c-ares library when used on
+    Android. This can take place anytime after <i>ares_library_init(3)</i>. It
+    must take place after <i>ares_library_init_jvm</i>.
+    ares_library_init_android must be called before DNS resolution will work on
+    Android 8 (Oreo) or newer when targetSdkVersion is set to 26+.</p>
+<p class="Pp">As of Android 8 (API level 26) getting DNS server information has
+    becomei more restrictive and can only be accessed using the Connectivity
+    Manager. It is necessary to pass the connectivity manager to c-ares via JNI.
+    Also, the ACCESS_NETWORK_STATE permission must be present in the Android
+    application.</p>
+<p class="Pp">Android older than 8 do not need to to be initialized as they are
+    less restrictive. However, this is a run time not compile time limitation.
+    Proper Android initialization should take place regardless of the targeted
+    Android version.</p>
+<p class="Pp">Deinitialization will take place though
+    <i>ares_library_cleanup(3)</i>.</p>
+<p class="Pp">The <b>ares_library_init_jvm</b> function allows the caller to
+    register the JVM with c-ares. It's meant to be called during JNI_OnLoad
+    because you're guaranteed to have the JVM in that function. The JVM is
+    required in order to use the Connectivity Manager registered using
+    <i>ares_library_init_android(3)</i>. This must be call before
+    <i>ares_library_init_android(3)</i>.</p>
+<p class="Pp">The <b>ares_library_android_initialized</b> function can be used
+    to check whether c-ares has been initialized for use with Android.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp">ARES_SUCCESS will be returned on success otherwise an error code
+    will be returned.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THREAD_SAFETY"><a class="permalink" href="#THREAD_SAFETY">THREAD
+  SAFETY</a></h1>
+<p class="Pp"><b>These init functions are not thread safe.</b> You have to call
+    it once the program has started, but this call must be done before the
+    program starts any other thread. This is required to avoid potential race
+    conditions in library initialization, and also due to the fact these might
+    call functions from other libraries that are thread unsafe, and could
+    conflict with any other thread that is already using these other
+  libraries.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="JNI"><a class="permalink" href="#JNI">JNI</a></h1>
+<p class="Pp">Accessing the Connectivity Manager though Java:</p>
+<p class="Pp">Register the <i>ares_library_android_init</i>.</p>
+<pre>
+<br/>
+  static JNINativeMethod funcs[] = {
+<br/>
+  { &quot;initialize_native&quot;,     &quot;(Landroid/net/ConnectivityManager;)I&quot;,
+<br/>
+    (void *)&amp;ares_library_init_android}
+<br/>
+  };
+<br/>
+  JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
+<br/>
+  {
+<br/>
+    JNIEnv *env = NULL;
+<br/>
+    jclass  cls = NULL;
+<br/>
+    jint    res;
+<br/>
+  
+<br/>
+    if ((*vm)-&gt;GetEnv(vm, (void **)&amp;env, JNI_VERSION_1_6) != JNI_OK)
+<br/>
+      return -1;
+<br/>
+  
+<br/>
+    cls = (*env)-&gt;FindClass(env, JNIT_CLASS);
+<br/>
+    if (cls == NULL)
+<br/>
+      return -1;
+<br/>
+  
+<br/>
+    res = (*env)-&gt;RegisterNatives(env, cls, funcs, sizeof(funcs)/sizeof(funcs[0]));
+<br/>
+    if (res != 0)
+<br/>
+      return -1;
+<br/>
+  
+<br/>
+    ares_library_init_jvm(vm);
+<br/>
+    return JNI_VERSION_1_6;
+<br/>
+  }</pre>
+Calling the registered function from Java:
+<pre>
+<br/>
+  public class MyObject {
+<br/>
+    static {
+<br/>
+      System.loadLibrary(&quot;cares&quot;);
+<br/>
+    }
+<br/>
+  
+<br/>
+    private static native boolean initialize_native(ConnectivityManager
+<br/>
+      connectivity_manager);
+<br/>
+  
+<br/>
+    public static boolean initialize(Context context) {
+<br/>
+      initialize_native((ConnectivityManager)context.getSystemService(Context.CONNECTIVITY_SERVICE));
+<br/>
+    }
+<br/>
+  }</pre>
+<p class="Pp">Initializing the Connectivity Manager in JNI directly using an
+    Android Context. It is assumed the JVM has already been registered through
+    <i>JNI_OnLoad</i>.</p>
+<pre>
+<br/>
+  void initialize(jobject android_context)
+<br/>
+  {
+<br/>
+    jclass obj_cls = jni_get_class(env, &quot;android/content/Context&quot;);
+<br/>
+    jmethodID obj_mid = jni_get_method_id(env, obj_cls, &quot;getSystemService&quot;, &quot;(Ljava/lang/String;)Ljava/lang/Object;&quot;);
+<br/>
+    jfieldID fid = (*env)-&gt;GetStaticFieldID(env, obj_cls, &quot;CONNECTIVITY_SERVICE&quot;, &quot;Ljava/lang/String;&quot;);
+<br/>
+    jstring str = (*env)-&gt;GetStaticObjectField(env, obj_cls, fid);
+<br/>
+    connectivity_manager = (*env)-&gt;CallObjectMethod(env, android_context, obj_mid, str);
+<br/>
+    if (connectivity_manager == NULL)
+<br/>
+      return;
+<br/>
+    ares_library_init_android(connectivity_manager);
+<br/>
+  }</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+<p class="Pp">This function was first introduced in c-ares version 1.15.0.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/ares_library_init.html"><b>ares_library_init</b>(3)</a>, <a class="Xr" href="../3/ares_library_cleanup.html"><b>ares_library_cleanup</b>(3)</a>,</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">John Schember</p>
+<p class="Pp">Copyright (C) 2017 by John Schember</p>
+<p class="Pp"></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">13 Sept 2017</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

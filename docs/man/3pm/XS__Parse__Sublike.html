@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="XS functions to assist in parsing &quot;sub&quot;-like syntax">
+<title>XS::Parse::Sublike(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">XS::Parse::Sublike(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#XS_FUNCTIONS">XS
+  FUNCTIONS</a></li><li><a href="#boot_xs_parse_sublike">boot_xs_parse_sublike</a></li><li><a href="#xs_parse_sublike">xs_parse_sublike</a></li><li><a href="#register_xs_parse_sublike">register_xs_parse_sublike</a></li><li><a href="#xs_parse_sublike_any">xs_parse_sublike_any</a></li><li><a href="#PARSE_CONTEXT">PARSE
+  CONTEXT</a></li><li><a href="#PARSE_HOOKS">PARSE
+  HOOKS</a></li><li><a href="#The__permit__Stage">The
+  &amp;quot;permit&amp;quot; Stage</a></li><li><a href="#Parse_Name">Parse
+  Name</a></li><li><a href="#The__pre_subparse__Stage">The
+  &amp;quot;pre_subparse&amp;quot; Stage</a></li><li><a href="#Parse_Attrs">Parse
+  Attrs</a></li><li><a href="#The_optional__filter_attr__Stage">The
+  optional &amp;quot;filter_attr&amp;quot; Stage</a></li><li><a href="#The__post_blockstart__Stage">The
+  &amp;quot;post_blockstart&amp;quot; Stage</a></li><li><a href="#Parse_Body">Parse
+  Body</a></li><li><a href="#The__pre_blockend__Stage">The
+  &amp;quot;pre_blockend&amp;quot; Stage</a></li><li><a href="#The__post_newcv__Stage">The
+  &amp;quot;post_newcv&amp;quot; Stage</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">XS::Parse::Sublike(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">XS::Parse::Sublike(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">&quot;XS::Parse::Sublike&quot; - XS functions to assist in parsing
+    &quot;sub&quot;-like syntax</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This module provides some XS functions to assist in writing
+    parsers for <span class="Li">&quot;sub&quot;</span>-like syntax, primarily
+    for authors of keyword plugins using the
+    <span class="Li">&quot;PL_keyword_plugin&quot;</span> hook mechanism. It is
+    unlikely to be of much use to anyone else; and highly unlikely to be any use
+    when writing perl code using these. Unless you are writing a keyword plugin
+    using XS, this module is not for you.</p>
+<p class="Pp">This module is also currently experimental, and the design is
+    still evolving and subject to change. Later versions may break ABI
+    compatibility, requiring changes or at least a rebuild of any module that
+    depends on it.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="XS_FUNCTIONS"><a class="permalink" href="#XS_FUNCTIONS">XS
+  FUNCTIONS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="boot_xs_parse_sublike"><a class="permalink" href="#boot_xs_parse_sublike">boot_xs_parse_sublike</a></h2>
+<pre>  void boot_xs_parse_sublike(double ver)
+</pre>
+<p class="Pp">Call this function from your
+    <span class="Li">&quot;BOOT&quot;</span> section in order to initialise the
+    module and parsing hooks.</p>
+<p class="Pp"><i>ver</i> should either be 0 or a decimal number for the module
+    version requirement; e.g.</p>
+<p class="Pp"></p>
+<pre>   boot_xs_parse_sublike(0.04);
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="xs_parse_sublike"><a class="permalink" href="#xs_parse_sublike">xs_parse_sublike</a></h2>
+<pre>   int xs_parse_sublike(const struct XSParseSublikeHooks *hooks, void *hookdata, OP **op_ptr)
+</pre>
+<p class="Pp">This function performs the actual parsing of a
+    <span class="Li">&quot;sub&quot;</span>-like keyword. It expects the lexer
+    to be at a position just after the introduction keyword has been consumed,
+    and will proceed to parse an optional name, list of attributes, signature
+    (if enabled by <span class="Li">&quot;use feature
+    'signatures'&quot;</span>), and code body. The return value and
+    <span class="Li">&quot;op_ptr&quot;</span> can be used directly from the
+    keyword plugin function. It is intended this function be invoked from it,
+    and the result returned directly.</p>
+<p class="Pp">For a more automated handling of keywords, see
+    &quot;register_xs_parse_sublike&quot;.</p>
+<p class="Pp"><i>hooks</i> should be a structure that can provide optional
+    function pointers used to customise the parsing process at various stages.
+    <i>hookdata</i> is an opaque pointer which is passed through to each of the
+    hook stage functions.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="register_xs_parse_sublike"><a class="permalink" href="#register_xs_parse_sublike">register_xs_parse_sublike</a></h2>
+<pre>   void register_xs_parse_sublike(const char *keyword,
+     const struct XSParseSublikeHooks *hooks, void *hookdata)
+</pre>
+<p class="Pp">This function installs a set of parsing hooks to be associated
+    with the given keyword. Such a keyword will then be handled automatically by
+    a keyword parser installed by
+    <span class="Li">&quot;XS::Parse::Sublike&quot;</span> itself.</p>
+<p class="Pp">When the keyword is encountered, the hook's
+    <span class="Li">&quot;permit&quot;</span> function is first tested to see
+    if the keyword is permitted at this point. If the function returns true then
+    the keyword is consumed and parsed as per &quot;xs_parse_sublike&quot;.</p>
+<p class="Pp"><i>hookdata</i> is an opaque pointer which is passed through to
+    each of the hook stage functions when they are invoked.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="xs_parse_sublike_any"><a class="permalink" href="#xs_parse_sublike_any">xs_parse_sublike_any</a></h2>
+<pre>   int xs_parse_sublike_any(const struct XSParseSublikeHooks *hooks, void *hookdata,
+     OP **op_ptr)
+</pre>
+<p class="Pp">This function expects to consume an introduction keyword at the
+    lexer position which is either <span class="Li">&quot;sub&quot;</span> or
+    the name of another <span class="Li">&quot;sub&quot;</span>-like keyword,
+    which has been previously registered using
+    &quot;register_xs_parse_sublike&quot;. It then proceeds to parse the
+    subsequent syntax similar to how it would have parsed if encountered by the
+    module's own keyword parser plugin, except that the second set of hooks
+    given here also take effect.</p>
+<p class="Pp">If a regular <span class="Li">&quot;sub&quot;</span> is
+    encountered, then this is parsed using the <i>hooks</i> in a similar way to
+    <span class="Li">xs_parse_sublike()</span>.</p>
+<p class="Pp">If a different registered
+    <span class="Li">&quot;sub&quot;</span>-like keyword is encountered, then
+    parsing is performed using <b>both</b> sets of hooks - the ones given to
+    this function as well as the ones registered with the keyword. This allows
+    their effects to combined. The hooks given by the <i>hooks</i> argument are
+    considered to be on the &quot;outside&quot; from those of the registered
+    keyword &quot;inside&quot;. The outside ones run first for all stages,
+    except <span class="Li">&quot;pre_blockend&quot;</span> which runs them
+    inside-out.</p>
+<p class="Pp"><i>hookdata</i> is an opaque pointer which is passed through to
+    each of the hook stage functions when they are invoked.</p>
+<p class="Pp">Note that this function is now vaguely discouraged, in favour of
+    using a prefixing keyword instead, by using the
+    <span class="Li">&quot;XS_PARSE_SUBLIKE_FLAG_PREFIX&quot;</span> flag.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARSE_CONTEXT"><a class="permalink" href="#PARSE_CONTEXT">PARSE
+  CONTEXT</a></h1>
+<p class="Pp">The various hook stages all share state about the ongoing parse
+    process using various fields of the
+    <span class="Li">&quot;XSParseSublikeContext&quot;</span> structure.</p>
+<p class="Pp"></p>
+<pre>   struct XSParseSublikeContext {
+      SV *name;
+      OP *attrs;
+      OP *body;
+      CV *cv;
+      U32 actions;
+      HV *moddata;
+   }
+</pre>
+<p class="Pp">The <span class="Li">&quot;actions&quot;</span> field will contain
+    a bitmask of action flags that control the various steps that
+    <span class="Li">&quot;XS::Parse::Sublike&quot;</span> might take inbetween
+    invoking hook stages. The initial value of this field is set after the
+    name-parsing stage, depending on whether or not a name is found. Stage hook
+    functions may modify the field to adjust the subsequent behaviour.</p>
+<p class="Pp">At the current ABI version, a module will have to set the
+    <span class="Li">&quot;XS_PARSE_SUBLIKE_COMPAT_FLAG_DYNAMIC_ACTIONS&quot;</span>
+    bit of the <span class="Li">&quot;flags&quot;</span> field in order to make
+    use of the <i>actions</i> field. A future ABI version may remove this
+    restriction.</p>
+<dl class="Bl-tag">
+  <dt id="XS_PARSE_SUBLIKE_ACTION_CVf_ANON"><a class="permalink" href="#XS_PARSE_SUBLIKE_ACTION_CVf_ANON">XS_PARSE_SUBLIKE_ACTION_CVf_ANON</a></dt>
+  <dd>If set, the <span class="Li">start_subparse()</span> call will be set up
+      for an anonymous function protosub; if not it will be set for a named
+      function. This is set by default if a name was not found.</dd>
+  <dt id="XS_PARSE_SUBLIKE_ACTION_SET_CVNAME"><a class="permalink" href="#XS_PARSE_SUBLIKE_ACTION_SET_CVNAME">XS_PARSE_SUBLIKE_ACTION_SET_CVNAME</a></dt>
+  <dd>If set, the newly-constructed CV will have the given name set on it. This
+      is set by default if a name was found.
+    <p class="Pp">On Perl versions 5.22 and above, this flag can be set even if
+        <span class="Li">&quot;XS_PARSE_SUBLIKE_ACTION_INSTALL_SYMBOL&quot;</span>
+        is not. In this case, the CV will not be reachable via the symbol table,
+        even though it knows its own name and pretends that it is. On earlier
+        versions of perl this flag will be ignored in that case.</p>
+  </dd>
+  <dt id="XS_PARSE_SUBLIKE_ACTION_INSTALL_SYMBOL"><a class="permalink" href="#XS_PARSE_SUBLIKE_ACTION_INSTALL_SYMBOL">XS_PARSE_SUBLIKE_ACTION_INSTALL_SYMBOL</a></dt>
+  <dd>If set, the newly-constructed CV will be installed into the symbol table
+      at its given name. Note that it is not possible to enable this flag
+      without also enabling
+      <span class="Li">&quot;XS_PARSE_SUBLIKE_ACTION_SET_CVNAME&quot;</span>.
+      This is set by default if a name was found.</dd>
+  <dt id="XS_PARSE_SUBLIKE_ACTION_REFGEN_ANONCODE"><a class="permalink" href="#XS_PARSE_SUBLIKE_ACTION_REFGEN_ANONCODE">XS_PARSE_SUBLIKE_ACTION_REFGEN_ANONCODE</a></dt>
+  <dd>If set, the syntax will yield the
+      <span class="Li">&quot;OP_REFGEN&quot;</span> /
+      <span class="Li">&quot;OP_ANONCODE&quot;</span> optree fragment typical of
+      anonymous code expressions; if not it will be
+      <span class="Li">&quot;OP_NULL&quot;</span>. This is set by default if a
+      name was not found.</dd>
+  <dt id="XS_PARSE_SUBLIKE_ACTION_RET_EXPR"><a class="permalink" href="#XS_PARSE_SUBLIKE_ACTION_RET_EXPR">XS_PARSE_SUBLIKE_ACTION_RET_EXPR</a></dt>
+  <dd>If set, the syntax will parse like an expression; if not it will parse
+      like a statement. This is set by default if a name was not found.</dd>
+</dl>
+<p class="Pp">The <i>moddata</i> field will point towards an HV that modules can
+    used to store extra data between stages. As a naming convention a module
+    should prefix its keys with its own module name and a slash character,
+    <span class="Li">&quot;Some::Module/field&quot;</span>. The field will point
+    to a newly-created HV for every parse invocation, and will be released when
+    each parse is complete.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARSE_HOOKS"><a class="permalink" href="#PARSE_HOOKS">PARSE
+  HOOKS</a></h1>
+<p class="Pp">The <span class="Li">&quot;XSParseSublikeHooks&quot;</span>
+    structure provides the following hook stages, which are invoked in the given
+    order.</p>
+<p class="Pp">The structure has a <i>flags</i> field, which controls various
+    optional parts of operation. The following flags are defined.</p>
+<dl class="Bl-tag">
+  <dt id="XS_PARSE_SUBLIKE_FLAG_FILTERATTRS"><a class="permalink" href="#XS_PARSE_SUBLIKE_FLAG_FILTERATTRS">XS_PARSE_SUBLIKE_FLAG_FILTERATTRS</a></dt>
+  <dd>If set, the optional <span class="Li">&quot;filter_attr&quot;</span> stage
+      will be invoked.</dd>
+  <dt id="XS_PARSE_SUBLIKE_FLAG_BODY_OPTIONAL"><a class="permalink" href="#XS_PARSE_SUBLIKE_FLAG_BODY_OPTIONAL">XS_PARSE_SUBLIKE_FLAG_BODY_OPTIONAL</a></dt>
+  <dd>If <b>not</b> set, the <i>require_parts</i> field will imply the
+      <span class="Li">&quot;XS_PARSE_SUBLIKE_PART_BODY&quot;</span> flag,
+      making the body part required. By setting this flag this will no longer
+      happen. If all hooks agree, then the body will become optional.</dd>
+  <dt id="XS_PARSE_SUBLIKE_FLAG_PREFIX"><a class="permalink" href="#XS_PARSE_SUBLIKE_FLAG_PREFIX">XS_PARSE_SUBLIKE_FLAG_PREFIX</a></dt>
+  <dd>If set, the keyword is considered to be a prefix that can be placed in
+      front of <span class="Li">&quot;sub&quot;</span> or another sub-like
+      keyword, to add its set of hooks in addition to those of the following
+      keyword. These prefices may be further stacked.</dd>
+</dl>
+<p class="Pp">In addition there are two <span class="Li">&quot;U8&quot;</span>
+    fields named <i>require_parts</i> and <i>skip_parts</i> which control the
+    behaviour of various parts of the syntax which are usually optional. Any
+    parts with bits set in <i>require_parts</i> become non-optional, and an
+    error if they are missing. Any parts with bits set in <i>skip_parts</i> will
+    skip the relevant part of the parsing process.</p>
+<p class="Pp">When multiple sets of hooks are combined by the
+    <span class="Li">&quot;xs_parse_sublike_any&quot;</span> function, or as
+    part of parsing prefixing keywords, these bitmasks are accumulated together
+    with inclusive or. Any part required by any set of hooks will still be
+    required; any step skipped by either will be skipped entirely.</p>
+<p class="Pp">If the same bit is set in both fields then the relevant parsing
+    step will not be performed but it will still be an error for that section to
+    be missing. This is likely not useful.</p>
+<p class="Pp">Note that for skipped parts, only the actual parsing steps are
+    skipped. A hook function can still set the relevant fields in the context
+    structure anyway to force a particular value for those parts.</p>
+<dl class="Bl-tag">
+  <dt id="XS_PARSE_SUBLIKE_PART_NAME"><a class="permalink" href="#XS_PARSE_SUBLIKE_PART_NAME">XS_PARSE_SUBLIKE_PART_NAME</a></dt>
+  <dd>The name of the function.</dd>
+  <dt id="XS_PARSE_SUBLIKE_PART_ATTRS"><a class="permalink" href="#XS_PARSE_SUBLIKE_PART_ATTRS">XS_PARSE_SUBLIKE_PART_ATTRS</a></dt>
+  <dd>The attributes of the function.
+    <p class="Pp">This part can be skipped, but the bit is ignored when in
+        <i>require_parts</i>. It is always permitted to not provide any
+        additional attributes to a function definition.</p>
+  </dd>
+  <dt id="XS_PARSE_SUBLIKE_PART_SIGNATURE"><a class="permalink" href="#XS_PARSE_SUBLIKE_PART_SIGNATURE">XS_PARSE_SUBLIKE_PART_SIGNATURE</a></dt>
+  <dd>The parameter signature of the function.
+    <p class="Pp">This part can be skipped, but it is always permitted not to
+        provide a signature for a function definition even if the bit it set in
+        <i>require_parts</i>. This is because such syntax only applies when
+        <span class="Li">&quot;use feature 'signatures'&quot;</span> is in
+        effect, and only on supporting perl versions.</p>
+    <p class="Pp">However, setting the bit in <i>require_parts</i> instead has
+        the effect of enabling <span class="Li">&quot;use feature
+        'signatures'&quot;</span> (at least on supporting perl versions), thus
+        permitting the syntax to use a signature even if the signatures feature
+        was not previously enabled.</p>
+  </dd>
+  <dt id="XS_PARSE_SUBLIKE_PART_BODY"><a class="permalink" href="#XS_PARSE_SUBLIKE_PART_BODY">XS_PARSE_SUBLIKE_PART_BODY</a></dt>
+  <dd>The actual body of the function, expressed as a brace-delimited block.
+    <p class="Pp">This part cannot be skipped, but it can be made optional by
+        omitting it from the <i>require_parts</i> field. Instead of the block,
+        it is permitted to place a single semicolon
+        (<span class="Li">&quot;;&quot;</span>) to act as a statement
+        terminator; thus giving the same syntax as a subroutine forward
+        declaration.</p>
+    <p class="Pp">In this case, the <span class="Li">&quot;body&quot;</span> and
+        <span class="Li">&quot;cv&quot;</span> fields of the context structure
+        will remain <span class="Li">&quot;NULL&quot;</span>.</p>
+    <p class="Pp">This flag is currently implied on the <i>require_parts</i>
+        field if the hook does not supply the
+        <span class="Li">&quot;XS_PARSE_SUBLIKE_FLAG_BODY_OPTIONAL&quot;</span>
+        flag; meaning that most use-cases will make it a required part.</p>
+  </dd>
+</dl>
+<section class="Ss">
+<h2 class="Ss" id="The__permit__Stage"><a class="permalink" href="#The__permit__Stage">The
+  &quot;permit&quot; Stage</a></h2>
+<pre>   const char *permit_hintkey
+   bool (*permit)(pTHX_ void *hookdata)
+</pre>
+<p class="Pp">Called by the installed keyword parser hook which is used to
+    handle keywords registered by &quot;register_xs_parse_sublike&quot;.</p>
+<p class="Pp">As a shortcut for the common case, the
+    <span class="Li">&quot;permit_hintkey&quot;</span> may point to a string to
+    look up from the hints hash. If the given key name is not found in the hints
+    hash then the keyword is not permitted. If the key is present then the
+    <span class="Li">&quot;permit&quot;</span> function is invoked as
+  normal.</p>
+<p class="Pp">If not rejected by a hint key that was not found in the hints
+    hash, the function part of the stage is called next and should inspect
+    whether the keyword is permitted at this time perhaps by inspecting other
+    lexical clues, and return true only if the keyword is permitted.</p>
+<p class="Pp">Both the string and the function are optional. Either or both may
+    be present. If neither is present then the keyword is always permitted -
+    which is likely not what you wanted to do.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Parse_Name"><a class="permalink" href="#Parse_Name">Parse
+  Name</a></h2>
+<p class="Pp">At this point, the optional name is parsed and filled into the
+    <span class="Li">&quot;name&quot;</span> field of the context.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The__pre_subparse__Stage"><a class="permalink" href="#The__pre_subparse__Stage">The
+  &quot;pre_subparse&quot; Stage</a></h2>
+<pre>   void (*pre_subparse)(pTHX_ struct XSParseSublikeContext *ctx, void *hookdata)
+</pre>
+<p class="Pp">Invoked just before <span class="Li">start_subparse()</span> is
+    called.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Parse_Attrs"><a class="permalink" href="#Parse_Attrs">Parse
+  Attrs</a></h2>
+<p class="Pp">At this point the optional sub attributes are parsed and filled
+    into the <span class="Li">&quot;attrs&quot;</span> field of the context,
+    then <span class="Li">block_start()</span> is called.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_optional__filter_attr__Stage"><a class="permalink" href="#The_optional__filter_attr__Stage">The
+  optional &quot;filter_attr&quot; Stage</a></h2>
+<pre>   bool (*filter_attr)(pTHX_ struct XSParseSublikeContext *ctx,
+      SV *attr, SV *val, void *hookdata);
+</pre>
+<p class="Pp">If the <i>flags</i> field includes
+    <span class="Li">&quot;XS_PARSE_SUBLIKE_FLAG_FILTERATTRS&quot;</span> then
+    each individual attribute is passed through this optional filter function
+    immediately as each is parsed. <i>attr</i> will be a string SV containing
+    the name of the attribute, and <i>val</i> will either be
+    <span class="Li">&quot;NULL&quot;</span>, or a string SV containing the
+    contents of the parens after its name (without the parens themselves).</p>
+<p class="Pp">If the filter returns <span class="Li">&quot;true&quot;</span>, it
+    indicates that it has in some way handled the attribute and it should not be
+    added to the list given to <span class="Li">newATTRSUB()</span>. If the
+    filter returns <span class="Li">&quot;false&quot;</span> it will be handled
+    in the usual way; equivalent to the case where the filter function did not
+    exist.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The__post_blockstart__Stage"><a class="permalink" href="#The__post_blockstart__Stage">The
+  &quot;post_blockstart&quot; Stage</a></h2>
+<pre>   void (*post_blockstart)(pTHX_ struct XSParseSublikeContext *ctx, void *hookdata)
+</pre>
+<p class="Pp">Invoked after the <span class="Li">block_start()</span> function
+    has been called. This hook stage may wish to perform any alterations of
+    <span class="Li">&quot;PL_compcv&quot;</span> or related, inspect or alter
+    the lexical pad, provide hints hash values, or any other tasks before the
+    signature and code body are parsed.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Parse_Body"><a class="permalink" href="#Parse_Body">Parse
+  Body</a></h2>
+<p class="Pp">At this point, the main body of the function is parsed and the
+    optree is stored in the <span class="Li">&quot;body&quot;</span> field of
+    the context. If the perl version supports sub signatures and they are
+    enabled and found, the body will be prefixed with the signature ops as
+  well.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The__pre_blockend__Stage"><a class="permalink" href="#The__pre_blockend__Stage">The
+  &quot;pre_blockend&quot; Stage</a></h2>
+<pre>   void (*pre_blockend)(pTHX_ struct XSParseSublikeContext *ctx, void *hookdata)
+</pre>
+<p class="Pp">Invoked just before the <span class="Li">block_end()</span>
+    function is invoked. The hook stage may wish to inspect or alter the optree
+    stored in the <span class="Li">&quot;body&quot;</span> context field.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The__post_newcv__Stage"><a class="permalink" href="#The__post_newcv__Stage">The
+  &quot;post_newcv&quot; Stage</a></h2>
+<pre>   void (*post_newcv)(pTHX_ struct XSParseSublikeContext *ctx, void *hookdata)
+</pre>
+<p class="Pp">Invoked just after <span class="Li">newATTRSUB()</span> has been
+    invoked on the optree. The hook stage may wish to inspect or alter the CV
+    stored in the <span class="Li">&quot;cv&quot;</span> context field.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Paul Evans &lt;leonerd@leonerd.org.uk&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

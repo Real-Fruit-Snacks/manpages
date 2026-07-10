@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="describes date calculations">
+<title>Date::Manip::Calc(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">Date::Manip::Calc(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#TYPES_OF_CALCULATIONS">TYPES
+  OF CALCULATIONS</a></li><li><a href="#MODE">MODE</a></li><li><a href="#TIMEZONE_CONSIDERATIONS">TIMEZONE
+  CONSIDERATIONS</a></li><li><a href="#BUSINESS_MODE_CONSIDERATIONS">BUSINESS
+  MODE CONSIDERATIONS</a></li><li><a href="#EXACT,_SEMI-EXACT,_AND_APPROXIMATE_DATE/DELTA_CALCULATIONS">EXACT,
+  SEMI-EXACT, AND APPROXIMATE DATE/DELTA CALCULATIONS</a></li><li><a href="#EXACT,_SEMI-EXACT,_AND_APPROXIMATE_DATE/DATE_CALCULATIONS">EXACT,
+  SEMI-EXACT, AND APPROXIMATE DATE/DATE CALCULATIONS</a></li><li><a href="#SUBTRACTION">SUBTRACTION</a></li><li><a href="#APPROXIMATE_DATE/DATE_CALCULATION">APPROXIMATE
+  DATE/DATE CALCULATION</a></li><li><a href="#KNOWN_BUGS">KNOWN
+  BUGS</a></li><li><a href="#BUGS_AND_QUESTIONS">BUGS
+  AND QUESTIONS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">Date::Manip::Calc(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">Date::Manip::Calc(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">Date::Manip::Calc - describes date calculations</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Two objects (both of which are either Date::Manip::Date or
+    Date::Manip::Delta objects) may be used to creates a third object based on
+    those two.</p>
+<p class="Pp"></p>
+<pre>   $delta  = $date-&gt;calc($date2 [,$subtract] [,$mode]);
+   $date2  = $date-&gt;calc($delta [,$subtract]);
+   $date2  = $delta-&gt;calc($date1 [,$subtract]);
+   $delta3 = $delta1-&gt;calc($delta2 [,$subtract] [,$no_normalize]);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This document describes the different types of calculations that
+    can be done using dates and deltas. Date calculations are much more
+    complicated than they initially appear, so this document is fairly
+  large.</p>
+<p class="Pp">The complication in date calculations is due to the fact that it
+    is impossible to express some parts of a delta as an exact length. Some
+    examples will illustrate this:</p>
+<p class="Pp">As an example, let's take two dates and determine how much time
+    elapsed between them:</p>
+<p class="Pp"></p>
+<pre>   Nov 3 2016 11:00:00
+   Dec 5 2016 12:00:00
+   Elapsed time: 770 hours
+</pre>
+<p class="Pp">There are several ways to describe the time that elapsed. The
+    first way is to give the difference exactly. This is the exact delta.</p>
+<p class="Pp">An exact delta is always described in terms of hours, minutes, and
+    seconds.</p>
+<p class="Pp">The problem with this is that we don't think in terms of exact
+    deltas. We think in terms which cannot be expressed exactly.</p>
+<p class="Pp">For example, most people would look at those two dates and
+  think:</p>
+<p class="Pp"></p>
+<pre>   Perceived: 1 month, 2 days, 1 hour
+</pre>
+<p class="Pp">But the two dates:</p>
+<p class="Pp"></p>
+<pre>   Feb 3 2016 11:00:00
+   Mar 5 2016 12:00:00
+   Elapsed time: 745 hours
+   Perceived: 1 month, 2 days, 1 hour
+</pre>
+<p class="Pp">Some fields in a delta do not have an exact length. A year is
+    usually 365 days long, but sometimes it is 366. A month might be 28, 29, 30,
+    or 31 days long.</p>
+<p class="Pp">Perhaps the most unexpected difficulty is that days are not of
+    constant length. Most people would define a day as 24 hours, but when you
+    take daylight saving time into account that definition produces unexpected
+    results. The following calculation illustrates this:</p>
+<p class="Pp"></p>
+<pre>   Nov 5, 2011 02:30 EDT
+   + 24 hour
+   Result: Nov 6, 2011 01:30 EST
+</pre>
+<p class="Pp">This immediately causes most people to redefine a day as the
+    amount of time between the same wall clock time. For example, the amount of
+    time between noon one day and noon the next (regardless of daylight saving
+    time changes).</p>
+<p class="Pp">This definition doesn't work either. For example:</p>
+<p class="Pp"></p>
+<pre>   Mar 12, 2011 02:30 EST
+   + 1 day (same time next day)
+   Result: Mar 13 02:30 EST
+</pre>
+<p class="Pp">But that date does not exist! Neither does:</p>
+<p class="Pp"></p>
+<pre>   Result: Mar 13 02:30 EDT
+</pre>
+<p class="Pp">An alternate calculation could be:</p>
+<p class="Pp"></p>
+<pre>   Nov 5, 2011 01:30 EDT
+   + 1 day (same time next day)
+   Result: Nov 6, 01:30 EDT
+   Result: Nov 6, 01:30 EST
+</pre>
+<p class="Pp">Both of those results exist. Which result did you mean? The first
+    one is probably correct (since it is 24 hours later), but an hour later, you
+    will have the same clock time again.</p>
+<p class="Pp">So, the same time next day definition doesn't work at all for some
+    dates (during a 'spring forward' type daylight saving time transition) and
+    is ambiguous for others (during a 'fall back' type daylight saving time
+    transition).</p>
+<p class="Pp">Calculations involving exact deltas are unambiguous in all
+  cases.</p>
+<p class="Pp">A second class of delta is called a semi-exact delta, and these
+    add days (and weeks) to the delta, and treats days as a &quot;same time next
+    day&quot; at all times except the two cases where the resulting date falls
+    in the period where a daylight saving time transition is occurring. Then it
+    falls back to the 24 hour definition.</p>
+<p class="Pp">A final class of delta is an approximate delta which includes all
+    of the fields (years and months). This allows Date::Manip to handle deltas
+    in a way that is consistent with how most people perceive the elapsed time.
+    It should be noted that there is some uncertaintly there as not everyone's
+    definition of how a delta is perceived is the same, but in general, they
+    should be closer to what most people think of.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TYPES_OF_CALCULATIONS"><a class="permalink" href="#TYPES_OF_CALCULATIONS">TYPES
+  OF CALCULATIONS</a></h1>
+<p class="Pp">This document describes the different types of calculations.
+    Calculations involve two types of Date::Manip objects: dates and deltas.
+    These are described in the Date::Manip::Date and Date::Manip::Delta manuals
+    respectively.</p>
+<p class="Pp">Two objects (two dates, two deltas, or one of each) are used. In
+    all cases, if a second object is not passed in, undef is returned.</p>
+<p class="Pp">There are 3 types of calculations:</p>
+<dl class="Bl-tag">
+  <dt id="Date/Date"><a class="permalink" href="#Date/Date"><b>Date/Date
+    calculations</b></a></dt>
+  <dd>A calculation involving 2 dates is used to determine the amount of time
+      (the delta) between them.
+    <p class="Pp"></p>
+    <pre>   $delta  = $date1-&gt;calc($date2 [,$subtract] [,$mode]);
+    </pre>
+    <p class="Pp">Two dates can be worked with and a delta will be produced
+        which is the amount of time between the two dates.</p>
+    <p class="Pp"><span class="Li">$date1</span> and
+        <span class="Li">$date2</span> are Date::Manip::Date objects with valid
+        dates. The Date::Manip::Delta object returned is the amount of time
+        between them. If <span class="Li">$subtract</span> is not passed in (or
+        is 0), the delta produced is:</p>
+    <p class="Pp"></p>
+    <pre>   DELTA = DATE2 - DATE1
+    </pre>
+    <p class="Pp">If <span class="Li">$subtract</span> is non-zero, the delta
+        produced is:</p>
+    <p class="Pp"></p>
+    <pre>   DELTA = DATE1 - DATE2
+    </pre>
+    <p class="Pp">The <span class="Li">$subtract</span> argument has special
+        importance when doing approximate calculations, and this is described
+        below.</p>
+    <p class="Pp">If either date is invalid, a delta object will be returned
+        which has an error associated with it.</p>
+    <p class="Pp">The <span class="Li">$mode</span> argument describes the type
+        of delta that is produced and is described below in
+      &quot;MODE&quot;.</p>
+  </dd>
+  <dt id="Date/Delta"><a class="permalink" href="#Date/Delta"><b>Date/Delta
+    calculations</b></a></dt>
+  <dd>Date/delta calculations can be performed using either a Date::Manip::Date
+      or Date::Manip::Delta object as the primary object:
+    <p class="Pp"></p>
+    <pre>   $date2  = $date1-&gt;calc($delta [,$subtract]);
+   $date2  = $delta-&gt;calc($date1 [,$subtract]);
+    </pre>
+    <p class="Pp">A date and delta can be combined to yield a date that is the
+        given amount of time before or after it.</p>
+    <p class="Pp"><span class="Li">$date1</span> and
+        <span class="Li">$delta</span> are Date::Manip::Date and
+        Date::Manip::Delta objects respectively. A new Date::Manip::Date object
+        is produced. If either <span class="Li">$date1</span> or
+        <span class="Li">$delta</span> are invalid, the new date object will
+        have an error associated with it.</p>
+    <p class="Pp">Both of the calls above perform the same function and produce
+        exactly the same results.</p>
+    <p class="Pp">If <span class="Li">$subtract</span> is not passed in, or is
+        0, the resulting date is formed as:</p>
+    <p class="Pp"></p>
+    <pre>   DATE2 = DATE1 + DELTA
+    </pre>
+    <p class="Pp">If <span class="Li">$subtract</span> is non-zero, the
+        resulting date is:</p>
+    <p class="Pp"></p>
+    <pre>   DATE2 = DATE1 - DELTA
+    </pre>
+    <p class="Pp">The <span class="Li">$subtract</span> argument has special
+        importance when doing approximate calculations, and this is described
+        below in &quot;SUBTRACTION&quot;.</p>
+  </dd>
+  <dt id="Delta/Delta"><a class="permalink" href="#Delta/Delta"><b>Delta/Delta
+    calculations</b></a></dt>
+  <dd>Delta/delta calculations can be performed to add two amounts of time
+      together, or subtract them.
+    <p class="Pp"></p>
+    <pre>   $delta3 = $delta1-&gt;calc($delta2 [,$subtract] [,$no_normalize]);
+    </pre>
+    <p class="Pp">If <span class="Li">$subtract</span> is not passed in, or is
+        0, the resulting delta formed is:</p>
+    <p class="Pp"></p>
+    <pre>   DELTA3 = DELTA1 + DELTA2
+    </pre>
+    <p class="Pp">If <span class="Li">$subtract</span> is non-zero, then the
+        resulting delta is:</p>
+    <p class="Pp"></p>
+    <pre>   DELTA3 = DELTA1 - DELTA2
+    </pre>
+    <p class="Pp"><span class="Li">$delta1</span> and
+        <span class="Li">$delta2</span> are valid Date::Manip::Delta objects,
+        and a new Date::Manip::Delta object is produced.</p>
+    <p class="Pp"><span class="Li">$no_normalize</span> can be the string
+        'nonormalize' or a non-zero value (in which case
+        <span class="Li">$subtract</span> MUST be entered, even if it is 0).</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MODE"><a class="permalink" href="#MODE">MODE</a></h1>
+<p class="Pp">Date::Manip calculations can be divided into two different
+    categories: business and non-business; and within those are three
+    sub-categories: exact, semi-exact, and approximate.</p>
+<dl class="Bl-tag">
+  <dt id="Business"><a class="permalink" href="#Business"><b>Business and
+    non-business calculations</b></a></dt>
+  <dd>A business calculation is one where the length of the day is determined by
+      the length of the work day, and only business days (i.e. days in which
+      business is conducted) count. Holidays and weekends are omitted (though
+      there is some flexibility in defining what exactly constitutes the work
+      week as described in the Date::Manip::Config manual). This is described in
+      more detail below in &quot;BUSINESS MODE CONSIDERATIONS&quot;.
+    <p class="Pp">A non-business mode calculation is the normal type of
+        calculation where no days are ignored, and all days are full length.</p>
+  </dd>
+  <dt id="Exact,"><a class="permalink" href="#Exact,"><b>Exact, semi-exact, and
+    approximate calculations</b></a></dt>
+  <dd>An exact calculation is one in which the delta used (or produced) is an
+      exact delta. An exact delta is described in more detail in the
+      Date::Manip::Delta manual, but the short explanation is that it is a delta
+      which only involves fields of an exactly known length (hours, minutes, and
+      seconds). Business deltas also include days in the exact part. The value
+      of all other fields in the delta will be zero.
+    <p class="Pp">A semi-exact calculation is one in which the deltas used (or
+        produced) is a semi-exact delta. This is also described in the
+        Date::Manip::Delta manual, but the short explanation is that it includes
+        days and weeks (for standard calculations) or weeks (for business
+        calculations) in addition to the exact fields. A semi-exact day is
+        defined as the same clock time on two successive days. So noon to noon
+        is 1 day (even though it may not be exactly 24 hours due to a daylight
+        saving time transition). A week is defined as 7 days. This is described
+        in more detail below.</p>
+    <p class="Pp">An approximate calculation is one in which the deltas used (or
+        produced) are approximate, and may include any of the fields.</p>
+  </dd>
+</dl>
+<p class="Pp">In date-delta and delta-delta calculations, the mode of the
+    calculation will be determined automatically by the delta. In the case of
+    date-date calculations, the mode is supplied as an argument.</p>
+<dl class="Bl-tag">
+  <dt id="Mode"><a class="permalink" href="#Mode"><b>Mode in date-date
+    calculations</b></a></dt>
+  <dd>When doing a date-date calculation, the following call is used:
+    <p class="Pp"></p>
+    <pre>   $delta = $date1-&gt;calc($date2 [,$subtract] [,$mode]);
+    </pre>
+    <p class="Pp"><span class="Li">$mode</span> defaults to &quot;exact&quot;.
+        The delta produced will be be either a business or non-business delta;
+        exact, semi-exact, or approximate, as specified by
+        <span class="Li">$mode</span>.</p>
+    <p class="Pp">Currently, the possible values that
+        <span class="Li">$mode</span> can have are:</p>
+    <p class="Pp"></p>
+    <pre>   exact    : an exact, non-business calculation
+   semi     : a semi-exact, non-business calculation
+   approx   : an approximate, non-business calculation
+   business : an exact, business calculation
+   bsemi    : a semi-exact, business calculation
+   bapprox  : an approximate, business calculation
+    </pre>
+  </dd>
+  <dt id="Mode~2"><a class="permalink" href="#Mode~2"><b>Mode in date-delta
+    calculations</b></a></dt>
+  <dd>When doing calculations of a date and a delta:
+    <p class="Pp"></p>
+    <pre>   $date2 = $date1-&gt;calc($delta [,$subtract]);
+   $date2 = $delta-&gt;calc($date1 [,$subtract]);
+    </pre>
+    <p class="Pp">the mode is not passed in. It is determined exclusively by the
+        delta. If <span class="Li">$delta</span> is a business delta, A business
+        calculation is done. If <span class="Li">$delta</span> is a non-business
+        delta, a non-business calculation will be done.</p>
+    <p class="Pp">The <span class="Li">$delta</span> will also be classified as
+        exact, semi-exact, or approximate based on which fields are
+      non-zero.</p>
+  </dd>
+  <dt id="Mode~3"><a class="permalink" href="#Mode~3"><b>Mode in delta-delta
+    calculations</b></a></dt>
+  <dd>When doing calculations with two deltas:
+    <p class="Pp"></p>
+    <pre>   $delta3 = $delta1-&gt;calc($delta2 [,$subtract]);
+    </pre>
+    <p class="Pp">the mode is not passed in. It is determined by the two
+      deltas.</p>
+    <p class="Pp">If both deltas are business mode, or both are non-business
+        mode, a new delta will be produced of the same type.</p>
+    <p class="Pp">It one of the deltas is a business mode and the other is not,
+        the resulting delta will have an error condition since there is no
+        direct correlation between the two types of deltas. Even though it would
+        be easy to add the two together, it would be impossible to come up with
+        a result that is meaningful.</p>
+    <p class="Pp">If both deltas are exact, semi-exact, or approximate, the
+        resulting delta is the same. If one delta is approximate and one is not,
+        then the resulting delta is approximate. It is NOT treated as an error.
+        Likewise, if one is semi-exact and the other exact, a semi-exact delta
+        is produced.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TIMEZONE_CONSIDERATIONS"><a class="permalink" href="#TIMEZONE_CONSIDERATIONS">TIMEZONE
+  CONSIDERATIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="date-date"><a class="permalink" href="#date-date"><b>date-date
+    calculations</b></a></dt>
+  <dd>When doing a business calculation, both dates must be in the same time
+      zone or an error is produced.
+    <p class="Pp">For non-business calculations, when calculating the difference
+        between two dates in different time zones,
+        <span class="Li">$date2</span> will be converted to the same timezone as
+        <span class="Li">$date1</span> and the returned date will be in this
+        timezone.</p>
+  </dd>
+  <dt id="date-delta"><a class="permalink" href="#date-delta"><b>date-delta
+    calculations</b></a></dt>
+  <dd>When adding a delta to a date, the resulting date will be in the same time
+      zone as the original date.</dd>
+  <dt id="delta-delta"><a class="permalink" href="#delta-delta"><b>delta-delta
+    calculations</b></a></dt>
+  <dd>No timezone information applies.</dd>
+</dl>
+<p class="Pp">It should also be noted that daylight saving time considerations
+    are currently ignored when doing business calculations. In common usage,
+    daylight saving time changes occurs outside of the business day, so the
+    business day length is constant. As a result, daylight saving time is
+    ignored.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUSINESS_MODE_CONSIDERATIONS"><a class="permalink" href="#BUSINESS_MODE_CONSIDERATIONS">BUSINESS
+  MODE CONSIDERATIONS</a></h1>
+<p class="Pp">In order to correctly do business mode calculations, a config file
+    should exist which contains the section defining holidays (otherwise,
+    weekends will be ignored, but all other days will be counted as business
+    days). This is documented below, and in the Date::Manip::Config section of
+    the documentation. Some config variables (namely WorkWeekBeg, WorkWeekEnd,
+    WorkDayBeg, WorkDayEnd, and WorkDay24Hr) defined the length of the work week
+    and work day.</p>
+<p class="Pp">If the workday is defined as 08:00 to 18:00, a work week
+    consisting of Mon-Sat, and the standard (American) holidays, then from
+    Tuesday at 12:00 to the following Monday at 14:00 is 5 days and 2 hours. If
+    the &quot;end&quot; of the day is reached in a calculation, it automatically
+    switches to the next day. So, Tuesday at 12:00 plus 6 hours is Wednesday at
+    08:00 (provided Wed is not a holiday). Also, a date that is not during a
+    workday automatically becomes the start of the next workday. So, Sunday
+    12:00 and Monday at 03:00 both automatically becomes Monday at 08:00
+    (provided Monday is not a holiday).</p>
+<p class="Pp">Note that a business week is treated the same as an exact week
+    (i.e. from Tuesday to Tuesday, regardless of holidays). Because this means
+    that the relationship between days and weeks is NOT unambiguous, when a
+    semi-exact delta is produced from two dates, it will be in terms of d/h/mn/s
+    (i.e. no week field).</p>
+<p class="Pp">Anyone using business mode is going to notice a few quirks about
+    it which should be explained. When I designed business mode, I had in mind
+    what a business which promises 1 business day turnaround really means.</p>
+<p class="Pp">If you do a business calculation (with the workday set to
+    9:00-17:00), you will get the following:</p>
+<p class="Pp"></p>
+<pre>   Saturday at noon + 1 business day = Tuesday at 9:00
+   Saturday at noon - 1 business day = Friday at 9:00
+</pre>
+<p class="Pp">What does this mean?</p>
+<p class="Pp">As an example, say I use a business that works 9-5 and they have a
+    drop box so I can drop things off over the weekend and they promise 1
+    business day turnaround. If I drop something off Friday night, Saturday, or
+    Sunday, it doesn't matter. They're going to get started on it Monday
+    morning. It'll be 1 business day to finish the job, so the earliest I can
+    expect it to be done is around 17:00 Monday or 9:00 Tuesday morning.
+    Unfortunately, there is some ambiguity as to what day 17:00 really falls on,
+    similar to the ambiguity that occurs when you ask what day midnight falls
+    on. Although it's not the only answer, Date::Manip treats midnight as the
+    beginning of a day rather than the end of one. In the same way, 17:00 is
+    equivalent to 9:00 the next day and any time the date calculations encounter
+    17:00, it automatically switch to 9:00 the next day. Although this
+    introduces some quirks, I think this is justified. I also think that it is
+    the way most people think of it. If I drop something off first thing Monday
+    morning, I would expect to pick it up first thing Tuesday if there is 1
+    business day turnaround.</p>
+<p class="Pp">Equivalently, if I want a job to be finished on Saturday (despite
+    the fact that I cannot pick it up since the business is closed), I have to
+    drop it off no later than Friday at 9:00. That gives them a full business
+    day to finish it off. Of course, I could just as easily drop it off at 17:00
+    Thursday, or any time between then and 9:00 Friday. Again, it's a matter of
+    treating 17:00 as ambiguous.</p>
+<p class="Pp">So Saturday + 1 business day = Tuesday at 9:00 (which means
+    anything from Monday 17:00 to Tuesday 9:00), but Monday at 9:01 + 1 business
+    day = Tuesday at 9:01 which is unambiguous.</p>
+<p class="Pp">It should be noted that when adding years, months, and weeks, the
+    business day is ignored. Once they've been added, the resulting date is
+    forced to be a business time (i.e. it moves to the start of the next
+    business day if it wasn't one already) before proceeding with the days,
+    hours, minutes, and seconds part.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXACT,_SEMI-EXACT,_AND_APPROXIMATE_DATE/DELTA_CALCULATIONS"><a class="permalink" href="#EXACT,_SEMI-EXACT,_AND_APPROXIMATE_DATE/DELTA_CALCULATIONS">EXACT,
+  SEMI-EXACT, AND APPROXIMATE DATE/DELTA CALCULATIONS</a></h1>
+<p class="Pp">This section contains more details about exactly how exact,
+    semi-exact, and approximate calculations are performed for date/delta
+    calculations.</p>
+<p class="Pp">All calculations make use of some exact quantities, including:</p>
+<p class="Pp"></p>
+<pre>  1 year   = 12 months
+  1 week   = 7 days
+  1 hour   = 60 minutes
+  1 minute = 60 seconds
+</pre>
+<p class="Pp">This leaves two relationships which are not exact:</p>
+<p class="Pp"></p>
+<pre>  1 month  = ? days
+  1 day    = ? hours
+</pre>
+<p class="Pp">For non-business calculations, a day is usually 24 hours long. Due
+    to daylight saving time transitions which might make a day be 23 or 25 hours
+    long (or in some cases, some other length), the relation is not exact.
+    Whenever possible, a day is actually measured as the same time on two days
+    (i.e. Tuesday at noon to Wednesday at noon) even if that period is not
+    precisely 24 hours. For business calculations, a days length is determined
+    by the length of the work day and is known exactly.</p>
+<p class="Pp">Exact calculations involve ONLY quantities of time with a known
+    length, so there is no ambiguity in them.</p>
+<p class="Pp">Approximate and semi-exact calculations involve variable length
+    fields, and so they must be treated specially.</p>
+<p class="Pp">In order to do an approximate or semi-exact calculation, the delta
+    is added to a date in pieces, where the fields in each piece have an exact
+    and known relationship.</p>
+<p class="Pp">For a non-business calculation, a calculation occurs in the
+    following steps:</p>
+<p class="Pp"></p>
+<pre>  year/month fields added
+  week/day fields added
+  hour/minute/second fields added
+</pre>
+<p class="Pp">For a business calculation, the steps are:</p>
+<p class="Pp"></p>
+<pre>  year/month fields added
+  week field added
+  day field added
+  hour/minute/second fields added
+</pre>
+<p class="Pp">After each step, a valid date must be present, or it will be
+    adjusted before proceeding to the next step. Note however that for business
+    calculations, the first step must produce a valid date, but not necessarily
+    a business date. The second step will produce a valid business date.</p>
+<p class="Pp">A series of examples will illustrate this.</p>
+<dl class="Bl-tag">
+  <dt id="A"><a class="permalink" href="#A"><b>A date and non-business
+    approximate delta</b></a></dt>
+  <dd>
+    <pre>   date  = Mar 31 2001 at 12:00:00
+   delta = 1 year, 1 month, 1 day, 1 hour
+    </pre>
+    <p class="Pp">First, the year/month fields are added without modifying any
+        other field. This would produce:</p>
+    <p class="Pp"></p>
+    <pre>   Apr 31, 2002 at 12:00
+    </pre>
+    <p class="Pp">which is not valid. Any time the year/month fields produce a
+        day past the end of the month, the result is 'truncated' to the last day
+        of the month, so this produces:</p>
+    <p class="Pp"></p>
+    <pre>   Apr 30, 2002 at 12:00
+    </pre>
+    <p class="Pp">Next the week/day fields are added producing:</p>
+    <p class="Pp"></p>
+    <pre>   May 1, 2002 at 12:00
+    </pre>
+    <p class="Pp">and finally, the exact fields (hour/minute/second) are added
+        to produce:</p>
+    <p class="Pp"></p>
+    <pre>   May 1, 2002 at 13:00
+    </pre>
+  </dd>
+  <dt id="A~2"><a class="permalink" href="#A~2"><b>A simple business
+    calculation</b></a></dt>
+  <dd>Assuming a normal Monday-Friday work week from 8:00 - 17:00:
+    <p class="Pp"></p>
+    <pre>   date  = Wed, Nov 23, 2011 at 12:00
+   delta = 1 week, 1 day, 1 hour
+    </pre>
+    <p class="Pp">First, the week field is added:</p>
+    <p class="Pp"></p>
+    <pre>   Wed, Nov 30, 2011 at 12:00
+    </pre>
+    <p class="Pp">Then the day field is added:</p>
+    <p class="Pp"></p>
+    <pre>   Thu, Dec 1, 2011 at 12:00
+    </pre>
+    <p class="Pp">Then the exact fields are added:</p>
+    <p class="Pp"></p>
+    <pre>   Thu, Dec 1, 2011 at 13:00
+    </pre>
+  </dd>
+  <dt id="A~3"><a class="permalink" href="#A~3"><b>A business example where a
+    holiday impacts it</b></a></dt>
+  <dd>In America, Jul 4 is a holiday, so Mon, Jul 4, 2011 is not a work day.
+    <p class="Pp"></p>
+    <pre>   date  = Mon, Jun 27, 2011 at 12:00
+   delta = 1 week, 1 day, 1 hour
+    </pre>
+    <p class="Pp">First, the week field is added:</p>
+    <p class="Pp"></p>
+    <pre>   Mon, Jul 4, 2011 at 12:00
+    </pre>
+    <p class="Pp">Since that is not a work day, it immediately becomes:</p>
+    <p class="Pp"></p>
+    <pre>   Tue, Jul 5, 2011 at 8:00
+    </pre>
+    <p class="Pp">Then the day field is added:</p>
+    <p class="Pp"></p>
+    <pre>   Wed, Jul 6, 2011 at 8:00
+    </pre>
+    <p class="Pp">and finally the remaining fields:</p>
+    <p class="Pp"></p>
+    <pre>   Wed, Jul 6, 2011 at 9:00
+    </pre>
+  </dd>
+  <dt id="Calculation"><a class="permalink" href="#Calculation"><b>Calculation
+    where daylight savings time impacts it (fall example)</b></a></dt>
+  <dd>In the America/New_York timezone (Eastern time), on November 6, 2011, the
+      following time change occurred:
+    <p class="Pp"></p>
+    <pre>   2011-11-06 02:00  EDT  =&gt; 2011-11-06 01:00  EST
+    </pre>
+    <p class="Pp">Three simple calculations illustrate how this is handled:</p>
+    <p class="Pp"></p>
+    <pre>   date  = 2011-11-05 02:30 EDT
+   delta = 1 day
+    </pre>
+    <p class="Pp">Adding the day produces:</p>
+    <p class="Pp"></p>
+    <pre>   2011-11-06 02:30  EDT
+    </pre>
+    <p class="Pp">which is valid, so that is the result.</p>
+    <p class="Pp">Similarly:</p>
+    <p class="Pp"></p>
+    <pre>   date  = 2011-11-07 02:30 EST
+   delta = -1 day
+    </pre>
+    <p class="Pp">produces:</p>
+    <p class="Pp"></p>
+    <pre>   2011-11-06 02:30 EST
+    </pre>
+    <p class="Pp">which is valid.</p>
+    <p class="Pp">Finally:</p>
+    <p class="Pp"></p>
+    <pre>   date  = 2011-11-05 02:30 EDT
+   delta = 2 days
+    </pre>
+    <p class="Pp">produces:</p>
+    <p class="Pp"></p>
+    <pre>   2011-11-07 02:30  EST
+    </pre>
+    <p class="Pp">The calculation will preserve the savings time where possible
+        so the resulting day will have the same offset from UTC. If that is not
+        possible, but the resulting day is valid in the other offset, that will
+        be used instead.</p>
+  </dd>
+  <dt id="Calculation~2"><a class="permalink" href="#Calculation~2"><b>Calculation
+    where daylight savings time impacts it (spring example)</b></a></dt>
+  <dd>In the America/New_York timezone (Eastern time), on March 13, the
+      following time change occurred:
+    <p class="Pp"></p>
+    <pre>   2011-03-13 02:00  EST  =&gt; 2011-03-13 03:00  EDT
+    </pre>
+    <p class="Pp">In this case, a calculation may produce an invalid date.</p>
+    <p class="Pp"></p>
+    <pre>   date  = 2011-03-12 02:30 EST
+   delta = 1 day
+    </pre>
+    <p class="Pp">produces:</p>
+    <p class="Pp"></p>
+    <pre>   2011-03-13 02:30 EST
+    </pre>
+    <p class="Pp">This is not valid. Neither is:</p>
+    <p class="Pp"></p>
+    <pre>   2011-03-13 02:30 EDT
+    </pre>
+    <p class="Pp">In this case, the calculation will be redone converting days
+        to 24-hour periods, so the calculation becomes:</p>
+    <p class="Pp"></p>
+    <pre>   date  = 2011-03-12 02:30 EST
+   delta = 24 hours
+    </pre>
+    <p class="Pp">which will produce a valid date:</p>
+    <p class="Pp"></p>
+    <pre>   2011-03-13 03:30 EDT
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXACT,_SEMI-EXACT,_AND_APPROXIMATE_DATE/DATE_CALCULATIONS"><a class="permalink" href="#EXACT,_SEMI-EXACT,_AND_APPROXIMATE_DATE/DATE_CALCULATIONS">EXACT,
+  SEMI-EXACT, AND APPROXIMATE DATE/DATE CALCULATIONS</a></h1>
+<p class="Pp">This section contains more details about exactly how exact,
+    semi-exact, and approximate calculations are performed for date/date
+    calculations.</p>
+<p class="Pp">When calculating the delta between two dates, the delta may take
+    different forms depending on the mode passed in. An exact calculation will
+    produce a delta which included only exact fields. A semi-exact calculation
+    may produce a semi-exact delta, and an approximate calculation may produce
+    an approximate delta. Note that if the two dates are close enough together,
+    an exact delta will be produced (even if the mode is semi-exact or
+    approximate), or it may produce a semi-exact delta in approximate mode.</p>
+<p class="Pp">For example, the two dates &quot;Mar 12 1995 12:00&quot; and
+    &quot;Apr 13 1995 12:00&quot; would have an exact delta of &quot;744
+    hours&quot;, and a semi-exact delta of &quot;31 days&quot;. It would have an
+    approximate delta of &quot;1 month 1 day&quot;.</p>
+<p class="Pp">Two dates, &quot;Mar 31 12:00&quot; and &quot;Apr 30 12:00&quot;
+    would have deltas &quot;720 hours&quot; (exact), &quot;30 days&quot;
+    (semi-exact) or &quot;1 month&quot; (approximate).</p>
+<p class="Pp">Approximate mode is a more human way of looking at things (you'd
+    say 1 month and 2 days more often then 33 days), but it is less meaningful
+    in terms of absolute time.</p>
+<p class="Pp">One thing to remember is that an exact delta is exactly the amount
+    of time that has passed, including all effects of daylight saving time.
+    Semi-exact and approximate deltas usually ignore the affects of daylight
+    saving time.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SUBTRACTION"><a class="permalink" href="#SUBTRACTION">SUBTRACTION</a></h1>
+<p class="Pp">In exact and semi-exact calculations, and in delta-delta
+    calculations, the the <span class="Li">$subtract</span> argument is easy to
+    understand. When working with an approximate delta however (either when
+    adding an approximate delta to a date, or when taking two dates to get an
+    approximate delta), there is a degree of uncertainty in how the calculation
+    is done, and the <span class="Li">$subtract</span> argument is used to
+    specify exactly how the approximate delta is to be use. An example
+    illustrates this quite well.</p>
+<p class="Pp">If you take the date Jan 4, 2000 and subtract a delta of &quot;1
+    month 1 week&quot; from it, you end up with Nov 27, 1999 (Jan 4, 2000 minus
+    1 month is Dec 4, 1999; minus 1 week is Nov 27, 1999). But Nov 27, 1999 plus
+    a delta of &quot;1 month 1 week&quot; is Jan 3, 2000 (Nov 27, 1999 plus 1
+    month is Dec 27, 1999; plus 1 week is Jan 3, 2000).</p>
+<p class="Pp">In other words the approximate delta (but NOT the exact or
+    semi-exact delta) is different depending on whether you move from earlier
+    date to the later date, or vice versa. And depending on what you are
+    calculating, both are useful.</p>
+<p class="Pp">In order to resolve this, the <span class="Li">$subtract</span>
+    argument can take on the values 0, 1, or 2, and have different meanings.</p>
+<dl class="Bl-tag">
+  <dt><b>$subtract</b><b> in approximate date-date calculations</b></dt>
+  <dd>In the call:
+    <p class="Pp"></p>
+    <pre>   $delta = $date1-&gt;calc($date2,$subtract,&quot;approx&quot;);
+    </pre>
+    <p class="Pp">if <span class="Li">$subtract</span> is 0, the resulting delta
+        can be added to <span class="Li">$date1</span> to get
+        <span class="Li">$date2</span>. Obviously <span class="Li">$delta</span>
+        may still be negative (if <span class="Li">$date2</span> comes before
+        <span class="Li">$date1</span>).</p>
+    <p class="Pp">If <span class="Li">$subtract</span> is 1, the resulting delta
+        can be subtracted from <span class="Li">$date1</span> to get
+        <span class="Li">$date2</span> (the deltas from these two are identical
+        except for having an opposite sign).</p>
+    <p class="Pp">If <span class="Li">$subtract</span> is 2, the resulting delta
+        can be added to <span class="Li">$date2</span> to get
+        <span class="Li">$date1</span>. In other words, the following are
+        identical:</p>
+    <p class="Pp"></p>
+    <pre>   $delta = $date1-&gt;calc($date2,2,&quot;approx&quot;);
+   $delta = $date2-&gt;calc($date1,&quot;approx&quot;);
+    </pre>
+  </dd>
+  <dt><b>$subtract</b><b> in approximate date-delta calculations</b></dt>
+  <dd>In the call:
+    <p class="Pp"></p>
+    <pre>   $date2 = $date1-&gt;calc($delta,$subtract);
+    </pre>
+    <p class="Pp">If <span class="Li">$subtract</span> is 0, the resulting date
+        is determined by adding <span class="Li">$delta</span> to
+        <span class="Li">$date1</span>.</p>
+    <p class="Pp">If <span class="Li">$subtract</span> is 1, the resulting date
+        is determined by subtracting <span class="Li">$delta</span> from
+        <span class="Li">$date1</span>.</p>
+    <p class="Pp">If <span class="Li">$subtract</span> is 2, the resulting date
+        is the date which <span class="Li">$delta</span> can be added to to get
+        <span class="Li">$date1</span>.</p>
+    <p class="Pp">For business mode calculations, <span class="Li">$date1</span>
+        will first be adjusted to be a valid work day (if it isn't already), so
+        this may lead to non-intuitive results.</p>
+    <p class="Pp">In some cases, it is impossible to do a calculation with
+        <span class="Li">$subtract</span> = 2. As an example, if the date is
+        &quot;Dec 31&quot; and the delta is &quot;1 month&quot;, there is no
+        date which you can add &quot;1 month&quot; to to get &quot;Dec 31&quot;.
+        When this occurs, the date returned has an error flag.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="APPROXIMATE_DATE/DATE_CALCULATION"><a class="permalink" href="#APPROXIMATE_DATE/DATE_CALCULATION">APPROXIMATE
+  DATE/DATE CALCULATION</a></h1>
+<p class="Pp">There are two different ways to look at the approximate delta
+    between two dates.</p>
+<p class="Pp">In Date::Manip 5.xx, the approximate delta between the two
+  dates:</p>
+<p class="Pp"></p>
+<pre>   Jan 10 1996 noon
+   Jan  7 1998 noon
+</pre>
+<p class="Pp">was 1:11:4:0:0:0:0 (or 1 year, 11 months, 4 weeks). In calculating
+    this, the first date was adjusted as far as it could go towards the second
+    date without going past it with each unit starting with the years and ending
+    with the seconds.</p>
+<p class="Pp">This gave a strictly positive or negative delta, but it isn't
+    actually how most people would think of the delta.</p>
+<p class="Pp">As of Date::Manip 6.0, the delta is 2:0:0:-3:0:0:0 (or 2 years
+    minus 3 days). Although this leads to mixed-sign deltas, it is actually how
+    more people would think about the delta. It has the additional advantage of
+    being easier to calculate.</p>
+<p class="Pp">For non-business mode calculations, the year/month part of the
+    approximate delta will move a date from the year/month of the first date
+    into the year/month of the second date. The remainder of the delta will
+    adjust the days/hours/minutes/seconds as appropriate.</p>
+<p class="Pp">For approximate business mode calculations, the year, date, and
+    week parts will be done approximately, and the remainder will be done
+    exactly.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="KNOWN_BUGS"><a class="permalink" href="#KNOWN_BUGS">KNOWN
+  BUGS</a></h1>
+<p class="Pp">None known.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS_AND_QUESTIONS"><a class="permalink" href="#BUGS_AND_QUESTIONS">BUGS
+  AND QUESTIONS</a></h1>
+<p class="Pp">Please refer to the Date::Manip::Problems documentation for
+    information on submitting bug reports or questions to the author.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">Date::Manip - main module documentation</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">This script is free software; you can redistribute it and/or
+    modify it under the same terms as Perl itself.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Sullivan Beck (sbeck@cpan.org)</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-02</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

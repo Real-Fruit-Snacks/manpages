@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="manage asynchronous operations">
+<title>SSL_set_async_callback(3ssl) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">SSL_set_async_callback(3ssl)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUES">RETURN
+  VALUES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#HISTORY">HISTORY</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SSL_SET_ASYNC_CALLBACK(3SSL)</td>
+    <td class="head-vol">OpenSSL</td>
+    <td class="head-rtitle">SSL_SET_ASYNC_CALLBACK(3SSL)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">SSL_CTX_set_async_callback, SSL_CTX_set_async_callback_arg,
+    SSL_set_async_callback, SSL_set_async_callback_arg, SSL_get_async_status,
+    SSL_async_callback_fn - manage asynchronous operations</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre> #include &lt;openssl/ssl.h&gt;
+ typedef int (*SSL_async_callback_fn)(SSL *s, void *arg);
+ int SSL_CTX_set_async_callback(SSL_CTX *ctx, SSL_async_callback_fn callback);
+ int SSL_CTX_set_async_callback_arg(SSL_CTX *ctx, void *arg);
+ int SSL_set_async_callback(SSL *s, SSL_async_callback_fn callback);
+ int SSL_set_async_callback_arg(SSL *s, void *arg);
+ int SSL_get_async_status(SSL *s, int *status);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>SSL_CTX_set_async_callback()</b> sets an asynchronous callback
+    function. All <b>SSL</b> objects generated based on this <b>SSL_CTX</b> will
+    get this callback. If an engine supports the callback mechanism, it will be
+    automatically called if <b>SSL_MODE_ASYNC</b> has been set and an
+    asynchronous capable engine completes a cryptography operation to notify the
+    application to resume the paused work flow.</p>
+<p class="Pp"><b>SSL_CTX_set_async_callback_arg()</b> sets the callback
+    argument.</p>
+<p class="Pp"><b>SSL_set_async_callback()</b> allows an application to set a
+    callback in an asynchronous <b>SSL</b> object, so that when an engine
+    completes a cryptography operation, the callback will be called to notify
+    the application to resume the paused work flow.</p>
+<p class="Pp"><b>SSL_set_async_callback_arg()</b> sets an argument for the
+    <b>SSL</b> object when the above callback is called.</p>
+<p class="Pp"><b>SSL_get_async_status()</b> returns the engine status. This
+    function facilitates the communication from the engine to the application.
+    During an SSL session, cryptographic operations are dispatched to an engine.
+    The engine status is very useful for an application to know if the operation
+    has been successfully dispatched. If the engine does not support this
+    additional callback method, <b>ASYNC_STATUS_UNSUPPORTED</b> will be
+    returned. See <b>ASYNC_WAIT_CTX_set_status()</b> for a description of all of
+    the status values.</p>
+<p class="Pp">An example of the above functions would be the following:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>Application sets the async callback and callback data on an SSL connection
+      by calling <b>SSL_set_async_callback()</b>.</dd>
+  <dt>2.</dt>
+  <dd>Application sets <b>SSL_MODE_ASYNC</b> and makes an asynchronous SSL
+    call</dd>
+  <dt>3.</dt>
+  <dd>OpenSSL submits the asynchronous request to the engine. If a retry occurs
+      at this point then the status within the <b>ASYNC_WAIT_CTX</b> would be
+      set and the async callback function would be called (goto Step 7).</dd>
+  <dt>4.</dt>
+  <dd>The OpenSSL engine pauses the current job and returns, so that the
+      application can continue processing other connections.</dd>
+  <dt>5.</dt>
+  <dd>At a future point in time (probably via a polling mechanism or via an
+      interrupt) the engine will become aware that the asynchronous request has
+      finished processing.</dd>
+  <dt>6.</dt>
+  <dd>The engine will call the application's callback passing the callback data
+      as a parameter.</dd>
+  <dt>7.</dt>
+  <dd>The callback function should then run. Note: it is a requirement that the
+      callback function is small and nonblocking as it will be run in the
+      context of a polling mechanism or an interrupt.</dd>
+  <dt>8.</dt>
+  <dd>It is the application's responsibility via the callback function to
+      schedule recalling the OpenSSL asynchronous function and to continue
+      processing.</dd>
+  <dt>9.</dt>
+  <dd>The callback function has the option to check the status returned via
+      <b>SSL_get_async_status()</b> to determine whether a retry happened
+      instead of the request being submitted, allowing different processing if
+      required.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><b>SSL_CTX_set_async_callback()</b>,
+    <b>SSL_set_async_callback()</b>, <b>SSL_CTX_set_async_callback_arg()</b>,
+    <b>SSL_CTX_set_async_callback_arg()</b> and <b>SSL_get_async_status()</b>
+    return 1 on success or 0 on error.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../7ssl/ssl.html"><b>ssl</b>(7)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp"><b>SSL_CTX_set_async_callback()</b>,
+    <b>SSL_CTX_set_async_callback_arg()</b>, <b>SSL_set_async_callback()</b>,
+    <b>SSL_set_async_callback_arg()</b> and <b>SSL_get_async_status()</b> were
+    first added to OpenSSL 3.0.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright 2019-2021 The OpenSSL Project Authors. All Rights
+    Reserved.</p>
+<p class="Pp">Licensed under the Apache License 2.0 (the &quot;License&quot;).
+    You may not use this file except in compliance with the License. You can
+    obtain a copy in the file LICENSE in the source distribution or at
+    &lt;https://www.openssl.org/source/license.html&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2026-06-02</td>
+    <td class="foot-os">3.0.13</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="NSM service daemon">
+<title>statd(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">statd(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#NSM_OPERATION_IN_DETAIL">NSM
+  OPERATION IN DETAIL</a></li><li><a href="#Reboot_notification">Reboot
+  notification</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#CONFIGURATION_FILE">CONFIGURATION
+  FILE</a></li><li><a href="#SECURITY">SECURITY</a></li><li><a href="#ADDITIONAL_NOTES">ADDITIONAL
+  NOTES</a></li><li><a href="#High-availability_callouts">High-availability
+  callouts</a></li><li><a href="#IPv6_and_TI-RPC_support">IPv6
+  and TI-RPC support</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">RPC.STATD(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">RPC.STATD(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">rpc.statd - NSM service daemon</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>rpc.statd [-dh?FLNvV] [-H </b><i>prog</i><b>] [-n
+    </b><i>my-name</i><b>] [-o </b><i>outgoing-port</i><b>]</b> <b>[-p
+    </b><i>listener-port</i><b>] [-P </b><i>path</i><b>]</b> <b>[--nlm-port
+    </b><i>port</i><b>] [--nlm-udp-port </b><i>port</i><b>]</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">File locks are not part of persistent file system state. Lock
+    state is thus lost when a host reboots.</p>
+<p class="Pp">Network file systems must also detect when lock state is lost
+    because a remote host has rebooted. After an NFS client reboots, an NFS
+    server must release all file locks held by applications that were running on
+    that client. After a server reboots, a client must remind the server of file
+    locks held by applications running on that client.</p>
+<p class="Pp">For NFS version 2 [RFC1094] and NFS version 3 [RFC1813], the
+    <i>Network Status Monitor</i> protocol (or NSM for short) is used to notify
+    NFS peers of reboots. On Linux, two separate user-space components
+    constitute the NSM service:</p>
+<dl class="Bl-tag">
+  <dt id="rpc.statd"><a class="permalink" href="#rpc.statd"><b>rpc.statd</b></a></dt>
+  <dd>A daemon that listens for reboot notifications from other hosts, and
+      manages the list of hosts to be notified when the local system
+    reboots</dd>
+  <dt id="sm-notify"><a class="permalink" href="#sm-notify"><b>sm-notify</b></a></dt>
+  <dd>A helper program that notifies NFS peers after the local system
+    reboots</dd>
+</dl>
+<p class="Pp">The local NFS lock manager alerts its local <b>rpc.statd</b> of
+    each remote peer that should be monitored. When the local system reboots,
+    the <b>sm-notify</b> command notifies the NSM service on monitored peers of
+    the reboot. When a remote reboots, that peer notifies the local
+    <b>rpc.statd</b>, which in turn passes the reboot notification back to the
+    local NFS lock manager.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NSM_OPERATION_IN_DETAIL"><a class="permalink" href="#NSM_OPERATION_IN_DETAIL">NSM
+  OPERATION IN DETAIL</a></h1>
+<p class="Pp">The first file locking interaction between an NFS client and
+    server causes the NFS lock managers on both peers to contact their local NSM
+    service to store information about the opposite peer. On Linux, the local
+    lock manager contacts <b>rpc.statd</b>.</p>
+<p class="Pp"><b>rpc.statd</b> records information about each monitored NFS peer
+    on persistent storage. This information describes how to contact a remote
+    peer in case the local system reboots, how to recognize which monitored peer
+    is reporting a reboot, and how to notify the local lock manager when a
+    monitored peer indicates it has rebooted.</p>
+<p class="Pp">An NFS client sends a hostname, known as the client's
+    <i>caller_name</i>, in each file lock request. An NFS server can use this
+    hostname to send asynchronous GRANT calls to a client, or to notify the
+    client it has rebooted.</p>
+<p class="Pp">The Linux NFS server can provide the client's <i>caller_name</i>
+    or the client's network address to <b>rpc.statd</b>. For the purposes of the
+    NSM protocol, this name or address is known as the monitored peer's
+    <i>mon_name</i>. In addition, the local lock manager tells <b>rpc.statd</b>
+    what it thinks its own hostname is. For the purposes of the NSM protocol,
+    this hostname is known as <i>my_name</i>.</p>
+<p class="Pp">There is no equivalent interaction between an NFS server and a
+    client to inform the client of the server's <i>caller_name</i>. Therefore
+    NFS clients do not actually know what <i>mon_name</i> an NFS server might
+    use in an SM_NOTIFY request. The Linux NFS client uses the server hostname
+    from the mount command to identify rebooting NFS servers.</p>
+<section class="Ss">
+<h2 class="Ss" id="Reboot_notification"><a class="permalink" href="#Reboot_notification">Reboot
+  notification</a></h2>
+<p class="Pp">When the local system reboots, the <b>sm-notify</b> command reads
+    the list of monitored peers from persistent storage and sends an SM_NOTIFY
+    request to the NSM service on each listed remote peer. It uses the
+    <i>mon_name</i> string as the destination. To identify which host has
+    rebooted, the <b>sm-notify</b> command sends the <i>my_name</i> string
+    recorded when that remote was monitored. The remote <b>rpc.statd</b> matches
+    incoming SM_NOTIFY requests using this string, or the caller's network
+    address, to one or more peers on its own monitor list.</p>
+<p class="Pp">If <b>rpc.statd</b> does not find a peer on its monitor list that
+    matches an incoming SM_NOTIFY request, the notification is not forwarded to
+    the local lock manager. In addition, each peer has its own <i>NSM state
+    number</i>, a 32-bit integer that is bumped after each reboot by the
+    <b>sm-notify</b> command. <b>rpc.statd</b> uses this number to distinguish
+    between actual reboots and replayed notifications.</p>
+<p class="Pp">Part of NFS lock recovery is rediscovering which peers need to be
+    monitored again. The <b>sm-notify</b> command clears the monitor list on
+    persistent storage after each reboot.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="d"><a class="permalink" href="#d"><b>-d</b>,<b>
+    --no-syslog</b></a></dt>
+  <dd>Causes <b>rpc.statd</b> to write log messages on <i>stderr</i> instead of
+      to the system log, if the <b>-F</b> option was also specified.</dd>
+  <dt id="F"><a class="permalink" href="#F"><b>-F</b>,<b>
+    --foreground</b></a></dt>
+  <dd>Keeps <b>rpc.statd</b> attached to its controlling terminal so that NSM
+      operation can be monitored directly or run under a debugger. If this
+      option is not specified, <b>rpc.statd</b> backgrounds itself soon after it
+      starts.</dd>
+  <dt id="h"><a class="permalink" href="#h"><b>-h</b>,<b> -?</b>,<b>
+    --help</b></a></dt>
+  <dd>Causes <b>rpc.statd</b> to display usage information on <i>stderr</i> and
+      then exit.</dd>
+  <dt id="H,"><a class="permalink" href="#H,"><b>-H,</b><i></i><b> --ha-callout
+    </b><i>prog</i></a></dt>
+  <dd>Specifies a high availability callout program. If this option is not
+      specified, no callouts are performed. See the <b>High-availability
+      callouts</b> section below for details.</dd>
+  <dt id="L"><a class="permalink" href="#L"><b>-L</b>,<b>
+    --no-notify</b></a></dt>
+  <dd>Prevents <b>rpc.statd</b> from running the <b>sm-notify</b> command when
+      it starts up, preserving the existing NSM state number and monitor
+    list.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Note: the <b>sm-notify</b> command contains a check to ensure it runs only
+      once after each system reboot. This prevents spurious reboot notification
+      if <b>rpc.statd</b> restarts without the <b>-L</b> option.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="n,"><a class="permalink" href="#n,"><b>-n, </b><i></i><b>--name
+    </b><i>ipaddr</i><b> | </b><i>hostname</i></a></dt>
+  <dd>This string is only used by the <b>sm-notify</b> command as the source
+      address from which to send reboot notification requests.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The <i>ipaddr</i> form can be expressed as either an IPv4 or an IPv6
+      presentation address. If this option is not specified, <b>rpc.statd</b>
+      uses a wildcard address as the transport bind address. See
+      <a class="Xr" href="../8/sm-notify.html"><b>sm-notify</b>(8)</a> for details.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="N"><a class="permalink" href="#N"><b>-N</b></a></dt>
+  <dd>Causes <b>rpc.statd</b> to run the <b>sm-notify</b> command, and then
+      exit. Since the <b>sm-notify</b> command can also be run directly, this
+      option is deprecated.</dd>
+  <dt id="o,"><a class="permalink" href="#o,"><b>-o,</b><i></i><b>
+    --outgoing-port </b><i>port</i></a></dt>
+  <dd>Specifies the source port number the <b>sm-notify</b> command should use
+      when sending reboot notifications. See <a class="Xr" href="../8/sm-notify.html"><b>sm-notify</b>(8)</a> for
+    details.</dd>
+  <dt id="p,"><a class="permalink" href="#p,"><b>-p,</b><i></i><b> --port
+    </b><i>port</i></a></dt>
+  <dd>Specifies the port number used for RPC listener sockets. If this option is
+      not specified, <b>rpc.statd</b> will try to consult <i>/etc/services</i>,
+      if gets port succeed, set the same port for all listener socket, otherwise
+      chooses a random ephemeral port for each listener socket.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>This option can be used to fix the port value of its listeners when
+      SM_NOTIFY requests must traverse a firewall between clients and
+    servers.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="T,"><a class="permalink" href="#T,"><b>-T,</b><i></i><b> --nlm-port
+    </b><i>port</i></a></dt>
+  <dd>Specifies the port number that <i>lockd</i> should listen on for
+      <b>NLM</b> requests. This sets both the TCP and UDP ports unless the UDP
+      port is set separately.</dd>
+  <dt id="U,"><a class="permalink" href="#U,"><b>-U,</b><i></i><b>
+    --nlm-udp-port </b><i>port</i></a></dt>
+  <dd>Specifies the UDP port number that <i>lockd</i> should listen on for
+      <b>NLM</b> requests.</dd>
+  <dt id="P,"><a class="permalink" href="#P,"><b>-P,
+    </b><i></i><b>--state-directory-path</b><i> pathname</i></a></dt>
+  <dd>Specifies the pathname of the parent directory where NSM state information
+      resides. If this option is not specified, <b>rpc.statd</b> uses
+      <i>/var/lib/nfs</i> by default.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>After starting, <b>rpc.statd</b> attempts to set its effective UID and GID
+      to the owner and group of the subdirectory <b>sm</b> of this directory.
+      After changing the effective ids, <b>rpc.statd</b> only needs to access
+      files in <b>sm</b> and <b>sm.bak</b> within the state-directory-path.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b>, <b>-V</b>,
+    <b>--version</b></a></dt>
+  <dd>Causes <b>rpc.statd</b> to display version information on <i>stderr</i>
+      and then exit.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_FILE"><a class="permalink" href="#CONFIGURATION_FILE">CONFIGURATION
+  FILE</a></h1>
+<p class="Pp">Many of the options that can be set on the command line can also
+    be controlled through values set in the <b>[statd]</b> or, in some cases,
+    the <b>[lockd]</b> sections of the <i>/etc/nfs.conf</i> configuration file.
+    Values recognized in the <b>[statd]</b> section include <b>port</b>,
+    <b>outgoing-port</b>, <b>name</b>, <b>state-directory-path</b>, and
+    <b>ha-callout</b> which each have the same effect as the option with the
+    same name.</p>
+<p class="Pp">The values recognized in the <b>[lockd]</b> section include
+    <b>port</b> and <b>udp-port</b> which have the same effect as the
+    <b>--nlm-port</b> and <b>--nlm-udp-port</b> options, respectively.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY"><a class="permalink" href="#SECURITY">SECURITY</a></h1>
+<p class="Pp">The <b>rpc.statd</b> daemon must be started as root to acquire
+    privileges needed to create sockets with privileged source ports, and to
+    access the state information database. Because <b>rpc.statd</b> maintains a
+    long-running network service, however, it drops root privileges as soon as
+    it starts up to reduce the risk of a privilege escalation attack.</p>
+<p class="Pp">During normal operation, the effective user ID it chooses is the
+    owner of the state directory. This allows it to continue to access files in
+    that directory after it has dropped its root privileges. To control which
+    user ID <b>rpc.statd</b> chooses, simply use <a class="Xr" href="../1/chown.html"><b>chown</b>(1)</a> to set the
+    owner of the state directory.</p>
+<p class="Pp">You can also protect your <b>rpc.statd</b> listeners using the
+    <b>tcp_wrapper</b> library or <a class="Xr" href="../8/iptables.html"><b>iptables</b>(8)</a>. To use the
+    <b>tcp_wrapper</b> library, add the hostnames of peers that should be
+    allowed access to <i>/etc/hosts.allow</i>. Use the daemon name <b>statd</b>
+    even if the <b>rpc.statd</b> binary has a different filename.</p>
+<p class="Pp">For further information see the <b>tcpd</b>(8) and
+    <a class="Xr" href="../5/hosts_access.html"><b>hosts_access</b>(5)</a> man pages.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ADDITIONAL_NOTES"><a class="permalink" href="#ADDITIONAL_NOTES">ADDITIONAL
+  NOTES</a></h1>
+<p class="Pp">Lock recovery after a reboot is critical to maintaining data
+    integrity and preventing unnecessary application hangs. To help
+    <b>rpc.statd</b> match SM_NOTIFY requests to NLM requests, a number of best
+    practices should be observed, including:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The UTS nodename of your systems should match the DNS names that NFS peers
+      use to contact them</dd>
+  <dt></dt>
+  <dd>The UTS nodenames of your systems should always be fully qualified domain
+      names</dd>
+  <dt></dt>
+  <dd>The forward and reverse DNS mapping of the UTS nodenames should be
+      consistent</dd>
+  <dt></dt>
+  <dd>The hostname the client uses to mount the server should match the server's
+      <i>mon_name</i> in SM_NOTIFY requests it sends</dd>
+</dl>
+<p class="Pp">Unmounting an NFS file system does not necessarily stop either the
+    NFS client or server from monitoring each other. Both may continue
+    monitoring each other for a time in case subsequent NFS traffic between the
+    two results in fresh mounts and additional file locking.</p>
+<p class="Pp">On Linux, if the <b>lockd</b> kernel module is unloaded during
+    normal operation, all remote NFS peers are unmonitored. This can happen on
+    an NFS client, for example, if an automounter removes all NFS mount points
+    due to inactivity.</p>
+<section class="Ss">
+<h2 class="Ss" id="High-availability_callouts"><a class="permalink" href="#High-availability_callouts">High-availability
+  callouts</a></h2>
+<p class="Pp"><b>rpc.statd</b> can exec a special callout program during
+    processing of successful SM_MON, SM_UNMON, and SM_UNMON_ALL requests, or
+    when it receives SM_NOTIFY. Such a program may be used in High Availability
+    NFS (HA-NFS) environments to track lock state that may need to be migrated
+    after a system reboot.</p>
+<p class="Pp">The name of the callout program is specified with the <b>-H</b>
+    option. The program is run with 3 arguments: The first is either
+    <b>add-client</b> <b>del-client</b> or <b>sm-notify</b> depending on the
+    reason for the callout. The second is the <i>mon_name</i> of the monitored
+    peer. The third is the <i>caller_name</i> of the requesting lock manager for
+    <b>add-client</b> or <b>del-client</b> , otherwise it is <i>IP_address</i>
+    of the caller sending SM_NOTIFY. The forth is the <i>state_value</i> in the
+    SM_NOTIFY request.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="IPv6_and_TI-RPC_support"><a class="permalink" href="#IPv6_and_TI-RPC_support">IPv6
+  and TI-RPC support</a></h2>
+<p class="Pp">TI-RPC is a pre-requisite for supporting NFS on IPv6. If TI-RPC
+    support is built into <b>rpc.statd</b>, it attempts to start listeners on
+    network transports marked 'visible' in <i>/etc/netconfig</i>. As long as at
+    least one network transport listener starts successfully, <b>rpc.statd</b>
+    will operate.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt id="RPC_STATD_NO_NOTIFY="><a class="permalink" href="#RPC_STATD_NO_NOTIFY="><b>RPC_STATD_NO_NOTIFY=</b></a></dt>
+  <dd>If set to a positive integer, has the same effect as
+    <i>--no-notify</i>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><i>/var/lib/nfs/sm</i></dt>
+  <dd>directory containing monitor list</dd>
+  <dt><i>/var/lib/nfs/sm.bak</i></dt>
+  <dd>directory containing notify list</dd>
+  <dt><i>/var/lib/nfs/state</i></dt>
+  <dd>NSM state number for this host</dd>
+  <dt><i>/run/run.statd.pid</i></dt>
+  <dd>pid file</dd>
+  <dt><i>/etc/netconfig</i></dt>
+  <dd>network transport capability database</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/sm-notify.html"><b>sm-notify</b>(8)</a>, <a class="Xr" href="../5/nfs.html"><b>nfs</b>(5)</a>, <a class="Xr" href="../8/nfsd.html"><b>rpc.nfsd</b>(8)</a>,
+    <a class="Xr" href="../8/rpcbind.html"><b>rpcbind</b>(8)</a>, <b>tcpd</b>(8), <a class="Xr" href="../5/hosts_access.html"><b>hosts_access</b>(5)</a>,
+    <a class="Xr" href="../8/iptables.html"><b>iptables</b>(8)</a>, <a class="Xr" href="../5/netconfig.html"><b>netconfig</b>(5)</a></p>
+<p class="Pp">RFC 1094 - &quot;NFS: Network File System Protocol
+    Specification&quot;
+  <br/>
+  RFC 1813 - &quot;NFS Version 3 Protocol Specification&quot;
+  <br/>
+  OpenGroup Protocols for Interworking: XNFS, Version 3W - Chapter 11</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Jeff Uphoff &lt;juphoff@users.sourceforge.net&gt;
+  <br/>
+  Olaf Kirch &lt;okir@monad.swb.de&gt;
+  <br/>
+  H.J. Lu &lt;hjl@gnu.org&gt;
+  <br/>
+  Lon Hohberger &lt;hohberger@missioncriticallinux.com&gt;
+  <br/>
+  Paul Clements &lt;paul.clements@steeleye.com&gt;
+  <br/>
+  Chuck Lever &lt;chuck.lever@oracle.com&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">1 November 2009</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Create and manipulate Tcl interpreters">
+<title>interp(3tcl) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">interp(3tcl)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#THE_INTERP_COMMAND">THE
+  INTERP COMMAND</a></li><li><a href="#child_COMMAND">child
+  COMMAND</a></li><li><a href="#SAFE_INTERPRETERS">SAFE
+  INTERPRETERS</a></li><li><a href="#ALIAS_INVOCATION">ALIAS
+  INVOCATION</a></li><li><a href="#HIDDEN_COMMANDS">HIDDEN
+  COMMANDS</a></li><li><a href="#RESOURCE_LIMITS">RESOURCE
+  LIMITS</a></li><li><a href="#LIMIT_OPTIONS">LIMIT
+  OPTIONS</a></li><li><a href="#BACKGROUND_EXCEPTION_HANDLING">BACKGROUND
+  EXCEPTION HANDLING</a></li><li><a href="#CREDITS">CREDITS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#KEYWORDS">KEYWORDS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">interp(3tcl)</td>
+    <td class="head-vol">Tcl Built-In Commands</td>
+    <td class="head-rtitle">interp(3tcl)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<pre>
+</pre>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">interp - Create and manipulate Tcl interpreters</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>interp </b><i>subcommand </i>?<i>arg arg ...</i>?</p>
+<pre>
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This command makes it possible to create one or more new Tcl
+    interpreters that co-exist with the creating interpreter in the same
+    application. The creating interpreter is called the <i>parent</i> and the
+    new interpreter is called a <i>child</i>. A parent can create any number of
+    children, and each child can itself create additional children for which it
+    is parent, resulting in a hierarchy of interpreters.</p>
+<p class="Pp">Each interpreter is independent from the others: it has its own
+    name space for commands, procedures, and global variables. A parent
+    interpreter may create connections between its children and itself using a
+    mechanism called an <i>alias</i>. An <i>alias</i> is a command in a child
+    interpreter which, when invoked, causes a command to be invoked in its
+    parent interpreter or in another child interpreter. The only other
+    connections between interpreters are through environment variables (the
+    <b>env</b> variable), which are normally shared among all interpreters in
+    the application, and by resource limit exceeded callbacks. Note that the
+    name space for files (such as the names returned by the <b>open</b> command)
+    is no longer shared between interpreters. Explicit commands are provided to
+    share files and to transfer references to open files from one interpreter to
+    another.</p>
+<p class="Pp">The <b>interp</b> command also provides support for <i>safe</i>
+    interpreters. A safe interpreter is a child whose functions have been
+    greatly restricted, so that it is safe to execute untrusted scripts without
+    fear of them damaging other interpreters or the application's environment.
+    For example, all IO channel creation commands and subprocess creation
+    commands are made inaccessible to safe interpreters. See <b>SAFE
+    INTERPRETERS</b> below for more information on what features are present in
+    a safe interpreter. The dangerous functionality is not removed from the safe
+    interpreter; instead, it is <i>hidden</i>, so that only trusted interpreters
+    can obtain access to it. For a detailed explanation of hidden commands, see
+    <b>HIDDEN COMMANDS</b>, below. The alias mechanism can be used for protected
+    communication (analogous to a kernel call) between a child interpreter and
+    its parent. See <b>ALIAS INVOCATION</b>, below, for more details on how the
+    alias mechanism works.</p>
+<p class="Pp">A qualified interpreter name is a proper Tcl list containing a
+    subset of its ancestors in the interpreter hierarchy, terminated by the
+    string naming the interpreter in its immediate parent. Interpreter names are
+    relative to the interpreter in which they are used. For example, if
+    &#x201C;<b>a</b>&#x201D; is a child of the current interpreter and it has a
+    child &#x201C;<b>a1</b>&#x201D;, which in turn has a child
+    &#x201C;<b>a11</b>&#x201D;, the qualified name of &#x201C;<b>a11</b>&#x201D;
+    in &#x201C;<b>a</b>&#x201D; is the list &#x201C;<b>a1 a11</b>&#x201D;.</p>
+<p class="Pp">The <b>interp</b> command, described below, accepts qualified
+    interpreter names as arguments; the interpreter in which the command is
+    being evaluated can always be referred to as <b>{}</b> (the empty list or
+    string). Note that it is impossible to refer to a parent (ancestor)
+    interpreter by name in a child interpreter except through aliases. Also,
+    there is no global name by which one can refer to the first interpreter
+    created in an application. Both restrictions are motivated by safety
+    concerns.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THE_INTERP_COMMAND"><a class="permalink" href="#THE_INTERP_COMMAND">THE
+  INTERP COMMAND</a></h1>
+<p class="Pp">The <b>interp</b> command is used to create, delete, and
+    manipulate child interpreters, and to share or transfer channels between
+    interpreters. It can have any of several forms, depending on the
+    <i>subcommand</i> argument:</p>
+<dl class="Bl-tag">
+  <dt id="interp"><a class="permalink" href="#interp"><b>interp</b> <b>alias</b>
+    <i>srcPath</i> <i>srcToken</i></a></dt>
+  <dd>Returns a Tcl list whose elements are the <i>targetCmd</i> and <i>arg</i>s
+      associated with the alias represented by <i>srcToken</i> (this is the
+      value returned when the alias was created; it is possible that the name of
+      the source command in the child is different from <i>srcToken</i>).</dd>
+  <dt id="interp~2"><a class="permalink" href="#interp~2"><b>interp</b>
+    <b>alias</b> <i>srcPath</i> <i>srcToken</i> <b>{}</b></a></dt>
+  <dd>Deletes the alias for <i>srcToken</i> in the child interpreter identified
+      by <i>srcPath</i>. <i>srcToken</i> refers to the value returned when the
+      alias was created; if the source command has been renamed, the renamed
+      command will be deleted.</dd>
+  <dt id="interp~3"><a class="permalink" href="#interp~3"><b>interp</b>
+    <b>alias</b> <i>srcPath</i> <i>srcCmd</i> <i>targetPath</i> <i>targetCmd
+    </i>?<i>arg arg ...</i>?</a></dt>
+  <dd>This command creates an alias between one child and another (see the
+      <b>alias</b> child command below for creating aliases between a child and
+      its parent). In this command, either of the child interpreters may be
+      anywhere in the hierarchy of interpreters under the interpreter invoking
+      the command. <i>SrcPath</i> and <i>srcCmd</i> identify the source of the
+      alias. <i>SrcPath</i> is a Tcl list whose elements select a particular
+      interpreter. For example, &#x201C;<b>a b</b>&#x201D; identifies an
+      interpreter &#x201C;<b>b</b>&#x201D;, which is a child of interpreter
+      &#x201C;<b>a</b>&#x201D;, which is a child of the invoking interpreter. An
+      empty list specifies the interpreter invoking the command. <i>srcCmd</i>
+      gives the name of a new command, which will be created in the source
+      interpreter. <i>TargetPath</i> and <i>targetCmd</i> specify a target
+      interpreter and command, and the <i>arg</i> arguments, if any, specify
+      additional arguments to <i>targetCmd</i> which are prepended to any
+      arguments specified in the invocation of <i>srcCmd</i>. <i>TargetCmd</i>
+      may be undefined at the time of this call, or it may already exist; it is
+      not created by this command. The alias arranges for the given target
+      command to be invoked in the target interpreter whenever the given source
+      command is invoked in the source interpreter. See <b>ALIAS INVOCATION</b>
+      below for more details. The command returns a token that uniquely
+      identifies the command created <i>srcCmd</i>, even if the command is
+      renamed afterwards. The token may but does not have to be equal to
+      <i>srcCmd</i>.</dd>
+  <dt id="interp~4"><a class="permalink" href="#interp~4"><b>interp</b>
+    <b>aliases </b>?<i>path</i>?</a></dt>
+  <dd>This command returns a Tcl list of the tokens of all the source commands
+      for aliases defined in the interpreter identified by <i>path</i>. The
+      tokens correspond to the values returned when the aliases were created
+      (which may not be the same as the current names of the commands).</dd>
+  <dt id="interp~5"><a class="permalink" href="#interp~5"><b>interp bgerror
+    </b><i>path</i> ?<i>cmdPrefix</i>?</a></dt>
+  <dd>This command either gets or sets the current background exception handler
+      for the interpreter identified by <i>path</i>. If <i>cmdPrefix</i> is
+      absent, the current background exception handler is returned, and if it is
+      present, it is a list of words (of minimum length one) that describes what
+      to set the interpreter's background exception handler to. See the
+      <b>BACKGROUND EXCEPTION HANDLING</b> section for more details.</dd>
+  <dt id="interp~6"><a class="permalink" href="#interp~6"><b>interp</b>
+    <b>cancel </b>?<b>-unwind</b>? ?<b>--</b>? ?<i>path</i>?
+    ?<i>result</i>?</a></dt>
+  <dd>Cancels the script being evaluated in the interpreter identified by
+      <i>path</i>. Without the <b>-unwind</b> switch the evaluation stack for
+      the interpreter is unwound until an enclosing catch command is found or
+      there are no further invocations of the interpreter left on the call
+      stack. With the <b>-unwind</b> switch the evaluation stack for the
+      interpreter is unwound without regard to any intervening catch command
+      until there are no further invocations of the interpreter left on the call
+      stack. The <b>--</b> switch can be used to mark the end of switches; it
+      may be needed if <i>path</i> is an unusual value such as <b>-safe</b>. If
+      <i>result</i> is present, it will be used as the error message string;
+      otherwise, a default error message string will be used.</dd>
+  <dt id="interp~7"><a class="permalink" href="#interp~7"><b>interp</b>
+    <b>create </b>?<b>-safe</b>? ?<b>--</b>? ?<i>path</i>?</a></dt>
+  <dd>Creates a child interpreter identified by <i>path</i> and a new command,
+      called a <i>child command</i>. The name of the child command is the last
+      component of <i>path</i>. The new child interpreter and the child command
+      are created in the interpreter identified by the path obtained by removing
+      the last component from <i>path</i>. For example, if <i>path</i> is <b>a
+      b</b> <b>c</b> then a new child interpreter and child command named
+      <b>c</b> are created in the interpreter identified by the path <b>a b</b>.
+      The child command may be used to manipulate the new interpreter as
+      described below. If <i>path</i> is omitted, Tcl creates a unique name of
+      the form <b>interp</b><i>x</i>, where <i>x</i> is an integer, and uses it
+      for the interpreter and the child command. If the <b>-safe</b> switch is
+      specified (or if the parent interpreter is a safe interpreter), the new
+      child interpreter will be created as a safe interpreter with limited
+      functionality; otherwise the child will include the full set of Tcl
+      built-in commands and variables. The <b>--</b> switch can be used to mark
+      the end of switches; it may be needed if <i>path</i> is an unusual value
+      such as <b>-safe</b>. The result of the command is the name of the new
+      interpreter. The name of a child interpreter must be unique among all the
+      children for its parent; an error occurs if a child interpreter by the
+      given name already exists in this parent. The initial recursion limit of
+      the child interpreter is set to the current recursion limit of its parent
+      interpreter.</dd>
+  <dt id="interp~8"><a class="permalink" href="#interp~8"><b>interp</b> <b>debug
+    </b><i>path</i> ?<b>-frame</b> ?<i>bool</i>??</a></dt>
+  <dd>Controls whether frame-level stack information is captured in the child
+      interpreter identified by <i>path</i>. If no arguments are given, option
+      and current setting are returned. If <b>-frame</b> is given, the debug
+      setting is set to the given boolean if provided and the current setting is
+      returned. This only affects the output of <b>info frame</b>, in that exact
+      frame-level information for command invocation at the bytecode level is
+      only captured with this setting on.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">For example, with code like</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>proc</b> mycontrol {... script} {
+<br/>
+  ...
+<br/>
+  <b>uplevel</b> 1 $script
+<br/>
+  ...
+}
+<b>proc</b> dosomething {...} {
+<br/>
+  ...
+<br/>
+  mycontrol {
+<br/>
+    somecode
+<br/>
+  }
+}</pre>
+</div>
+<p class="Pp">the standard setting will provide a relative line number for the
+    command <b>somecode</b> and the relevant frame will be of type <b>eval</b>.
+    With frame-debug active on the other hand the tracking extends so far that
+    the system will be able to determine the file and absolute line number of
+    this command, and return a frame of type <b>source</b>. This more exact
+    information is paid for with slower execution of all commands.</p>
+<p class="Pp">Note that once it is on, this flag cannot be switched back off:
+    such attempts are silently ignored. This is needed to maintain the
+    consistency of the underlying interpreter's state.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="interp~9"><a class="permalink" href="#interp~9"><b>interp</b>
+    <b>delete </b>?<i>path ...?</i></a></dt>
+  <dd>Deletes zero or more interpreters given by the optional <i>path</i>
+      arguments, and for each interpreter, it also deletes its children. The
+      command also deletes the child command for each interpreter deleted. For
+      each <i>path</i> argument, if no interpreter by that name exists, the
+      command raises an error.</dd>
+  <dt id="interp~10"><a class="permalink" href="#interp~10"><b>interp</b>
+    <b>eval</b> <i>path arg </i>?<i>arg ...</i>?</a></dt>
+  <dd>This command concatenates all of the <i>arg</i> arguments in the same
+      fashion as the <b>concat</b> command, then evaluates the resulting string
+      as a Tcl script in the child interpreter identified by <i>path</i>. The
+      result of this evaluation (including all <b>return</b> options, such as
+      <b>-errorinfo</b> and <b>-errorcode</b> information, if an error occurs)
+      is returned to the invoking interpreter. Note that the script will be
+      executed in the current context stack frame of the <i>path</i>
+      interpreter; this is so that the implementations (in a parent interpreter)
+      of aliases in a child interpreter can execute scripts in the child that
+      find out information about the child's current state and stack frame.</dd>
+  <dt id="interp~11"><a class="permalink" href="#interp~11"><b>interp exists
+    </b><i>path</i></a></dt>
+  <dd>Returns <b>1</b> if a child interpreter by the specified <i>path</i>
+      exists in this parent, <b>0</b> otherwise. If <i>path</i> is omitted, the
+      invoking interpreter is used.</dd>
+  <dt id="interp~12"><a class="permalink" href="#interp~12"><b>interp expose
+    </b><i>path</i> <i>hiddenName</i> ?<i>exposedCmdName</i>?</a></dt>
+  <dd>Makes the hidden command <i>hiddenName</i> exposed, eventually bringing it
+      back under a new <i>exposedCmdName</i> name (this name is currently
+      accepted only if it is a valid global name space name without any ::), in
+      the interpreter denoted by <i>path</i>. If an exposed command with the
+      targeted name already exists, this command fails. Hidden commands are
+      explained in more detail in <b>HIDDEN COMMANDS</b>, below.</dd>
+  <dt id="interp~13"><a class="permalink" href="#interp~13"><b>interp</b>
+    <b>hide</b> <i>path</i> <i>exposedCmdName</i>
+    ?<i>hiddenCmdName</i>?</a></dt>
+  <dd>Makes the exposed command <i>exposedCmdName</i> hidden, renaming it to the
+      hidden command <i>hiddenCmdName</i>, or keeping the same name if
+      <i>hiddenCmdName</i> is not given, in the interpreter denoted by
+      <i>path</i>. If a hidden command with the targeted name already exists,
+      this command fails. Currently both <i>exposedCmdName</i> and
+      <i>hiddenCmdName</i> can not contain namespace qualifiers, or an error is
+      raised. Commands to be hidden by <b>interp hide</b> are looked up in the
+      global namespace even if the current namespace is not the global one. This
+      prevents children from fooling a parent interpreter into hiding the wrong
+      command, by making the current namespace be different from the global one.
+      Hidden commands are explained in more detail in <b>HIDDEN COMMANDS</b>,
+      below.</dd>
+  <dt id="interp~14"><a class="permalink" href="#interp~14"><b>interp</b>
+    <b>hidden</b> <i>path</i></a></dt>
+  <dd>Returns a list of the names of all hidden commands in the interpreter
+      identified by <i>path</i>.</dd>
+  <dt id="interp~15"><a class="permalink" href="#interp~15"><b>interp</b>
+    <b>invokehidden</b> <i>path</i> ?<i>-option ...</i>? <i>hiddenCmdName</i>
+    ?<i>arg ...</i>?</a></dt>
+  <dd>Invokes the hidden command <i>hiddenCmdName</i> with the arguments
+      supplied in the interpreter denoted by <i>path</i>. No substitutions or
+      evaluation are applied to the arguments. Three <i>-option</i>s are
+      supported, all of which start with <b>-</b>: <b>-namespace</b> (which
+      takes a single argument afterwards, <i>nsName</i>), <b>-global</b>, and
+      <b>--</b>. If the <b>-namespace</b> flag is present, the hidden command is
+      invoked in the namespace called <i>nsName</i> in the target interpreter.
+      If the <b>-global</b> flag is present, the hidden command is invoked at
+      the global level in the target interpreter; otherwise it is invoked at the
+      current call frame and can access local variables in that and outer call
+      frames. The <b>--</b> flag allows the <i>hiddenCmdName</i> argument to
+      start with a &#x201C;-&#x201D; character, and is otherwise unnecessary. If
+      both the <b>-namespace</b> and <b>-global</b> flags are present, the
+      <b>-namespace</b> flag is ignored. Note that the hidden command will be
+      executed (by default) in the current context stack frame of the
+      <i>path</i> interpreter. Hidden commands are explained in more detail in
+      <b>HIDDEN COMMANDS</b>, below.</dd>
+  <dt id="interp~16"><a class="permalink" href="#interp~16"><b>interp issafe</b>
+    ?<i>path</i>?</a></dt>
+  <dd>Returns <b>1</b> if the interpreter identified by the specified
+      <i>path</i> is safe, <b>0</b> otherwise.</dd>
+  <dt id="interp~17"><a class="permalink" href="#interp~17"><b>interp</b>
+    <b>limit</b> <i>path</i> <i>limitType</i> ?<i>-option</i>? ?<i>value</i>
+    <i>...</i>?</a></dt>
+  <dd>Sets up, manipulates and queries the configuration of the resource limit
+      <i>limitType</i> for the interpreter denoted by <i>path</i>. If no
+      <i>-option</i> is specified, return the current configuration of the
+      limit. If <i>-option</i> is the sole argument, return the value of that
+      option. Otherwise, a list of <i>-option</i>/<i>value</i> argument pairs
+      must supplied. See <b>RESOURCE LIMITS</b> below for a more detailed
+      explanation of what limits and options are supported.</dd>
+  <dt id="interp~18"><a class="permalink" href="#interp~18"><b>interp
+    marktrusted</b> <i>path</i></a></dt>
+  <dd>Marks the interpreter identified by <i>path</i> as trusted. Does not
+      expose the hidden commands. This command can only be invoked from a
+      trusted interpreter. The command has no effect if the interpreter
+      identified by <i>path</i> is already trusted.</dd>
+  <dt id="interp~19"><a class="permalink" href="#interp~19"><b>interp</b>
+    <b>recursionlimit</b> <i>path</i> ?<i>newlimit</i>?</a></dt>
+  <dd>Returns the maximum allowable nesting depth for the interpreter specified
+      by <i>path</i>. If <i>newlimit</i> is specified, the interpreter recursion
+      limit will be set so that nesting of more than <i>newlimit</i> calls to
+      <b>Tcl_Eval</b> and related procedures in that interpreter will return an
+      error. The <i>newlimit</i> value is also returned. The <i>newlimit</i>
+      value must be a positive integer between 1 and the maximum value of a
+      non-long integer on the platform.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The command sets the maximum size of the Tcl call stack only. It
+    cannot by itself prevent stack overflows on the C stack being used by the
+    application. If your machine has a limit on the size of the C stack, you may
+    get stack overflows before reaching the limit set by the command. If this
+    happens, see if there is a mechanism in your system for increasing the
+    maximum size of the C stack.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="interp~20"><a class="permalink" href="#interp~20"><b>interp</b>
+    <b>share</b> <i>srcPath channelId destPath</i></a></dt>
+  <dd>Causes the IO channel identified by <i>channelId</i> to become shared
+      between the interpreter identified by <i>srcPath</i> and the interpreter
+      identified by <i>destPath</i>. Both interpreters have the same permissions
+      on the IO channel. Both interpreters must close it to close the underlying
+      IO channel; IO channels accessible in an interpreter are automatically
+      closed when an interpreter is destroyed.</dd>
+  <dt id="interp~21"><a class="permalink" href="#interp~21"><b>interp</b>
+    <b>slaves</b> ?<i>path</i>?</a></dt>
+  <dd>Returns a Tcl list of the names of all the child interpreters associated
+      with the interpreter identified by <i>path</i>. If <i>path</i> is omitted,
+      the invoking interpreter is used.</dd>
+  <dt id="interp~22"><a class="permalink" href="#interp~22"><b>interp</b>
+    <b>children</b> ?<i>path</i>?</a></dt>
+  <dd>Synonym for . <b>interp</b> <b>slaves</b> ?<i>path</i>?</dd>
+  <dt id="interp~23"><a class="permalink" href="#interp~23"><b>interp</b>
+    <b>target</b> <i>path alias</i></a></dt>
+  <dd>Returns a Tcl list describing the target interpreter for an alias. The
+      alias is specified with an interpreter path and source command name, just
+      as in <b>interp alias</b> above. The name of the target interpreter is
+      returned as an interpreter path, relative to the invoking interpreter. If
+      the target interpreter for the alias is the invoking interpreter then an
+      empty list is returned. If the target interpreter for the alias is not the
+      invoking interpreter or one of its descendants then an error is generated.
+      The target command does not have to be defined at the time of this
+      invocation.</dd>
+  <dt id="interp~24"><a class="permalink" href="#interp~24"><b>interp</b>
+    <b>transfer</b> <i>srcPath channelId destPath</i></a></dt>
+  <dd>Causes the IO channel identified by <i>channelId</i> to become available
+      in the interpreter identified by <i>destPath</i> and unavailable in the
+      interpreter identified by <i>srcPath</i>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="child_COMMAND"><a class="permalink" href="#child_COMMAND">child
+  COMMAND</a></h1>
+<p class="Pp">For each child interpreter created with the <b>interp</b> command,
+    a new Tcl command is created in the parent interpreter with the same name as
+    the new interpreter. This command may be used to invoke various operations
+    on the interpreter. It has the following general form:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<i>child command </i>?<i>arg arg ...</i>?</pre>
+</div>
+<p class="Pp"><i>child</i> is the name of the interpreter, and <i>command</i>
+    and the <i>arg</i>s determine the exact behavior of the command. The valid
+    forms of this command are:</p>
+<dl class="Bl-tag">
+  <dt id="child"><a class="permalink" href="#child"><i>child
+    </i><b>aliases</b></a></dt>
+  <dd>Returns a Tcl list whose elements are the tokens of all the aliases in
+      <i>child</i>. The tokens correspond to the values returned when the
+      aliases were created (which may not be the same as the current names of
+      the commands).</dd>
+  <dt id="child~2"><a class="permalink" href="#child~2"><i>child </i><b>alias
+    </b><i>srcToken</i></a></dt>
+  <dd>Returns a Tcl list whose elements are the <i>targetCmd</i> and <i>arg</i>s
+      associated with the alias represented by <i>srcToken</i> (this is the
+      value returned when the alias was created; it is possible that the actual
+      source command in the child is different from <i>srcToken</i>).</dd>
+  <dt id="child~3"><a class="permalink" href="#child~3"><i>child </i><b>alias
+    </b><i>srcToken </i><b>{}</b></a></dt>
+  <dd>Deletes the alias for <i>srcToken</i> in the child interpreter.
+      <i>srcToken</i> refers to the value returned when the alias was created;
+      if the source command has been renamed, the renamed command will be
+      deleted.</dd>
+  <dt id="child~4"><a class="permalink" href="#child~4"><i>child </i><b>alias
+    </b><i>srcCmd targetCmd </i>?<i>arg ..</i>?</a></dt>
+  <dd>Creates an alias such that whenever <i>srcCmd</i> is invoked in
+      <i>child</i>, <i>targetCmd</i> is invoked in the parent. The <i>arg</i>
+      arguments will be passed to <i>targetCmd</i> as additional arguments,
+      prepended before any arguments passed in the invocation of <i>srcCmd</i>.
+      See <b>ALIAS INVOCATION</b> below for details. The command returns a token
+      that uniquely identifies the command created <i>srcCmd</i>, even if the
+      command is renamed afterwards. The token may but does not have to be equal
+      to <i>srcCmd</i>.</dd>
+  <dt id="child~5"><a class="permalink" href="#child~5"><i>child
+    </i><b>bgerror</b> ?<i>cmdPrefix</i>?</a></dt>
+  <dd>This command either gets or sets the current background exception handler
+      for the <i>child</i> interpreter. If <i>cmdPrefix</i> is absent, the
+      current background exception handler is returned, and if it is present, it
+      is a list of words (of minimum length one) that describes what to set the
+      interpreter's background exception handler to. See the <b>BACKGROUND
+      EXCEPTION HANDLING</b> section for more details.</dd>
+  <dt id="child~6"><a class="permalink" href="#child~6"><i>child </i><b>eval
+    </b><i>arg </i>?<i>arg ..</i>?</a></dt>
+  <dd>This command concatenates all of the <i>arg</i> arguments in the same
+      fashion as the <b>concat</b> command, then evaluates the resulting string
+      as a Tcl script in <i>child</i>. The result of this evaluation (including
+      all <b>return</b> options, such as <b>-errorinfo</b> and <b>-errorcode</b>
+      information, if an error occurs) is returned to the invoking interpreter.
+      Note that the script will be executed in the current context stack frame
+      of <i>child</i>; this is so that the implementations (in a parent
+      interpreter) of aliases in a child interpreter can execute scripts in the
+      child that find out information about the child's current state and stack
+      frame.</dd>
+  <dt id="child~7"><a class="permalink" href="#child~7"><i>child </i><b>expose
+    </b><i>hiddenName </i>?<i>exposedCmdName</i>?</a></dt>
+  <dd>This command exposes the hidden command <i>hiddenName</i>, eventually
+      bringing it back under a new <i>exposedCmdName</i> name (this name is
+      currently accepted only if it is a valid global name space name without
+      any ::), in <i>child</i>. If an exposed command with the targeted name
+      already exists, this command fails. For more details on hidden commands,
+      see <b>HIDDEN COMMANDS</b>, below.</dd>
+  <dt id="child~8"><a class="permalink" href="#child~8"><i>child </i><b>hide
+    </b><i>exposedCmdName</i> ?<i>hiddenCmdName</i>?</a></dt>
+  <dd>This command hides the exposed command <i>exposedCmdName</i>, renaming it
+      to the hidden command <i>hiddenCmdName</i>, or keeping the same name if
+      the argument is not given, in the <i>child</i> interpreter. If a hidden
+      command with the targeted name already exists, this command fails.
+      Currently both <i>exposedCmdName</i> and <i>hiddenCmdName</i> can not
+      contain namespace qualifiers, or an error is raised. Commands to be hidden
+      are looked up in the global namespace even if the current namespace is not
+      the global one. This prevents children from fooling a parent interpreter
+      into hiding the wrong command, by making the current namespace be
+      different from the global one. For more details on hidden commands, see
+      <b>HIDDEN COMMANDS</b>, below.</dd>
+  <dt id="child~9"><a class="permalink" href="#child~9"><i>child
+    </i><b>hidden</b></a></dt>
+  <dd>Returns a list of the names of all hidden commands in <i>child</i>.</dd>
+  <dt id="child~10"><a class="permalink" href="#child~10"><i>child
+    </i><b>invokehidden</b> ?<i>-option ...</i>? <i>hiddenName </i>?<i>arg
+    ..</i>?</a></dt>
+  <dd>This command invokes the hidden command <i>hiddenName</i> with the
+      supplied arguments, in <i>child</i>. No substitutions or evaluations are
+      applied to the arguments. Three <i>-option</i>s are supported, all of
+      which start with <b>-</b>: <b>-namespace</b> (which takes a single
+      argument afterwards, <i>nsName</i>), <b>-global</b>, and <b>--</b>. If the
+      <b>-namespace</b> flag is given, the hidden command is invoked in the
+      specified namespace in the child. If the <b>-global</b> flag is given, the
+      command is invoked at the global level in the child; otherwise it is
+      invoked at the current call frame and can access local variables in that
+      or outer call frames. The <b>--</b> flag allows the <i>hiddenCmdName</i>
+      argument to start with a &#x201C;-&#x201D; character, and is otherwise
+      unnecessary. If both the <b>-namespace</b> and <b>-global</b> flags are
+      given, the <b>-namespace</b> flag is ignored. Note that the hidden command
+      will be executed (by default) in the current context stack frame of
+      <i>child</i>. For more details on hidden commands, see <b>HIDDEN
+      COMMANDS</b>, below.</dd>
+  <dt id="child~11"><a class="permalink" href="#child~11"><i>child
+    </i><b>issafe</b></a></dt>
+  <dd>Returns <b>1</b> if the child interpreter is safe, <b>0</b>
+    otherwise.</dd>
+  <dt id="child~12"><a class="permalink" href="#child~12"><i>child
+    </i><b>limit</b> <i>limitType</i> ?<i>-option</i>? ?<i>value</i>
+    <i>...</i>?</a></dt>
+  <dd>Sets up, manipulates and queries the configuration of the resource limit
+      <i>limitType</i> for the child interpreter. If no <i>-option</i> is
+      specified, return the current configuration of the limit. If
+      <i>-option</i> is the sole argument, return the value of that option.
+      Otherwise, a list of <i>-option</i>/<i>value</i> argument pairs must
+      supplied. See <b>RESOURCE LIMITS</b> below for a more detailed explanation
+      of what limits and options are supported.</dd>
+  <dt id="child~13"><a class="permalink" href="#child~13"><i>child
+    </i><b>marktrusted</b></a></dt>
+  <dd>Marks the child interpreter as trusted. Can only be invoked by a trusted
+      interpreter. This command does not expose any hidden commands in the child
+      interpreter. The command has no effect if the child is already
+    trusted.</dd>
+  <dt id="child~14"><a class="permalink" href="#child~14"><i>child</i>
+    <b>recursionlimit</b> ?<i>newlimit</i>?</a></dt>
+  <dd>Returns the maximum allowable nesting depth for the <i>child</i>
+      interpreter. If <i>newlimit</i> is specified, the recursion limit in
+      <i>child</i> will be set so that nesting of more than <i>newlimit</i>
+      calls to <b>Tcl_Eval()</b> and related procedures in <i>child</i> will
+      return an error. The <i>newlimit</i> value is also returned. The
+      <i>newlimit</i> value must be a positive integer between 1 and the maximum
+      value of a non-long integer on the platform.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">The command sets the maximum size of the Tcl call stack only. It
+    cannot by itself prevent stack overflows on the C stack being used by the
+    application. If your machine has a limit on the size of the C stack, you may
+    get stack overflows before reaching the limit set by the command. If this
+    happens, see if there is a mechanism in your system for increasing the
+    maximum size of the C stack.</p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SAFE_INTERPRETERS"><a class="permalink" href="#SAFE_INTERPRETERS">SAFE
+  INTERPRETERS</a></h1>
+<p class="Pp">A safe interpreter is one with restricted functionality, so that
+    is safe to execute an arbitrary script from your worst enemy without fear of
+    that script damaging the enclosing application or the rest of your computing
+    environment. In order to make an interpreter safe, certain commands and
+    variables are removed from the interpreter. For example, commands to create
+    files on disk are removed, and the <b>exec</b> command is removed, since it
+    could be used to cause damage through subprocesses. Limited access to these
+    facilities can be provided, by creating aliases to the parent interpreter
+    which check their arguments carefully and provide restricted access to a
+    safe subset of facilities. For example, file creation might be allowed in a
+    particular subdirectory and subprocess invocation might be allowed for a
+    carefully selected and fixed set of programs.</p>
+<p class="Pp">A safe interpreter is created by specifying the <b>-safe</b>
+    switch to the <b>interp create</b> command. Furthermore, any child created
+    by a safe interpreter will also be safe.</p>
+<p class="Pp">A safe interpreter is created with exactly the following set of
+    built-in commands:</p>
+<div class="Bd-indent">
+<pre>
+<b>after</b>	<b>append</b>	<b>apply</b>	<b>array</b>
+<b>binary</b>	<b>break</b>	<b>catch</b>	<b>chan</b>
+<b>clock</b>	<b>close</b>	<b>concat</b>	<b>continue</b>
+<b>dict</b>	<b>eof</b>	<b>error</b>	<b>eval</b>
+<b>expr</b>	<b>fblocked</b>	<b>fcopy</b>	<b>fileevent</b>
+<b>flush</b>	<b>for</b>	<b>foreach</b>	<b>format</b>
+<b>gets</b>	<b>global</b>	<b>if</b>	<b>incr</b>
+<b>info</b>	<b>interp</b>	<b>join</b>	<b>lappend</b>
+<b>lassign</b>	<b>lindex</b>	<b>linsert</b>	<b>list</b>
+<b>llength</b>	<b>lrange</b>	<b>lrepeat</b>	<b>lreplace</b>
+<b>lsearch</b>	<b>lset</b>	<b>lsort</b>	<b>namespace</b>
+<b>package</b>	<b>pid</b>	<b>proc</b>	<b>puts</b>
+<b>read</b>	<b>regexp</b>	<b>regsub</b>	<b>rename</b>
+<b>return</b>	<b>scan</b>	<b>seek</b>	<b>set</b>
+<b>split</b>	<b>string</b>	<b>subst</b>	<b>switch</b>
+<b>tell</b>	<b>time</b>	<b>trace</b>	<b>unset</b>
+<b>update</b>	<b>uplevel</b>	<b>upvar</b>	<b>variable</b>
+<b>vwait</b>	<b>while</b></pre>
+</div>
+<p class="Pp">The following commands are hidden by <b>interp create</b> when it
+    creates a safe interpreter:</p>
+<div class="Bd-indent">
+<pre>
+<b>cd</b>	<b>encoding</b>	<b>exec</b>	<b>exit</b>
+<b>fconfigure</b>	<b>file</b>	<b>glob</b>	<b>load</b>
+<b>open</b>	<b>pwd</b>	<b>socket</b>	<b>source</b>
+<b>unload</b></pre>
+</div>
+<p class="Pp">These commands can be recreated later as Tcl procedures or
+    aliases, or re-exposed by <b>interp expose</b>.</p>
+<p class="Pp">The following commands from Tcl's library of support procedures
+    are not present in a safe interpreter:</p>
+<div class="Bd-indent">
+<pre>
+<b>auto_exec_ok</b>	<b>auto_import</b>	<b>auto_load</b>
+<b>auto_load_index</b>	<b>auto_qualify</b>	<b>unknown</b></pre>
+</div>
+<p class="Pp">Note in particular that safe interpreters have no default
+    <b>unknown</b> command, so Tcl's default autoloading facilities are not
+    available. Autoload access to Tcl's commands that are normally
+  autoloaded:</p>
+<div class="Bd-indent">
+<pre>
+<b>auto_mkindex</b>	<b>auto_mkindex_old</b>
+<b>auto_reset</b>	<b>history</b>
+<b>parray</b>	<b>pkg_mkIndex</b>
+<b>::pkg::create</b>	<b>::safe::interpAddToAccessPath</b>
+<b>::safe::interpCreate</b>	<b>::safe::interpConfigure</b>
+<b>::safe::interpDelete</b>	<b>::safe::interpFindInAccessPath</b>
+<b>::safe::interpInit</b>	<b>::safe::setLogCmd</b>
+<b>tcl_endOfWord</b>	<b>tcl_findLibrary</b>
+<b>tcl_startOfNextWord</b>	<b>tcl_startOfPreviousWord</b>
+<b>tcl_wordBreakAfter</b>	<b>tcl_wordBreakBefore</b></pre>
+</div>
+<p class="Pp">can only be provided by explicit definition of an <b>unknown</b>
+    command in the safe interpreter. This will involve exposing the
+    <b>source</b> command. This is most easily accomplished by creating the safe
+    interpreter with Tcl's <b>Safe-Tcl</b> mechanism. <b>Safe-Tcl</b> provides
+    safe versions of <b>source</b>, <b>load</b>, and other Tcl commands needed
+    to support autoloading of commands and the loading of packages.</p>
+<p class="Pp">In addition, the <b>env</b> variable is not present in a safe
+    interpreter, so it cannot share environment variables with other
+    interpreters. The <b>env</b> variable poses a security risk, because users
+    can store sensitive information in an environment variable. For example, the
+    PGP manual recommends storing the PGP private key protection password in the
+    environment variable <i>PGPPASS</i>. Making this variable available to
+    untrusted code executing in a safe interpreter would incur a security
+  risk.</p>
+<p class="Pp">If extensions are loaded into a safe interpreter, they may also
+    restrict their own functionality to eliminate unsafe commands. For a
+    discussion of management of extensions for safety see the manual entries for
+    <b>Safe-Tcl</b> and the <b>load</b> Tcl command.</p>
+<p class="Pp">A safe interpreter may not alter the recursion limit of any
+    interpreter, including itself.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ALIAS_INVOCATION"><a class="permalink" href="#ALIAS_INVOCATION">ALIAS
+  INVOCATION</a></h1>
+<p class="Pp">The alias mechanism has been carefully designed so that it can be
+    used safely in an untrusted script which is being executed in a safe
+    interpreter even if the target of the alias is not a safe interpreter. The
+    most important thing in guaranteeing safety is to ensure that information
+    passed from the child to the parent is never evaluated or substituted in the
+    parent; if this were to occur, it would enable an evil script in the child
+    to invoke arbitrary functions in the parent, which would compromise
+    security.</p>
+<p class="Pp">When the source for an alias is invoked in the child interpreter,
+    the usual Tcl substitutions are performed when parsing that command. These
+    substitutions are carried out in the source interpreter just as they would
+    be for any other command invoked in that interpreter. The command procedure
+    for the source command takes its arguments and merges them with the
+    <i>targetCmd</i> and <i>arg</i>s for the alias to create a new array of
+    arguments. If the words of <i>srcCmd</i> were &#x201C;<i>srcCmd arg1 arg2
+    ... argN</i>&#x201D;, the new set of words will be &#x201C;<i>targetCmd arg
+    arg ... arg arg1 arg2 ... argN</i>&#x201D;, where <i>targetCmd</i> and
+    <i>arg</i>s are the values supplied when the alias was created.
+    <i>TargetCmd</i> is then used to locate a command procedure in the target
+    interpreter, and that command procedure is invoked with the new set of
+    arguments. An error occurs if there is no command named <i>targetCmd</i> in
+    the target interpreter. No additional substitutions are performed on the
+    words: the target command procedure is invoked directly, without going
+    through the normal Tcl evaluation mechanism. Substitutions are thus
+    performed on each word exactly once: <i>targetCmd</i> and <i>args</i> were
+    substituted when parsing the command that created the alias, and <i>arg1 -
+    argN</i> are substituted when the alias's source command is parsed in the
+    source interpreter.</p>
+<p class="Pp">When writing the <i>targetCmd</i>s for aliases in safe
+    interpreters, it is very important that the arguments to that command never
+    be evaluated or substituted, since this would provide an escape mechanism
+    whereby the child interpreter could execute arbitrary code in the parent.
+    This in turn would compromise the security of the system.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HIDDEN_COMMANDS"><a class="permalink" href="#HIDDEN_COMMANDS">HIDDEN
+  COMMANDS</a></h1>
+<p class="Pp">Safe interpreters greatly restrict the functionality available to
+    Tcl programs executing within them. Allowing the untrusted Tcl program to
+    have direct access to this functionality is unsafe, because it can be used
+    for a variety of attacks on the environment. However, there are times when
+    there is a legitimate need to use the dangerous functionality in the context
+    of the safe interpreter. For example, sometimes a program must be
+    <b>source</b>d into the interpreter. Another example is Tk, where windows
+    are bound to the hierarchy of windows for a specific interpreter; some
+    potentially dangerous functions, e.g. window management, must be performed
+    on these windows within the interpreter context.</p>
+<p class="Pp">The <b>interp</b> command provides a solution to this problem in
+    the form of <i>hidden commands</i>. Instead of removing the dangerous
+    commands entirely from a safe interpreter, these commands are hidden so they
+    become unavailable to Tcl scripts executing in the interpreter. However,
+    such hidden commands can be invoked by any trusted ancestor of the safe
+    interpreter, in the context of the safe interpreter, using <b>interp</b>
+    <b>invoke</b>. Hidden commands and exposed commands reside in separate name
+    spaces. It is possible to define a hidden command and an exposed command by
+    the same name within one interpreter.</p>
+<p class="Pp">Hidden commands in a child interpreter can be invoked in the body
+    of procedures called in the parent during alias invocation. For example, an
+    alias for <b>source</b> could be created in a child interpreter. When it is
+    invoked in the child interpreter, a procedure is called in the parent
+    interpreter to check that the operation is allowable (e.g. it asks to source
+    a file that the child interpreter is allowed to access). The procedure then
+    it invokes the hidden <b>source</b> command in the child interpreter to
+    actually source in the contents of the file. Note that two commands named
+    <b>source</b> exist in the child interpreter: the alias, and the hidden
+    command.</p>
+<p class="Pp">Because a parent interpreter may invoke a hidden command as part
+    of handling an alias invocation, great care must be taken to avoid
+    evaluating any arguments passed in through the alias invocation. Otherwise,
+    malicious child interpreters could cause a trusted parent interpreter to
+    execute dangerous commands on their behalf. See the section on <b>ALIAS
+    INVOCATION</b> for a more complete discussion of this topic. To help avoid
+    this problem, no substitutions or evaluations are applied to arguments of
+    <b>interp invokehidden</b>.</p>
+<p class="Pp">Safe interpreters are not allowed to invoke hidden commands in
+    themselves or in their descendants. This prevents them from gaining access
+    to hidden functionality in themselves or their descendants.</p>
+<p class="Pp">The set of hidden commands in an interpreter can be manipulated by
+    a trusted interpreter using <b>interp expose</b> and <b>interp hide</b>. The
+    <b>interp</b> <b>expose</b> command moves a hidden command to the set of
+    exposed commands in the interpreter identified by <i>path</i>, potentially
+    renaming the command in the process. If an exposed command by the targeted
+    name already exists, the operation fails. Similarly, <b>interp hide</b>
+    moves an exposed command to the set of hidden commands in that interpreter.
+    Safe interpreters are not allowed to move commands between the set of hidden
+    and exposed commands, in either themselves or their descendants.</p>
+<p class="Pp">Currently, the names of hidden commands cannot contain namespace
+    qualifiers, and you must first rename a command in a namespace to the global
+    namespace before you can hide it. Commands to be hidden by <b>interp
+    hide</b> are looked up in the global namespace even if the current namespace
+    is not the global one. This prevents children from fooling a parent
+    interpreter into hiding the wrong command, by making the current namespace
+    be different from the global one.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCE_LIMITS"><a class="permalink" href="#RESOURCE_LIMITS">RESOURCE
+  LIMITS</a></h1>
+<p class="Pp">Every interpreter has two kinds of resource limits that may be
+    imposed by any parent interpreter upon its children. Command limits (of type
+    <b>command</b>) restrict the total number of Tcl commands that may be
+    executed by an interpreter (as can be inspected via the <b>info cmdcount</b>
+    command), and time limits (of type <b>time</b>) place a limit by which
+    execution within the interpreter must complete. Note that time limits are
+    expressed as <i>absolute</i> times (as in <b>clock seconds</b>) and not
+    relative times (as in <b>after</b>) because they may be modified after
+    creation.</p>
+<p class="Pp">When a limit is exceeded for an interpreter, first any handler
+    callbacks defined by parent interpreters are called. If those callbacks
+    increase or remove the limit, execution within the (previously) limited
+    interpreter continues. If the limit is still in force, an error is generated
+    at that point and normal processing of errors within the interpreter (by the
+    <b>catch</b> command) is disabled, so the error propagates outwards
+    (building a stack-trace as it goes) to the point where the limited
+    interpreter was invoked (e.g. by <b>interp eval</b>) where it becomes the
+    responsibility of the calling code to catch and handle.</p>
+<section class="Ss">
+<h2 class="Ss" id="LIMIT_OPTIONS"><a class="permalink" href="#LIMIT_OPTIONS">LIMIT
+  OPTIONS</a></h2>
+<p class="Pp">Every limit has a number of options associated with it, some of
+    which are common across all kinds of limits, and others of which are
+    particular to the kind of limit.</p>
+<dl class="Bl-tag">
+  <dt id="command"><a class="permalink" href="#command"><b>-command</b></a></dt>
+  <dd>This option (common for all limit types) specifies (if non-empty) a Tcl
+      script to be executed in the global namespace of the interpreter reading
+      and writing the option when the particular limit in the limited
+      interpreter is exceeded. The callback may modify the limit on the
+      interpreter if it wishes the limited interpreter to continue executing. If
+      the callback generates an exception, it is reported through the background
+      exception mechanism (see <b>BACKGROUND EXCEPTION HANDLING</b>). Note that
+      the callbacks defined by one interpreter are completely isolated from the
+      callbacks defined by another, and that the order in which those callbacks
+      are called is undefined.</dd>
+  <dt id="granularity"><a class="permalink" href="#granularity"><b>-granularity</b></a></dt>
+  <dd>This option (common for all limit types) specifies how frequently (out of
+      the points when the Tcl interpreter is in a consistent state where limit
+      checking is possible) that the limit is actually checked. This allows the
+      tuning of how frequently a limit is checked, and hence how often the
+      limit-checking overhead (which may be substantial in the case of time
+      limits) is incurred.</dd>
+  <dt id="milliseconds"><a class="permalink" href="#milliseconds"><b>-milliseconds</b></a></dt>
+  <dd>This option specifies the number of milliseconds after the moment defined
+      in the <b>-seconds</b> option that the time limit will fire. It should
+      only ever be specified in conjunction with the <b>-seconds</b> option
+      (whether it was set previously or is being set this invocation.)</dd>
+  <dt id="seconds"><a class="permalink" href="#seconds"><b>-seconds</b></a></dt>
+  <dd>This option specifies the number of seconds after the epoch (see
+      <b>clock</b> <b>seconds</b>) that the time limit for the interpreter will
+      be triggered. The limit will be triggered at the start of the second
+      unless specified at a sub-second level using the <b>-milliseconds</b>
+      option. This option may be the empty string, which indicates that a time
+      limit is not set for the interpreter.</dd>
+  <dt id="value"><a class="permalink" href="#value"><b>-value</b></a></dt>
+  <dd>This option specifies the number of commands that the interpreter may
+      execute before triggering the command limit. This option may be the empty
+      string, which indicates that a command limit is not set for the
+      interpreter.</dd>
+</dl>
+<p class="Pp">Where an interpreter with a resource limit set on it creates a
+    child interpreter, that child interpreter will have resource limits imposed
+    on it that are at least as restrictive as the limits on the creating parent
+    interpreter. If the parent interpreter of the limited parent wishes to relax
+    these conditions, it should hide the <b>interp</b> command in the child and
+    then use aliases and the <b>interp invokehidden</b> subcommand to provide
+    such access as it chooses to the <b>interp</b> command to the limited parent
+    as necessary.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BACKGROUND_EXCEPTION_HANDLING"><a class="permalink" href="#BACKGROUND_EXCEPTION_HANDLING">BACKGROUND
+  EXCEPTION HANDLING</a></h1>
+<p class="Pp">When an exception happens in a situation where it cannot be
+    reported directly up the stack (e.g. when processing events in an
+    <b>update</b> or <b>vwait</b> call) the exception is instead reported
+    through the background exception handling mechanism. Every interpreter has a
+    background exception handler registered; the default exception handler
+    arranges for the <b>bgerror</b> command in the interpreter's global
+    namespace to be called, but other exception handlers may be installed and
+    process background exceptions in substantially different ways.</p>
+<p class="Pp">A background exception handler consists of a non-empty list of
+    words to which will be appended two further words at invocation time. The
+    first word will be the interpreter result at time of the exception,
+    typically an error message, and the second will be the dictionary of return
+    options at the time of the exception. These are the same values that
+    <b>catch</b> can capture when it controls script evaluation in a
+    non-background situation. The resulting list will then be executed in the
+    interpreter's global namespace without further substitutions being
+    performed.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CREDITS"><a class="permalink" href="#CREDITS">CREDITS</a></h1>
+<p class="Pp">The safe interpreter mechanism is based on the Safe-Tcl prototype
+    implemented by Nathaniel Borenstein and Marshall Rose.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Creating and using an alias for a command in the current
+    interpreter:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>interp alias</b> {} getIndex {} lsearch {alpha beta gamma delta}
+set idx [getIndex delta]</pre>
+</div>
+<p class="Pp">Executing an arbitrary command in a safe interpreter where every
+    invocation of <b>lappend</b> is logged:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+set i [<b>interp create</b> -safe]
+<b>interp hide</b> $i lappend
+<b>interp alias</b> $i lappend {} loggedLappend $i
+proc loggedLappend {i args} {
+<br/>
+    puts &quot;logged invocation of lappend $args&quot;
+<br/>
+    <b>interp invokehidden</b> $i lappend {*}$args
+}
+<b>interp eval</b> $i $someUntrustedScript</pre>
+</div>
+<p class="Pp">Setting a resource limit on an interpreter so that an infinite
+    loop terminates.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+set i [<b>interp create</b>]
+<b>interp limit</b> $i command -value 1000
+<b>interp eval</b> $i {
+<br/>
+    set x 0
+<br/>
+    while {1} {
+<br/>
+        puts &quot;Counting up... [incr x]&quot;
+<br/>
+    }
+}</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">bgerror(3tcl), load(3tcl), safe(3tcl), Tcl_CreateChild(3tcl),
+    Tcl_Eval(3tcl), Tcl_BackgroundException(3tcl)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="KEYWORDS"><a class="permalink" href="#KEYWORDS">KEYWORDS</a></h1>
+<p class="Pp">alias, parent interpreter, safe interpreter, child interpreter</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">8.6</td>
+    <td class="foot-os">Tcl</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="allocate or free a device memory buffer (DMs) and perform memory copy to or from it">
+<title>ibv_alloc_dm(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">ibv_alloc_dm(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Accessing_an_allocated_device_memory">Accessing
+  an allocated device memory</a></li><li><a href="#Device_memory_registration">Device
+  memory registration</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">IBV_ALLOC_DM(3)</td>
+    <td class="head-vol">Libibverbs Programmer's Manual</td>
+    <td class="head-rtitle">IBV_ALLOC_DM(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">ibv_alloc_dm, ibv_free_dm, ibv_memcpy_to/from_dm - allocate or
+    free a device memory buffer (DMs) and perform memory copy to or from it</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;infiniband/verbs.h&gt;</b>
+
+<b>struct ibv_dm *ibv_alloc_dm(struct ibv_context </b><i>*context</i><b>,</b>
+<b>                            struct ibv_alloc_dm_attr </b><i>*attr</i><b>);</b>
+
+<b>int ibv_free_dm(struct ibv_dm </b><i>*dm</i><b>);</b></pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>ibv_alloc_dm()</b> allocates a device memory buffer for the
+    RDMA device context <i>context.</i> The argument <i>attr</i> is a pointer to
+    an ibv_alloc_dm_attr struct, as defined in &lt;infiniband/verbs.h&gt;.</p>
+<p class="Pp"><b>ibv_free_dm()</b> free the device memory buffer <i>dm.</i></p>
+<p class="Pp"></p>
+<pre>struct ibv_alloc_dm_attr {
+<br/>
+size_t length;			/* Length of desired device memory buffer */
+uint32_t log_align_req;		/* Log base 2 of address alignment requirement */
+uint32_t comp_mask;		/* Compatibility mask that defines which of the following variables are valid */
+<br/>
+};
+Address alignment may be required in cases where RDMA atomic operations will be performed using the device memory.</pre>
+<pre>In such cases, the user may specify the device memory start address alignment using the log_align_req parameter</pre>
+<pre>in the allocation attributes struct.</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Accessing_an_allocated_device_memory"><a class="permalink" href="#Accessing_an_allocated_device_memory">Accessing
+  an allocated device memory</a></h1>
+<pre>In order to perform a write/read memory access to an allocated device memory, a user could use the ibv_memcpy_to_dm
+and ibv_memcpy_from_dm calls respectively.
+
+<b>int ibv_memcpy_to_dm(struct ibv_dm </b><i>*dm</i><b>, uint64_t </b><i>dm_offset</i><b>,</b>
+<b>                     void </b><i>*host_addr</i><b>, size_t </b><i>length</i><b>);</b>
+
+<b>int ibv_memcpy_from_dm(void </b><i>*host_addr</i><b>, struct ibv_dm </b><i>*dm</i><b>,</b>
+<b>			    uint64_t </b><i>dm_offset</i><b>, size_t </b><i>length</i><b>);</b>
+
+<i>dm_offest</i>
+is the byte offset from the beginning of the allocated device memory buffer to access.
+
+<i>host_addr</i>
+is the host memory buffer address to access.
+
+<i>length</i>
+is the copy length in bytes.
+
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Device_memory_registration"><a class="permalink" href="#Device_memory_registration">Device
+  memory registration</a></h1>
+<pre>User may register the allocated device memory as a memory region and use the lkey/rkey inside sge when posting receive
+or sending work request. This type of MR is defined as zero based and therefore any reference to it (specifically in sge)
+is done with a byte offset from the beginning of the region.
+
+This type of registration is done using ibv_reg_dm_mr.
+
+<b>struct ibv_mr* ibv_reg_dm_mr(struct ibv_pd </b><i>*pd</i><b>, struct ibv_dm </b><i>*dm</i><b>, uint64_t </b><i>dm_offset</i><b>,</b>
+<b>                  size_t </b><i>length</i><b>, uint32_t </b><i>access</i><b>);</b>
+
+<i>pd</i>
+the associated pd for this registration.
+
+<i>dm</i>
+the associated dm for this registartion.
+
+<i>dm_offest</i>
+is the byte offset from the beginning of the allocated device memory buffer to register.
+
+<i>length</i>
+the memory length to register.
+
+<i>access</i>
+mr access flags (Use enum ibv_access_flags). For this type of registration, user must set the IBV_ACCESS_ZERO_BASED
+flag.
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp"><b>ibv_alloc_dm()</b> returns a pointer to an ibv_dm struct or
+    NULL if the request fails. The output dm contains the handle which could be
+    used by user to import this device memory.</p>
+<p class="Pp"><b>ibv_free_dm()</b> returns 0 on success, or the value of errno
+    on failure (which indicates the failure reason).</p>
+<p class="Pp"><b>ibv_reg_dm_mr()</b> returns a pointer to an ibv_mr struct on
+    success or NULL if request fails.</p>
+<p class="Pp"><b>ibv_memcpy_to_dm()/ibv_memcpy_from_dm()</b> returns 0 on
+    success or the failure reason value on failure.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp"><b>ibv_alloc_dm()</b> may fail if device has no more free device
+    memory left, where the maximum amount of allocated memory is provided by the
+    <i>max_dm_size attribute in</i> <i>ibv_device_attr_ex struct.</i>
+    <b>ibv_free_dm()</b> may fail if any other resources (such as an MR) is
+    still associated with the DM being freed.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/ibv_query_device_ex.html"><b>ibv_query_device_ex</b>(3)</a>,</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<dl class="Bl-tag">
+  <dt id="Ariel"><a class="permalink" href="#Ariel">Ariel Levkovich
+    &lt;lariel@mellanox.com&gt;</a></dt>
+  <dd></dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2017-07-25</td>
+    <td class="foot-os">libibverbs</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

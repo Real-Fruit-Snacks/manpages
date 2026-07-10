@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="">
+<title>cap_launch(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">cap_launch(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#ERRORS">ERRORS</a></li><li><a href="#HISTORY">HISTORY</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CAP_LAUNCH(3)</td>
+    <td class="head-vol">Linux Programmer's Manual</td>
+    <td class="head-rtitle">CAP_LAUNCH(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<pre>#include &lt;sys/capability.h&gt;
+cap_launch_t cap_new_launcher(const char *arg0, const char * const *argv,
+<br/>
+    const char * const *envp);
+cap_launch_t cap_func_launcher(int (callback_fn)(void *detail));
+int cap_launcher_callback(cap_launch_t attr,
+<br/>
+    int (callback_fn)(void *detail));
+int cap_launcher_set_mode(cap_launch_t attr, cap_mode_t flavor);
+cap_iab_t cap_launcher_set_iab(cap_launch_t attr, cap_iab_t iab);
+int cap_launcher_set_chroot(cap_launch_t attr, const char *chroot);
+#include &lt;sys/types.h&gt;
+pid_t cap_launch(cap_launch_t attr, void *detail);
+int cap_launcher_setuid(cap_launch_t attr, uid_t uid);
+int cap_launcher_setgroups(cap_launch_t attr, gid_t gid,
+<br/>
+    int ngroups, const gid_t *groups);</pre>
+<p class="Pp">Link with <i>-lcap</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">A launcher provides a mechanism for code to execute a callback
+    function and/or a program executable in an environment with a modified
+    security context. Essentially it provides a mechanism for a program to
+    <a class="Xr" href="../2/fork.html"><b>fork</b>(2)</a> a new context from that of the main program manipulate
+    capability and other privileged state in that <a class="Xr" href="../2/fork.html"><b>fork</b>(2)</a>d process before
+    (optionally) <a class="Xr" href="../2/execve.html"><b>execve</b>(2)</a>ing a new program. When the application links
+    to <i>-lpsx</i> this support is needed to robustly execute the launched code
+    without modifying the privilge of the whole (POSIX semantics honoring) main
+    application.</p>
+<p class="Pp">A launcher is defined by one of these two functions:
+    <b>cap_new_launcher</b>() or <b>cap_func_launcher</b>(). The return value
+    being of opaque type <b>cap_launch_t</b> a return value of NULL implies an
+    error has occurred.</p>
+<p class="Pp">Once defined, a <b>cap_launch_t</b> value can be used with
+    <b>cap_launch</b>() to execute that <i>launcher</i>. In such cases, a
+    non-negative return value indicates success: zero meaning success without a
+    program being invoked; non-zero being equal to the process ID (<b>pid_t</b>)
+    of the newly launched program.</p>
+<p class="Pp">A <b>cap_launch_t</b> occupies allocated memory and should be
+    freed with <a class="Xr" href="../3/cap_init.html"><b>cap_free</b>(3)</a>. Before being <a class="Xr" href="../3/cap_init.html"><b>cap_free</b>(3)</a>d a
+    <b>cap_value_t</b> value may be reused for multiple independent launches.
+    The <i>detail</i> argument to <b>cap_launch</b>(), in conjunction with the
+    launcher's callback function, can be used to customize the invocation of the
+    launch. Care must be taken to leverage custom shared memory (see
+    <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a>) or some other IPC to return values to the main program via
+    <i>detail</i> since the callback and any subsequent program execution will
+    occur outside the main process of the calling application. An example of
+    this would be to allocate detail as follows:</p>
+<pre>
+<br/>
+   const *char[] args = { &quot;echo&quot;, &quot;hello&quot;, NULL };
+<br/>
+   cap_launch_t cmd = cap_new_launcher(&quot;/usr/bin/echo&quot;, args, NULL);
+<br/>
+   int *detail = mmap(NULL, sizeof(int), PROT_READ | PROT_WRITE, 
+<br/>
+                      MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+<br/>
+   cap_launcher_callback(cmd, &amp;answer_detail_fn);
+<br/>
+   *detail = 41;
+<br/>
+   pid_t pid = cap_launch(cmd, detail);
+<br/>
+   printf(&quot;launcher callback set detail to %d\n&quot;, *detail);
+<br/>
+   munmap(detail, sizeof(int));
+</pre>
+<p class="Pp">Unless modified by the callback function, the launched code will
+    execute with the capability and other security context of the
+  application.</p>
+<p class="Pp">If the callback function returns anything other than zero, a
+    <b>cap_launch</b>() will be aborted. If detail of the failure is important
+    to the caller, it should be communicated via the <i>detail</i> argument.</p>
+<p class="Pp">The following functions can be used to instruct the launcher to
+    modify the security state of the invoked program without altering the state
+    of the calling program. Such modifications must be performed prior to
+    calling <b>cap_launch</b>() if they are to have the desired effect. Further,
+    they are only invoked after any installed callback has completed. For
+    example, one can drop or modify capabilities, <i>just</i> for executing a
+    file.</p>
+<p class="Pp">The following functions instruct the launcher to do some common
+    tasks of this sort (note some require permitted capability bits to
+  succeed):</p>
+<p class="Pp"><b>cap_launcher_callback</b>() can be used to install or replace
+    the currently installed callback function of the launcher.</p>
+<p class="Pp"><b>cap_launcher_set_mode</b>() can be used to ensure that the
+    libcap-mode of the launched program is the desired one.</p>
+<p class="Pp"><b>cap_launcher_set_iab</b>() This function returns the
+    <b>cap_iab_t</b> previously associated with the launcher. Calling this
+    function with an IAB value of NULL will configure the launcher to not set an
+    IAB value (the default). See <a class="Xr" href="../3/cap_iab.html"><b>cap_iab</b>(3)</a> for details on the IAB set.
+    Note, the launcher is associated directly with the supplied <i>iab</i>
+    value, and does not make a copy of it. This iab value is locked to the
+    laucher and cannot be modified while associated with the launcher. Set with
+    NULL to regain control over the memory associated with that IAB value,
+    otherwise the IAB value will be <b>cap_free</b><i>()</i><b>'d when the</b>
+    <b>launcher is.</b></p>
+<p class="Pp"><b>cap_launcher_set_chroot</b>() This function causes the launched
+    program executable to be invoked inside a chroot <i>root</i> directory.</p>
+<p class="Pp"><b>cap_launcher_setuid</b>() This function causes the launched
+    program executable to be invoked with the specified user identifier
+    (<i>uid_t</i>).</p>
+<p class="Pp"><b>cap_launcher_setgroups</b>() This function causes the launched
+    program executable to be invoked with the specified primary and
+    supplementary group IDs.</p>
+<p class="Pp"></p>
+<p class="Pp">Note, if any of the launcher enhancements made by the above
+    functions should fail to take effect (typically for a lack of sufficient
+    privilege), the launch will fail and return -1.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+<p class="Pp">A return of NULL for a <b>cap_launch_t</b> should be considered an
+    error.</p>
+<p class="Pp"><b>cap_launch</b>() returns -1 in the case of an error.</p>
+<p class="Pp">In all such cases a return value of 0 implies success. In other
+    cases, consult <a class="Xr" href="../3/errno.html"><b>errno</b>(3)</a> for further details.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp">The <b>cap_launch</b>() family of functions were introduced in
+    libcap 2.33. It primarily addresses a complexity with <i>-lpsx</i> linked
+    pthreads(7) applications that use capabilities but also honor POSIX
+    semantics.</p>
+<p class="Pp">Using <i>-lcap</i> and <i>-lpthread</i> together without the POSIX
+    semantics support from <i>-lpsx</i> introduces a subtle class of exposure to
+    privilege escalation. (See
+    https://sites.google.com/site/fullycapable/who-ordered-libpsx for an
+    explanation.)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/libpsx.html"><b>libpsx</b>(3)</a>, <a class="Xr" href="../3/libpsx.html"><b>psx_syscall</b>(3)</a>, <a class="Xr" href="../3/libcap.html"><b>libcap</b>(3)</a>,
+    <a class="Xr" href="../3/cap_get_proc.html"><b>cap_mode</b>(3)</a>, <a class="Xr" href="../3/cap_iab.html"><b>cap_iab</b>(3)</a>, <a class="Xr" href="../7/capabilities.html"><b>capabilities</b>(7)</a>,
+    <a class="Xr" href="../3/errno.html"><b>errno</b>(3)</a>, <a class="Xr" href="../2/fork.html"><b>fork</b>(2)</a>, <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a>, <a class="Xr" href="../2/chroot.html"><b>chroot</b>(2)</a>, and
+    <a class="Xr" href="../2/mmap.html"><b>munmap</b>(2)</a>.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2021-08-01</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

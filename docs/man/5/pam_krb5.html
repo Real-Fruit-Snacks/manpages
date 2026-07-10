@@ -1,0 +1,1041 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Kerberos PAM module">
+<title>pam_krb5(5) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pam_krb5(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#CONFIGURATION">CONFIGURATION</a></li><li><a href="#Authorization">Authorization</a></li><li><a href="#Kerberos_Behavior">Kerberos
+  Behavior</a></li><li><a href="#Prompting">Prompting</a></li><li><a href="#Ticket_Caches">Ticket
+  Caches</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#FILES">FILES</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#CAVEATS">CAVEATS</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PAM_KRB5(5)</td>
+    <td class="head-vol">pam-krb5</td>
+    <td class="head-rtitle">PAM_KRB5(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pam_krb5 - Kerberos PAM module</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>  auth            sufficient      pam_krb5.so minimum_uid=1000
+  session         required        pam_krb5.so minimum_uid=1000
+  account         required        pam_krb5.so minimum_uid=1000
+  password        sufficient      pam_krb5.so minimum_uid=1000
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The Kerberos service module for PAM, typically installed at
+    <i>/lib/security/pam_krb5.so</i>, provides functionality for the four PAM
+    operations: authentication, account management, session management, and
+    password management. <i>pam_krb5.so</i> is a shared object that is
+    dynamically loaded by the PAM subsystem as necessary, based on the system
+    PAM configuration. PAM is a system for plugging in external authentication
+    and session management modules so that each application doesn't have to know
+    the best way to check user authentication or create a user session on that
+    system. For details on how to configure PAM on your system, see the PAM man
+    page, often <a class="Xr" href="../7/PAM.html"><b>pam</b>(7)</a>.</p>
+<p class="Pp">Here are the actions of this module when called from each
+  group:</p>
+<dl class="Bl-tag">
+  <dt id="auth"><a class="permalink" href="#auth">auth</a></dt>
+  <dd>Provides implementations of <b>pam_authenticate()</b> and
+      <b>pam_setcred()</b>. The former takes the username from the PAM session,
+      prompts for the user's password (unless configured to use an
+      already-entered password), and then performs a Kerberos initial
+      authentication, storing the obtained credentials (if successful) in a
+      temporary ticket cache. The latter, depending on the flags it is called
+      with, either takes the contents of the temporary ticket cache and writes
+      it out to a persistent ticket cache owned by the user or uses the
+      temporary ticket cache to refresh an existing user ticket cache.
+    <p class="Pp">Passwords as long or longer than PAM_MAX_RESP_SIZE octets
+        (normally 512 octets) will be rejected, since excessively long passwords
+        can be used as a denial of service attack.</p>
+    <p class="Pp">After doing the initial authentication, the Kerberos PAM
+        module will attempt to obtain tickets for a key in the local system
+        keytab and then verify those tickets. Unless this step is performed, the
+        authentication is vulnerable to KDC spoofing, but it requires that the
+        system have a local key and that the PAM module be running as a user
+        that can read the keytab file (normally <i>/etc/krb5.keytab</i>. You can
+        point the Kerberos PAM module at a different keytab with the
+        <i>keytab</i> option. If that keytab cannot be read or if no keys are
+        found in it, the default (potentially insecure) behavior is to skip this
+        check. If you want to instead fail authentication if the obtained
+        tickets cannot be checked, set
+        <span class="Li">&quot;verify_ap_req_nofail&quot;</span> to true in the
+        [libdefaults] section of <i>/etc/krb5.conf</i>. Note that this will
+        affect applications other than this PAM module.</p>
+    <p class="Pp">By default, whenever the user is authenticated, a basic
+        authorization check will also be done using <b>krb5_kuserok()</b>. The
+        default behavior of this function is to check the user's account for a
+        <i>.k5login</i> file and, if one is present, ensure that the user's
+        principal is listed in that file. If <i>.k5login</i> is not present, the
+        default check is to ensure that the user's principal is in the default
+        local realm and the user portion of the principal matches the account
+        name (this can be changed by configuring a custom aname to localname
+        mapping in <i>krb5.conf</i>; see the Kerberos documentation for
+        details). This can be customized with several configuration options; see
+        below.</p>
+    <p class="Pp">If the username provided to PAM contains an
+        <span class="Li">&quot;@&quot;</span> and Kerberos can, treating the
+        username as a principal, map it to a local account name,
+        <b>pam_authenticate()</b> will change the PAM user to that local account
+        name. This allows users to log in with their Kerberos principal and let
+        Kerberos do the mapping to an account. This can be disabled with the
+        <i>no_update_user</i> option. Be aware, however, that this facility
+        cannot be used with OpenSSH. OpenSSH will reject usernames that don't
+        match local accounts before this remapping can be done and will pass an
+        invalid password to the PAM module. Also be aware that several other
+        common PAM modules, such as pam_securetty, expect to be able to look up
+        the user with <b>getpwnam()</b> and cannot be called before pam_krb5
+        when using this feature.</p>
+    <p class="Pp">When <b>pam_setcred()</b> is called to initialize a new ticket
+        cache, the environment variable KRB5CCNAME is set to the path to that
+        ticket cache. By default, the cache will be named
+        <i>/tmp/krb5cc_UID_RANDOM</i> where UID is the user's UID and RANDOM is
+        six randomly-chosen letters. This can be configured with the
+        <i>ccache</i> and <i>ccache_dir</i> options.</p>
+    <p class="Pp">pam-krb5 does not use the default ticket cache location or
+        <i>default_cc_name</i> in the
+        <span class="Li">&quot;[libdefaults]&quot;</span> section of
+        <i>krb5.conf</i>. The default cache location would share a cache for all
+        sessions of the same user, which causes confusing behavior when the user
+        logs out of one of multiple sessions.</p>
+    <p class="Pp">If <b>pam_setcred()</b> initializes a new ticket cache, it
+        will also set up that ticket cache so that it will be deleted when the
+        PAM session is closed. Normally, the calling program (<b>login</b>,
+        <b>sshd</b>, etc.) will run the user's shell as a sub-process, wait for
+        it to exit, and then close the PAM session, thereby cleaning up the
+        user's session.</p>
+  </dd>
+  <dt id="session"><a class="permalink" href="#session">session</a></dt>
+  <dd>Provides implementations of <b>pam_open_session()</b>, which is equivalent
+      to calling <b>pam_setcred()</b> with the PAM_ESTABLISH_CRED flag, and
+      <b>pam_close_session()</b>, which destroys the ticket cache created by
+      <b>pam_setcred()</b>.</dd>
+  <dt id="account"><a class="permalink" href="#account">account</a></dt>
+  <dd>Provides an implementation of <b>pam_acct_mgmt()</b>. All it does is do
+      the same authorization check as performed by the <b>pam_authenticate()</b>
+      implementation described above.</dd>
+  <dt id="password"><a class="permalink" href="#password">password</a></dt>
+  <dd>Provides an implementation of <b>pam_chauthtok()</b>, which implements
+      password changes. The user is prompted for their existing password (unless
+      configured to use an already entered one) and the PAM module then obtains
+      credentials for the special Kerberos principal
+      <span class="Li">&quot;kadmin/changepw&quot;</span>. It then prompts the
+      user for a new password, twice to ensure that the user entered it properly
+      (again, unless configured to use an already entered password), and then
+      does a Kerberos password change.
+    <p class="Pp">Passwords as long or longer than PAM_MAX_RESP_SIZE octets
+        (normally 512 octets) will be rejected, since excessively long passwords
+        can be used as a denial of service attack.</p>
+    <p class="Pp">Unlike the normal Unix password module, this module will allow
+        any user to change any other user's password if they know the old
+        password. Also, unlike the normal Unix password module, root will always
+        be prompted for the old password, since root has no special status in
+        Kerberos. (To change passwords in Kerberos without knowing the old
+        password, use <b>kadmin</b>(8) instead.)</p>
+  </dd>
+</dl>
+<p class="Pp">Both the account and session management calls of the Kerberos PAM
+    module will return PAM_IGNORE if called in the context of a PAM session for
+    a user who did not authenticate with Kerberos (a return code of
+    <span class="Li">&quot;ignore&quot;</span> in the Linux PAM configuration
+    language).</p>
+<p class="Pp">Note that this module assumes the network is available in order to
+    do a Kerberos authentication. If the network is not available, some Kerberos
+    libraries have timeouts longer than the timeout imposed by the login
+    process. This means that using this module incautiously can make it
+    impossible to log on to console as root. For this reason, you should always
+    use the <i>ignore_root</i> or <i>minimum_uid</i> options, list a local
+    authentication module such as <b>pam_unix</b> first with a control field of
+    <span class="Li">&quot;sufficient&quot;</span> so that the Kerberos PAM
+    module will be skipped if local password authentication was successful.</p>
+<p class="Pp">This is not the same PAM module as the Kerberos PAM module
+    available from Sourceforge, or the one included on Red Hat systems. It
+    supports many of the same options, has some additional options, and doesn't
+    support some of the options those modules do.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+<p class="Pp">The Kerberos PAM module takes many options, not all of which are
+    relevant to every PAM group; options that are not relevant will be silently
+    ignored. Any of these options can be set in the PAM configuration as
+    arguments listed after <span class="Li">&quot;pam_krb5.so&quot;</span>. Some
+    of the options can also be set in the system <i>krb5.conf</i> file; if this
+    is possible, it will be noted below in the option description.</p>
+<p class="Pp">To set a boolean option in the PAM configuration file, just give
+    the name of the option in the arguments. To set an option that takes an
+    argument, follow the option name with an equal sign (=) and the value, with
+    no separating whitespace. Whitespace in option arguments is not supported in
+    the PAM configuration.</p>
+<p class="Pp">To set an option for the PAM module in the system <i>krb5.conf</i>
+    file, put that option in the
+    <span class="Li">&quot;[appdefaults]&quot;</span> section. All options must
+    be followed by an equal sign (=) and a value, so for boolean options add
+    <span class="Li">&quot;= true&quot;</span>. The Kerberos PAM module will
+    look for options either at the top level of the
+    <span class="Li">&quot;[appdefaults]&quot;</span> section or in a subsection
+    named <span class="Li">&quot;pam&quot;</span>, inside or outside a section
+    for the realm. For example, the following fragment of a <i>krb5.conf</i>
+    file would set <i>forwardable</i> to true, <i>minimum_uid</i> to 1000, and
+    set <i>ignore_k5login</i> only if the realm is EXAMPLE.COM.</p>
+<p class="Pp"></p>
+<pre>    [appdefaults]
+        forwardable = true
+        pam = {
+            minimum_uid = 1000
+            EXAMPLE.COM = {
+                ignore_k5login = true
+            }
+        }
+</pre>
+<p class="Pp">For more information on the syntax of <i>krb5.conf</i>, see
+    <a class="Xr" href="../5/krb5.conf.html"><b>krb5.conf</b>(5)</a>. Note that options that depend on the realm will be set
+    only on the basis of the default realm, either as configured in
+    <a class="Xr" href="../5/krb5.conf.html"><b>krb5.conf</b>(5)</a> or as set by the <i>realm</i> option described below. If
+    the user authenticates to an account qualified with a realm, that realm will
+    not be used when determining which options will apply.</p>
+<p class="Pp">There is no difference to the PAM module whether options are
+    specified at the top level or in a <span class="Li">&quot;pam&quot;</span>
+    section; the <span class="Li">&quot;pam&quot;</span> section is supported in
+    case there are options that should be set for the PAM module but not for
+    other applications.</p>
+<p class="Pp">If the same option is set in <i>krb5.conf</i> and in the PAM
+    configuration, the latter takes precedent. Note, however, that due to the
+    configuration syntax, there's no way to turn off a boolean option in the PAM
+    configuration that was turned on in <i>krb5.conf</i>.</p>
+<p class="Pp">The start of each option description is annotated with the version
+    of pam-krb5 in which that option was added with the current meaning.</p>
+<section class="Ss">
+<h2 class="Ss" id="Authorization"><a class="permalink" href="#Authorization">Authorization</a></h2>
+<dl class="Bl-tag">
+  <dt id="alt_auth_map=_format_"><a class="permalink" href="#alt_auth_map=_format_">alt_auth_map=&lt;format&gt;</a></dt>
+  <dd>[3.12] This functions similarly to the <i>search_k5login</i> option. The
+      &lt;format&gt; argument is used as the authentication Kerberos principal,
+      with any <span class="Li">%s</span> in &lt;format&gt; replaced with the
+      username. If the username contains an
+      <span class="Li">&quot;@&quot;</span>, only the part of the username
+      before the realm is used to replace <span class="Li">%s</span>. If
+      &lt;format&gt; contains a realm, it will be used; otherwise, the realm of
+      the username (if any) will be appended to the result. There is no quote
+      removal.
+    <p class="Pp">If this option is present, the default behavior is to try this
+        alternate principal first and then fall back to the standard behavior if
+        it fails. The primary usage is to allow alternative principals to be
+        used for authentication in programs like <b>sudo</b>. Most examples will
+        look like:</p>
+    <p class="Pp"></p>
+    <pre>    alt_auth_map=%s/root
+    </pre>
+    <p class="Pp">which attempts authentication as the root instance of the
+        username first and then falls back to the regular username (but see
+        <i>force_alt_auth</i> and <i>only_alt_auth</i>).</p>
+    <p class="Pp">This option also allows a cheap way to attempt authentication
+        in an alternative realm first and then fall back to the primary realm. A
+        setting like:</p>
+    <p class="Pp"></p>
+    <pre>    alt_auth_map=%s@EXAMPLE.COM
+    </pre>
+    <p class="Pp">will attempt authentication in the EXAMPLE.COM realm first and
+        then fall back on the local default realm. This is more convenient than
+        running the module multiple times with multiple default realms set with
+        <i>realm</i>, but it is very limited: only two realms can be tried, and
+        the alternate realm is always tried first.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>,
+        although normally it doesn't make sense to do that; normally it is used
+        in the PAM options of configuration for specific programs. It is only
+        applicable to the auth and account groups. If this option is set for the
+        auth group, be sure to set it for the account group as well or account
+        authorization may fail.</p>
+  </dd>
+  <dt id="force_alt_auth"><a class="permalink" href="#force_alt_auth">force_alt_auth</a></dt>
+  <dd>[3.12] This option is used with <i>alt_auth_map</i> and forces
+      authentication as the mapped principal if that principal exists in the
+      KDC. Only if the KDC returns principal unknown does the Kerberos PAM
+      module fall back to normal authentication. This can be used to force
+      authentication with an alternate instance. If <i>alt_auth_map</i> is not
+      set, it has no effect.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+  <dt id="ignore_k5login"><a class="permalink" href="#ignore_k5login">ignore_k5login</a></dt>
+  <dd>[2.0] Never look for a <i>.k5login</i> file in the user's home directory.
+      Instead, only check that the Kerberos principal maps to the local account
+      name. The default check is to ensure the realm matches the local realm and
+      the user portion of the principal matches the local account name, but this
+      can be customized by setting up an aname to localname mapping in
+      <i>krb5.conf</i>.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and account groups.</p>
+  </dd>
+  <dt id="ignore_root"><a class="permalink" href="#ignore_root">ignore_root</a></dt>
+  <dd>[1.1] Do not do anything if the username is
+      <span class="Li">&quot;root&quot;</span>. The authentication and password
+      calls will silently fail (allowing that status to be ignored via a control
+      of <span class="Li">&quot;optional&quot;</span> or
+      <span class="Li">&quot;sufficient&quot;</span>), and the account and
+      session calls (including pam_setcred) will return PAM_IGNORE, telling the
+      PAM library to proceed as if they weren't mentioned in the PAM
+      configuration. This option is supported and will remain, but normally you
+      want to use <i>minimum_uid</i> instead.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in
+      <i>krb5.conf</i>.</p>
+  </dd>
+  <dt id="minimum_uid=_uid_"><a class="permalink" href="#minimum_uid=_uid_">minimum_uid=&lt;uid&gt;</a></dt>
+  <dd>[2.0] Do not do anything if the authenticated account name corresponds to
+      a local account and that local account has a UID lower than &lt;uid&gt;.
+      If both of those conditions are true, the authentication and password
+      calls will silently fail (allowing that status to be ignored via a control
+      of <span class="Li">&quot;optional&quot;</span> or
+      <span class="Li">&quot;sufficient&quot;</span>), and the account and
+      session calls (including pam_setcred) will return PAM_IGNORE, telling the
+      PAM library to proceed as if they weren't mentioned in the PAM
+      configuration.
+    <p class="Pp">Using this option is highly recommended if you don't need to
+        use Kerberos to authenticate password logins to the root account (which
+        isn't recommended since Kerberos requires a network connection). It
+        provides some defense in depth against user principals that happen to
+        match a system account incorrectly authenticating as that system
+        account.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in
+      <i>krb5.conf</i>.</p>
+  </dd>
+  <dt id="only_alt_auth"><a class="permalink" href="#only_alt_auth">only_alt_auth</a></dt>
+  <dd>[3.12] This option is used with <i>alt_auth_map</i> and forces the use of
+      the mapped principal for authentication. It disables fallback to normal
+      authentication in all cases and overrides <i>search_k5login</i> and
+      <i>force_alt_auth</i>. If <i>alt_auth_map</i> is not set, it has no effect
+      and the standard authentication behavior is used.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+  <dt id="search_k5login"><a class="permalink" href="#search_k5login">search_k5login</a></dt>
+  <dd>[2.0] Normally, the Kerberos implementation of pam_authenticate attempts
+      to obtain tickets for the authenticating username in the local realm. If
+      this option is set and the local user has a <i>.k5login</i> file in their
+      home directory, the module will instead open and read that <i>.k5login</i>
+      file, attempting to use the supplied password to authenticate as each
+      principal listed there in turn. If any of those authentications succeed,
+      the user will be successfully authenticated; otherwise, authentication
+      will fail. This option is useful for allowing password authentication (via
+      console or <b>sshd</b> without GSS-API support) to shared accounts. If
+      there is no <i>.k5login</i> file, the behavior is the same as normal.
+      Using this option requires that the user's <i>.k5login</i> file be
+      readable at the time of authentication.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Kerberos_Behavior"><a class="permalink" href="#Kerberos_Behavior">Kerberos
+  Behavior</a></h2>
+<dl class="Bl-tag">
+  <dt id="anon_fast"><a class="permalink" href="#anon_fast">anon_fast</a></dt>
+  <dd>[4.6] Attempt to use Flexible Authentication Secure Tunneling (FAST) by
+      first authenticating as the anonymous user (WELLKNOWN/ANONYMOUS) and using
+      its credentials as the FAST armor. This requires anonymous PKINIT be
+      enabled for the local realm, that PKINIT be configured on the local
+      system, and that the Kerberos library support FAST and anonymous PKINIT.
+    <p class="Pp">FAST is a mechanism to protect Kerberos against password
+        guessing attacks and provide other security improvements. To work, FAST
+        requires that a ticket be obtained with a strong key to protect
+        exchanges with potentially weaker user passwords. This option uses
+        anonymous authentication to obtain that key and then uses it to protect
+        the subsequent authentication.</p>
+    <p class="Pp">If anonymous PKINIT is not available or fails, FAST will not
+        be used and the authentication will proceed as normal.</p>
+    <p class="Pp">To instead use an existing ticket cache for the FAST
+        credentials, use <i>fast_ccache</i> instead of this option. If both
+        <i>fast_ccache</i> and <i>anon_fast</i> are set, the ticket cache named
+        by <i>fast_ccache</i> will be tried first, and the Kerberos PAM module
+        will fall back on attempting anonymous PKINIT if that cache could not be
+        used.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and password groups.</p>
+    <p class="Pp">The operation is the same as if using the <i>fast_ccache</i>
+        option, but the cache is created and destroyed automatically. If both
+        <i>fast_ccache</i> and <i>anon_fast</i> options are used, the
+        <i>fast_ccache</i> takes precedent and no anonymous authentication is
+        done.</p>
+  </dd>
+  <dt id="fast_ccache=_ccache_name_"><a class="permalink" href="#fast_ccache=_ccache_name_">fast_ccache=&lt;ccache_name&gt;</a></dt>
+  <dd>[4.3] The same as <i>anon_fast</i>, but use an existing Kerberos ticket
+      cache rather than anonymous PKINIT. This allows use of FAST with a realm
+      that doesn't support PKINIT or doesn't support anonymous authentication.
+    <p class="Pp">&lt;ccache_name&gt; should be a credential cache containing a
+        ticket obtained using a strong key, such as the randomized key for the
+        host principal of the local system. If &lt;ccache_name&gt; names a
+        ticket cache that is readable by the authenticating process and has
+        tickets then FAST will be attempted. The easiest way to use this option
+        is to use a program like <b>k5start</b> to maintain a ticket cache using
+        the host's keytab. This ticket cache should normally only be readable by
+        root, so this option will not be able to protect authentications done as
+        non-root users (such as screensavers).</p>
+    <p class="Pp">If no credentials are present in the ticket cache, or if the
+        ticket cache does not exist or is not readable, FAST will not used and
+        authentication will proceed as normal. However, if the credentials in
+        that ticket cache are expired, authentication will fail if the KDC
+        supports FAST.</p>
+    <p class="Pp">To use anonymous PKINIT to protect the FAST exchange, use the
+        <i>anon_fast</i> option instead. <i>anon_fast</i> is easier to
+        configure, since no existing ticket cache is required, but requires
+        PKINIT be available and configured and that the local realm support
+        anonymous authentication. If both <i>fast_ccache</i> and
+        <i>anon_fast</i> are set, the ticket cache named by <i>fast_ccache</i>
+        will be tried first, and the Kerberos PAM module will fall back on
+        attempting anonymous PKINIT if that cache could not be used.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and password groups.</p>
+  </dd>
+  <dt id="forwardable"><a class="permalink" href="#forwardable">forwardable</a></dt>
+  <dd>[1.0] Obtain forwardable tickets. If set (to either true or false,
+      although it can only be set to false in <i>krb5.conf</i>), this overrides
+      the Kerberos library default set in the [libdefaults] section of
+      <i>krb5.conf</i>.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+  <dt id="keytab=_path_"><a class="permalink" href="#keytab=_path_">keytab=&lt;path&gt;</a></dt>
+  <dd>[3.0] Specifies the keytab to use when validating the user's credentials.
+      The default is the default system keytab (normally
+      <i>/etc/krb5.keytab</i>), which is usually only readable by root.
+      Applications not running as root that use this PAM module for
+      authentication may wish to point it to another keytab the application can
+      read. The first principal found in the keytab will be used as the
+      principal for credential verification.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+  <dt id="realm=_realm_"><a class="permalink" href="#realm=_realm_">realm=&lt;realm&gt;</a></dt>
+  <dd>[2.2] Set the default Kerberos realm and obtain credentials in that realm,
+      rather than in the normal default realm for this system. If this option is
+      used, it should be set for all groups being used for consistent results.
+      This setting will affect authorization decisions since it changes the
+      default realm. This setting will also change the service principal used to
+      verify the obtained credentials to be in the specified realm.
+    <p class="Pp">If you only want to set the realm assumed for user principals
+        without changing the realm for authorization decisions or the service
+        principal used to verify credentials, see the <i>user_realm</i>
+      option.</p>
+  </dd>
+  <dt id="renew_lifetime=_lifetime_"><a class="permalink" href="#renew_lifetime=_lifetime_">renew_lifetime=&lt;lifetime&gt;</a></dt>
+  <dd>[2.0] Obtain renewable tickets with a maximum renewable lifetime of
+      &lt;lifetime&gt;. &lt;lifetime&gt; should be a Kerberos lifetime string
+      such as <span class="Li">&quot;2d4h10m&quot;</span> or a time in minutes.
+      If set, this overrides the Kerberos library default set in the
+      [libdefaults] section of <i>krb5.conf</i>.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+  <dt id="ticket_lifetime=_lifetime_"><a class="permalink" href="#ticket_lifetime=_lifetime_">ticket_lifetime=&lt;lifetime&gt;</a></dt>
+  <dd>[3.0] Obtain tickets with a maximum lifetime of &lt;lifetime&gt;.
+      &lt;lifetime&gt; should be a Kerberos lifetime string such as
+      <span class="Li">&quot;2d4h10m&quot;</span> or a time in minutes. If set,
+      this overrides the Kerberos library default set in the [libdefaults]
+      section of <i>krb5.conf</i>.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+  <dt id="user_realm"><a class="permalink" href="#user_realm">user_realm</a></dt>
+  <dd>[4.6] Obtain credentials in the specified realm rather than in the default
+      realm for this system. If this option is used, it should be set for all
+      groups being used for consistent results (although the account group
+      currently doesn't care about realm). This will not change authorization
+      decisions. If the obtained credentials are supposed to allow access to a
+      shell account, the user will need an appropriate <i>.k5login</i> file
+      entry or the system will have to have a custom aname_to_localname
+    mapping.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss">PAM Behavior</h2>
+<dl class="Bl-tag">
+  <dt id="clear_on_fail"><a class="permalink" href="#clear_on_fail">clear_on_fail</a></dt>
+  <dd>[3.9] When changing passwords, PAM first does a preliminary check through
+      the complete password stack, and then calls each module again to do the
+      password change. After that preliminary check, the order of module
+      invocation is fixed. This means that even if the Kerberos password change
+      fails (or if one of the other password changes in the stack fails), other
+      password PAM modules in the stack will still be called even if the failing
+      module is marked required or requisite. When using multiple password PAM
+      modules to synchronize passwords between multiple systems when they
+      change, this behavior can cause unwanted differences between the
+      environments.
+    <p class="Pp">Setting this option provides a way to work around this
+        behavior. If this option is set and a Kerberos password change is
+        attempted and fails (due to network errors or password strength checking
+        on the KDC, for example), this module will clear the stored password in
+        the PAM stack. This will force any subsequent modules that have
+        <i>use_authtok</i> set to fail so that those environments won't get out
+        of sync with the password in Kerberos. The Kerberos PAM module will not
+        meddle with the stored password if it skips the user due to
+        configuration such as minimum_uid.</p>
+    <p class="Pp">Unfortunately, setting this option interferes with other
+        desirable PAM configurations, such as attempting to change the password
+        in Kerberos first and falling back on the local Unix password database
+        if that fails. It therefore isn't the default. Turn it on (and list
+        pam_krb5 first after pam_cracklib if used) when synchronizing passwords
+        between multiple environments.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the password group.</p>
+  </dd>
+  <dt id="debug"><a class="permalink" href="#debug">debug</a></dt>
+  <dd>[1.0] Log more verbose trace and debugging information to syslog at
+      LOG_DEBUG priority, including entry and exit from each of the external PAM
+      interfaces (except pam_close_session).
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in
+      <i>krb5.conf</i>.</p>
+  </dd>
+  <dt id="defer_pwchange"><a class="permalink" href="#defer_pwchange">defer_pwchange</a></dt>
+  <dd>[3.11] By default, pam-krb5 lets the Kerberos library handle prompting for
+      a password change if an account's password is expired during the auth
+      group. If this fails, <b>pam_authenticate()</b> returns an error.
+    <p class="Pp">According to the PAM standard, this is not the correct way to
+        handle expired passwords. Instead, <b>pam_authenticate()</b> should
+        return success without attempting a password change, and then
+        <b>pam_acct_mgmt()</b> should return PAM_NEW_AUTHTOK_REQD, at which
+        point the calling application is responsible for either rejecting the
+        authentication or calling <b>pam_chauthtok()</b>. However, following the
+        standard requires that all applications call <b>pam_acct_mgmt()</b> and
+        check its return status; otherwise, expired accounts may be able to
+        successfully authenticate. Many applications do not do this.</p>
+    <p class="Pp">If this option is set, pam-krb5 uses the fully correct PAM
+        mechanism for handling expired accounts instead of failing in
+        <b>pam_authenticate()</b>. Due to the security risk of widespread broken
+        applications, be very careful about enabling this option. It should
+        normally only be turned on to solve a specific problem (such as using
+        Solaris Kerberos libraries that don't support prompting for password
+        changes during authentication), and then only for specific applications
+        known to call <b>pam_acct_mgmt()</b> and check its return status
+        properly.</p>
+    <p class="Pp">This option is only supported when pam-krb5 is built with MIT
+        Kerberos. If built against Heimdal, this option does nothing and normal
+        expired password change handling still happens. (Heimdal is missing the
+        required API to implement this option, at least as of version 1.6.)</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+  <dt id="fail_pwchange"><a class="permalink" href="#fail_pwchange">fail_pwchange</a></dt>
+  <dd>[4.2] By default, pam-krb5 lets the Kerberos library handle prompting for
+      a password change if an account's password is expired during the auth
+      group. If this option is set, expired passwords are instead treated as an
+      authentication failure identical to an incorrect password. Also see
+      <i>defer_pwchange</i> and <i>force_pwchange</i>.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+  <dt id="force_pwchange"><a class="permalink" href="#force_pwchange">force_pwchange</a></dt>
+  <dd>[3.11] If this option is set and authentication fails with a Kerberos
+      error indicating the user's password is expired, attempt to immediately
+      change their password during the authenticate step. Under normal
+      circumstances, this is unnecessary. Most Kerberos libraries will do this
+      for you, and setting this option will prompt the user twice to change
+      their password if the first attempt (done by the Kerberos library) fails.
+      However, some system Kerberos libraries (such as Solaris's) have password
+      change prompting disabled in the Kerberos library; on those systems, you
+      can set this option to simulate the normal library behavior.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+  <dt id="no_update_user"><a class="permalink" href="#no_update_user">no_update_user</a></dt>
+  <dd>[4.7] Normally, if pam-krb5 is able to canonicalize the principal to a
+      local name using <b>krb5_aname_to_localname()</b> or similar calls, it
+      changes the PAM_USER variable for this PAM session to the canonicalized
+      local name. Setting this option disables this behavior and leaves PAM_USER
+      set to the initial authentication identity.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth group.</p>
+  </dd>
+  <dt id="silent"><a class="permalink" href="#silent">silent</a></dt>
+  <dd>[1.0] Don't show messages and errors from Kerberos, such as warnings of
+      expiring passwords, to the user via the prompter. This is equivalent to
+      the behavior when the application passes in PAM_SILENT, but can be set in
+      the PAM configuration.
+    <p class="Pp">This option is only applicable to the auth and password
+        groups.</p>
+  </dd>
+  <dt id="trace=_log"><a class="permalink" href="#trace=_log">trace=&lt;log-file&gt;</a></dt>
+  <dd>[4.6] Enables Kerberos library trace logging to the specified log file if
+      it is supported by the Kerberos library. This is intended for temporary
+      debugging. The specified file will be appended to without further security
+      checks, so do not specify a file in a publicly writable directory like
+      <i>/tmp</i>.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss">PKINIT</h2>
+<dl class="Bl-tag">
+  <dt id="pkinit_anchors=_anchors_"><a class="permalink" href="#pkinit_anchors=_anchors_">pkinit_anchors=&lt;anchors&gt;</a></dt>
+  <dd>[3.0] When doing PKINIT authentication, use &lt;anchors&gt; as the client
+      trust anchors. This is normally a reference to a file containing the
+      trusted certificate authorities. This option is only used if
+      <i>try_pkinit</i> or <i>use_pkinit</i> are set.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and password groups.</p>
+  </dd>
+  <dt id="pkinit_prompt"><a class="permalink" href="#pkinit_prompt">pkinit_prompt</a></dt>
+  <dd>[3.0] Before attempting PKINIT authentication, prompt the user to insert a
+      smart card. You may want to set this option for programs such as
+      <b>gnome-screensaver</b> that call PAM as soon as the mouse is touched and
+      don't give the user an opportunity to enter the smart card first. Any
+      information entered at the first prompt is ignored. If <i>try_pkinit</i>
+      is set, a user who wishes to use a password instead can just press Enter
+      and then enter their password as normal. This option is only used if
+      <i>try_pkinit</i> or <i>use_pkinit</i> are set.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and password groups.</p>
+  </dd>
+  <dt id="pkinit_user=_userid_"><a class="permalink" href="#pkinit_user=_userid_">pkinit_user=&lt;userid&gt;</a></dt>
+  <dd>[3.0] When doing PKINIT authentication, use &lt;userid&gt; as the user ID.
+      The value of this string is highly dependent on the type of PKINIT
+      implementation you're using, but will generally be something like:
+    <p class="Pp"></p>
+    <pre>    PKCS11:/usr/lib/pkcs11/lib/soft-pkcs11.so
+    </pre>
+    <p class="Pp">to specify the module to use with a smart card. It may also
+        point to a user certificate or to other types of user IDs. See the
+        Kerberos library documentation for more details. This option is only
+        used if <i>try_pkinit</i> or <i>use_pkinit</i> are set.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and password groups.</p>
+  </dd>
+  <dt id="preauth_opt=_option_"><a class="permalink" href="#preauth_opt=_option_">preauth_opt=&lt;option&gt;</a></dt>
+  <dd>[3.3] Sets a preauth option (currently only applicable when built with MIT
+      Kerberos). &lt;option&gt; is either a key/value pair with the key
+      separated from the value by <span class="Li">&quot;=&quot;</span> or a
+      boolean option (in which case it's turned on). In <i>krb5.conf</i>,
+      multiple options should be separated by whitespace. In the PAM
+      configuration, this option can be given multiple times to set multiple
+      options. In either case, &lt;option&gt; may not contain whitespace.
+    <p class="Pp">The primary use of this option, at least in the near future,
+        will be to set options for the MIT Kerberos PKINIT support. For the full
+        list of possible options, see the PKINIT plugin documentation. At the
+        time of this writing,
+        <span class="Li">&quot;X509_user_identity&quot;</span> is equivalent to
+        <i>pkinit_user</i> and <span class="Li">&quot;X509_anchors&quot;</span>
+        is equivalent to <i>pkinit_anchors</i>.
+        <span class="Li">&quot;flag_DSA_PROTOCOL&quot;</span> can only be set
+        via this option.</p>
+    <p class="Pp">Any settings made with this option are applied after the
+        <i>pkinit_anchors</i> and <i>pkinit_user</i> options, so if an
+        equivalent setting is made via <i>preauth_opt</i>, it will probably
+        override the other setting.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and password groups. Note that there
+        is no way to remove a setting made in <i>krb5.conf</i> using the PAM
+        configuration, but options set in the PAM configuration are applied
+        after options set in <i>krb5.conf</i> and therefore may override earlier
+        settings.</p>
+  </dd>
+  <dt id="try_pkinit"><a class="permalink" href="#try_pkinit">try_pkinit</a></dt>
+  <dd>[3.0] Attempt PKINIT authentication before trying a regular password. You
+      will probably also need to set the <i>pkinit_user</i> configuration
+      option. If PKINIT fails, the PAM module will fall back on regular password
+      authentication. This option is currently only supported if pam-krb5 was
+      built against Heimdal 0.8rc1 or later or MIT Kerberos 1.6.3 or later.
+    <p class="Pp">If this option is set and pam-krb5 is built against MIT
+        Kerberos, and PKINIT fails and the module falls back to password
+        authentication, the user's password will not be stored in the PAM stack
+        for subsequent modules. This is a bug in the interaction between the
+        module and MIT Kerberos that requires some reworking of the PKINIT
+        authentication method to fix.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and password groups.</p>
+  </dd>
+  <dt id="use_pkinit"><a class="permalink" href="#use_pkinit">use_pkinit</a></dt>
+  <dd>[3.0, 4.9 for MIT Kerberos] Require PKINIT authentication. You will
+      probably also need to set the <i>pkinit_user</i> configuration option. If
+      PKINIT fails, authentication will fail. This option is only supported if
+      pam-krb5 was built against Heimdal 0.8rc1 or later or MIT Kerberos 1.12 or
+      later.
+    <p class="Pp">Be aware that, with MIT Kerberos, this option is implemented
+        by using a responder without a prompter, and thus any informational
+        messages from the Kerberos libraries or KDC during authentication will
+        not be displayed.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and password groups.</p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Prompting"><a class="permalink" href="#Prompting">Prompting</a></h2>
+<dl class="Bl-tag">
+  <dt id="banner=_banner_"><a class="permalink" href="#banner=_banner_">banner=&lt;banner&gt;</a></dt>
+  <dd>[3.0] By default, the prompts when a user changes their password are:
+    <p class="Pp"></p>
+    <pre>    Current Kerberos password:
+    Enter new Kerberos password:
+    Retype new Kerberos password:
+    </pre>
+    <p class="Pp">The string &quot;Kerberos&quot; is inserted so that users
+        aren't confused about which password they're changing. Setting this
+        option replaces the word &quot;Kerberos&quot; with whatever this option
+        is set to. Setting this option to the empty string removes the word
+        before &quot;password:&quot; entirely.</p>
+    <p class="Pp">If set in the PAM configuration, &lt;banner&gt; may not
+        contain whitespace. If you want a value containing whitespace, set it in
+        <i>krb5.conf</i>.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the password group.</p>
+  </dd>
+  <dt id="expose_account"><a class="permalink" href="#expose_account">expose_account</a></dt>
+  <dd>[3.0] By default, the Kerberos PAM module password prompt is simply
+      &quot;Password:&quot;. This avoids leaking any information about the
+      system realm or account to principal conversions. If this option is set,
+      the string &quot;for &lt;principal&gt;&quot; is added before the colon,
+      where &lt;principal&gt; is the user's principal. This string is also added
+      before the colon on prompts when changing the user's password.
+    <p class="Pp">Enabling this option with ChallengeResponseAuthentication
+        enabled in OpenSSH may cause problems for some ssh clients that only
+        recognize &quot;Password:&quot; as a prompt. This option is
+        automatically disabled if <i>search_k5login</i> is enabled since the
+        principal displayed would be inaccurate.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and password groups.</p>
+  </dd>
+  <dt id="force_first_pass"><a class="permalink" href="#force_first_pass">force_first_pass</a></dt>
+  <dd>[4.0] Use the password obtained by a previous authentication or password
+      module to authenticate the user without prompting the user again. If no
+      previous module obtained the user's password, fail without prompting the
+      user. Also see <i>try_first_pass</i> and <i>use_first_pass</i> for weaker
+      versions of this option.
+    <p class="Pp">This option is only applicable to the auth and password
+        groups. For the password group, it applies only to the old password. See
+        <i>use_authtok</i> for a similar setting for the new password.</p>
+  </dd>
+  <dt id="no_prompt"><a class="permalink" href="#no_prompt">no_prompt</a></dt>
+  <dd>[4.6] Never prompt for the current password. Instead, pass in a NULL
+      password to the Kerberos library and let the Kerberos library do the
+      prompting. This may be needed if, for example, the Kerberos library is
+      configured to use other authentication mechanisms than passwords and needs
+      full control over the prompting process.
+    <p class="Pp">The major disadvantage of this option is that it means the PAM
+        module will never see the user's password and therefore cannot save it
+        in the PAM module data for any subsequent modules. In other words, this
+        option cannot be used if another module is in the stack behind the
+        Kerberos PAM module and wants to use <i>use_first_pass</i>. The Kerberos
+        library also usually includes the principal in the prompt, and therefore
+        this option implies behavior similar to <i>expose_account</i>. Similar
+        to <i>expose_account</i>, this can cause problems with OpenSSH if
+        ChallengeResponseAuthentication is enabled, since clients may not
+        recognize password prompts other than &quot;Password:&quot;.</p>
+    <p class="Pp">Using this option with <i>search_k5login</i> would result in a
+        password prompt for every principal listed in the user's <i>.k5login</i>
+        file. This is probably not desired behavior, although it's not
+        prohibited by the module.</p>
+    <p class="Pp">This option is only applicable to the auth and password
+        groups. For the password group, it applies only to the authentication
+        process; the user will still be prompted for a new password.</p>
+  </dd>
+  <dt id="prompt_principal"><a class="permalink" href="#prompt_principal">prompt_principal</a></dt>
+  <dd>[3.6] Before prompting for the user's password (or using the previously
+      entered password, if <i>try_first_pass</i>, <i>use_first_pass</i>, or
+      <i>force_first_pass</i> are set), prompt the user for the Kerberos
+      principal to use for authentication. This allows the user to authenticate
+      with a different principal than the one corresponding to the local
+      username, provided that either a <i>.k5login</i> file or local Kerberos
+      principal to account mapping authorize that principal to access the local
+      account.
+    <p class="Pp">Be cautious when using this configuration option and don't use
+        it with OpenSSH PasswordAuthentication, only
+        ChallengeResponseAuthentication. Some PAM-enabled applications expect
+        PAM modules to only prompt for passwords and may even blindly give the
+        password to the first prompt, no matter what it is. Such applications,
+        in combination with this option, may expose the user's password in log
+        messages and Kerberos requests.</p>
+  </dd>
+  <dt id="try_first_pass"><a class="permalink" href="#try_first_pass">try_first_pass</a></dt>
+  <dd>[1.0] If the authentication module isn't the first on the stack, and a
+      previous module obtained the user's password, use that password to
+      authenticate the user without prompting them again. If that authentication
+      fails, fall back on prompting the user for their password. This option has
+      no effect if the authentication module is first in the stack or if no
+      previous module obtained the user's password. Also see
+      <i>use_first_pass</i> and <i>force_first_pass</i> for stronger versions of
+      this option.
+    <p class="Pp">This option is only applicable to the auth and password
+        groups. For the password group, it applies only to the old password.</p>
+  </dd>
+  <dt id="use_authtok"><a class="permalink" href="#use_authtok">use_authtok</a></dt>
+  <dd>[4.0] Use the new password obtained by a previous password module when
+      changing passwords rather than prompting for the new password. If the new
+      password isn't available, fail. This can be used to require passwords be
+      checked by another, prior module, such as <b>pam_cracklib</b>.
+    <p class="Pp">This option is only applicable to the password group.</p>
+  </dd>
+  <dt id="use_first_pass"><a class="permalink" href="#use_first_pass">use_first_pass</a></dt>
+  <dd>[1.0] Use the password obtained by a previous authentication module to
+      authenticate the user without prompting the user again. If no previous
+      module obtained the user's password for either an authentication or
+      password change, fall back on prompting the user. If a previous module did
+      obtain the user's password but authentication with that password fails,
+      fail without further prompting the user. Also see <i>try_first_pass</i>
+      and <i>force_first_pass</i> for other versions of this option.
+    <p class="Pp">This option is only applicable to the auth and password
+        groups. For the password group, it applies only to the old password. See
+        <i>use_authtok</i> for a similar setting for the new password.</p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Ticket_Caches"><a class="permalink" href="#Ticket_Caches">Ticket
+  Caches</a></h2>
+<dl class="Bl-tag">
+  <dt id="ccache=_pattern_"><a class="permalink" href="#ccache=_pattern_">ccache=&lt;pattern&gt;</a></dt>
+  <dd>[2.0] Use &lt;pattern&gt; as the pattern for creating credential cache
+      names. &lt;pattern&gt; must be in the form &lt;type&gt;:&lt;residual&gt;
+      where &lt;type&gt; and the following colon are optional if a file cache
+      should be used. The special token <span class="Li">%u</span>, anywhere in
+      &lt;pattern&gt;, is replaced with the user's numeric UID. The special
+      token <span class="Li">%p</span>, anywhere in &lt;pattern&gt;, is replaced
+      with the current process ID.
+    <p class="Pp">If &lt;pattern&gt; ends in the literal string
+        <span class="Li">&quot;XXXXXX&quot;</span> (six X's), that string will
+        be replaced by randomly generated characters and the ticket cache will
+        be created using <a class="Xr" href="../3/mkstemp.html"><b>mkstemp</b>(3)</a>. This is strongly recommended if
+        &lt;pattern&gt; points to a world-writable directory.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and session groups.</p>
+  </dd>
+  <dt id="ccache_dir=_directory_"><a class="permalink" href="#ccache_dir=_directory_">ccache_dir=&lt;directory&gt;</a></dt>
+  <dd>[1.2] Store both the temporary ticket cache used during authentication and
+      user ticket caches in &lt;directory&gt; instead of in <i>/tmp</i>. The
+      algorithm for generating the ticket cache name is otherwise unchanged.
+      &lt;directory&gt; may be prefixed with
+      <span class="Li">&quot;FILE:&quot;</span> to make the cache type
+      unambiguous (and this may be required on systems that use a cache type
+      other than file as the default).
+    <p class="Pp">Be aware that pam_krb5 creates and stores a temporary ticket
+        cache file owned by root during the login process. If you set
+        <i>ccache</i> above to avoid using the system <i>/tmp</i> directory for
+        user ticket caches, you may also want to set <i>ccache_dir</i> to move
+        those temporary caches to some other location. This will allow pam_krb5
+        to continue working even if the system <i>/tmp</i> directory is
+      full.</p>
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and session groups.</p>
+  </dd>
+  <dt id="no_ccache"><a class="permalink" href="#no_ccache">no_ccache</a></dt>
+  <dd>[1.0] Do not create a ticket cache after authentication. This option
+      shouldn't be set in general, but is useful as part of the PAM
+      configuration for a particular service that uses PAM for authentication
+      but isn't creating user sessions and doesn't want the overhead of ever
+      writing the user credentials to disk. When using this option, the
+      application should only call <b>pam_authenticate()</b>; other functions
+      like <b>pam_setcred()</b>, <b>pam_start_session()</b>, and
+      <b>pam_acct_mgmt()</b> don't make sense with this option. Don't use this
+      option if the application needs PAM account and session management calls.
+    <p class="Pp">This option is only applicable to the auth group.</p>
+  </dd>
+  <dt id="retain_after_close"><a class="permalink" href="#retain_after_close">retain_after_close</a></dt>
+  <dd>[2.3] Normally, the user's ticket cache is destroyed when either
+      <b>pam_end()</b> or <b>pam_close_session()</b> is called by the
+      authenticating application so that ticket caches aren't left behind after
+      the user logs out. In some cases, however, this isn't desirable. (On
+      Solaris 8, for instance, the default behavior means login will destroy the
+      ticket cache before running the user's shell.) If this option is set, the
+      PAM module will never destroy the user's ticket cache. If you set this,
+      you may want to call <b>kdestroy</b> in the shell's logout configuration
+      or run a temporary file removal program to avoid accumulating hundreds of
+      ticket caches in <i>/tmp</i>.
+    <p class="Pp">This option can be set in
+        <span class="Li">&quot;[appdefaults]&quot;</span> in <i>krb5.conf</i>
+        and is only applicable to the auth and session groups.</p>
+  </dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt id="KRB5CCNAME"><a class="permalink" href="#KRB5CCNAME">KRB5CCNAME</a></dt>
+  <dd>Set by <b>pam_setcred()</b> with the PAM_ESTABLISH_CRED option, and
+      therefore also by <b>pam_open_session()</b>, to point to the new
+      credential cache for the user. See the <i>ccache</i> and <i>ccache_dir</i>
+      options. By default, the cache name will be prefixed with
+      <span class="Li">&quot;FILE:&quot;</span> to make the cache type
+      unambiguous.</dd>
+  <dt id="PAM_KRB5CCNAME"><a class="permalink" href="#PAM_KRB5CCNAME">PAM_KRB5CCNAME</a></dt>
+  <dd>Set by <b>pam_authenticate()</b> to point to the temporary ticket cache
+      used for authentication (unless the <i>no_ccache</i> option was given).
+      <b>pam_setcred()</b> then uses that environment variable to locate the
+      temporary cache even if it was not called in the same PAM session as
+      <b>pam_authenticate()</b> (a problem with <b>sshd</b> running in some
+      modes). This environment variable is only used internal to the PAM
+    module.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><i>/tmp/krb5cc_UID_RANDOM</i></dt>
+  <dd>The default credential cache name. UID is the decimal UID of the local
+      user and RANDOM is a random six-character string. The pattern may be
+      changed with the <i>ccache</i> option and the directory with the
+      <i>ccache_dir</i> option.</dd>
+  <dt><i>/tmp/krb5cc_pam_RANDOM</i></dt>
+  <dd>The credential cache name used for the temporary credential cache created
+      by <b>pam_authenticate()</b>. This cache is removed again when the PAM
+      session is ended or when <b>pam_setcred()</b> is called and will normally
+      not be user-visible. RANDOM is a random six-character string.</dd>
+  <dt><i>~/.k5login</i></dt>
+  <dd>File containing Kerberos principals that are allowed access to that
+      account.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">If <i>try_pkinit</i> is set and pam-krb5 is built with MIT
+    Kerberos, the user's password is not saved in the PAM data if PKINIT fails
+    and the module falls back to password authentication.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<p class="Pp">Be sure to list this module in the session group as well as the
+    auth group when using it for interactive logins. Otherwise, some
+    applications (such as OpenSSH) will not set up the user's ticket cache
+    correctly.</p>
+<p class="Pp">The Kerberos library, via pam-krb5, will prompt the user to change
+    their password if their password is expired, but when using OpenSSH, this
+    will only work when ChallengeResponseAuthentication is enabled. Unless this
+    option is enabled, OpenSSH doesn't pass PAM messages to the user and can
+    only respond to a simple password prompt.</p>
+<p class="Pp">If you are using MIT Kerberos, be aware that users whose passwords
+    are expired will not be prompted to change their password unless the KDC
+    configuration for your realm in [realms] in krb5.conf contains a master_kdc
+    setting or, if using DNS SRV records, you have a DNS entry for
+    _kerberos-master as well as _kerberos.</p>
+<p class="Pp"><b>pam_authenticate()</b> returns failure when called for an
+    ignored account, requiring the system administrator to use
+    <span class="Li">&quot;optional&quot;</span> or
+    <span class="Li">&quot;sufficient&quot;</span> to ignore the module and move
+    on to the next module. It's arguably more correct to return PAM_IGNORE,
+    which causes the module to be ignored as if it weren't in the configuration,
+    but this increases the risk of inadvertent security holes when listing
+    pam-krb5 as the only authentication module.</p>
+<p class="Pp">This module treats the empty password as an authentication failure
+    rather than attempting to use that password to avoid unwanted prompting
+    behavior in the Kerberos libraries. If you have a Kerberos principal that
+    intentionally has an empty password, it won't work with this module.</p>
+<p class="Pp">This module will not refresh an existing ticket cache if called
+    with an effective UID or GID different than the real UID or GID, since
+    refreshing an existing ticket cache requires trusting the KRB5CCNAME
+    environment variable and the environment should not be trusted in a setuid
+    context.</p>
+<p class="Pp">Old versions of OpenSSH are known to call pam_authenticate
+    followed by pam_setcred(PAM_REINITIALIZE_CRED) without first calling
+    pam_open_session, thereby requesting that an existing ticket cache be
+    renewed (similar to what a screensaver would want) rather than requesting a
+    new ticket cache be created. Since this behavior is indistinguishable at the
+    PAM level from a screensaver, pam-krb5 when used with these old versions of
+    OpenSSH will refresh the ticket cache of the OpenSSH daemon rather than
+    setting up a new ticket cache for the user. The resulting ticket cache will
+    have the correct permissions, but will not be named correctly or referenced
+    in the user's environment and will be overwritten by the next user login.
+    The best solution to this problem is to upgrade OpenSSH. I'm not sure
+    exactly when this problem was fixed, but at the very least OpenSSH 4.3 and
+    later do not exhibit it.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">pam-krb5 was originally written by Frank Cusack. Andres Salomon
+    made extensive modifications, and then Russ Allbery &lt;eagle@eyrie.org&gt;
+    adopted it and made even more extensive modifications. Russ Allbery
+    currently maintains the module.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT_AND_LICENSE"><a class="permalink" href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></h1>
+<p class="Pp">Copyright 2005-2010, 2014, 2020 Russ Allbery
+    &lt;eagle@eyrie.org&gt;</p>
+<p class="Pp">Copyright 2008-2014 The Board of Trustees of the Leland Stanford
+    Junior University</p>
+<p class="Pp">Copying and distribution of this file, with or without
+    modification, are permitted in any medium without royalty provided the
+    copyright notice and this notice are preserved. This file is offered as-is,
+    without any warranty.</p>
+<p class="Pp">SPDX-License-Identifier: FSFAP</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>kadmin</b>(8), <b>kdestroy</b>(1), <a class="Xr" href="../5/krb5.conf.html"><b>krb5.conf</b>(5)</a>,
+    <a class="Xr" href="../7/PAM.html"><b>pam</b>(7)</a>, <a class="Xr" href="../1/passwd.html"><b>passwd</b>(1)</a>, <a class="Xr" href="../3/syslog.html"><b>syslog</b>(3)</a></p>
+<p class="Pp">The current version of this module is available from its web page
+    at &lt;https://www.eyrie.org/~eagle/software/pam-krb5/&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2021-10-17</td>
+    <td class="foot-os">4.11</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="reads/writes available data given an action">
+<title>curl_multi_socket_action(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">curl_multi_socket_action(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#TYPICAL_USAGE">TYPICAL
+  USAGE</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#AVAILABILITY">AVAILABILITY</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">curl_multi_socket_action(3)</td>
+    <td class="head-vol">libcurl</td>
+    <td class="head-rtitle">curl_multi_socket_action(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">curl_multi_socket_action - reads/writes available data given an
+    action</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>#include &lt;curl/curl.h&gt;
+CURLMcode curl_multi_socket_action(CURLM *multi_handle,
+<br/>
+                                   curl_socket_t sockfd,
+<br/>
+                                   int ev_bitmask,
+<br/>
+                                   int *running_handles);</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">When the application has detected action on a socket handled by
+    libcurl, it should call <i>curl_multi_socket_action(3)</i> with the
+    <b>sockfd</b> argument set to the socket with the action. When the events on
+    a socket are known, they can be passed as an events bitmask
+    <b>ev_bitmask</b> by first setting <b>ev_bitmask</b> to 0, and then adding
+    using bitwise OR (|) any combination of events to be chosen from
+    CURL_CSELECT_IN, CURL_CSELECT_OUT or CURL_CSELECT_ERR. When the events on a
+    socket are unknown, pass 0 instead, and libcurl tests the descriptor
+    internally. It is also permissible to pass CURL_SOCKET_TIMEOUT to the
+    <b>sockfd</b> parameter in order to initiate the whole process or when a
+    timeout occurs.</p>
+<p class="Pp">At return, <b>running_handles</b> points to the number of running
+    easy handles within the multi handle. When this number reaches zero, all
+    transfers are complete/done. When you call
+    <i>curl_multi_socket_action(3)</i> on a specific socket and the counter
+    decreases by one, it DOES NOT necessarily mean that this exact
+    socket/transfer is the one that completed. Use
+    <i>curl_multi_info_read(3)</i> to figure out which easy handle that
+    completed.</p>
+<p class="Pp">The <i>curl_multi_socket_action(3)</i> function informs the
+    application about updates in the socket (file descriptor) status by doing
+    none, one, or multiple calls to the socket callback function set with the
+    <i>CURLMOPT_SOCKETFUNCTION(3)</i> option to <i>curl_multi_setopt(3)</i>.
+    They update the status with changes since the previous time the callback was
+    called.</p>
+<p class="Pp">Get the timeout time by setting the
+    <i>CURLMOPT_TIMERFUNCTION(3)</i> option with <i>curl_multi_setopt(3)</i>.
+    Your application then gets called with information on how long to wait for
+    socket actions at most before doing the timeout action: call the
+    <i>curl_multi_socket_action(3)</i> function with the <b>sockfd</b> argument
+    set to CURL_SOCKET_TIMEOUT. You can also use the
+    <i>curl_multi_timeout(3)</i> function to poll the value at any given time,
+    but for an event-based system using the callback is far better than relying
+    on polling the timeout value.</p>
+<p class="Pp">When this function returns error, the state of all transfers are
+    uncertain and they cannot be continued. <i>curl_multi_socket_action(3)</i>
+    should not be called again on the same multi handle after an error has been
+    returned, unless first removing all the handles and adding new ones.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TYPICAL_USAGE"><a class="permalink" href="#TYPICAL_USAGE">TYPICAL
+  USAGE</a></h1>
+<p class="Pp">1. Create a multi handle</p>
+<p class="Pp">2. Set the socket callback with
+  <i>CURLMOPT_SOCKETFUNCTION(3)</i></p>
+<p class="Pp">3. Set the timeout callback with <i>CURLMOPT_TIMERFUNCTION(3)</i>,
+    to get to know what timeout value to use when waiting for socket
+  activities.</p>
+<p class="Pp">4. Add easy handles with curl_multi_add_handle()</p>
+<p class="Pp">5. Provide some means to manage the sockets libcurl is using, so
+    you can check them for activity. This can be done through your application
+    code, or by way of an external library such as libevent or glib.</p>
+<p class="Pp">6. Call curl_multi_socket_action(..., CURL_SOCKET_TIMEOUT, 0, ...)
+    to kickstart everything. To get one or more callbacks called.</p>
+<p class="Pp">7. Wait for activity on any of libcurl's sockets, use the timeout
+    value your callback has been told.</p>
+<p class="Pp">8, When activity is detected, call curl_multi_socket_action() for
+    the socket(s) that got action. If no activity is detected and the timeout
+    expires, call <i>curl_multi_socket_action(3)</i> with
+    <i>CURL_SOCKET_TIMEOUT</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>int main(void)
+{
+<br/>
+  /* the event-library gets told when there activity on the socket 'fd',
+<br/>
+     which we translate to a call to curl_multi_socket_action() */
+<br/>
+  int running;
+<br/>
+  CURLM *multi; /* the stack we work with */
+<br/>
+  int fd; /* the descriptor that had action */
+<br/>
+  int bitmask; /* what activity that happened */
+<br/>
+  CURLMcode mc = curl_multi_socket_action(multi, fd, bitmask, &amp;running);
+<br/>
+  if(mc)
+<br/>
+    printf(&quot;error: %s\n&quot;, curl_multi_strerror(mc));
+}</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+<p class="Pp">This function was added in libcurl 7.15.4, and is deemed stable
+    since 7.16.0.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">CURLMcode type, general libcurl multi interface error code. See
+    <i>libcurl-errors(3)</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/curl_multi_cleanup.html"><b>curl_multi_cleanup</b>(3)</a>, <a class="Xr" href="../3/curl_multi_fdset.html"><b>curl_multi_fdset</b>(3)</a>,
+    <a class="Xr" href="../3/curl_multi_info_read.html"><b>curl_multi_info_read</b>(3)</a>, <a class="Xr" href="../3/curl_multi_init.html"><b>curl_multi_init</b>(3)</a>,
+    <b>the</b>hiperfifo.c<b>example</b></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">December 4, 2023</td>
+    <td class="foot-os">libcurl 8.5.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

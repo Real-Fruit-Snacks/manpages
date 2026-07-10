@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="The logging API provides four main parts (basics, filtering, threading &amp; blackbox).">
+<title>qblog.h(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">qblog.h(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#NOTE">NOTE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">QBLOG.H(3)</td>
+    <td class="head-vol">libqb Programmer's Manual</td>
+    <td class="head-rtitle">QBLOG.H(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">qblog.h - The logging API provides four main parts (basics,
+    filtering, threading &amp; blackbox).</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;qb/qblog.h&gt;</b></pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The idea behind this logging system is not to be prescriptive but
+    to provide a set of tools to help the developer achieve what they want
+    quickly and easily.</p>
+<p class="Pp">Basic logging API.</p>
+<p class="Pp">Call <i>qb_log()</i> to generate a log message. Then to write the
+    message somewhere meaningful call <i>qb_log_ctl()</i> to configure the
+    targets.</p>
+<p class="Pp">Simplest possible use:</p>
+<p class="Pp"></p>
+<pre>main() {
+<br/>
+     qb_log_init(&quot;simple-log&quot;, LOG_DAEMON, LOG_INFO);
+<br/>
+        // ...
+<br/>
+     qb_log(LOG_WARNING, &quot;watch out&quot;);
+<br/>
+        // ...
+<br/>
+     qb_log_fini();
+}</pre>
+<p class="Pp"></p>
+<p class="Pp">Configuring log targets.</p>
+<p class="Pp">A log target can be syslog, stderr, the blackbox, stdout, or a
+    text file. By default, only syslog is enabled. While this is usual for
+    daemons, it is rarely appropriate for ordinary programs, which should
+    disable it when other targets (see below) are to be used:</p>
+<p class="Pp"></p>
+<pre>qb_log_ctl(B_LOG_SYSLOG, QB_LOG_CONF_ENABLED, QB_FALSE);</pre>
+<p class="Pp"></p>
+<p class="Pp">To enable a target do the following:</p>
+<p class="Pp"></p>
+<pre>qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);</pre>
+<p class="Pp"></p>
+<p class="Pp">syslog, stderr, the blackbox, and stdout are static (they don't
+    need to be created, just enabled or disabled). However, you can open
+    multiple logfiles (falling within inclusive range
+    <b>QB_LOG_TARGET_DYNAMIC_START</b> up to <b>QB_LOG_TARGET_DYNAMIC_END</b>).
+    To do this, use the following code:</p>
+<p class="Pp"></p>
+<pre>mytarget = qb_log_file_open(&quot;/var/log/mylogfile&quot;);
+qb_log_ctl(mytarget, QB_LOG_CONF_ENABLED, QB_TRUE);</pre>
+<p class="Pp"></p>
+<p class="Pp">Once your targets are enabled/opened, you can configure them as
+    follows: Configure the size of blackbox:</p>
+<p class="Pp"></p>
+<pre>qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_SIZE, 1024*10);</pre>
+<p class="Pp"></p>
+<p class="Pp">Make logging to file threaded:</p>
+<p class="Pp"></p>
+<pre>qb_log_ctl(mytarget, QB_LOG_CONF_THREADED, QB_TRUE);</pre>
+<p class="Pp"></p>
+<p class="Pp">Sometimes, syslog daemons are (pre)configured to filter messages
+    not exceeding a particular priority. When this happens to be the logging
+    target, the designated priority of the message is passed along unchanged,
+    possibly resulting in message loss. For messages up to <b>LOG_DEBUG</b>
+    importance, this can be worked around by proportionally bumping the
+    priorities to be passed to syslog (here, the step is such that
+    <b>LOG_DEBUG</b> gets promoted to <b>LOG_INFO</b>):</p>
+<p class="Pp"></p>
+<pre>qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_PRIORITY_BUMP,
+<br/>
+           LOG_INFO - LOG_DEBUG);</pre>
+<p class="Pp"></p>
+<p class="Pp">To ensure all logs to file targets are fsync'ed (new messages
+    expressly transferred to the storage device as they keep coming, otherwise
+    defaults to <b>QB_FALSE</b>):</p>
+<p class="Pp"></p>
+<pre>qb_log_ctl(mytarget, QB_LOG_CONF_FILE_SYNC, QB_TRUE);</pre>
+<p class="Pp"></p>
+<p class="Pp">Filtering messages.</p>
+<p class="Pp">To have more power over what log messages go to which target you
+    can apply filters to the targets. What happens is the desired callsites have
+    the correct bit set. Then when the log message is generated it gets sent to
+    the targets based on which bit is set in the callsite's &quot;target&quot;
+    bitmap. Messages can be filtered based on the:</p>
+<p class="Pp">So to make all logs from evil_function() go to stderr, do the
+    following:</p>
+<p class="Pp"></p>
+<pre>qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+<br/>
+             QB_LOG_FILTER_FUNCTION, &quot;evil_function&quot;, LOG_TRACE);</pre>
+<p class="Pp"></p>
+<p class="Pp">So to make all logs from totem* (with a priority &lt;= LOG_INFO)
+    go to stderr, do the following:</p>
+<p class="Pp"></p>
+<pre>qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+<br/>
+             QB_LOG_FILTER_FILE, &quot;totem&quot;, LOG_INFO);</pre>
+<p class="Pp"></p>
+<p class="Pp">So to make all logs with the substring &quot;ringbuffer&quot; go
+    to stderr, do the following:</p>
+<p class="Pp"></p>
+<pre>qb_log_filter_ctl(QB_LOG_STDERR, QB_LOG_FILTER_ADD,
+<br/>
+             QB_LOG_FILTER_FORMAT, &quot;ringbuffer&quot;, LOG_TRACE);</pre>
+<p class="Pp"></p>
+<p class="Pp">Thread safe non-blocking logging.</p>
+<p class="Pp">Logging is only thread safe when threaded logging is in use. If
+    you plan on logging from multiple threads, you must initialize libqb's
+    logger thread and use qb_log_filter_ctl to set the QB_LOG_CONF_THREADED flag
+    on all the logging targets in use.</p>
+<p class="Pp">To achieve non-blocking logging, so that any calls to write() or
+    syslog() will not hold up your program, you can use threaded logging as
+    well.</p>
+<p class="Pp">Threaded logging use:</p>
+<p class="Pp"></p>
+<pre>main() {
+<br/>
+     qb_log_init(&quot;simple-log&quot;, LOG_DAEMON, LOG_INFO);
+<br/>
+     qb_log_ctl(QB_LOG_SYSLOG, QB_LOG_CONF_THREADED, QB_TRUE);
+<br/>
+        // ...
+<br/>
+        daemonize();
+<br/>
+        // call this after you fork()
+<br/>
+        qb_log_thread_start();
+<br/>
+        // ...
+<br/>
+     qb_log(LOG_WARNING, &quot;watch out&quot;);
+<br/>
+        // ...
+<br/>
+     qb_log_fini();
+}</pre>
+<p class="Pp"></p>
+<p class="Pp">A blackbox for in-field diagnosis.</p>
+<p class="Pp">This stores log messages in a ringbuffer so they can be written to
+    file if the program crashes (you will need to catch SIGSEGV). These can then
+    be easily printed out later.</p>
+<p class="Pp">Blackbox usage:</p>
+<p class="Pp"></p>
+<pre>static void sigsegv_handler(int sig)
+{
+<br/>
+        (void)signal (SIGSEGV, SIG_DFL);
+<br/>
+        qb_log_blackbox_write_to_file(&quot;simple-log.fdata&quot;);
+<br/>
+        qb_log_fini();
+<br/>
+        raise(SIGSEGV);
+}
+main() {
+<br/>
+     signal(SIGSEGV, sigsegv_handler);
+<br/>
+     qb_log_init(&quot;simple-log&quot;, LOG_DAEMON, LOG_INFO);
+<br/>
+     qb_log_filter_ctl(QB_LOG_BLACKBOX, QB_LOG_FILTER_ADD,
+<br/>
+                  QB_LOG_FILTER_FILE, &quot;*&quot;, LOG_DEBUG);
+<br/>
+     qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_SIZE, 1024*10);
+<br/>
+     qb_log_ctl(QB_LOG_BLACKBOX, QB_LOG_CONF_ENABLED, QB_TRUE);
+<br/>
+        // ...
+<br/>
+     qb_log(LOG_WARNING, &quot;watch out&quot;);
+<br/>
+        // ...
+<br/>
+     qb_log_fini();
+}</pre>
+<p class="Pp"></p>
+<p class="Pp">Tagging messages.</p>
+<p class="Pp">You can tag messages using the second argument to <i>qb_logt()</i>
+    or by using <i>qb_log_filter_ctl()</i>. This can be used to add feature or
+    sub-system information to the logs.</p>
+<p class="Pp"></p>
+<pre>const char* my_tags_stringify(uint32_t tags) {
+<br/>
+        if (qb_bit_is_set(tags, QB_LOG_TAG_LIBQB_MSG_BIT) {
+<br/>
+                return &quot;libqb&quot;;
+<br/>
+        } else if (tags == 3) {
+<br/>
+                return &quot;three&quot;;
+<br/>
+        } else {
+<br/>
+                return &quot;MAIN&quot;;
+<br/>
+        }
+}
+main() {
+<br/>
+        // ...
+<br/>
+        qb_log_tags_stringify_fn_set(my_tags_stringify);
+<br/>
+        qb_log_format_set(QB_LOG_STDERR, &quot;[%5g] %p %b&quot;);
+<br/>
+        // ...
+<br/>
+        qb_logt(LOG_INFO, 3, &quot;hello&quot;);
+<br/>
+        qb_logt(LOG_INFO, 0, &quot;hello&quot;);
+}</pre>
+<p class="Pp"></p>
+<p class="Pp">
+  <br/>
+   The code above will produce:</p>
+<p class="Pp"></p>
+<pre>[libqb] some message
+[three] info hello
+[MAIN ] info hello</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTE"><a class="permalink" href="#NOTE">NOTE</a></h1>
+<p class="Pp">the blackbox is not enabled by default.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/qb_log_filter_fn_set.html"><i>qb_log_filter_fn_set</i>(3)</a>,
+    <i>qb_log_from_external_source_va2</i>(3), <a class="Xr" href="../3/qb_log_thread_start.html"><i>qb_log_thread_start</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_target_user_data_get.html"><i>qb_log_target_user_data_get</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_tags_stringify_fn_set.html"><i>qb_log_tags_stringify_fn_set</i>(3)</a>, <a class="Xr" href="../3/qb_log_file_reopen.html"><i>qb_log_file_reopen</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_fini.html"><i>qb_log_fini</i>(3)</a>, <a class="Xr" href="../3/qb_log_callsites_dump.html"><i>qb_log_callsites_dump</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_ctl2.html"><i>qb_log_ctl2</i>(3)</a>, <a class="Xr" href="../3/qb_log_target_user_data_set.html"><i>qb_log_target_user_data_set</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_target_format.html"><i>qb_log_target_format</i>(3)</a>, <a class="Xr" href="../3/qb_log_thread_priority_set.html"><i>qb_log_thread_priority_set</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_facility2int.html"><i>qb_log_facility2int</i>(3)</a>, <a class="Xr" href="../3/qb_log_callsites_register.html"><i>qb_log_callsites_register</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_filter_ctl2.html"><i>qb_log_filter_ctl2</i>(3)</a>, <a class="Xr" href="../3/qb_log_file_close.html"><i>qb_log_file_close</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_format_set.html"><i>qb_log_format_set</i>(3)</a>, <a class="Xr" href="../3/qb_log_real_.html"><i>qb_log_real_</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_from_external_source_va.html"><i>qb_log_from_external_source_va</i>(3)</a>, <a class="Xr" href="../3/qb_log_callsite_get.html"><i>qb_log_callsite_get</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_blackbox_write_to_file.html"><i>qb_log_blackbox_write_to_file</i>(3)</a>, <a class="Xr" href="../3/qb_log_real_va_.html"><i>qb_log_real_va_</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_from_external_source.html"><i>qb_log_from_external_source</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_blackbox_print_from_file.html"><i>qb_log_blackbox_print_from_file</i>(3)</a>, <a class="Xr" href="../3/qb_log_facility2str.html"><i>qb_log_facility2str</i>(3)</a>,
+    <i>qb_log_callsite_get2</i>(3), <a class="Xr" href="../3/qb_log_ctl.html"><i>qb_log_ctl</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_filter_ctl.html"><i>qb_log_filter_ctl</i>(3)</a>, <a class="Xr" href="../3/qb_log_custom_close.html"><i>qb_log_custom_close</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_init.html"><i>qb_log_init</i>(3)</a>, <a class="Xr" href="../3/qb_log_file_open.html"><i>qb_log_file_open</i>(3)</a>,
+    <a class="Xr" href="../3/qb_log_custom_open.html"><i>qb_log_custom_open</i>(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright (c) 2017 Red Hat, Inc.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-07-21</td>
+    <td class="foot-os">LIBQB</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

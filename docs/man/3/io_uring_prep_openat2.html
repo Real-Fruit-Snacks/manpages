@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="prepare an openat2 request">
+<title>io_uring_prep_openat2(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">io_uring_prep_openat2(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#ERRORS">ERRORS</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">io_uring_prep_openat2(3)</td>
+    <td class="head-vol">liburing Manual</td>
+    <td class="head-rtitle">io_uring_prep_openat2(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">io_uring_prep_openat2 - prepare an openat2 request</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;sys/types.h&gt;</b>
+<b>#include &lt;sys/stat.h&gt;</b>
+<b>#include &lt;fcntl.h&gt;</b>
+<b>#include &lt;linux/openat2.h&gt;</b>
+<b>#include &lt;liburing.h&gt;</b></pre>
+<pre><b>void io_uring_prep_openat2(struct io_uring_sqe *</b><i>sqe</i><b>,</b>
+<b>                           int </b><i>dfd</i><b>,</b>
+<b>                           const char *</b><i>path</i><b>,</b>
+<b>                           int </b><i>flags</i><b>,</b>
+<b>                           struct open_how *</b><i>how</i><b>);</b></pre>
+<pre><b>void io_uring_prep_openat2_direct(struct io_uring_sqe *</b><i>sqe</i><b>,</b>
+<b>                                  int </b><i>dfd</i><b>,</b>
+<b>                                  const char *</b><i>path</i><b>,</b>
+<b>                                  int </b><i>flags</i><b>,</b>
+<b>                                  struct open_how *</b><i>how</i><b>,</b>
+<b>                                  unsigned </b><i>file_index</i><b>);</b></pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <a class="Xr" href="../3/io_uring_prep_openat2.html"><b>io_uring_prep_openat2</b>(3)</a> function prepares an openat2
+    request. The submission queue entry <i>sqe</i> is setup to use the directory
+    file descriptor <i>dfd</i> to start opening a file described by <i>path</i>
+    and using the open flags in <i>flags</i> and using the instructions on how
+    to open the file given in <i>how</i>.</p>
+<p class="Pp">For a direct descriptor open request, the offset is specified by
+    the <i>file_index</i> argument. Direct descriptors are io_uring private file
+    descriptors. They avoid some of the overhead associated with thread shared
+    file tables, and can be used in any io_uring request that takes a file
+    descriptor. To do so, <b>IOSQE_FIXED_FILE</b> must be set in the SQE
+    <i>flags</i> member, and the SQE <i>fd</i> field should use the direct
+    descriptor value rather than the regular file descriptor. Direct descriptors
+    are managed like registered files.</p>
+<p class="Pp">If the direct variant is used, the application must first have
+    registered a file table using <a class="Xr" href="../3/io_uring_register_files.html"><b>io_uring_register_files</b>(3)</a> of the
+    appropriate size. Once registered, a direct accept request may use any entry
+    in that table, as long as it is within the size of the registered table. If
+    a specified entry already contains a file, the file will first be removed
+    from the table and closed. It's consistent with the behavior of updating an
+    existing file with <a class="Xr" href="../3/io_uring_register_files_update.html"><b>io_uring_register_files_update</b>(3)</a>. Note that old
+    kernels don't check the SQE <i>file_index</i> field, which is not a problem
+    for liburing helpers, but users of the raw io_uring interface need to zero
+    SQEs to avoid unexpected behavior. If <b>IORING_FILE_INDEX_ALLOC</b> is used
+    as the <i>file_index</i> for a direct open, then io_uring will allocate a
+    free direct descriptor in the existing table. The allocated descriptor is
+    returned in the CQE <i>res</i> field just like it would be for a non-direct
+    open request. If no more entries are available in the direct descriptor
+    table, <b>-ENFILE</b> is returned instead.</p>
+<p class="Pp">These functions prepare an async <a class="Xr" href="../2/openat2.html"><b>openat2</b>(2)</a> request. See
+    that man page for details.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">None</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+<p class="Pp">The CQE <i>res</i> field will contain the result of the operation.
+    See the related man page for details on possible values. Note that where
+    synchronous system calls will return <b>-1</b> on failure and set
+    <i>errno</i> to the actual error value, io_uring never uses <i>errno</i>.
+    Instead it returns the negated <i>errno</i> directly in the CQE <i>res</i>
+    field.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">As with any request that passes in data in a struct, that data
+    must remain valid until the request has been successfully submitted. It need
+    not remain valid until completion. Once a request has been submitted, the
+    in-kernel state is stable. Very early kernels (5.4 and earlier) required
+    state to be stable until the completion occurred. Applications can test for
+    this behavior by inspecting the <b>IORING_FEAT_SUBMIT_STABLE</b> flag passed
+    back from <a class="Xr" href="../3/io_uring_queue_init_params.html"><b>io_uring_queue_init_params</b>(3)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/io_uring_get_sqe.html"><b>io_uring_get_sqe</b>(3)</a>, <a class="Xr" href="../3/io_uring_submit.html"><b>io_uring_submit</b>(3)</a>,
+    <a class="Xr" href="../2/io_uring_register.html"><b>io_uring_register</b>(2)</a>, <a class="Xr" href="../2/openat2.html"><b>openat2</b>(2)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">March 13, 2022</td>
+    <td class="foot-os">liburing-2.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

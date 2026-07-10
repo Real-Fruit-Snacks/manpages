@@ -1,0 +1,1395 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Object oriented interface to SNMP">
+<title>Net::SNMP(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">Net::SNMP(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Blocking_Objects">Blocking
+  Objects</a></li><li><a href="#Non-blocking_Objects">Non-blocking
+  Objects</a></li><li><a href="#METHODS">METHODS</a></li><li><a href="#SUBROUTINES">SUBROUTINES</a></li><li><a href="#EXPORTS">EXPORTS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#1._Blocking_SNMPv1_get-request_for_sysUpTime">1.
+  Blocking SNMPv1 get-request for sysUpTime</a></li><li><a href="#2._Blocking_SNMPv3_set-request_of_sysContact">2.
+  Blocking SNMPv3 set-request of sysContact</a></li><li><a href="#3._Non-blocking_SNMPv2c_get-bulk-request_for_ifTable">3.
+  Non-blocking SNMPv2c get-bulk-request for ifTable</a></li><li><a href="#4._Non-blocking_SNMPv1_get-request_and_set-request_on_multiple_hosts">4.
+  Non-blocking SNMPv1 get-request and set-request on multiple hosts</a></li><li><a href="#REQUIREMENTS">REQUIREMENTS</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#ACKNOWLEDGMENTS">ACKNOWLEDGMENTS</a></li><li><a href="#LICENSE_AND_COPYRIGHT">LICENSE
+  AND COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">Net::SNMP(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">Net::SNMP(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">Net::SNMP - Object oriented interface to SNMP</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">The Net::SNMP module implements an object oriented interface to
+    the Simple Network Management Protocol. Perl applications can use the module
+    to retrieve or update information on a remote host using the SNMP protocol.
+    The module supports SNMP version-1, SNMP version-2c (Community-Based
+    SNMPv2), and SNMP version-3. The Net::SNMP module assumes that the user has
+    a basic understanding of the Simple Network Management Protocol and related
+    network management concepts.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The Net::SNMP module abstracts the intricate details of the Simple
+    Network Management Protocol by providing a high level programming interface
+    to the protocol. Each Net::SNMP object provides a one-to-one mapping between
+    a Perl object and a remote SNMP agent or manager. Once an object is created,
+    it can be used to perform the basic protocol exchange actions defined by
+    SNMP.</p>
+<p class="Pp">A Net::SNMP object can be created such that it has either
+    &quot;blocking&quot; or &quot;non-blocking&quot; properties. By default, the
+    methods used to send SNMP messages do not return until the protocol exchange
+    has completed successfully or a timeout period has expired. This behavior
+    gives the object a &quot;blocking&quot; property because the flow of the
+    code is stopped until the method returns.</p>
+<p class="Pp">The optional named argument <b>-nonblocking</b> can be passed to
+    the object constructor with a true value to give the object
+    &quot;non-blocking&quot; behavior. A method invoked by a non-blocking object
+    queues the SNMP message and returns immediately, allowing the flow of the
+    code to continue. The queued SNMP messages are not sent until an event loop
+    is entered by calling the
+    <span class="Li">&quot;snmp_dispatcher()&quot;</span> method. When the SNMP
+    messages are sent, any response to the messages invokes the subroutine
+    defined by the user when the message was originally queued. The event loop
+    exits when all messages have been removed from the queue by either receiving
+    a response, or by exceeding the number of retries at the Transport
+  Layer.</p>
+<section class="Ss">
+<h2 class="Ss" id="Blocking_Objects"><a class="permalink" href="#Blocking_Objects">Blocking
+  Objects</a></h2>
+<p class="Pp">The default behavior of the methods associated with a Net::SNMP
+    object is to block the code flow until the method completes. For methods
+    that initiate a SNMP protocol exchange requiring a response, a hash
+    reference containing the results of the query is returned. The undefined
+    value is returned by all methods when a failure has occurred. The
+    <span class="Li">&quot;error()&quot;</span> method can be used to determine
+    the cause of the failure.</p>
+<p class="Pp">The hash reference returned by a SNMP protocol exchange points to
+    a hash constructed from the VarBindList contained in the SNMP response
+    message. The hash is created using the ObjectName and the ObjectSyntax pairs
+    in the VarBindList. The keys of the hash consist of the OBJECT IDENTIFIERs
+    in dotted notation corresponding to each ObjectName in the VarBindList. The
+    value of each hash entry is set equal to the value of the corresponding
+    ObjectSyntax. This hash reference can also be retrieved using the
+    <span class="Li">&quot;var_bind_list()&quot;</span> method.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Non-blocking_Objects"><a class="permalink" href="#Non-blocking_Objects">Non-blocking
+  Objects</a></h2>
+<p class="Pp">When a Net::SNMP object is created having non-blocking behavior,
+    the invocation of a method associated with the object returns immediately,
+    allowing the flow of the code to continue. When a method is invoked that
+    would initiate a SNMP protocol exchange requiring a response, either a true
+    value (i.e. 0x1) is returned immediately or the undefined value is returned
+    if there was a failure. The <span class="Li">&quot;error()&quot;</span>
+    method can be used to determine the cause of the failure.</p>
+<p class="Pp">The contents of the VarBindList contained in the SNMP response
+    message can be retrieved by calling the
+    <span class="Li">&quot;var_bind_list()&quot;</span> method using the object
+    reference passed as the first argument to the callback. The value returned
+    by the <span class="Li">&quot;var_bind_list()&quot;</span> method is a hash
+    reference created using the ObjectName and the ObjectSyntax pairs in the
+    VarBindList. The keys of the hash consist of the OBJECT IDENTIFIERs in
+    dotted notation corresponding to each ObjectName in the VarBindList. The
+    value of each hash entry is set equal to the value of the corresponding
+    ObjectSyntax. The undefined value is returned if there has been a failure
+    and the <span class="Li">&quot;error()&quot;</span> method may be used to
+    determine the reason.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="METHODS"><a class="permalink" href="#METHODS">METHODS</a></h1>
+<p class="Pp">When named arguments are expected by the methods, two different
+    styles are supported. All examples in this documentation use the
+    dashed-option style:</p>
+<p class="Pp"></p>
+<pre>       $object-&gt;method(-argument =&gt; $value);
+</pre>
+<p class="Pp">However, the IO:: style is also allowed:</p>
+<p class="Pp"></p>
+<pre>       $object-&gt;method(Argument =&gt; $value);
+</pre>
+<dl class="Bl-tag">
+  <dt id="Non-blocking"><a class="permalink" href="#Non-blocking">Non-blocking
+    Objects Arguments</a></dt>
+  <dd>When a Net::SNMP object has been created with a &quot;non-blocking&quot;
+      property, most methods that generate a SNMP message take additional
+      arguments to support this property.</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Callback"><a class="permalink" href="#Callback">Callback</a></dt>
+  <dd>Most methods associated with a non-blocking object have an optional named
+      argument called <b>-callback</b>. The <b>-callback</b> argument expects a
+      reference to a subroutine or to an array whose first element must be a
+      reference to a subroutine. The subroutine defined by the <b>-callback</b>
+      option is executed when a response to a SNMP message is received, an error
+      condition has occurred, or the number of retries for the message has been
+      exceeded.
+    <p class="Pp">When the <b>-callback</b> argument only contains a subroutine
+        reference, the subroutine is evaluated passing a reference to the
+        original Net::SNMP object as the only parameter. If the <b>-callback</b>
+        argument was defined as an array reference, all elements in the array
+        are passed to subroutine after the reference to the Net::SNMP object.
+        The first element, which is required to be a reference to a subroutine,
+        is removed before the remaining arguments are passed to that
+      subroutine.</p>
+    <p class="Pp">Once one method is invoked with the <b>-callback</b> argument,
+        this argument stays with the object and is used by any further calls to
+        methods using the <b>-callback</b> option if the argument is absent. The
+        undefined value may be passed to the <b>-callback</b> argument to delete
+        the callback.</p>
+    <p class="Pp"><b>NOTE:</b> The subroutine being passed with the
+        <b>-callback</b> named argument should not cause blocking itself. This
+        will cause all the actions in the event loop to be stopped, defeating
+        the non-blocking property of the Net::SNMP module.</p>
+  </dd>
+  <dt id="Delay"><a class="permalink" href="#Delay">Delay</a></dt>
+  <dd>An optional argument <b>-delay</b> can also be passed to non-blocking
+      objects. The <b>-delay</b> argument instructs the object to wait the
+      number of seconds passed to the argument before executing the SNMP
+      protocol exchange. The delay period starts when the event loop is entered.
+      The <b>-delay</b> parameter is applied to all methods associated with the
+      object once it is specified. The delay value must be set back to 0 seconds
+      to disable the delay parameter.</dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="SNMPv3"><a class="permalink" href="#SNMPv3">SNMPv3 Arguments</a></dt>
+  <dd>A SNMP context is a collection of management information accessible by a
+      SNMP entity. An item of management information may exist in more than one
+      context and a SNMP entity potentially has access to many contexts. The
+      combination of a contextEngineID and a contextName unambiguously
+      identifies a context within an administrative domain. In a SNMPv3 message,
+      the contextEngineID and contextName are included as part of the scopedPDU.
+      All methods that generate a SNMP message optionally take a
+      <b>-contextengineid</b> and <b>-contextname</b> argument to configure
+      these fields.</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Context"><a class="permalink" href="#Context">Context Engine
+    ID</a></dt>
+  <dd>The <b>-contextengineid</b> argument expects a hexadecimal string
+      representing the desired contextEngineID. The string must be 10 to 64
+      characters (5 to 32 octets) long and can be prefixed with an optional
+      &quot;0x&quot;. Once the <b>-contextengineid</b> is specified it stays
+      with the object until it is changed again or reset to default by passing
+      in the undefined value. By default, the contextEngineID is set to match
+      the authoritativeEngineID of the authoritative SNMP engine.</dd>
+  <dt id="Context~2"><a class="permalink" href="#Context~2">Context
+    Name</a></dt>
+  <dd>The contextName is passed as a string which must be 0 to 32 octets in
+      length using the <b>-contextname</b> argument. The contextName stays with
+      the object until it is changed. The contextName defaults to an empty
+      string which represents the &quot;default&quot; context.</dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<section class="Ss">
+<h2 class="Ss"><b>session()</b> - create a new Net::SNMP object</h2>
+<pre>   ($session, $error) = Net::SNMP-&gt;session(
+                           [-hostname      =&gt; $hostname,]
+                           [-port          =&gt; $port,]
+                           [-localaddr     =&gt; $localaddr,]
+                           [-localport     =&gt; $localport,]
+                           [-nonblocking   =&gt; $boolean,]
+                           [-version       =&gt; $version,]
+                           [-domain        =&gt; $domain,]
+                           [-timeout       =&gt; $seconds,]
+                           [-retries       =&gt; $count,]
+                           [-maxmsgsize    =&gt; $octets,]
+                           [-translate     =&gt; $translate,]
+                           [-debug         =&gt; $bitmask,]
+                           [-community     =&gt; $community,]   # v1/v2c
+                           [-username      =&gt; $username,]    # v3
+                           [-authkey       =&gt; $authkey,]     # v3
+                           [-authpassword  =&gt; $authpasswd,]  # v3
+                           [-authprotocol  =&gt; $authproto,]   # v3
+                           [-privkey       =&gt; $privkey,]     # v3
+                           [-privpassword  =&gt; $privpasswd,]  # v3
+                           [-privprotocol  =&gt; $privproto,]   # v3
+                        );
+</pre>
+<p class="Pp">This is the constructor for Net::SNMP objects. In scalar context,
+    a reference to a new Net::SNMP object is returned if the creation of the
+    object is successful. In list context, a reference to a new Net::SNMP object
+    and an empty error message string is returned. If a failure occurs, the
+    object reference is returned as the undefined value. The error string may be
+    used to determine the cause of the error.</p>
+<p class="Pp">Most of the named arguments passed to the constructor define basic
+    attributes for the object and are not modifiable after the object has been
+    created. The <b>-timeout</b>, <b>-retries</b>, <b>-maxmsgsize</b>,
+    <b>-translate</b>, and <b>-debug</b> arguments are modifiable using an
+    accessor method. See their corresponding method definitions for a complete
+    description of their usage, default values, and valid ranges.</p>
+<dl class="Bl-tag">
+  <dt id="Transport"><a class="permalink" href="#Transport">Transport Domain
+    Arguments</a></dt>
+  <dd>The Net::SNMP module uses UDP/IPv4 as the default Transport Domain to
+      exchange SNMP messages between the local and remote devices. The module
+      also supports UDP/IPv6, TCP/IPv4, and TCP/IPv6 as alternative Transport
+      Domains. The <b>-domain</b> argument can be used to change the Transport
+      Domain by setting the value to one of the following strings: 'udp6',
+      'udp/ipv6'; 'tcp', 'tcp4', 'tcp/ipv4'; 'tcp6', or 'tcp/ipv6'. The
+      <b>-domain</b> argument also accepts the strings 'udp', 'udp4', or
+      'udp/ipv4' which correspond to the default Transport Domain of UDP/IPv4.
+    <p class="Pp">The transport address of the destination SNMP device can be
+        specified using the <b>-hostname</b> argument. This argument is optional
+        and defaults to &quot;localhost&quot;. The destination port number can
+        be specified as part of the transport address or by using the
+        <b>-port</b> argument. Either a numeric port number or a textual service
+        name can be specified. A numeric port number in parentheses can
+        optionally follow the service name. This port number will be used if the
+        service name cannot be resolved. If the destination port number is not
+        specified, the well-known SNMP port number 161 is used.</p>
+    <p class="Pp">By default the source transport address and port number are
+        assigned dynamically by the local device on which the Net::SNMP module
+        is being used. This dynamic assignment can be overridden by using the
+        <b>-localaddr</b> and <b>-localport</b> arguments. These arguments
+        accept the same values as the <b>-hostname</b> and <b>-port</b>
+        arguments respectively. The resolved address must correspond to a valid
+        address of an interface on the local device.</p>
+    <p class="Pp">When using an IPv4 Transport Domain, the transport address can
+        be specified as either an IP network hostname or an IPv4 address in
+        standard dotted notation. The port information can be optionally
+        appended to the hostname or address delimited by a colon. The accepted
+        IPv4 transport address formats are
+        <span class="Li">&quot;address&quot;</span>,
+        <span class="Li">&quot;address:port&quot;</span>,
+        <span class="Li">&quot;hostname&quot;</span>, and
+        <span class="Li">&quot;hostname:port&quot;</span>.</p>
+    <p class="Pp">When using an IPv6 Transport Domain, the transport address can
+        be specified as an IP hostname (which will be looked up as a DNS quad-A
+        record) or an IPv6 address in presentation format. The port information
+        can optionally be included following a colon after the hostname or
+        address. When including this information after an IPv6 address, the
+        address must be enclosed in square brackets. The scope zone index
+        (described in RFC 4007) can be specified after the address as a decimal
+        value delimited by a percent sign. The accepted transport address
+        formats for IPv6 are <span class="Li">&quot;address&quot;</span>,
+        <span class="Li">&quot;address%zone&quot;</span>,
+        <span class="Li">&quot;[address]:port&quot;</span>,
+        <span class="Li">&quot;[address%zone]:port&quot;</span>,
+        <span class="Li">&quot;hostname&quot;</span>, and
+        <span class="Li">&quot;hostname:port&quot;</span>.</p>
+  </dd>
+  <dt id="Security"><a class="permalink" href="#Security">Security Model
+    Arguments</a></dt>
+  <dd>The <b>-version</b> argument controls which other arguments are expected
+      or required by the <span class="Li">&quot;session()&quot;</span>
+      constructor. The Net::SNMP module supports SNMPv1, SNMPv2c, and SNMPv3.
+      The module defaults to SNMPv1 if no <b>-version</b> argument is specified.
+      The <b>-version</b> argument expects either a digit (i.e. '1', '2', or
+      '3') or a string specifying the version (i.e. 'snmpv1', 'snmpv2c', or
+      'snmpv3') to define the SNMP version.
+    <p class="Pp">The Security Model used by the Net::SNMP object is based on
+        the SNMP version associated with the object. If the SNMP version is
+        SNMPv1 or SNMPv2c a Community-based Security Model will be used, while
+        the User-based Security Model (USM) will be used if the version is
+        SNMPv3.</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Community-based"><a class="permalink" href="#Community-based">Community-based
+    Security Model Argument</a></dt>
+  <dd>If the Security Model is Community-based, the only argument available is
+      the <b>-community</b> argument. This argument expects a string that is to
+      be used as the SNMP community name. By default the community name is set
+      to 'public' if the argument is not present.</dd>
+  <dt id="User-based"><a class="permalink" href="#User-based">User-based
+    Security Model Arguments</a></dt>
+  <dd>The User-based Security Model (USM) used by SNMPv3 requires that a
+      securityName be specified using the <b>-username</b> argument. The
+      creation of a Net::SNMP object with the version set to SNMPv3 will fail if
+      the <b>-username</b> argument is not present. The <b>-username</b>
+      argument expects a string 1 to 32 octets in length.
+    <p class="Pp">Different levels of security are allowed by the User-based
+        Security Model which address authentication and privacy concerns. A
+        SNMPv3 Net::SNMP object will derive the security level (securityLevel)
+        based on which of the following arguments are specified.</p>
+    <p class="Pp">By default a securityLevel of 'noAuthNoPriv' is assumed. If
+        the <b>-authkey</b> or <b>-authpassword</b> arguments are specified, the
+        securityLevel becomes 'authNoPriv'. The <b>-authpassword</b> argument
+        expects a string which is at least 1 octet in length. Optionally, the
+        <b>-authkey</b> argument can be used so that a plain text password does
+        not have to be specified in a script. The <b>-authkey</b> argument
+        expects a hexadecimal string produced by localizing the password with
+        the authoritativeEngineID for the specific destination device. The
+        <span class="Li">&quot;snmpkey&quot;</span> utility included with the
+        distribution can be used to create the hexadecimal string (see
+      snmpkey).</p>
+    <p class="Pp">Two different hash algorithms are defined by SNMPv3 which can
+        be used by the Security Model for authentication. These algorithms are
+        HMAC-MD5-96 &quot;MD5&quot; (RFC 1321) and HMAC-SHA-96 &quot;SHA-1&quot;
+        (NIST FIPS PUB 180-1). The default algorithm used by the module is
+        HMAC-MD5-96. This behavior can be changed by using the
+        <b>-authprotocol</b> argument. This argument expects either the string
+        'md5' or 'sha' to be passed to modify the hash algorithm.</p>
+    <p class="Pp">By specifying the arguments <b>-privkey</b> or
+        <b>-privpassword</b> the securityLevel associated with the object
+        becomes 'authPriv'. According to SNMPv3, privacy requires the use of
+        authentication. Therefore, if either of these two arguments are present
+        and the <b>-authkey</b> or <b>-authpassword</b> arguments are missing,
+        the creation of the object fails. The <b>-privkey</b> and
+        <b>-privpassword</b> arguments expect the same input as the
+        <b>-authkey</b> and <b>-authpassword</b> arguments respectively.</p>
+    <p class="Pp">The User-based Security Model described in RFC 3414 defines a
+        single encryption protocol to be used for privacy. This protocol,
+        CBC-DES &quot;DES&quot; (NIST FIPS PUB 46-1), is used by default or if
+        the string 'des' is passed to the <b>-privprotocol</b> argument. The
+        module also supports RFC 3826 which describes the use of CFB128-AES-128
+        &quot;AES&quot; (NIST FIPS PUB 197) in the USM. The AES encryption
+        protocol can be selected by passing 'aes' or 'aes128' to the
+        <b>-privprotocol</b> argument. By working with the Extended Security
+        Options Consortium &lt;http://www.snmp.com/protocol/eso.shtml&gt;, the
+        module also supports CBC-3DES-EDE &quot;Triple-DES&quot; (NIST FIPS
+        46-3) in the User-based Security Model. This is defined in the draft
+        &lt;http://www.snmp.com/eso/draft-reeder-snmpv3-usm-3desede-00.txt&gt;.
+        The Triple-DES encryption protocol can be selected using the
+        <b>-privprotocol</b> argument with the string '3des' or '3desede'.</p>
+  </dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>close()</b> - clear the Transport Domain associated with the
+  object</h2>
+<pre>   $session-&gt;close();
+</pre>
+<p class="Pp">This method clears the Transport Domain and any errors associated
+    with the object. Once closed, the Net::SNMP object can no longer be used to
+    send or receive SNMP messages.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>snmp_dispatcher()</b> - enter the non-blocking object event
+  loop</h2>
+<pre>   $session-&gt;snmp_dispatcher();
+</pre>
+<p class="Pp">This method enters the event loop associated with non-blocking
+    Net::SNMP objects. The method exits when all queued SNMP messages have
+    received a response or have timed out at the Transport Layer. This method is
+    also exported as the stand alone function
+    <span class="Li">&quot;snmp_dispatcher()&quot;</span> by default (see
+    &quot;EXPORTS&quot;).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>get_request()</b> - send a SNMP get-request to the remote
+  agent</h2>
+<pre>   $result = $session-&gt;get_request(
+                          [-callback        =&gt; sub {},]     # non-blocking
+                          [-delay           =&gt; $seconds,]   # non-blocking 
+                          [-contextengineid =&gt; $engine_id,] # v3 
+                          [-contextname     =&gt; $name,]      # v3
+                          -varbindlist      =&gt; \@oids,
+                       );
+</pre>
+<p class="Pp">This method performs a SNMP get-request query to gather data from
+    the remote agent on the host associated with the Net::SNMP object. The
+    message is built using the list of OBJECT IDENTIFIERs in dotted notation
+    passed to the method as an array reference using the <b>-varbindlist</b>
+    argument. Each OBJECT IDENTIFIER is placed into a single SNMP GetRequest-PDU
+    in the same order that it held in the original list.</p>
+<p class="Pp">A reference to a hash is returned in blocking mode which contains
+    the contents of the VarBindList. In non-blocking mode, a true value is
+    returned when no error has occurred. In either mode, the undefined value is
+    returned when an error has occurred. The
+    <span class="Li">&quot;error()&quot;</span> method may be used to determine
+    the cause of the failure.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>get_next_request()</b> - send a SNMP get-next-request to the
+  remote agent</h2>
+<pre>   $result = $session-&gt;get_next_request(
+                          [-callback        =&gt; sub {},]     # non-blocking
+                          [-delay           =&gt; $seconds,]   # non-blocking 
+                          [-contextengineid =&gt; $engine_id,] # v3 
+                          [-contextname     =&gt; $name,]      # v3
+                          -varbindlist      =&gt; \@oids,
+                       );
+</pre>
+<p class="Pp">This method performs a SNMP get-next-request query to gather data
+    from the remote agent on the host associated with the Net::SNMP object. The
+    message is built using the list of OBJECT IDENTIFIERs in dotted notation
+    passed to the method as an array reference using the <b>-varbindlist</b>
+    argument. Each OBJECT IDENTIFER is placed into a single SNMP
+    GetNextRequest-PDU in the same order that it held in the original list.</p>
+<p class="Pp">A reference to a hash is returned in blocking mode which contains
+    the contents of the VarBindList. In non-blocking mode, a true value is
+    returned when no error has occurred. In either mode, the undefined value is
+    returned when an error has occurred. The
+    <span class="Li">&quot;error()&quot;</span> method may be used to determine
+    the cause of the failure.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>set_request()</b> - send a SNMP set-request to the remote
+  agent</h2>
+<pre>   $result = $session-&gt;set_request(
+                          [-callback        =&gt; sub {},]     # non-blocking
+                          [-delay           =&gt; $seconds,]   # non-blocking 
+                          [-contextengineid =&gt; $engine_id,] # v3 
+                          [-contextname     =&gt; $name,]      # v3
+                          -varbindlist      =&gt; \@oid_value,
+                       );
+</pre>
+<p class="Pp">This method is used to modify data on the remote agent that is
+    associated with the Net::SNMP object using a SNMP set-request. The message
+    is built using a list of values consisting of groups of an OBJECT
+    IDENTIFIER, an object type, and the actual value to be set. This list is
+    passed to the method as an array reference using the <b>-varbindlist</b>
+    argument. The OBJECT IDENTIFIERs in each trio are to be in dotted notation.
+    The object type is an octet corresponding to the ASN.1 type of value that is
+    to be set. Each of the supported ASN.1 types have been defined and are
+    exported by the package by default (see &quot;EXPORTS&quot;).</p>
+<p class="Pp">A reference to a hash is returned in blocking mode which contains
+    the contents of the VarBindList. In non-blocking mode, a true value is
+    returned when no error has occurred. In either mode, the undefined value is
+    returned when an error has occurred. The
+    <span class="Li">&quot;error()&quot;</span> method may be used to determine
+    the cause of the failure.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>trap()</b> - send a SNMP trap to the remote manager</h2>
+<pre>   $result = $session-&gt;trap(
+                          [-delay           =&gt; $seconds,]   # non-blocking 
+                          [-enterprise      =&gt; $oid,]
+                          [-agentaddr       =&gt; $ipaddress,]
+                          [-generictrap     =&gt; $generic,]
+                          [-specifictrap    =&gt; $specific,]
+                          [-timestamp       =&gt; $timeticks,]
+                          -varbindlist      =&gt; \@oid_value,
+                       );
+</pre>
+<p class="Pp">This method sends a SNMP trap to the remote manager associated
+    with the Net::SNMP object. All arguments are optional and will be given the
+    following defaults in the absence of a corresponding named argument:</p>
+<ul class="Bl-bullet">
+  <li>The default value for the trap <b>-enterprise</b> is
+      &quot;1.3.6.1.4.1&quot;, which corresponds to
+      &quot;iso.org.dod.internet.private.enterprises&quot;. The enterprise value
+      is expected to be an OBJECT IDENTIFER in dotted notation.</li>
+  <li>When the Transport Domain is UDP/IPv4 or TCP/IPv4, the default value for
+      the trap <b>-agentaddr</b> is the IP address associated with the interface
+      on which the trap will be transmitted. For other Transport Domains the
+      <b>-agentaddr</b> is defaulted to &quot;0.0.0.0&quot;. When specified, the
+      agent-addr is expected to be an IpAddress in dotted notation.</li>
+  <li>The default value for the <b>-generictrap</b> type is 6 which corresponds
+      to &quot;enterpriseSpecific&quot;. The generic-trap types are defined and
+      can be exported upon request (see &quot;EXPORTS&quot;).</li>
+  <li>The default value for the <b>-specifictrap</b> type is 0. No pre-defined
+      values are available for specific-trap types.</li>
+  <li>The default value for the trap <b>-timestamp</b> is the &quot;uptime&quot;
+      of the script. The &quot;uptime&quot; of the script is the number of
+      hundredths of seconds that have elapsed since the script began running.
+      The time-stamp is expected to be a TimeTicks number in hundredths of
+      seconds.</li>
+  <li>The default value for the trap <b>-varbindlist</b> is an empty array
+      reference. The variable-bindings are expected to be in an array format
+      consisting of groups of an OBJECT IDENTIFIER, an object type, and the
+      actual value of the object. This is identical to the list expected by the
+      <span class="Li">&quot;set_request()&quot;</span> method. The OBJECT
+      IDENTIFIERs in each trio are to be in dotted notation. The object type is
+      an octet corresponding to the ASN.1 type for the value. Each of the
+      supported types have been defined and are exported by default (see
+      &quot;EXPORTS&quot;).</li>
+</ul>
+<p class="Pp">A true value is returned when the method is successful. The
+    undefined value is returned when a failure has occurred. The
+    <span class="Li">&quot;error()&quot;</span> method can be used to determine
+    the cause of the failure. Since there are no acknowledgements for Trap-PDUs,
+    there is no way to determine if the remote host actually received the
+  trap.</p>
+<p class="Pp"><b>NOTE:</b> When the object is in non-blocking mode, the trap is
+    not sent until the event loop is entered and no callback is ever
+  executed.</p>
+<p class="Pp"><b>NOTE:</b> This method can only be used when the version of the
+    object is set to SNMPv1.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>get_bulk_request()</b> - send a SNMP get-bulk-request to the
+  remote agent</h2>
+<pre>   $result = $session-&gt;get_bulk_request(
+                          [-callback        =&gt; sub {},]     # non-blocking
+                          [-delay           =&gt; $seconds,]   # non-blocking 
+                          [-contextengineid =&gt; $engine_id,] # v3 
+                          [-contextname     =&gt; $name,]      # v3
+                          [-nonrepeaters    =&gt; $non_reps,]
+                          [-maxrepetitions  =&gt; $max_reps,]
+                          -varbindlist      =&gt; \@oids,
+                       );
+</pre>
+<p class="Pp">This method performs a SNMP get-bulk-request query to gather data
+    from the remote agent on the host associated with the Net::SNMP object. All
+    arguments are optional except <b>-varbindlist</b> and will be given the
+    following defaults in the absence of a corresponding named argument:</p>
+<ul class="Bl-bullet">
+  <li>The default value for the get-bulk-request <b>-nonrepeaters</b> is 0. The
+      non-repeaters value specifies the number of variables in the
+      variable-bindings list for which a single successor is to be
+    returned.</li>
+  <li>The default value for the get-bulk-request <b>-maxrepetitions</b> is 0.
+      The max-repetitions value specifies the number of successors to be
+      returned for the remaining variables in the variable-bindings list.</li>
+  <li>The <b>-varbindlist</b> argument expects an array reference consisting of
+      a list of OBJECT IDENTIFIERs in dotted notation. Each OBJECT IDENTIFER is
+      placed into a single SNMP GetBulkRequest-PDU in the same order that it
+      held in the original list.</li>
+</ul>
+<p class="Pp">A reference to a hash is returned in blocking mode which contains
+    the contents of the VarBindList. In non-blocking mode, a true value is
+    returned when no error has occurred. In either mode, the undefined value is
+    returned when an error has occurred. The
+    <span class="Li">&quot;error()&quot;</span> method may be used to determine
+    the cause of the failure.</p>
+<p class="Pp"><b>NOTE:</b> This method can only be used when the version of the
+    object is set to SNMPv2c or SNMPv3.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>inform_request()</b> - send a SNMP inform-request to the
+  remote manager</h2>
+<pre>   $result = $session-&gt;inform_request(
+                          [-callback        =&gt; sub {},]     # non-blocking
+                          [-delay           =&gt; $seconds,]   # non-blocking 
+                          [-contextengineid =&gt; $engine_id,] # v3 
+                          [-contextname     =&gt; $name,]      # v3
+                          -varbindlist      =&gt; \@oid_value,
+                       );
+</pre>
+<p class="Pp">This method is used to provide management information to the
+    remote manager associated with the Net::SNMP object using an inform-request.
+    The message is built using a list of values consisting of groups of an
+    OBJECT IDENTIFIER, an object type, and the actual value to be identified.
+    This list is passed to the method as an array reference using the
+    <b>-varbindlist</b> argument. The OBJECT IDENTIFIERs in each trio are to be
+    in dotted notation. The object type is an octet corresponding to the ASN.1
+    type of value that is to be identified. Each of the supported ASN.1 types
+    have been defined and are exported by the package by default (see
+    &quot;EXPORTS&quot;).</p>
+<p class="Pp">The first two variable-bindings fields in the inform-request are
+    specified by SNMPv2 and should be:</p>
+<ul class="Bl-bullet">
+  <li>sysUpTime.0 - ('1.3.6.1.2.1.1.3.0', TIMETICKS,
+      <span class="Li">$timeticks</span>)</li>
+  <li>snmpTrapOID.0 - ('1.3.6.1.6.3.1.1.4.1.0', OBJECT_IDENTIFIER,
+      <span class="Li">$oid</span>)</li>
+</ul>
+<p class="Pp">A reference to a hash is returned in blocking mode which contains
+    the contents of the VarBindList. In non-blocking mode, a true value is
+    returned when no error has occurred. In either mode, the undefined value is
+    returned when an error has occurred. The
+    <span class="Li">&quot;error()&quot;</span> method may be used to determine
+    the cause of the failure.</p>
+<p class="Pp"><b>NOTE:</b> This method can only be used when the version of the
+    object is set to SNMPv2c or SNMPv3.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>snmpv2_trap()</b> - send a SNMP snmpV2-trap to the remote
+  manager</h2>
+<pre>   $result = $session-&gt;snmpv2_trap(
+                          [-delay           =&gt; $seconds,]   # non-blocking 
+                          -varbindlist      =&gt; \@oid_value,
+                       );
+</pre>
+<p class="Pp">This method sends a snmpV2-trap to the remote manager associated
+    with the Net::SNMP object. The message is built using a list of values
+    consisting of groups of an OBJECT IDENTIFIER, an object type, and the actual
+    value to be identified. This list is passed to the method as an array
+    reference using the <b>-varbindlist</b> argument. The OBJECT IDENTIFIERs in
+    each trio are to be in dotted notation. The object type is an octet
+    corresponding to the ASN.1 type of value that is to be identified. Each of
+    the supported ASN.1 types have been defined and are exported by the package
+    by default (see &quot;EXPORTS&quot;).</p>
+<p class="Pp">The first two variable-bindings fields in the snmpV2-trap are
+    specified by SNMPv2 and should be:</p>
+<ul class="Bl-bullet">
+  <li>sysUpTime.0 - ('1.3.6.1.2.1.1.3.0', TIMETICKS,
+      <span class="Li">$timeticks</span>)</li>
+  <li>snmpTrapOID.0 - ('1.3.6.1.6.3.1.1.4.1.0', OBJECT_IDENTIFIER,
+      <span class="Li">$oid</span>)</li>
+</ul>
+<p class="Pp">A true value is returned when the method is successful. The
+    undefined value is returned when a failure has occurred. The
+    <span class="Li">&quot;error()&quot;</span> method can be used to determine
+    the cause of the failure. Since there are no acknowledgements for
+    SNMPv2-Trap-PDUs, there is no way to determine if the remote host actually
+    received the snmpV2-trap.</p>
+<p class="Pp"><b>NOTE:</b> When the object is in non-blocking mode, the
+    snmpV2-trap is not sent until the event loop is entered and no callback is
+    ever executed.</p>
+<p class="Pp"><b>NOTE:</b> This method can only be used when the version of the
+    object is set to SNMPv2c. SNMPv2-Trap-PDUs are supported by SNMPv3, but
+    require the sender of the message to be an authoritative SNMP engine which
+    is not currently supported by the Net::SNMP module.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>get_table()</b> - retrieve a table from the remote agent</h2>
+<pre>   $result = $session-&gt;get_table(
+                          [-callback        =&gt; sub {},]     # non-blocking
+                          [-delay           =&gt; $seconds,]   # non-blocking 
+                          [-contextengineid =&gt; $engine_id,] # v3 
+                          [-contextname     =&gt; $name,]      # v3
+                          -baseoid          =&gt; $oid,
+                          [-maxrepetitions  =&gt; $max_reps,]  # v2c/v3
+                       );
+</pre>
+<p class="Pp">This method performs repeated SNMP get-next-request or
+    get-bulk-request (when using SNMPv2c or SNMPv3) queries to gather data from
+    the remote agent on the host associated with the Net::SNMP object. The first
+    message sent is built using the OBJECT IDENTIFIER in dotted notation passed
+    to the method by the <b>-baseoid</b> argument. Repeated SNMP requests are
+    issued until the OBJECT IDENTIFIER in the response is no longer a child of
+    the base OBJECT IDENTIFIER.</p>
+<p class="Pp">The <b>-maxrepetitions</b> argument can be used to specify the
+    max-repetitions value that is passed to the get-bulk-requests when using
+    SNMPv2c or SNMPv3. If this argument is not present, a value is calculated
+    based on the maximum message size for the Net::SNMP object. If the value is
+    set to 1 or less, get-next-requests will be used for the queries instead of
+    get-bulk-requests.</p>
+<p class="Pp">A reference to a hash is returned in blocking mode which contains
+    the contents of the VarBindList. In non-blocking mode, a true value is
+    returned when no error has occurred. In either mode, the undefined value is
+    returned when an error has occurred. The
+    <span class="Li">&quot;error()&quot;</span> method may be used to determine
+    the cause of the failure.</p>
+<p class="Pp"><b>WARNING:</b> Results from this method can become very large if
+    the base OBJECT IDENTIFIER is close to the root of the SNMP MIB tree.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>get_entries()</b> - retrieve table entries from the remote
+  agent</h2>
+<pre>   $result = $session-&gt;get_entries(
+                          [-callback        =&gt; sub {},]     # non-blocking
+                          [-delay           =&gt; $seconds,]   # non-blocking
+                          [-contextengineid =&gt; $engine_id,] # v3
+                          [-contextname     =&gt; $name,]      # v3
+                          -columns          =&gt; \@columns,
+                          [-startindex      =&gt; $start,]
+                          [-endindex        =&gt; $end,]
+                          [-maxrepetitions  =&gt; $max_reps,]  # v2c/v3
+                       );
+</pre>
+<p class="Pp">This method performs repeated SNMP get-next-request or
+    get-bulk-request (when using SNMPv2c or SNMPv3) queries to gather data from
+    the remote agent on the host associated with the Net::SNMP object. Each
+    message specifically requests data for each OBJECT IDENTIFIER specified in
+    the <b>-columns</b> array. The OBJECT IDENTIFIERs must correspond to column
+    entries for a conceptual row in a table. They may however be columns in
+    different tables as long as each table is indexed the same way. The optional
+    <b>-startindex</b> and <b>-endindex</b> arguments may be specified to limit
+    the query to specific rows in the table(s).</p>
+<p class="Pp">The <b>-startindex</b> can be specified as a single decimal value
+    or in dotted notation if the index associated with the entry so requires. If
+    the <b>-startindex</b> is specified, it will be include as part of the query
+    results. If no <b>-startindex</b> is specified, the first request message
+    will be sent without an index. To insure that the <b>-startindex</b> is
+    included, the last sub-identifier in the index is decremented by one. If the
+    last sub-identifier has a value of zero, the sub-identifier is removed from
+    the index.</p>
+<p class="Pp">The optional <b>-endindex</b> argument can be specified as a
+    single decimal value or in dotted notation. If the <b>-endindex</b> is
+    specified, it will be included as part of the query results. If no
+    <b>-endindex</b> is specified, repeated SNMP requests are issued until the
+    response no longer returns entries matching any of the columns specified in
+    the <b>-columns</b> array.</p>
+<p class="Pp">The <b>-maxrepetitions</b> argument can be used to specify the
+    max-repetitions value that is passed to the get-bulk-requests when using
+    SNMPv2c or SNMPv3. If this argument is not present, a value is calculated
+    based on the maximum message size of the object and the number of columns
+    specified in the <b>-columns</b> array. If the value is set to 1 or less,
+    get-next-requests will be used for the queries instead of
+  get-bulk-requests.</p>
+<p class="Pp">A reference to a hash is returned in blocking mode which contains
+    the contents of the VarBindList. In non-blocking mode, a true value is
+    returned when no error has occurred. In either mode, the undefined value is
+    returned when an error has occurred. The
+    <span class="Li">&quot;error()&quot;</span> method may be used to determine
+    the cause of the failure.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>version()</b> - get the SNMP version from the object</h2>
+<pre>   $rfc_version = $session-&gt;version();
+</pre>
+<p class="Pp">This method returns the current value for the SNMP version
+    associated with the object. The returned value is the corresponding version
+    number defined by the RFCs for the protocol version field (i.e. SNMPv1 == 0,
+    SNMPv2c == 1, and SNMPv3 == 3). The RFC versions are defined as constant by
+    the module and can be exported by request (see &quot;EXPORTS&quot;).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>error()</b> - get the current error message from the
+  object</h2>
+<pre>   $error_message = $session-&gt;error();
+</pre>
+<p class="Pp">This method returns a text string explaining the reason for the
+    last error. An empty string is returned if no error has occurred.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>hostname()</b> - get the hostname associated with the
+  object</h2>
+<pre>   $hostname = $session-&gt;hostname();
+</pre>
+<p class="Pp">This method returns the parsed hostname string that is associated
+    with the object. Any port information and formatting that can be included
+    with the corresponding <span class="Li">&quot;session()&quot;</span>
+    constructor argument will be stripped and not included as part of the
+    returned string.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>error_status()</b> - get the current SNMP error-status from
+  the object</h2>
+<pre>   $error_status = $session-&gt;error_status();
+</pre>
+<p class="Pp">This method returns the numeric value of the error-status
+    contained in the last SNMP message received by the object.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>error_index()</b> - get the current SNMP error-index from the
+  object</h2>
+<pre>   $error_index = $session-&gt;error_index();
+</pre>
+<p class="Pp">This method returns the numeric value of the error-index contained
+    in the last SNMP message received by the object.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>var_bind_list()</b> - get the hash reference for the
+  VarBindList values</h2>
+<pre>   $values = $session-&gt;var_bind_list();
+</pre>
+<p class="Pp">This method returns a hash reference created using the ObjectName
+    and the ObjectSyntax pairs in the VarBindList of the last SNMP message
+    received by the object. The keys of the hash consist of the OBJECT
+    IDENTIFIERs in dotted notation corresponding to each ObjectName in the
+    VarBindList. If any of the OBJECT IDENTIFIERs passed to the request method
+    began with a leading dot, all of the OBJECT IDENTIFIER hash keys will be
+    prefixed with a leading dot. If duplicate OBJECT IDENTIFIERs are present in
+    the VarBindList they will be padded with spaces to make them an unique hash
+    key. The value of each hash entry is set equal to the value of the
+    corresponding ObjectSyntax. The undefined value is returned if there has
+    been a failure.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>var_bind_names()</b> - get the array of the ObjectNames in the
+  VarBindList</h2>
+<pre>   @names = $session-&gt;var_bind_names();
+</pre>
+<p class="Pp">This method returns an array containing the OBJECT IDENTIFIERs
+    corresponding to the ObjectNames in the VarBindList in the order that they
+    were received in the last SNMP message. The entries in the array will map
+    directly to the keys in the hash reference returned by the methods that
+    perform SNMP message exchanges and by the
+    <span class="Li">&quot;var_bind_list()&quot;</span> and
+    <span class="Li">&quot;var_bind_types()&quot;</span> methods. The array
+    returned for the convenience methods
+    <span class="Li">&quot;get_table()&quot;</span> and
+    <span class="Li">&quot;get_entries()&quot;</span> will be in lexicographical
+    order. An empty array is returned if there has been a failure.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>var_bind_types()</b> - get the hash reference for the
+  VarBindList ASN.1 types</h2>
+<pre>   $types = $session-&gt;var_bind_types();
+</pre>
+<p class="Pp">This method returns a hash reference created using the ObjectName
+    and the ASN.1 type of the ObjectSyntax in the VarBindList of the last SNMP
+    message received by the object. The keys of the hash consist of the OBJECT
+    IDENTIFIERs in dotted notation corresponding to each ObjectName in the
+    VarBindList. The value of each hash entry is set equal to the ASN.1 type of
+    the corresponding ObjectSyntax. Constants for the supported ASN.1 types have
+    been defined and are exported by the package by default (see
+    &quot;EXPORTS&quot;). The undefined value is returned if there has been a
+    failure.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>timeout()</b> - set or get the current timeout period for the
+  object</h2>
+<pre>   $seconds = $session-&gt;timeout([$seconds]);
+</pre>
+<p class="Pp">This method returns the current value for the Transport Layer
+    timeout for the Net::SNMP object. This value is the number of seconds that
+    the object will wait for a response from the agent on the remote host. The
+    default timeout is 5.0 seconds.</p>
+<p class="Pp">If a parameter is specified, the timeout for the object is set to
+    the provided value if it falls within the range 1.0 to 60.0 seconds. The
+    undefined value is returned upon an error and the
+    <span class="Li">&quot;error()&quot;</span> method may be used to determine
+    the cause.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>retries()</b> - set or get the current retry count for the
+  object</h2>
+<pre>   $count = $session-&gt;retries([$count]);
+</pre>
+<p class="Pp">This method returns the current value for the number of times to
+    retry sending a SNMP message to the remote host. The default number of
+    retries is 1.</p>
+<p class="Pp">If a parameter is specified, the number of retries for the object
+    is set to the provided value if it falls within the range 0 to 20. The
+    undefined value is returned upon an error and the
+    <span class="Li">&quot;error()&quot;</span> method may be used to determine
+    the cause.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>max_msg_size()</b> - set or get the current maxMsgSize for the
+  object</h2>
+<pre>   $octets = $session-&gt;max_msg_size([$octets]);
+</pre>
+<p class="Pp">This method returns the current value for the maximum message size
+    (maxMsgSize) for the Net::SNMP object. This value is the largest message
+    size in octets that can be prepared or processed by the object. The default
+    maxMsgSize is 1472 octets for UDP/IPv4, 1452 octets for UDP/IPv6, 1460
+    octets for TCP/IPv4, and 1440 octets for TCP/IPv6.</p>
+<p class="Pp">If a parameter is specified, the maxMsgSize is set to the provided
+    value if it falls within the range 484 to 65535 octets. The undefined value
+    is returned upon an error and the
+    <span class="Li">&quot;error()&quot;</span> method may be used to determine
+    the cause.</p>
+<p class="Pp"><b>NOTE:</b> When using SNMPv3, the maxMsgSize is actually
+    contained in the SNMP message (as msgMaxSize). If the value received from a
+    remote device is less than the current maxMsgSize, the size is automatically
+    adjusted to be the lower value.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>translate()</b> - enable or disable the translation mode for
+  the object</h2>
+<pre>   $mask = $session-&gt;translate([ 
+                        $mode |
+                        [ # Perl anonymous ARRAY reference 
+                           ['-all'            =&gt; $mode0,]
+                           ['-octetstring'    =&gt; $mode1,]
+                           ['-null'           =&gt; $mode2,]
+                           ['-timeticks'      =&gt; $mode3,]
+                           ['-opaque'         =&gt; $mode4,]
+                           ['-nosuchobject'   =&gt; $mode5,] 
+                           ['-nosuchinstance' =&gt; $mode6,]
+                           ['-endofmibview'   =&gt; $mode7,]
+                           ['-unsigned'       =&gt; $mode8]  
+                        ]
+                     ]);
+</pre>
+<p class="Pp">When the object decodes the GetResponse-PDU that is returned in
+    response to a SNMP message, certain values are translated into a more
+    &quot;human readable&quot; form. By default the following translations
+    occur:</p>
+<ul class="Bl-bullet">
+  <li>OCTET STRINGs and Opaques containing any octet which is not part of the
+      character set defined as a DisplayString in RFC 2679 are converted into a
+      hexadecimal representation prefixed with &quot;0x&quot;. The control codes
+      NUL(0x00), BEL(0x07), BS(0x08), HT(0x09), LF(0x0A), VT(0x0b), FF(0x0C),
+      and CR(0x0D) are part of the character set and will not trigger
+      translation. The sequence 'CR x' for any x other than LF or NUL is illegal
+      and will trigger translation.</li>
+  <li>TimeTicks integer values are converted to a time format.</li>
+  <li>NULL values return the string &quot;NULL&quot; instead of an empty
+    string.</li>
+  <li>noSuchObject exception values return the string &quot;noSuchObject&quot;
+      instead of an empty string.</li>
+  <li>noSuchInstance exception values return the string
+      &quot;noSuchInstance&quot; instead of an empty string.</li>
+  <li>endOfMibView exception values return the string &quot;endOfMibView&quot;
+      instead of an empty string.</li>
+  <li>Counter64, Counter, Gauge, and TimeTick values that have been incorrectly
+      encoded as signed negative values are returned as unsigned values.</li>
+</ul>
+<p class="Pp">The <span class="Li">&quot;translate()&quot;</span> method can be
+    invoked with two different types of arguments.</p>
+<p class="Pp">If the argument passed is any Perl variable type except an array
+    reference, the translation mode for all ASN.1 types is set to either enabled
+    or disabled, depending on the value of the passed parameter. Any value that
+    Perl would treat as a true value will set the mode to be enabled for all
+    types, while a false value will disable translation for all types.</p>
+<p class="Pp">A reference to an array can be passed to the
+    <span class="Li">&quot;translate()&quot;</span> method in order to define
+    the translation mode on a per ASN.1 type basis. The array is expected to
+    contain a list of named argument pairs for each ASN.1 type that is to be
+    modified. The arguments in the list are applied in the order that they are
+    passed in via the array. Arguments at the end of the list supersede those
+    passed earlier in the list. The argument &quot;-all&quot; can be used to
+    specify that the mode is to apply to all ASN.1 types. Only the arguments for
+    the ASN.1 types that are to be modified need to be included in the list.</p>
+<p class="Pp">The <span class="Li">&quot;translate()&quot;</span> method returns
+    a bit mask indicating which ASN.1 types are to be translated. Definitions of
+    the bit to ASN.1 type mappings can be exported using the <i>:translate</i>
+    tag (see &quot;EXPORTS&quot;). The undefined value is returned upon an error
+    and the <span class="Li">&quot;error()&quot;</span> method may be used to
+    determine the cause.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>debug()</b> - set or get the debug mode for the module</h2>
+<pre>   $mask = $session-&gt;debug([$mask]);
+</pre>
+<p class="Pp">This method is used to enable or disable debugging for the
+    Net::SNMP module. Debugging can be enabled on a per component level as
+    defined by a bit mask passed to the
+    <span class="Li">&quot;debug()&quot;</span> method. The bit mask is broken
+    up as follows:</p>
+<ul class="Bl-bullet">
+  <li>0x02 - Message or PDU encoding and decoding</li>
+  <li>0x04 - Transport Layer</li>
+  <li>0x08 - Dispatcher</li>
+  <li>0x10 - Message Processing</li>
+  <li>0x20 - Security</li>
+</ul>
+<p class="Pp">Symbols representing these bit mask values are defined by the
+    module and can be exported using the <i>:debug</i> tag (see
+    &quot;EXPORTS&quot;). If a non-numeric value is passed to the
+    <span class="Li">&quot;debug()&quot;</span> method, it is evaluated in
+    boolean context. Debugging for all of the components is then enabled or
+    disabled based on the resulting truth value.</p>
+<p class="Pp">The current debugging mask is returned by the method. Debugging
+    can also be enabled using the stand alone function
+    <span class="Li">&quot;snmp_debug()&quot;</span>. This function can be
+    exported by request (see &quot;EXPORTS&quot;).</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SUBROUTINES"><a class="permalink" href="#SUBROUTINES">SUBROUTINES</a></h1>
+<section class="Ss">
+<h2 class="Ss"><b>oid_base_match()</b> - determine if an OID has a specified OID
+  base</h2>
+<pre>   $value = oid_base_match($base_oid, $oid);
+</pre>
+<p class="Pp">This function takes two OBJECT IDENTIFIERs in dotted notation and
+    returns a true value (i.e. 0x1) if the second OBJECT IDENTIFIER is equal to
+    or is a child of the first OBJECT IDENTIFIER in the SNMP Management
+    Information Base (MIB). This function can be used in conjunction with the
+    <span class="Li">&quot;get-next-request()&quot;</span> or
+    <span class="Li">&quot;get-bulk-request()&quot;</span> methods to determine
+    when a OBJECT IDENTIFIER in the GetResponse-PDU is no longer in the desired
+    MIB tree branch.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>oid_lex_cmp()</b> - compare two OBJECT IDENTIFIERs
+  lexicographically</h2>
+<pre>   $cmp = oid_lex_cmp($oid1, $oid2);
+</pre>
+<p class="Pp">This function takes two OBJECT IDENTIFIERs in dotted notation and
+    returns one of the values 1, 0, -1 if <span class="Li">$oid1</span> is
+    respectively lexicographically greater, equal, or less than
+    <span class="Li">$oid2</span>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>oid_lex_sort()</b> - sort a list of OBJECT IDENTIFIERs
+  lexicographically</h2>
+<pre>   @sorted_oids = oid_lex_sort(@oids);
+</pre>
+<p class="Pp">This function takes a list of OBJECT IDENTIFIERs in dotted
+    notation and returns the listed sorted in lexicographical order.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>snmp_type_ntop()</b> - convert an ASN.1 type to presentation
+  format</h2>
+<pre>   $text = snmp_type_ntop($type);
+</pre>
+<p class="Pp">This function takes an ASN.1 type octet and returns a text string
+    suitable for presentation. Some ASN.1 type definitions map to the same octet
+    value when encoded. This method cannot distinguish between these multiple
+    mappings and the most basic type name will be returned.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>ticks_to_time()</b> - convert TimeTicks to formatted time</h2>
+<pre>   $time = ticks_to_time($timeticks);
+</pre>
+<p class="Pp">This function takes an ASN.1 TimeTicks value and returns a string
+    representing the time defined by the value. The TimeTicks value is expected
+    to be a non-negative integer value representing the time in hundredths of a
+    second since some epoch. The returned string will display the time in days,
+    hours, and seconds format according to the value of the TimeTicks
+  argument.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXPORTS"><a class="permalink" href="#EXPORTS">EXPORTS</a></h1>
+<p class="Pp">The Net::SNMP module uses the <i>Exporter</i> module to export
+    useful constants and subroutines. These exportable symbols are defined below
+    and follow the rules and conventions of the <i>Exporter</i> module (see
+    Exporter).</p>
+<dl class="Bl-tag">
+  <dt id="Default"><a class="permalink" href="#Default">Default</a></dt>
+  <dd>&amp;snmp_dispatcher, INTEGER, INTEGER32, OCTET_STRING, OBJECT_IDENTIFIER,
+      IPADDRESS, COUNTER, COUNTER32, GAUGE, GAUGE32, UNSIGNED32, TIMETICKS,
+      OPAQUE, COUNTER64, NOSUCHOBJECT, NOSUCHINSTANCE, ENDOFMIBVIEW</dd>
+  <dt id="Exportable"><a class="permalink" href="#Exportable">Exportable</a></dt>
+  <dd>&amp;snmp_debug, &amp;snmp_dispatcher, &amp;snmp_type_ntop,
+      &amp;oid_base_match, &amp;oid_lex_cmp,
+      &amp;oid_lex_sort,&amp;ticks_to_time, INTEGER, INTEGER32, OCTET_STRING,
+      NULL, OBJECT_IDENTIFIER, SEQUENCE, IPADDRESS, COUNTER, COUNTER32, GAUGE,
+      GAUGE32, UNSIGNED32, TIMETICKS, OPAQUE, COUNTER64, NOSUCHOBJECT,
+      NOSUCHINSTANCE, ENDOFMIBVIEW, GET_REQUEST, GET_NEXT_REQUEST, GET_RESPONSE,
+      SET_REQUEST, TRAP, GET_BULK_REQUEST, INFORM_REQUEST, SNMPV2_TRAP, REPORT,
+      DEBUG_ALL, DEBUG_NONE, DEBUG_MESSAGE, DEBUG_TRANSPORT,
+      DEBUG_DISPATCHER,DEBUG_PROCESSING, DEBUG_SECURITY, COLD_START, WARM_START,
+      LINK_DOWN, LINK_UP, AUTHENTICATION_FAILURE, EGP_NEIGHBOR_LOSS,
+      ENTERPRISE_SPECIFIC, SNMP_VERSION_1, SNMP_VERSION_2C, SNMP_VERSION_3,
+      SNMP_PORT, SNMP_TRAP_PORT, TRANSLATE_NONE,TRANSLATE_OCTET_STRING,
+      TRANSLATE_NULL, TRANSLATE_TIMETICKS,
+      TRANSLATE_OPAQUE,TRANSLATE_NOSUCHOBJECT, TRANSLATE_NOSUCHINSTANCE,
+      TRANSLATE_ENDOFMIBVIEW, TRANSLATE_UNSIGNED, TRANSLATE_ALL</dd>
+  <dt id="Tags"><a class="permalink" href="#Tags">Tags</a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>:asn1</dt>
+  <dd>INTEGER, INTEGER32, OCTET_STRING, NULL, OBJECT_IDENTIFIER, SEQUENCE,
+      IPADDRESS, COUNTER, COUNTER32, GAUGE, GAUGE32, UNSIGNED32, TIMETICKS,
+      OPAQUE, COUNTER64, NOSUCHOBJECT, NOSUCHINSTANCE, ENDOFMIBVIEW,
+      GET_REQUEST, GET_NEXT_REQUEST, GET_RESPONSE, SET_REQUEST, TRAP,
+      GET_BULK_REQUEST, INFORM_REQUEST, SNMPV2_TRAP, REPORT</dd>
+  <dt>:debug</dt>
+  <dd>&amp;snmp_debug, DEBUG_ALL, DEBUG_NONE, DEBUG_MESSAGE, DEBUG_TRANSPORT,
+      DEBUG_DISPATCHER, DEBUG_PROCESSING, DEBUG_SECURITY</dd>
+  <dt>:generictrap</dt>
+  <dd>COLD_START, WARM_START, LINK_DOWN, LINK_UP, AUTHENTICATION_FAILURE,
+      EGP_NEIGHBOR_LOSS, ENTERPRISE_SPECIFIC</dd>
+  <dt>:snmp</dt>
+  <dd>&amp;snmp_debug, &amp;snmp_dispatcher, &amp;snmp_type_ntop,
+      &amp;oid_base_match, &amp;oid_lex_cmp, &amp;oid_lex_sort,
+      &amp;ticks_to_time, SNMP_VERSION_1, SNMP_VERSION_2C, SNMP_VERSION_3,
+      SNMP_PORT, SNMP_TRAP_PORT</dd>
+  <dt>:translate</dt>
+  <dd>TRANSLATE_NONE, TRANSLATE_OCTET_STRING, TRANSLATE_NULL,
+      TRANSLATE_TIMETICKS, TRANSLATE_OPAQUE, TRANSLATE_NOSUCHOBJECT,
+      TRANSLATE_NOSUCHINSTANCE, TRANSLATE_ENDOFMIBVIEW, TRANSLATE_UNSIGNED,
+      TRANSLATE_ALL</dd>
+  <dt>:ALL</dt>
+  <dd>All of the above exportable items.</dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="1._Blocking_SNMPv1_get-request_for_sysUpTime"><a class="permalink" href="#1._Blocking_SNMPv1_get-request_for_sysUpTime">1.
+  Blocking SNMPv1 get-request for sysUpTime</a></h2>
+<p class="Pp">This example gets the sysUpTime from a remote host.</p>
+<p class="Pp"></p>
+<pre>   #! /usr/local/bin/perl
+   use strict;
+   use warnings;
+   use Net::SNMP;
+   my $OID_sysUpTime = '1.3.6.1.2.1.1.3.0';
+   my ($session, $error) = Net::SNMP-&gt;session(
+      -hostname  =&gt; shift || 'localhost',
+      -community =&gt; shift || 'public',
+   );
+   if (!defined $session) {
+      printf &quot;ERROR: %s.\n&quot;, $error;
+      exit 1;
+   }
+   my $result = $session-&gt;get_request(-varbindlist =&gt; [ $OID_sysUpTime ],);
+   if (!defined $result) {
+      printf &quot;ERROR: %s.\n&quot;, $session-&gt;error();
+      $session-&gt;close();
+      exit 1;
+   }
+   printf &quot;The sysUpTime for host '%s' is %s.\n&quot;,
+          $session-&gt;hostname(), $result-&gt;{$OID_sysUpTime};
+   $session-&gt;close();
+   exit 0;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="2._Blocking_SNMPv3_set-request_of_sysContact"><a class="permalink" href="#2._Blocking_SNMPv3_set-request_of_sysContact">2.
+  Blocking SNMPv3 set-request of sysContact</a></h2>
+<p class="Pp">This example sets the sysContact information on the remote host to
+    &quot;Help Desk x911&quot;. The named arguments passed to the
+    <span class="Li">&quot;session()&quot;</span> constructor are for the
+    demonstration of syntax only. These parameters will need to be set according
+    to the SNMPv3 parameters of the remote host. The
+    <span class="Li">&quot;snmpkey&quot;</span> utility included with the
+    distribution can be used to create the key values.</p>
+<p class="Pp"></p>
+<pre>   #! /usr/local/bin/perl
+   use strict;
+   use warnings;
+   use Net::SNMP;
+   my $OID_sysContact = '1.3.6.1.2.1.1.4.0';
+   my ($session, $error) = Net::SNMP-&gt;session(
+      -hostname     =&gt; 'myv3host.example.com',
+      -version      =&gt; 'snmpv3',
+      -username     =&gt; 'myv3Username',
+      -authprotocol =&gt; 'sha1',
+      -authkey      =&gt; '0x6695febc9288e36282235fc7151f128497b38f3f',
+      -privprotocol =&gt; 'des',
+      -privkey      =&gt; '0x6695febc9288e36282235fc7151f1284',
+   );
+   if (!defined $session) {
+      printf &quot;ERROR: %s.\n&quot;, $error;
+      exit 1;
+   }
+   my $result = $session-&gt;set_request(
+      -varbindlist =&gt; [ $OID_sysContact, OCTET_STRING, 'Help Desk x911' ],
+   );
+   if (!defined $result) {
+      printf &quot;ERROR: %s.\n&quot;, $session-&gt;error();
+      $session-&gt;close();
+      exit 1;
+   }
+   printf &quot;The sysContact for host '%s' was set to '%s'.\n&quot;,
+          $session-&gt;hostname(), $result-&gt;{$OID_sysContact};
+   $session-&gt;close();
+   exit 0;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="3._Non-blocking_SNMPv2c_get-bulk-request_for_ifTable"><a class="permalink" href="#3._Non-blocking_SNMPv2c_get-bulk-request_for_ifTable">3.
+  Non-blocking SNMPv2c get-bulk-request for ifTable</a></h2>
+<p class="Pp">This example gets the contents of the ifTable by sending
+    get-bulk-requests until the responses are no longer part of the ifTable. The
+    ifTable can also be retrieved using the
+    <span class="Li">&quot;get_table()&quot;</span> method. The ifPhysAddress
+    object in the table has a syntax of an OCTET STRING. By default, translation
+    is enabled and non-printable OCTET STRINGs are translated into a hexadecimal
+    format. Sometimes the OCTET STRING contains all printable characters and
+    this produces unexpected output when it is not translated. The example turns
+    off translation for OCTET STRINGs and specifically formats the output for
+    the ifPhysAddress objects.</p>
+<p class="Pp"></p>
+<pre>   #! /usr/local/bin/perl
+   use strict;
+   use warnings;
+   use Net::SNMP qw(:snmp);
+   my $OID_ifTable = '1.3.6.1.2.1.2.2';
+   my $OID_ifPhysAddress = '1.3.6.1.2.1.2.2.1.6';
+   my ($session, $error) = Net::SNMP-&gt;session(
+      -hostname    =&gt; shift || 'localhost',
+      -community   =&gt; shift || 'public',
+      -nonblocking =&gt; 1,
+      -translate   =&gt; [-octetstring =&gt; 0],
+      -version     =&gt; 'snmpv2c',
+   );
+   if (!defined $session) {
+      printf &quot;ERROR: %s.\n&quot;, $error;
+      exit 1;
+   }
+   my %table; # Hash to store the results
+   my $result = $session-&gt;get_bulk_request(
+      -varbindlist    =&gt; [ $OID_ifTable ],
+      -callback       =&gt; [ \&amp;table_callback, \%table ],
+      -maxrepetitions =&gt; 10,
+   );
+   if (!defined $result) {
+      printf &quot;ERROR: %s\n&quot;, $session-&gt;error();
+      $session-&gt;close();
+      exit 1;
+   }
+   # Now initiate the SNMP message exchange.
+   snmp_dispatcher();
+   $session-&gt;close();
+   # Print the results, specifically formatting ifPhysAddress.
+   for my $oid (oid_lex_sort(keys %table)) {
+      if (!oid_base_match($OID_ifPhysAddress, $oid)) {
+         printf &quot;%s = %s\n&quot;, $oid, $table{$oid};
+      } else {
+         printf &quot;%s = %s\n&quot;, $oid, unpack 'H*', $table{$oid};
+      }
+   }
+   exit 0;
+   sub table_callback
+   {
+      my ($session, $table) = @_;
+      my $list = $session-&gt;var_bind_list();
+      if (!defined $list) {
+         printf &quot;ERROR: %s\n&quot;, $session-&gt;error();
+         return;
+      }
+      # Loop through each of the OIDs in the response and assign
+      # the key/value pairs to the reference that was passed with
+      # the callback.  Make sure that we are still in the table
+      # before assigning the key/values.
+      my @names = $session-&gt;var_bind_names();
+      my $next  = undef;
+      while (@names) {
+         $next = shift @names;
+         if (!oid_base_match($OID_ifTable, $next)) {
+            return; # Table is done.
+         }
+         $table-&gt;{$next} = $list-&gt;{$next};
+      }
+      # Table is not done, send another request, starting at the last
+      # OBJECT IDENTIFIER in the response.  No need to include the
+      # calback argument, the same callback that was specified for the
+      # original request will be used.
+      my $result = $session-&gt;get_bulk_request(
+         -varbindlist    =&gt; [ $next ],
+         -maxrepetitions =&gt; 10,
+      );
+      if (!defined $result) {
+         printf &quot;ERROR: %s.\n&quot;, $session-&gt;error();
+      }
+      return;
+   }
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="4._Non-blocking_SNMPv1_get-request_and_set-request_on_multiple_hosts"><a class="permalink" href="#4._Non-blocking_SNMPv1_get-request_and_set-request_on_multiple_hosts">4.
+  Non-blocking SNMPv1 get-request and set-request on multiple hosts</a></h2>
+<p class="Pp">This example first polls several hosts for their sysUpTime. If the
+    poll of the host is successful, the sysContact and sysLocation information
+    is set on the host. The sysContact information is hardcoded to &quot;Help
+    Desk x911&quot; while the sysLocation information is passed as an argument
+    to the callback.</p>
+<p class="Pp"></p>
+<pre>   #! /usr/local/bin/perl
+   use strict;
+   use warnings;
+   use Net::SNMP;
+   my $OID_sysUpTime = '1.3.6.1.2.1.1.3.0';
+   my $OID_sysContact = '1.3.6.1.2.1.1.4.0';
+   my $OID_sysLocation = '1.3.6.1.2.1.1.6.0';
+   # Hash of hosts and location data.
+   my %host_data = (
+      '10.1.1.2'  =&gt; 'Building 1, Second Floor',
+      '10.2.1.1'  =&gt; 'Building 2, First Floor',
+      'localhost' =&gt; 'Right here!',
+   );
+   # Create a session for each host and queue a get-request for sysUpTime.
+   for my $host (keys %host_data) {
+      my ($session, $error) = Net::SNMP-&gt;session(
+         -hostname    =&gt; $host,
+         -community   =&gt; 'private',
+         -nonblocking =&gt; 1,
+      );
+      if (!defined $session) {
+         printf &quot;ERROR: Failed to create session for host '%s': %s.\n&quot;,
+                $host, $error;
+         next;
+      }
+      my $result = $session-&gt;get_request(
+         -varbindlist =&gt; [ $OID_sysUpTime ],
+         -callback    =&gt; [ \&amp;get_callback, $host_data{$host} ],
+      );
+      if (!defined $result) {
+         printf &quot;ERROR: Failed to queue get request for host '%s': %s.\n&quot;,
+                $session-&gt;hostname(), $session-&gt;error();
+      }
+   }
+   # Now initiate the SNMP message exchange.
+   snmp_dispatcher();
+   exit 0;
+   sub get_callback
+   {
+      my ($session, $location) = @_;
+      my $result = $session-&gt;var_bind_list();
+      if (!defined $result) {
+         printf &quot;ERROR: Get request failed for host '%s': %s.\n&quot;,
+                $session-&gt;hostname(), $session-&gt;error();
+         return;
+      }
+      printf &quot;The sysUpTime for host '%s' is %s.\n&quot;,
+              $session-&gt;hostname(), $result-&gt;{$OID_sysUpTime};
+      # Now set the sysContact and sysLocation for the host.
+      $result = $session-&gt;set_request(
+         -varbindlist =&gt;
+         [
+            $OID_sysContact,  OCTET_STRING, 'Help Desk x911',
+            $OID_sysLocation, OCTET_STRING, $location,
+         ],
+         -callback    =&gt; \&amp;set_callback,
+      );
+      if (!defined $result) {
+         printf &quot;ERROR: Failed to queue set request for host '%s': %s.\n&quot;,
+                $session-&gt;hostname(), $session-&gt;error();
+      }
+      return;
+   }
+   sub set_callback
+   {
+      my ($session) = @_;
+      my $result = $session-&gt;var_bind_list();
+      if (defined $result) {
+         printf &quot;The sysContact for host '%s' was set to '%s'.\n&quot;,
+                $session-&gt;hostname(), $result-&gt;{$OID_sysContact};
+         printf &quot;The sysLocation for host '%s' was set to '%s'.\n&quot;,
+                $session-&gt;hostname(), $result-&gt;{$OID_sysLocation};
+      } else {
+         printf &quot;ERROR: Set request failed for host '%s': %s.\n&quot;,
+                $session-&gt;hostname(), $session-&gt;error();
+      }
+      return;
+   }
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REQUIREMENTS"><a class="permalink" href="#REQUIREMENTS">REQUIREMENTS</a></h1>
+<ul class="Bl-bullet">
+  <li>The Net::SNMP module uses syntax that is not supported in versions of Perl
+      earlier than v5.6.0.</li>
+  <li>The non-core modules <i>Crypt::DES</i>, <i>Digest::MD5</i>, and
+      <i>Digest::HMAC</i> are required to support SNMPv3.</li>
+  <li>In order to support the AES Cipher Algorithm as a SNMPv3 privacy protocol,
+      the non-core module <i>Crypt::Rijndael</i> is needed.</li>
+  <li>To use UDP/IPv6 or TCP/IPv6 as a Transport Domain, the non-core module
+      <i>Socket6</i> is needed.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">David M. Town &lt;dtown@cpan.org&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGMENTS"><a class="permalink" href="#ACKNOWLEDGMENTS">ACKNOWLEDGMENTS</a></h1>
+<p class="Pp">The original concept for this module was based on
+    <i>SNMP_Session.pm</i> written by Simon Leinen &lt;simon@switch.ch&gt;.</p>
+<p class="Pp">The Abstract Syntax Notation One (ASN.1) encode and decode methods
+    were originally derived by example from the CMU SNMP package whose copyright
+    follows: Copyright (c) 1988, 1989, 1991, 1992 by Carnegie Mellon University.
+    All rights reserved.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE_AND_COPYRIGHT"><a class="permalink" href="#LICENSE_AND_COPYRIGHT">LICENSE
+  AND COPYRIGHT</a></h1>
+<p class="Pp">Copyright (c) 1998-2010 David M. Town. All rights reserved.</p>
+<p class="Pp">This program is free software; you may redistribute it and/or
+    modify it under the same terms as the Perl 5 programming language system
+    itself.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2022-10-08</td>
+    <td class="foot-os">perl v5.36.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

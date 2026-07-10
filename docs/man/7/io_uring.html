@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Asynchronous I/O facility">
+<title>io_uring(7) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">io_uring(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Submission_queue_polling">Submission
+  queue polling</a></li><li><a href="#Setting_up_io_uring">Setting
+  up io_uring</a></li><li><a href="#Submitting_I/O_requests">Submitting
+  I/O requests</a></li><li><a href="#Reading_completion_events">Reading
+  completion events</a></li><li><a href="#io_uring_performance">io_uring
+  performance</a></li><li><a href="#CONFORMING_TO">CONFORMING
+  TO</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">io_uring(7)</td>
+    <td class="head-vol">Linux Programmer's Manual</td>
+    <td class="head-rtitle">io_uring(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">io_uring - Asynchronous I/O facility</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;linux/io_uring.h&gt;</b></pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>io_uring</b> is a Linux-specific API for asynchronous I/O. It
+    allows the user to submit one or more I/O requests, which are processed
+    asynchronously without blocking the calling process. <b>io_uring</b> gets
+    its name from ring buffers which are shared between user space and kernel
+    space. This arrangement allows for efficient I/O, while avoiding the
+    overhead of copying buffers between them, where possible. This interface
+    makes <b>io_uring</b> different from other UNIX I/O APIs, wherein, rather
+    than just communicate between kernel and user space with system calls, ring
+    buffers are used as the main mode of communication. This arrangement has
+    various performance benefits which are discussed in a separate section
+    below. This man page uses the terms shared buffers, shared ring buffers and
+    queues interchangeably.</p>
+<p class="Pp">The general programming model you need to follow for
+    <b>io_uring</b> is outlined below</p>
+<ul class="Bl-bullet">
+  <li>Set up shared buffers with <a class="Xr" href="../2/io_uring_setup.html"><b>io_uring_setup</b>(2)</a> and <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a>,
+      mapping into user space shared buffers for the submission queue (SQ) and
+      the completion queue (CQ). You place I/O requests you want to make on the
+      SQ, while the kernel places the results of those operations on the
+    CQ.</li>
+  <li>For every I/O request you need to make (like to read a file, write a file,
+      accept a socket connection, etc), you create a submission queue entry, or
+      SQE, describe the I/O operation you need to get done and add it to the
+      tail of the submission queue (SQ). Each I/O operation is, in essence, the
+      equivalent of a system call you would have made otherwise, if you were not
+      using <b>io_uring</b>. You can add more than one SQE to the queue
+      depending on the number of operations you want to request.</li>
+  <li>After you add one or more SQEs, you need to call <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a>
+      to tell the kernel to dequeue your I/O requests off the SQ and begin
+      processing them.</li>
+  <li>For each SQE you submit, once it is done processing the request, the
+      kernel places a completion queue event or CQE at the tail of the
+      completion queue or CQ. The kernel places exactly one matching CQE in the
+      CQ for every SQE you submit on the SQ. After you retrieve a CQE,
+      minimally, you might be interested in checking the <i>res</i> field of the
+      CQE structure, which corresponds to the return value of the system call's
+      equivalent, had you used it directly without using <b>io_uring</b>. For
+      instance, a read operation under <b>io_uring</b>, started with the
+      <b>IORING_OP_READ</b> operation, issues the equivalent of the
+      <a class="Xr" href="../2/read.html"><b>read</b>(2)</a> system call. In practice, it mixes the semantics of
+      <a class="Xr" href="../2/pread.html"><b>pread</b>(2)</a> and <a class="Xr" href="../2/readv.html"><b>preadv2</b>(2)</a> in that it takes an explicit offset,
+      and supports using -1 for the offset to indicate that the current file
+      position should be used instead of passing in an explicit offset. See the
+      opcode documentation for more details. Given that io_uring is an async
+      interface, <i>errno</i> is never used for passing back error information.
+      Instead, <i>res</i> will contain what the equivalent system call would
+      have returned in case of success, and in case of error <i>res</i> will
+      contain <i>-errno .</i> For example, if the normal read system call would
+      have returned -1 and set <i>errno</i> to <b>EINVAL ,</b> then <i>res</i>
+      would contain <b>-EINVAL .</b> If the normal system call would have
+      returned a read size of 1024, then <i>res</i> would contain 1024.</li>
+  <li>Optionally, <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> can also wait for a specified number
+      of requests to be processed by the kernel before it returns. If you
+      specified a certain number of completions to wait for, the kernel would
+      have placed at least those many number of CQEs on the CQ, which you can
+      then readily read, right after the return from
+    <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a>.</li>
+  <li>It is important to remember that I/O requests submitted to the kernel can
+      complete in any order. It is not necessary for the kernel to process one
+      request after another, in the order you placed them. Given that the
+      interface is a ring, the requests are attempted in order, however that
+      doesn't imply any sort of ordering on their completion. When more than one
+      request is in flight, it is not possible to determine which one will
+      complete first. When you dequeue CQEs off the CQ, you should always check
+      which submitted request it corresponds to. The most common method for
+      doing so is utilizing the <i>user_data</i> field in the request, which is
+      passed back on the completion side.</li>
+</ul>
+<p class="Pp">Adding to and reading from the queues:</p>
+<ul class="Bl-bullet">
+  <li>You add SQEs to the tail of the SQ. The kernel reads SQEs off the head of
+      the queue.</li>
+  <li>The kernel adds CQEs to the tail of the CQ. You read CQEs off the head of
+      the queue.</li>
+</ul>
+<section class="Ss">
+<h2 class="Ss" id="Submission_queue_polling"><a class="permalink" href="#Submission_queue_polling">Submission
+  queue polling</a></h2>
+<p class="Pp">One of the goals of <b>io_uring</b> is to provide a means for
+    efficient I/O. To this end, <b>io_uring</b> supports a polling mode that
+    lets you avoid the call to <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a>, which you use to inform
+    the kernel that you have queued SQEs on to the SQ. With SQ Polling,
+    <b>io_uring</b> starts a kernel thread that polls the submission queue for
+    any I/O requests you submit by adding SQEs. With SQ Polling enabled, there
+    is no need for you to call <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a>, letting you avoid the
+    overhead of system calls. A designated kernel thread dequeues SQEs off the
+    SQ as you add them and dispatches them for asynchronous processing.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Setting_up_io_uring"><a class="permalink" href="#Setting_up_io_uring">Setting
+  up io_uring</a></h2>
+<p class="Pp">The main steps in setting up <b>io_uring</b> consist of mapping in
+    the shared buffers with <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a> calls. In the example program
+    included in this man page, the function <b>app_setup_uring</b>() sets up
+    <b>io_uring</b> with a QUEUE_DEPTH deep submission queue. Pay attention to
+    the 2 <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a> calls that set up the shared submission and completion
+    queues. If your kernel is older than version 5.4, three <b>mmap(2)</b> calls
+    are required.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Submitting_I/O_requests"><a class="permalink" href="#Submitting_I/O_requests">Submitting
+  I/O requests</a></h2>
+<p class="Pp">The process of submitting a request consists of describing the I/O
+    operation you need to get done using an <b>io_uring_sqe</b> structure
+    instance. These details describe the equivalent system call and its
+    parameters. Because the range of I/O operations Linux supports are very
+    varied and the <b>io_uring_sqe</b> structure needs to be able to describe
+    them, it has several fields, some packed into unions for space efficiency.
+    Here is a simplified version of struct <b>io_uring_sqe</b> with some of the
+    most often used fields:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>struct io_uring_sqe {
+<br/>
+        __u8    opcode;         /* type of operation for this sqe */
+<br/>
+        __s32   fd;             /* file descriptor to do IO on */
+<br/>
+        __u64   off;            /* offset into file */
+<br/>
+        __u64   addr;           /* pointer to buffer or iovecs */
+<br/>
+        __u32   len;            /* buffer size or number of iovecs */
+<br/>
+        __u64   user_data;      /* data to be passed back at completion time */
+<br/>
+        __u8    flags;          /* IOSQE_ flags */
+<br/>
+        ...
+};
+</pre>
+<br/>
+<p class="Pp">Here is struct <b>io_uring_sqe</b> in full:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>struct io_uring_sqe {
+<br/>
+        __u8    opcode;         /* type of operation for this sqe */
+<br/>
+        __u8    flags;          /* IOSQE_ flags */
+<br/>
+        __u16   ioprio;         /* ioprio for the request */
+<br/>
+        __s32   fd;             /* file descriptor to do IO on */
+<br/>
+        union {
+<br/>
+                __u64   off;    /* offset into file */
+<br/>
+                __u64   addr2;
+<br/>
+        };
+<br/>
+        union {
+<br/>
+                __u64   addr;   /* pointer to buffer or iovecs */
+<br/>
+                __u64   splice_off_in;
+<br/>
+        };
+<br/>
+        __u32   len;            /* buffer size or number of iovecs */
+<br/>
+        union {
+<br/>
+                __kernel_rwf_t  rw_flags;
+<br/>
+                __u32           fsync_flags;
+<br/>
+                __u16           poll_events;    /* compatibility */
+<br/>
+                __u32           poll32_events;  /* word-reversed for BE */
+<br/>
+                __u32           sync_range_flags;
+<br/>
+                __u32           msg_flags;
+<br/>
+                __u32           timeout_flags;
+<br/>
+                __u32           accept_flags;
+<br/>
+                __u32           cancel_flags;
+<br/>
+                __u32           open_flags;
+<br/>
+                __u32           statx_flags;
+<br/>
+                __u32           fadvise_advice;
+<br/>
+                __u32           splice_flags;
+<br/>
+        };
+<br/>
+        __u64   user_data;      /* data to be passed back at completion time */
+<br/>
+        union {
+<br/>
+                struct {
+<br/>
+                        /* pack this to avoid bogus arm OABI complaints */
+<br/>
+                        union {
+<br/>
+                                /* index into fixed buffers, if used */
+<br/>
+                                __u16   buf_index;
+<br/>
+                                /* for grouped buffer selection */
+<br/>
+                                __u16   buf_group;
+<br/>
+                        } __attribute__((packed));
+<br/>
+                        /* personality to use, if used */
+<br/>
+                        __u16   personality;
+<br/>
+                        __s32   splice_fd_in;
+<br/>
+                };
+<br/>
+                __u64   __pad2[3];
+<br/>
+        };
+};
+</pre>
+<br/>
+<p class="Pp">To submit an I/O request to <b>io_uring</b>, you need to acquire a
+    submission queue entry (SQE) from the submission queue (SQ), fill it up with
+    details of the operation you want to submit and call
+    <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a>. There are helper functions of the form
+    io_uring_prep_X to enable proper setup of the SQE. If you want to avoid
+    calling <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a>, you have the option of setting up
+    Submission Queue Polling.</p>
+<p class="Pp">SQEs are added to the tail of the submission queue. The kernel
+    picks up SQEs off the head of the SQ. The general algorithm to get the next
+    available SQE and update the tail is as follows.</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>struct io_uring_sqe *sqe;
+unsigned tail, index;
+tail = *sqring-&gt;tail;
+index = tail &amp; (*sqring-&gt;ring_mask);
+sqe = &amp;sqring-&gt;sqes[index];
+/* fill up details about this I/O request */
+describe_io(sqe);
+/* fill the sqe index into the SQ ring array */
+sqring-&gt;array[index] = index;
+tail++;
+atomic_store_explicit(sqring-&gt;tail, tail, memory_order_release);
+</pre>
+<br/>
+<p class="Pp">To get the index of an entry, the application must mask the
+    current tail index with the size mask of the ring. This holds true for both
+    SQs and CQs. Once the SQE is acquired, the necessary fields are filled in,
+    describing the request. While the CQ ring directly indexes the shared array
+    of CQEs, the submission side has an indirection array between them. The
+    submission side ring buffer is an index into this array, which in turn
+    contains the index into the SQEs.</p>
+<p class="Pp">The following code snippet demonstrates how a read operation, an
+    equivalent of a <a class="Xr" href="../2/readv.html"><b>preadv2</b>(2)</a> system call is described by filling up an
+    SQE with the necessary parameters.</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>struct iovec iovecs[16];
+<br/>
+ ...
+sqe-&gt;opcode = IORING_OP_READV;
+sqe-&gt;fd = fd;
+sqe-&gt;addr = (unsigned long) iovecs;
+sqe-&gt;len = 16;
+sqe-&gt;off = offset;
+sqe-&gt;flags = 0;
+</pre>
+<br/>
+<dl class="Bl-tag">
+  <dt id="Memory"><a class="permalink" href="#Memory"><b>Memory
+    ordering</b></a></dt>
+  <dd>Modern compilers and CPUs freely reorder reads and writes without
+      affecting the program's outcome to optimize performance. Some aspects of
+      this need to be kept in mind on SMP systems since <b>io_uring</b> involves
+      buffers shared between kernel and user space. These buffers are both
+      visible and modifiable from kernel and user space. As heads and tails
+      belonging to these shared buffers are updated by kernel and user space,
+      changes need to be coherently visible on either side, irrespective of
+      whether a CPU switch took place after the kernel-user mode switch
+      happened. We use memory barriers to enforce this coherency. Being
+      significantly large subjects on their own, memory barriers are out of
+      scope for further discussion on this man page.</dd>
+  <dt id="Letting"><a class="permalink" href="#Letting"><b>Letting the kernel
+    know about I/O submissions</b></a></dt>
+  <dd>Once you place one or more SQEs on to the SQ, you need to let the kernel
+      know that you've done so. You can do this by calling the
+      <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> system call. This system call is also capable of
+      waiting for a specified count of events to complete. This way, you can be
+      sure to find completion events in the completion queue without having to
+      poll it for events later.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Reading_completion_events"><a class="permalink" href="#Reading_completion_events">Reading
+  completion events</a></h2>
+<p class="Pp">Similar to the submission queue (SQ), the completion queue (CQ) is
+    a shared buffer between the kernel and user space. Whereas you placed
+    submission queue entries on the tail of the SQ and the kernel read off the
+    head, when it comes to the CQ, the kernel places completion queue events or
+    CQEs on the tail of the CQ and you read off its head.</p>
+<p class="Pp">Submission is flexible (and thus a bit more complicated) since it
+    needs to be able to encode different types of system calls that take various
+    parameters. Completion, on the other hand is simpler since we're looking
+    only for a return value back from the kernel. This is easily understood by
+    looking at the completion queue event structure, struct
+  <b>io_uring_cqe</b>:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>struct io_uring_cqe {
+	__u64	user_data;  /* sqe-&gt;data submission passed back */
+	__s32	res;        /* result code for this event */
+	__u32	flags;
+};
+</pre>
+<br/>
+<p class="Pp">Here, <i>user_data</i> is custom data that is passed unchanged
+    from submission to completion. That is, from SQEs to CQEs. This field can be
+    used to set context, uniquely identifying submissions that got completed.
+    Given that I/O requests can complete in any order, this field can be used to
+    correlate a submission with a completion. <i>res</i> is the result from the
+    system call that was performed as part of the submission; its return
+  value.</p>
+<p class="Pp">The <i>flags</i> field carries request-specific information. As of
+    the 6.0 kernel, the following flags are defined:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="IORING_CQE_F_BUFFER"><a class="permalink" href="#IORING_CQE_F_BUFFER"><b>IORING_CQE_F_BUFFER</b></a></dt>
+  <dd>If set, the upper 16 bits of the flags field carries the buffer ID that
+      was chosen for this request. The request must have been issued with
+      <b>IOSQE_BUFFER_SELECT</b> set, and used with a request type that supports
+      buffer selection. Additionally, buffers must have been provided upfront
+      either via the <b>IORING_OP_PROVIDE_BUFFERS</b> or the
+      <b>IORING_REGISTER_PBUF_RING</b> methods.</dd>
+  <dt id="IORING_CQE_F_MORE"><a class="permalink" href="#IORING_CQE_F_MORE"><b>IORING_CQE_F_MORE</b></a></dt>
+  <dd>If set, the application should expect more completions from the request.
+      This is used for requests that can generate multiple completions, such as
+      multi-shot requests, receive, or accept.</dd>
+  <dt id="IORING_CQE_F_SOCK_NONEMPTY"><a class="permalink" href="#IORING_CQE_F_SOCK_NONEMPTY"><b>IORING_CQE_F_SOCK_NONEMPTY</b></a></dt>
+  <dd>If set, upon receiving the data from the socket in the current request,
+      the socket still had data left on completion of this request.</dd>
+  <dt id="IORING_CQE_F_NOTIF"><a class="permalink" href="#IORING_CQE_F_NOTIF"><b>IORING_CQE_F_NOTIF</b></a></dt>
+  <dd>Set for notification CQEs, as seen with the zero-copy networking send and
+      receive support.</dd>
+</dl>
+<p class="Pp">The general sequence to read completion events off the completion
+    queue is as follows:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>unsigned head;
+head = *cqring-&gt;head;
+if (head != atomic_load_acquire(cqring-&gt;tail)) {
+<br/>
+    struct io_uring_cqe *cqe;
+<br/>
+    unsigned index;
+<br/>
+    index = head &amp; (cqring-&gt;mask);
+<br/>
+    cqe = &amp;cqring-&gt;cqes[index];
+<br/>
+    /* process completed CQE */
+<br/>
+    process_cqe(cqe);
+<br/>
+    /* CQE consumption complete */
+<br/>
+    head++;
+}
+atomic_store_explicit(cqring-&gt;head, head, memory_order_release);
+</pre>
+<br/>
+<p class="Pp">It helps to be reminded that the kernel adds CQEs to the tail of
+    the CQ, while you need to dequeue them off the head. To get the index of an
+    entry at the head, the application must mask the current head index with the
+    size mask of the ring. Once the CQE has been consumed or processed, the head
+    needs to be updated to reflect the consumption of the CQE. Attention should
+    be paid to the read and write barriers to ensure successful read and update
+    of the head.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="io_uring_performance"><a class="permalink" href="#io_uring_performance">io_uring
+  performance</a></h2>
+<p class="Pp">Because of the shared ring buffers between kernel and user space,
+    <b>io_uring</b> can be a zero-copy system. Copying buffers to and from
+    becomes necessary when system calls that transfer data between kernel and
+    user space are involved. But since the bulk of the communication in
+    <b>io_uring</b> is via buffers shared between the kernel and user space,
+    this huge performance overhead is completely avoided.</p>
+<p class="Pp">While system calls may not seem like a significant overhead, in
+    high performance applications, making a lot of them will begin to matter.
+    While workarounds the operating system has in place to deal with Spectre and
+    Meltdown are ideally best done away with, unfortunately, some of these
+    workarounds are around the system call interface, making system calls not as
+    cheap as before on affected hardware. While newer hardware should not need
+    these workarounds, hardware with these vulnerabilities can be expected to be
+    in the wild for a long time. While using synchronous programming interfaces
+    or even when using asynchronous programming interfaces under Linux, there is
+    at least one system call involved in the submission of each request. In
+    <b>io_uring</b>, on the other hand, you can batch several requests in one
+    go, simply by queueing up multiple SQEs, each describing an I/O operation
+    you want and make a single call to <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a>. This is
+    possible due to <b>io_uring</b>'s shared buffers based design.</p>
+<p class="Pp">While this batching in itself can avoid the overhead associated
+    with potentially multiple and frequent system calls, you can reduce even
+    this overhead further with Submission Queue Polling, by having the kernel
+    poll and pick up your SQEs for processing as you add them to the submission
+    queue. This avoids the <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> call you need to make to
+    tell the kernel to pick SQEs up. For high-performance applications, this
+    means even fewer system call overheads.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFORMING_TO"><a class="permalink" href="#CONFORMING_TO">CONFORMING
+  TO</a></h1>
+<p class="Pp"><b>io_uring</b> is Linux-specific.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">The following example uses <b>io_uring</b> to copy stdin to
+    stdout. Using shell redirection, you should be able to copy files with this
+    example. Because it uses a queue depth of only one, this example processes
+    I/O requests one after the other. It is purposefully kept this way to aid
+    understanding. In real-world scenarios however, you'll want to have a larger
+    queue depth to parallelize I/O request processing so as to gain the kind of
+    performance benefits <b>io_uring</b> provides with its asynchronous
+    processing of requests.</p>
+<p class="Pp"></p>
+<pre>#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;sys/stat.h&gt;
+#include &lt;sys/ioctl.h&gt;
+#include &lt;sys/syscall.h&gt;
+#include &lt;sys/mman.h&gt;
+#include &lt;sys/uio.h&gt;
+#include &lt;linux/fs.h&gt;
+#include &lt;fcntl.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;string.h&gt;
+#include &lt;stdatomic.h&gt;
+#include &lt;linux/io_uring.h&gt;
+#define QUEUE_DEPTH 1
+#define BLOCK_SZ    1024
+/* Macros for barriers needed by io_uring */
+#define io_uring_smp_store_release(p, v)            \
+<br/>
+    atomic_store_explicit((_Atomic typeof(*(p)) *)(p), (v), \
+<br/>
+                  memory_order_release)
+#define io_uring_smp_load_acquire(p)                \
+<br/>
+    atomic_load_explicit((_Atomic typeof(*(p)) *)(p),   \
+<br/>
+                 memory_order_acquire)
+int ring_fd;
+unsigned *sring_tail, *sring_mask, *sring_array, 
+<br/>
+            *cring_head, *cring_tail, *cring_mask;
+struct io_uring_sqe *sqes;
+struct io_uring_cqe *cqes;
+char buff[BLOCK_SZ];
+off_t offset;
+/*
+<br/>
+ * System call wrappers provided since glibc does not yet
+<br/>
+ * provide wrappers for io_uring system calls.
+* */
+int io_uring_setup(unsigned entries, struct io_uring_params *p)
+{
+<br/>
+    return (int) syscall(__NR_io_uring_setup, entries, p);
+}
+int io_uring_enter(int ring_fd, unsigned int to_submit,
+<br/>
+                   unsigned int min_complete, unsigned int flags)
+{
+<br/>
+    return (int) syscall(__NR_io_uring_enter, ring_fd, to_submit,
+<br/>
+    			 min_complete, flags, NULL, 0);
+}
+int app_setup_uring(void) {
+<br/>
+    struct io_uring_params p;
+<br/>
+    void *sq_ptr, *cq_ptr;
+<br/>
+    /* See io_uring_setup(2) for io_uring_params.flags you can set */
+<br/>
+    memset(&amp;p, 0, sizeof(p));
+<br/>
+    ring_fd = io_uring_setup(QUEUE_DEPTH, &amp;p);
+<br/>
+    if (ring_fd &lt; 0) {
+<br/>
+        perror(&quot;io_uring_setup&quot;);
+<br/>
+        return 1;
+<br/>
+    }
+<br/>
+    /*
+<br/>
+     * io_uring communication happens via 2 shared kernel-user space ring
+<br/>
+     * buffers, which can be jointly mapped with a single mmap() call in
+<br/>
+     * kernels &gt;= 5.4.
+<br/>
+     */
+<br/>
+    int sring_sz = p.sq_off.array + p.sq_entries * sizeof(unsigned);
+<br/>
+    int cring_sz = p.cq_off.cqes + p.cq_entries * sizeof(struct io_uring_cqe);
+<br/>
+    /* Rather than check for kernel version, the recommended way is to
+<br/>
+     * check the features field of the io_uring_params structure, which is a 
+<br/>
+     * bitmask. If IORING_FEAT_SINGLE_MMAP is set, we can do away with the
+<br/>
+     * second mmap() call to map in the completion ring separately.
+<br/>
+     */
+<br/>
+    if (p.features &amp; IORING_FEAT_SINGLE_MMAP) {
+<br/>
+        if (cring_sz &gt; sring_sz)
+<br/>
+            sring_sz = cring_sz;
+<br/>
+        cring_sz = sring_sz;
+<br/>
+    }
+<br/>
+    /* Map in the submission and completion queue ring buffers.
+<br/>
+     *  Kernels &lt; 5.4 only map in the submission queue, though.
+<br/>
+     */
+<br/>
+    sq_ptr = mmap(0, sring_sz, PROT_READ | PROT_WRITE,
+<br/>
+                  MAP_SHARED | MAP_POPULATE,
+<br/>
+                  ring_fd, IORING_OFF_SQ_RING);
+<br/>
+    if (sq_ptr == MAP_FAILED) {
+<br/>
+        perror(&quot;mmap&quot;);
+<br/>
+        return 1;
+<br/>
+    }
+<br/>
+    if (p.features &amp; IORING_FEAT_SINGLE_MMAP) {
+<br/>
+        cq_ptr = sq_ptr;
+<br/>
+    } else {
+<br/>
+        /* Map in the completion queue ring buffer in older kernels separately */
+<br/>
+        cq_ptr = mmap(0, cring_sz, PROT_READ | PROT_WRITE,
+<br/>
+                      MAP_SHARED | MAP_POPULATE,
+<br/>
+                      ring_fd, IORING_OFF_CQ_RING);
+<br/>
+        if (cq_ptr == MAP_FAILED) {
+<br/>
+            perror(&quot;mmap&quot;);
+<br/>
+            return 1;
+<br/>
+        }
+<br/>
+    }
+<br/>
+    /* Save useful fields for later easy reference */
+<br/>
+    sring_tail = sq_ptr + p.sq_off.tail;
+<br/>
+    sring_mask = sq_ptr + p.sq_off.ring_mask;
+<br/>
+    sring_array = sq_ptr + p.sq_off.array;
+<br/>
+    /* Map in the submission queue entries array */
+<br/>
+    sqes = mmap(0, p.sq_entries * sizeof(struct io_uring_sqe),
+<br/>
+                   PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
+<br/>
+                   ring_fd, IORING_OFF_SQES);
+<br/>
+    if (sqes == MAP_FAILED) {
+<br/>
+        perror(&quot;mmap&quot;);
+<br/>
+        return 1;
+<br/>
+    }
+<br/>
+    /* Save useful fields for later easy reference */
+<br/>
+    cring_head = cq_ptr + p.cq_off.head;
+<br/>
+    cring_tail = cq_ptr + p.cq_off.tail;
+<br/>
+    cring_mask = cq_ptr + p.cq_off.ring_mask;
+<br/>
+    cqes = cq_ptr + p.cq_off.cqes;
+<br/>
+    return 0;
+}
+/*
+* Read from completion queue.
+* In this function, we read completion events from the completion queue.
+* We dequeue the CQE, update and head and return the result of the operation.
+* */
+int read_from_cq() {
+<br/>
+    struct io_uring_cqe *cqe;
+<br/>
+    unsigned head;
+<br/>
+    /* Read barrier */
+<br/>
+    head = io_uring_smp_load_acquire(cring_head);
+<br/>
+    /*
+<br/>
+    * Remember, this is a ring buffer. If head == tail, it means that the
+<br/>
+    * buffer is empty.
+<br/>
+    * */
+<br/>
+    if (head == *cring_tail)
+<br/>
+        return -1;
+<br/>
+    /* Get the entry */
+<br/>
+    cqe = &amp;cqes[head &amp; (*cring_mask)];
+<br/>
+    if (cqe-&gt;res &lt; 0)
+<br/>
+        fprintf(stderr, &quot;Error: %s\n&quot;, strerror(abs(cqe-&gt;res)));
+<br/>
+    head++;
+<br/>
+    /* Write barrier so that update to the head are made visible */
+<br/>
+    io_uring_smp_store_release(cring_head, head);
+<br/>
+    return cqe-&gt;res;
+}
+/*
+* Submit a read or a write request to the submission queue.
+* */
+int submit_to_sq(int fd, int op) {
+<br/>
+    unsigned index, tail;
+<br/>
+    /* Add our submission queue entry to the tail of the SQE ring buffer */
+<br/>
+    tail = *sring_tail;
+<br/>
+    index = tail &amp; *sring_mask;
+<br/>
+    struct io_uring_sqe *sqe = &amp;sqes[index];
+<br/>
+    /* Fill in the parameters required for the read or write operation */
+<br/>
+    sqe-&gt;opcode = op;
+<br/>
+    sqe-&gt;fd = fd;
+<br/>
+    sqe-&gt;addr = (unsigned long) buff;
+<br/>
+    if (op == IORING_OP_READ) {
+<br/>
+        memset(buff, 0, sizeof(buff));
+<br/>
+        sqe-&gt;len = BLOCK_SZ;
+<br/>
+    }
+<br/>
+    else {
+<br/>
+        sqe-&gt;len = strlen(buff);
+<br/>
+    }
+<br/>
+    sqe-&gt;off = offset;
+<br/>
+    sring_array[index] = index;
+<br/>
+    tail++;
+<br/>
+    /* Update the tail */
+<br/>
+    io_uring_smp_store_release(sring_tail, tail);
+<br/>
+    /*
+<br/>
+    * Tell the kernel we have submitted events with the io_uring_enter()
+<br/>
+    * system call. We also pass in the IOURING_ENTER_GETEVENTS flag which
+<br/>
+    * causes the io_uring_enter() call to wait until min_complete
+<br/>
+    * (the 3rd param) events complete.
+<br/>
+    * */
+<br/>
+    int ret =  io_uring_enter(ring_fd, 1,1,
+<br/>
+                              IORING_ENTER_GETEVENTS);
+<br/>
+    if(ret &lt; 0) {
+<br/>
+        perror(&quot;io_uring_enter&quot;);
+<br/>
+        return -1;
+<br/>
+    }
+<br/>
+    return ret;
+}
+int main(int argc, char *argv[]) {
+<br/>
+    int res;
+<br/>
+    /* Setup io_uring for use */
+<br/>
+    if(app_setup_uring()) {
+<br/>
+        fprintf(stderr, &quot;Unable to setup uring!\n&quot;);
+<br/>
+        return 1;
+<br/>
+    }
+<br/>
+    /* 
+<br/>
+    * A while loop that reads from stdin and writes to stdout.
+<br/>
+    * Breaks on EOF.
+<br/>
+    */
+<br/>
+    while (1) {
+<br/>
+        /* Initiate read from stdin and wait for it to complete */
+<br/>
+        submit_to_sq(STDIN_FILENO, IORING_OP_READ);
+<br/>
+        /* Read completion queue entry */
+<br/>
+        res = read_from_cq();
+<br/>
+        if (res &gt; 0) {
+<br/>
+            /* Read successful. Write to stdout. */
+<br/>
+            submit_to_sq(STDOUT_FILENO, IORING_OP_WRITE);
+<br/>
+            read_from_cq();
+<br/>
+        } else if (res == 0) {
+<br/>
+            /* reached EOF */
+<br/>
+            break;
+<br/>
+        }
+<br/>
+        else if (res &lt; 0) {
+<br/>
+            /* Error reading file */
+<br/>
+            fprintf(stderr, &quot;Error: %s\n&quot;, strerror(abs(res)));
+<br/>
+            break;
+<br/>
+        }
+<br/>
+        offset += res;
+<br/>
+    }
+<br/>
+    return 0;
+}
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> <a class="Xr" href="../2/io_uring_register.html"><b>io_uring_register</b>(2)</a>
+    <a class="Xr" href="../2/io_uring_setup.html"><b>io_uring_setup</b>(2)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2020-07-26</td>
+    <td class="foot-os">Linux</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

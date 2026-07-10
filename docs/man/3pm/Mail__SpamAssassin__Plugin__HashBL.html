@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="query hashed (and unhashed) DNS blocklists">
+<title>Mail::SpamAssassin::Plugin::HashBL(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">Mail::SpamAssassin::Plugin::HashBL(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">Mail::SpamAssassin::Plugin::HashBL(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">Mail::SpamAssassin::Plugin::HashBL(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">HashBL - query hashed (and unhashed) DNS blocklists</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>  loadplugin Mail::SpamAssassin::Plugin::HashBL
+  # NON-WORKING usage examples below, replace xxx.example.invalid with real list
+  # See documentation below for detailed usage
+  header   HASHBL_EMAIL eval:check_hashbl_emails('ebl.example.invalid')
+  describe HASHBL_EMAIL Message contains email address found on EBL
+  tflags   HASHBL_EMAIL net
+  # rewrite googlemail.com -&gt; gmail.com, applied before acl/welcomelist
+  hashbl_email_domain_alias gmail.com googlemail.com
+  # only query gmail.com addresses
+  hashbl_acl_freemail gmail.com
+  header   HASHBL_OSENDR eval:check_hashbl_emails('rbl.example.invalid/A', 'md5/max=10/shuffle', 'X-Original-Sender', '^127\.', 'freemail')
+  describe HASHBL_OSENDR Message contains email address found on HASHBL
+  tflags   HASHBL_OSENDR net
+  body     HASHBL_BTC eval:check_hashbl_bodyre('btcbl.example.invalid', 'sha1/max=10/shuffle', '\b([13][a-km-zA-HJ-NP-Z1-9]{25,34})\b')
+  describe HASHBL_BTC Message contains BTC address found on BTCBL
+  tflags   HASHBL_BTC net
+  header   HASHBL_URI eval:check_hashbl_uris('rbl.example.invalid', 'sha1', '^127\.0\.0\.32$')
+  describe HASHBL_URI Message contains uri found on rbl
+  tflags   HASHBL_URI net
+  body     HASHBL_ATTACHMENT eval:check_hashbl_attachments('attbl.example.invalid', 'sha256')
+  describe HASHBL_ATTACHMENT Message contains attachment found on attbl
+  tflags   HASHBL_ATTACHMENT net
+  # Capture tag using SA 4.0 regex named capture feature
+  header   __X_SOME_ID X-Some-ID =~ /^(?&lt;XSOMEID&gt;\d{10,20})$/
+  # Query the tag value as is from a DNSBL
+  header   HASHBL_TAG eval:check_hashbl_tag('idbl.example.invalid/A', 'raw', 'XSOMEID', '^127\.')
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This plugin supports multiple types of hashed or unhashed DNS
+    blocklist queries.</p>
+<dl class="Bl-tag">
+  <dt id="Common"><a class="permalink" href="#Common">Common OPTS that apply to
+    all functions:</a></dt>
+  <dd>
+    <pre>  raw      no hashing, query as is (can break if value is not valid DNS label)
+  md5      hash query with MD5
+  sha1     hash query with SHA1
+  sha256   hash query with Base32 encoded SHA256
+  case     keep case before hashing, default is to lowercase
+  max=x    maximum number of queries (defaults to 10 if not specified)
+  shuffle  if max exceeded, random shuffle queries before truncating to limit
+    </pre>
+    <p class="Pp">Multiple options can be separated with slash.</p>
+    <p class="Pp">When rule OPTS is empty ('') or missing, default is used as
+        documented by each query type. If any options are defined, then all
+        needed options must be explicitly defined.</p>
+  </dd>
+  <dt id="header"><a class="permalink" href="#header">header RULE
+    check_hashbl_emails('bl.example.invalid/A', 'OPTS', 'HEADERS',
+    '^127\.')</a></dt>
+  <dd>Check email addresses from DNS list. Note that &quot;body&quot; can be
+      specified along with headers to search message body for emails. Rule type
+      must always be &quot;header&quot;.
+    <p class="Pp">Optional DNS query type can be appended to list with /A
+        (default) or /TXT.</p>
+    <p class="Pp">Default OPTS: sha1/notag/noquote/max=10/shuffle</p>
+    <p class="Pp">Additional supported OPTS:</p>
+    <p class="Pp"></p>
+    <pre>  nodot    strip username dots from email
+  notag    strip username tags from email
+  nouri    ignore emails inside uris
+  noquote  ignore emails inside &lt; &gt; or possible quotings
+  user     query userpart of email only
+  host     query hostpart of email only
+  domain   query domain of email only (hostpart+trim_domain)
+    </pre>
+    <p class="Pp">Default HEADERS: ALLFROM/Reply-To/body</p>
+    <p class="Pp">HEADERS refers to slash separated list of Headers to
+      process:</p>
+    <p class="Pp"></p>
+    <pre>  ALL           all headers
+  ALLFROM       all From headers as returned by $pms-&gt;all_from_addrs()
+  EnvelopeFrom  message envelope from (Return-Path etc)
+  &lt;HeaderName&gt;  any header as used with header rules or $pms-&gt;get()
+  body          all emails found in message body
+    </pre>
+    <p class="Pp">If HEADERS is empty ('') or missing, default is used.</p>
+    <p class="Pp">Optional subtest regexp to match DNS answer (default:
+        '^127\.').</p>
+    <p class="Pp">For existing public email blocklist, see:
+        http://msbl.org/ebl.html</p>
+    <p class="Pp"></p>
+    <pre>  # Working example, see https://msbl.org/ebl.html before usage
+  header   HASHBL_EMAIL eval:check_hashbl_emails('ebl.msbl.org')
+  describe HASHBL_EMAIL Message contains email address found on EBL
+  tflags   HASHBL_EMAIL net
+    </pre>
+    <p class="Pp">Default regex for matching and capturing emails can be
+        overridden with <span class="Li">&quot;hashbl_email_regex&quot;</span>.
+        Likewise, the default welcomelist can be changed with
+        <span class="Li">&quot;hashbl_email_welcomelist&quot;</span>. Only
+        change if you know what you are doing, see plugin source code for the
+        defaults. Example: hashbl_email_regex \S+@\S+.com</p>
+  </dd>
+  <dt id="header~2"><a class="permalink" href="#header~2">header RULE
+    check_hashbl_uris('bl.example.invalid/A', 'OPTS', '^127\.')</a></dt>
+  <dd>Check all URIs parsed from message from DNS list.
+    <p class="Pp">Optional DNS query type can be appended to list with /A
+        (default) or /TXT.</p>
+    <p class="Pp">Default OPTS: sha1/max=10/shuffle</p>
+    <p class="Pp">Optional subtest regexp to match DNS answer (default:
+        '^127\.').</p>
+  </dd>
+  <dt>[raw]body RULE check_hashbl_bodyre('bl.example.invalid/A', 'OPTS',
+    '\b(match)\b', '^127\.')</dt>
+  <dd>Search body for matching regexp and query the string captured. Regexp must
+      have a single capture ( ) for the string ($1). Rule type must be
+      &quot;body&quot; or &quot;rawbody&quot;.
+    <p class="Pp">Optional DNS query type can be appended to list with /A
+        (default) or /TXT.</p>
+    <p class="Pp">Default OPTS: sha1/max=10/shuffle</p>
+    <p class="Pp">Additional supported OPTS:</p>
+    <p class="Pp"></p>
+    <pre>  num      remove the chars from the match that are not numbers
+    </pre>
+    <p class="Pp">Optional subtest regexp to match DNS answer (default:
+        '^127\.').</p>
+  </dd>
+  <dt id="header~3"><a class="permalink" href="#header~3">header RULE
+    check_hashbl_tag('bl.example.invalid/A', 'OPTS', 'TAGNAME',
+    '^127\.')</a></dt>
+  <dd>Query value of SpamAssassin tag _TAGNAME_ from DNS list.
+    <p class="Pp">Optional DNS query type can be appended to list with /A
+        (default) or /TXT.</p>
+    <p class="Pp">Default OPTS: sha1/max=10/shuffle</p>
+    <p class="Pp">Additional supported OPTS:</p>
+    <p class="Pp"></p>
+    <pre>  ip        only query if value is valid IPv4/IPv6 address
+  ipv4      only query if value is valid IPv4 address
+  ipv6      only query if value is valid IPv6 address
+  revip     reverse IP before query
+  fqdn      only query if value is valid FQDN (is_fqdn_valid)
+  tld       only query if value has valid TLD (is_domain_valid)
+  trim      trim name from hostname to domain (trim_domain)
+  If both ip/ipv4/ipv6 and fqdn/tld are enabled, only either of them is
+  required to match.  Both fqdn and tld are needed for complete FQDN+TLD
+  check.
+    </pre>
+    <p class="Pp">Optional subtest regexp to match DNS answer (default:
+        '^127\.').</p>
+  </dd>
+  <dt id="header~4"><a class="permalink" href="#header~4">header RULE
+    check_hashbl_attachments('bl.example.invalid/A', 'OPTS', '^127\.')</a></dt>
+  <dd>Check all all message attachments (mimeparts) from DNS list.
+    <p class="Pp">Optional DNS query type can be appended to list with /A
+        (default) or /TXT.</p>
+    <p class="Pp">Default OPTS: sha1/max=10/shuffle</p>
+    <p class="Pp">Additional supported OPTS:</p>
+    <p class="Pp"></p>
+    <pre>  minsize=x  skip any parts smaller than x bytes
+  maxsize=x  skip any parts larger than x bytes
+    </pre>
+    <p class="Pp">Optional subtest regexp to match DNS answer (default:
+        '^127\.').</p>
+    <p class="Pp">Specific attachment filenames can be skipped with
+        <span class="Li">&quot;hashbl_ignore&quot;</span>. For example
+        &quot;hashbl_ignore safe.pdf&quot;.</p>
+    <p class="Pp">Specific mime types can be skipped with
+        <span class="Li">&quot;hashbl_ignore&quot;</span>. For example
+        &quot;hashbl_ignore text/plain&quot;.</p>
+  </dd>
+  <dt id="hashbl_ignore"><a class="permalink" href="#hashbl_ignore">hashbl_ignore
+    value [value...]</a></dt>
+  <dd>Skip any type of query, if either the hash or original value (email for
+      example) matches. Multiple values can be defined, separated by whitespace.
+      Matching is case-insensitive.
+    <p class="Pp">Any host or its domain part matching uridnsbl_skip_domains is
+        also ignored by default.</p>
+  </dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-04-12</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="makes functions from LibXML.xs available">
+<title>XML::LibXML::Devel(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">XML::LibXML::Devel(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#FUNCTIONS">FUNCTIONS</a></li><li><a href="#NODE_MANAGEMENT">NODE
+  MANAGEMENT</a></li><li><a href="#MEMORY_DEBUGGING">MEMORY
+  DEBUGGING</a></li><li><a href="#EXPORT">EXPORT</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">XML::LibXML::Devel(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">XML::LibXML::Devel(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">XML::LibXML::Devel - makes functions from LibXML.xs available</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>  /**********************************************
+   * C functions you want to access
+   */
+  xmlNode *return_node();
+  void receive_node(xmlNode *);
+  ###############################################
+  # XS Code
+  void *
+    xs_return_node
+    CODE:
+        RETVAL = return_node();
+    OUTPUT:
+        RETVAL
+  void
+    xs_receive_node
+        void *n
+    CODE:
+        receive_node(n);
+  ###############################################
+  # Perl code
+  use XML::LibXML::Devel;
+  sub return_node
+  {
+    my $raw_node = xs_return_node();
+    my $node = XML::LibXML::Devel::node_to_perl($raw_node);
+    XML::LibXML::Devel::refcnt_inc($raw_node);
+    return $node;
+  }
+  sub receive_node
+  {
+    my ($node) = @_;
+    my $raw_node = XML::LibXML::Devel::node_from_perl($node);
+    xs_receive_node($raw_node);
+    XML::LibXML::Devel::refcnt_inc($raw_node);
+  }
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><span class="Li">&quot;XML::LibXML::Devel&quot;</span> makes
+    functions from LibXML.xs available that are needed to wrap libxml2 nodes in
+    and out of XML::LibXML::Nodes. This gives cleaner dependencies than using
+    LibXML.so directly.</p>
+<p class="Pp">To XS a library that uses libxml2 nodes the first step is to do
+    this so that xmlNodePtr is passed as void *. These raw nodes are then turned
+    into libxml nodes by using this <span class="Li">&quot;Devel&quot;</span>
+    functions.</p>
+<p class="Pp">Be aware that this module is currently rather experimental. The
+    function names may change if I XS more functions and introduce a reasonable
+    naming convention.</p>
+<p class="Pp">Be also aware that this module is a great tool to cause segfaults
+    and introduce memory leaks. It does however provide a partial cure by making
+    <span class="Li">&quot;xmlMemUsed&quot;</span> available as
+    <span class="Li">&quot;mem_used&quot;</span>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FUNCTIONS"><a class="permalink" href="#FUNCTIONS">FUNCTIONS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="NODE_MANAGEMENT"><a class="permalink" href="#NODE_MANAGEMENT">NODE
+  MANAGEMENT</a></h2>
+<dl class="Bl-tag">
+  <dt id="node_to_perl"><a class="permalink" href="#node_to_perl">node_to_perl</a></dt>
+  <dd>
+    <pre>  node_to_perl($raw_node);
+    </pre>
+    <p class="Pp">Returns a LibXML::Node object. This has a proxy node with a
+        reference counter and an owner attached. The raw node will be deleted as
+        soon as the reference counter reaches zero. If the C library is keeping
+        a pointer to the raw node, you need to call refcnt_inc immediately. You
+        also need to replace xmlFreeNode by a call to refcnt_dec.</p>
+  </dd>
+  <dt id="node_to_perl~2"><a class="permalink" href="#node_to_perl~2">node_to_perl</a></dt>
+  <dd>
+    <pre>  node_from_perl($node);
+    </pre>
+    <p class="Pp">Returns a raw node. This is a void * pointer and you can do
+        nothing but passing it to functions that treat it as an xmlNodePtr. The
+        raw node will be freed as soon as its reference counter reaches zero. If
+        the C library is keeping a pointer to the raw node, you need to call
+        refcnt_inc immediately. You also need to replace xmlFreeNode by a call
+        to refcnt_dec.</p>
+  </dd>
+  <dt id="refcnt_inc"><a class="permalink" href="#refcnt_inc">refcnt_inc</a></dt>
+  <dd>
+    <pre>  refcnt_inc($raw_node);
+    </pre>
+    <p class="Pp">Increments the raw nodes reference counter. The raw node must
+        already be known to perl to have a reference counter.</p>
+  </dd>
+  <dt id="refcnt_dec"><a class="permalink" href="#refcnt_dec">refcnt_dec</a></dt>
+  <dd>
+    <pre>  refcnt_dec($raw_node);
+    </pre>
+    <p class="Pp">Decrements the raw nodes reference counter and returns the
+        value it had before. if the counter becomes zero or less, this method
+        will free the proxy node holding the reference counter. If the node is
+        part of a subtree, refcnt_dec will fix the reference counts and delete
+        the subtree if it is not required any more.</p>
+  </dd>
+  <dt id="refcnt"><a class="permalink" href="#refcnt">refcnt</a></dt>
+  <dd>
+    <pre>  refcnt($raw_node);
+    </pre>
+    <p class="Pp">Returns the value of the reference counter.</p>
+  </dd>
+  <dt id="fix_owner"><a class="permalink" href="#fix_owner">fix_owner</a></dt>
+  <dd>
+    <pre>  fix_owner($raw_node, $raw_parent);
+    </pre>
+    <p class="Pp">This functions fixes the reference counts for an entire
+        subtree. it is very important to fix an entire subtree after node
+        operations where the documents or the owner node may get changed. this
+        method is aware about nodes that already belong to a certain owner
+      node.</p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="MEMORY_DEBUGGING"><a class="permalink" href="#MEMORY_DEBUGGING">MEMORY
+  DEBUGGING</a></h2>
+<dl class="Bl-tag">
+  <dt>$ENV{DEBUG_MEMORY}</dt>
+  <dd>
+    <pre>  BEGIN {$ENV{DEBUG_MEMORY} = 1;};
+  use XML::LibXML;
+    </pre>
+    <p class="Pp">This turns on libxml2 memory debugging. It must be set before
+        XML::LibXML is loaded.</p>
+  </dd>
+  <dt id="mem_used"><a class="permalink" href="#mem_used">mem_used</a></dt>
+  <dd>
+    <pre>  mem_used();
+    </pre>
+    <p class="Pp">Returns the number of bytes currently allocated.</p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="EXPORT"><a class="permalink" href="#EXPORT">EXPORT</a></h2>
+<p class="Pp">None by default.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">This was created to support the needs of Apache2::ModXml2. So this
+    can serve as an example.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Joachim Zobel &lt;jz-2011@heute-morgen.de&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT_AND_LICENSE"><a class="permalink" href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></h1>
+<p class="Pp">Copyright (C) 2011 by Joachim Zobel</p>
+<p class="Pp">This library is free software; you can redistribute it and/or
+    modify it under the same terms as Perl itself, either Perl version 5.10.1
+    or, at your option, any later version of Perl 5 you may have available.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

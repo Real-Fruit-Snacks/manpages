@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="feed data into parser">
+<title>auparse_feed(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">auparse_feed(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">AUPARSE_FEED(3)</td>
+    <td class="head-vol">Linux Audit API</td>
+    <td class="head-rtitle">AUPARSE_FEED(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">auparse_feed - feed data into parser</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>#include &lt;auparse.h&gt;</b></p>
+<p class="Pp"></p>
+<pre>int auparse_feed(auparse_state_t *au, const char *data, size_t data_len);</pre>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="au"><a class="permalink" href="#au"><i>au</i></a></dt>
+  <dd>The audit parse state</dd>
+  <dt id="data"><a class="permalink" href="#data"><i>data</i></a></dt>
+  <dd>a buffer of data to feed into the parser, it is <i>data_len</i> bytes
+      long. The data is copied in the parser, upon return the caller may free or
+      reuse the data buffer.</dd>
+  <dt id="data_len"><a class="permalink" href="#data_len"><i>data_len</i></a></dt>
+  <dd>number of bytes in <i>data</i>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><i>auparse_feed</i> supplies new data for the parser to consume.
+    <i>auparse_init()</i> must have been called with a source type of
+    AUSOURCE_FEED and a NULL pointer.</p>
+<p class="Pp">The parser consumes as much data as it can invoking a user
+    supplied callback specified with <i>auparse_add_callback</i> with a
+    cb_event_type of <i>AUPARSE_CB_EVENT_READY</i> each time the parser
+    recognizes a complete event in the data stream. Data not fully parsed will
+    persist and be prepended to the next feed data. After all data has been feed
+    to the parser <i>auparse_flush_feed</i> should be called to signal the end
+    of input data and flush any pending parse data through the parsing
+  system.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">Returns -1 if an error occurs; otherwise, 0 for success.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>void
+auparse_callback(auparse_state_t *au, auparse_cb_event_t cb_event_type,
+<br/>
+                 void *user_data)
+{
+<br/>
+    int *event_cnt = (int *)user_data;
+<br/>
+    if (cb_event_type == AUPARSE_CB_EVENT_READY) {
+<br/>
+        if (auparse_first_record(au) &lt;= 0) return;
+<br/>
+        printf(&quot;event: %d\n&quot;, *event_cnt);
+<br/>
+        printf(&quot;records:%d\n&quot;, auparse_get_num_records(au));
+<br/>
+        do {
+<br/>
+            printf(&quot;fields:%d\n&quot;, auparse_get_num_fields(au));
+<br/>
+            printf(&quot;type=%d &quot;, auparse_get_type(au));
+<br/>
+            const au_event_t *e = auparse_get_timestamp(au);
+<br/>
+            if (e == NULL) return;
+<br/>
+            printf(&quot;event time: %lu.%u:%lu\n&quot;,
+<br/>
+                    (long unsigned)e-&gt;sec, e-&gt;milli, e-&gt;serial);
+<br/>
+            auparse_first_field(au);
+<br/>
+            do {
+<br/>
+                printf(&quot;%s=%s (%s)\n&quot;, auparse_get_field_name(au),
+<br/>
+                       auparse_get_field_str(au),
+<br/>
+                       auparse_interpret_field(au));
+<br/>
+            } while (auparse_next_field(au) &gt; 0);
+<br/>
+            printf(&quot;\n&quot;);
+<br/>
+        } while(auparse_next_record(au) &gt; 0);
+<br/>
+        (*event_cnt)++;
+<br/>
+    }
+}
+main(int argc, char **argv)
+{	
+<br/>
+    char *filename = argv[1];
+<br/>
+    FILE *fp;
+<br/>
+    char buf[256];
+<br/>
+    size_t len;
+<br/>
+    int *event_cnt = malloc(sizeof(int));
+<br/>
+    au = auparse_init(AUSOURCE_FEED, 0);
+<br/>
+    auparse_set_eoe_timeout(2);
+<br/>
+    *event_cnt = 1;
+<br/>
+    auparse_add_callback(au, auparse_callback, event_cnt, free);
+<br/>
+    if ((fp = fopen(filename, &quot;r&quot;)) == NULL) {
+<br/>
+        fprintf(stderr, &quot;could not open '%s', %s\n&quot;, filename, strerror(errno));
+<br/>
+        return 1;
+<br/>
+    }
+<br/>
+    while ((len = fread(buf, 1, sizeof(buf), fp))) {
+<br/>
+        auparse_feed(au, buf, len);
+<br/>
+    }
+<br/>
+    auparse_flush_feed(au);
+<br/>
+    auparse_destroy(au);
+}</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/auparse_add_callback.html"><b>auparse_add_callback</b>(3)</a>, <a class="Xr" href="../3/auparse_flush_feed.html"><b>auparse_flush_feed</b>(3)</a>,
+    <a class="Xr" href="../3/auparse_feed_age_events.html"><b>auparse_feed_age_events</b>(3)</a>, <a class="Xr" href="../3/auparse_feed_has_data.html"><b>auparse_feed_has_data</b>(3)</a></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">John Dennis</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Aug 2023</td>
+    <td class="foot-os">Red Hat</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="managing system statistics delivery">
+<title>sg_comp_get_tls(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">sg_comp_get_tls(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#MACROS_TO_WORK_WITH_THE_COMPONENT_MANAGER">MACROS
+  TO WORK WITH THE COMPONENT MANAGER</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#WEBSITE">WEBSITE</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">sg_comp_init(3)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">sg_comp_init(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">sg_comp_init, sg_comp_destroy, sg_comp_get_tls, sg_global_lock,
+    sg_global_unlock - managing system statistics delivery</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>#include &quot;tools.h&quot;</pre>
+<p class="Pp"></p>
+<p class="Pp">
+  <br/>
+  void *<b>get_global_static</b>
+  <br/>
+  (unsigned int <i>id</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  sg_error <b>sg_global_lock</b>
+  <br/>
+  (void);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  sg_error <b>sg_global_unlock</b>
+  <br/>
+  (void);
+  <br/>
+</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>sg_comp_init</b>() is called by <b>sg_init</b>() to run the
+    initialisation for the globals component and each registered libstatgrab
+    component. This registration is done statically by appending a component
+    initialisation information structure (instance-of sg_comp_info) to the
+    comp_info list in <i>src/libstatgrab/globals.c</i>. The instance of
+    sg_comp_info is usually defined by using one of <b>EASY_COMP_SETUP</b>() or
+    <b>EXTENDED_COMP_SETUP</b>(), respectively.</p>
+<p class="Pp"><b>sg_comp_destroy</b>() is called by <b>sg_shutdown</b>() to
+    destroy all global resources, eg. translation tables for device names or
+    compiled regular expressions to match path names etc. Statistics resources
+    are managed somewhere else and are freed (conceptually and usually) before
+    <b>sg_comp_destroy</b>() is invoked.</p>
+<p class="Pp"><b>sg_comp_get_tls</b>() is the internal function to access the
+    thread local storage (formerly static globals) of the component. Usually
+    it's easier to rely on the encapsulating macro <b>GLOBAL_GET_TLS</b>().</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">Delivering system statistics is the job of libstatgrab, managing
+    the delivery is the job of the globals component. To fulfil this job, the
+    components to manage must be prepared:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>declare component's global and TLS data structure (probably only on paper,
+      not in code)</dd>
+  <dt>2.</dt>
+  <dd>define global initialisation, thread destruction and process destruction
+      functions (if required by 1.)</dd>
+  <dt>3.</dt>
+  <dd>define component information structure using <b>*_COMP_SETUP</b>()</dd>
+  <dt>4.</dt>
+  <dd>define component accessors using one or more of
+    <p class="Pp"><b>EASY_COMP_ACCESS</b>()
+      <br/>
+      <b>EASY_COMP_DIFF</b>()
+      <br/>
+      <b>MULTI_COMP_ACCESS</b>()
+      <br/>
+      <b>MULTI_COMP_DIFF</b>()</p>
+  </dd>
+</dl>
+<p class="Pp">When having done these steps, a new component delivering new
+    statistics is born and needs to be &quot;announced&quot;. Assuming the
+    component is named <i>cpu</i>, append the line { &amp;sg_cpu_init, 0 } to
+    above named comp_info list.</p>
+<p class="Pp">Component initialisation information in detail:</p>
+<p class="Pp"></p>
+<pre>
+typedef sg_error (*comp_global_init_function)(unsigned id);
+typedef void (*comp_global_destroy_function)(void);
+typedef void (*comp_global_cleanup_function)(void *);
+struct sg_comp_status {
+<br/>
+        sg_error init_error;
+};
+struct sg_comp_init {
+<br/>
+        comp_global_init_function init_fn;
+<br/>
+        comp_global_destroy_function destroy_fn;
+<br/>
+        comp_global_cleanup_function cleanup_fn;
+<br/>
+        size_t static_buf_size;
+#if defined(ENABLE_THREADS) &amp;&amp; defined(HAVE_PTHREAD)
+<br/>
+        const char **required_locks;
+#endif
+<br/>
+        struct sg_comp_status *status;
+};
+<br/>
+      </pre>
+<p class="Pp">Components which do not need something special can rely on
+    <b>EASY_COMP_SETUP</b>():</p>
+<p class="Pp"><b>Initialising memory component</b></p>
+<p class="Pp"></p>
+<pre>
+EASY_COMP_SETUP(mem,1,NULL);
+<br/>
+        </pre>
+<p class="Pp">When own initialisation is needed, doing it is a bit more
+  complex:</p>
+<p class="Pp"><b>Initialising network component</b></p>
+<p class="Pp"></p>
+<pre>
+#define SG_NETWORK_IO_NOW_IDX	0
+#define SG_NETWORK_IO_DIFF_IDX	1
+#define SG_NETWORK_IFACE_IDX	2
+#define SG_NETWORK_MAX_IDX	3
+EXTENDED_COMP_SETUP(network,SG_NETWORK_MAX_IDX,NULL);
+#ifdef LINUX
+static regex_t network_io_rx;
+#define RX_MATCH_COUNT (8+1)
+#endif
+sg_error
+sg_network_init_comp(unsigned id) {
+<br/>
+        GLOBAL_SET_ID(network,id);
+#ifdef LINUX
+<br/>
+        if( regcomp( &amp;network_io_rx, ..., REG_EXTENDED)!=0) {
+<br/>
+                return sg_set_error(SG_ERROR_PARSE, NULL);
+<br/>
+        }
+#endif
+<br/>
+        return SG_ERROR_NONE;
+}
+void
+sg_network_destroy_comp(void) {
+#ifdef LINUX
+<br/>
+        regfree(&amp;network_io_rx);
+#endif
+}
+EASY_COMP_CLEANUP_FN(network,SG_NETWORK_MAX_IDX)
+<br/>
+        </pre>
+<section class="Ss">
+<h2 class="Ss" id="MACROS_TO_WORK_WITH_THE_COMPONENT_MANAGER"><a class="permalink" href="#MACROS_TO_WORK_WITH_THE_COMPONENT_MANAGER">MACROS
+  TO WORK WITH THE COMPONENT MANAGER</a></h2>
+<p class="Pp">To simplify working with the component management functions, some
+    preprocessor macros are available. They are shown here as if they were
+    functions to ease understanding.</p>
+<p class="Pp">
+  <br/>
+  void <b>DEFAULT_INIT_COMP</b>
+  <br/>
+  (identifier <i>comp</i>, <i>...</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  void <b>EASY_COMP_SETUP</b>
+  <br/>
+  (identifier <i>comp</i>, size_t <i>nvect</i>, <i>...</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  void <b>EXTENDED_COMP_SETUP</b>
+  <br/>
+  (identifier <i>comp</i>, size_t <i>nvect</i>, <i>...</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  void <b>GLOBAL_SET_ID</b>
+  <br/>
+  (identifier <i>comp</i>, unsigned int <i>id</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  struct sg_##comp##_glob *<b>GLOBAL_GET_TLS</b>
+  <br/>
+  (identifier <i>comp</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  void <b>EASY_COMP_INIT_FN</b>
+  <br/>
+  (identifier <i>comp</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  void <b>EASY_COMP_DESTROY_FN</b>
+  <br/>
+  (identifier <i>comp</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  void <b>EASY_COMP_CLEANUP_FN</b>
+  <br/>
+  (identifier <i>comp</i>, size_t <i>nvect</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  void <b>EASY_COMP_ACCESS</b>
+  <br/>
+  (identifier <i>fn</i>, identifier <i>comp</i>, identifier <i>stat</i>, size_t
+    <i>idx</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  void <b>MULTI_COMP_ACCESS</b>
+  <br/>
+  (identifier <i>fn</i>, identifier <i>comp</i>, identifier <i>stat</i>, size_t
+    <i>idx</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  void <b>EASY_COMP_DIFF</b>
+  <br/>
+  (identifier <i>fn</i>, identifier <i>getfn</i>, identifier <i>comp</i>,
+    identifier <i>stat</i>, size_t <i>diffidx</i>, size_t <i>nowidx</i>);
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  void <b>MULTI_COMP_DIFF</b>
+  <br/>
+  (identifier <i>fn</i>, identifier <i>getfn</i>, identifier <i>comp</i>,
+    identifier <i>stat</i>, size_t <i>diffidx</i>, size_t <i>nowidx</i>);
+  <br/>
+</p>
+<p class="Pp"><b>EASY_COMP_SETUP</b>() cares about anything to be automatically
+    done for instantiating a component information structure for the specified
+    component comp. The created TLS storage structure will hold nvect pointer
+    elements and that's it. All initialisation, destruction and cleanup-routines
+    are created as needed using <b>EASY_COMP_INIT_FN</b>(),
+    <b>EASY_COMP_DESTROY_FN</b>() and <b>EASY_COMP_CLEANUP_FN</b>(). After the
+    amount of required vector pointers to be stored the list of required mutexes
+    must be specified, finished with a NULL pointer.</p>
+<p class="Pp"><b>EXTENDED_COMP_SETUP</b>() cares about anything to be
+    automatically done for instantiating an component information structure for
+    the specified component comp but the required definition of the
+    initialisation, destruction and cleanup routines. The created TLS storage
+    structure will hold nvect pointer elements and that's it. After the amount
+    of required vector pointers to be stored, the list of required mutexes must
+    be specified, finished with a NULL pointer. All standard routines can be
+    created semi-automatically using <b>EASY_COMP_INIT_FN</b>(),
+    <b>EASY_COMP_DESTROY_FN</b>() and <b>EASY_COMP_CLEANUP_FN</b>().</p>
+<p class="Pp"><b>DEFAULT_INIT_COMP</b>() just declares the prototypes for the
+    initialisation, destruction and cleanup routines, defines the initialisation
+    status buffer, lock-names list and finally fills the component
+    initialisation structure. Use this when your TLS storage contains not only
+    vector pointers.</p>
+<p class="Pp"><b>GLOBAL_GET_TLS</b>() returns the pointer to the component's
+    <i>thread local storage</i>.</p>
+<p class="Pp"><b>GLOBAL_SET_ID</b>() stores the component identifier, required
+    eg. to access its TLS.</p>
+<p class="Pp"><b>EASY_COMP_INIT_FN</b>() defines a default component
+    initialisation routine. It stores the component identifier and returns with
+    SG_ERROR_NONE.</p>
+<p class="Pp"><b>EASY_COMP_DESTROY_FN</b>() defines a default component
+    destructor, called at the end of the entire process (or when the last
+    <b>sg_shutdown</b>() is called). The default destructor does nothing and
+    usually an individual initialisation routine requires an individual
+    destructor, too.</p>
+<p class="Pp"><b>EASY_COMP_CLEANUP_FN</b>() defines a default TLS cleanup
+    routine, always called when a thread ends to free vectors held in <i>thread
+    local storage</i>.</p>
+<p class="Pp"><b>EASY_COMP_ACCESS</b>() defines accessors to a specific
+    statistic containing one element provided by the component: the functions
+    <b>fn</b>() and the <b>fn##_r</b>(). The following function must exists:
+  <br/>
+  sg_error <b>fn##_int</b>
+  <br/>
+  (sg_vector *<i>name##_vect</i>);
+  <br/>
+  It accesses the vector idx from TLS of component comp and returns
+    sg_##name##_stats. It manages all standard things like memory and error
+    management, return value etc.</p>
+<p class="Pp"><b>EASY_COMP_DIFF</b>() returns the difference between the two
+    statistic collection runs. The variant dealing with statgrab owned
+    statistics return the difference between the content currently in the vector
+    specified by nowidx and the resulting vector of <b>getfn</b>(). The result
+    is stored in the vector diffidx. If there is no current result, simply the
+    result of <b>getfn</b>() is returned.</p>
+<p class="Pp"><b>MULTI_COMP_ACCESS</b>() defines accessors to a specific
+    statistic containing 0..n elements provided by the component: the functions
+    <b>fn</b>() and the <b>fn##_r</b>(). The following function must exists:
+  <br/>
+  sg_error <b>fn##_int</b>
+  <br/>
+  (sg_vector **<i>name##_vect</i>);
+  <br/>
+  It accesses the vector idx from TLS of component comp and returns
+    sg_##name##_stats. It manages all standard things like memory and error
+    anagement, return values, entries update, etc.</p>
+<p class="Pp"><b>MULTI_COMP_DIFF</b>() does the same as <b>EASY_COMP_DIFF</b>()
+    but for vectors with more than one element.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/libstatgrab.html"><b>libstatgrab</b>(3)</a> <a class="Xr" href="../3/sg_intro.html"><b>sg_intro</b>(3)</a> <a class="Xr" href="../3/sg_set_error.html"><b>sg_set_error</b>(3)</a>
+    <a class="Xr" href="../3/sg_comp_init.html"><b>sg_comp_init</b>(3)</a> <a class="Xr" href="../3/sg_vector_create.html"><b>sg_vector_create</b>(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WEBSITE"><a class="permalink" href="#WEBSITE">WEBSITE</a></h1>
+<p class="Pp">&#x27E8;https://libstatgrab.org/&#x27E9;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2019-10-03</td>
+    <td class="foot-os">libstatgrab</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

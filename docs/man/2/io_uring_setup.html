@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="setup a context for performing asynchronous I/O">
+<title>io_uring_setup(2) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">io_uring_setup(2)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#ERRORS">ERRORS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">io_uring_setup(2)</td>
+    <td class="head-vol">Linux Programmer's Manual</td>
+    <td class="head-rtitle">io_uring_setup(2)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">io_uring_setup - setup a context for performing asynchronous
+  I/O</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;liburing.h&gt;</b></pre>
+<pre><b>int io_uring_setup(u32 </b><i>entries</i><b>, struct io_uring_params *</b><i>p</i><b>);</b></pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <a class="Xr" href="../2/io_uring_setup.html"><b>io_uring_setup</b>(2)</a> system call sets up a submission
+    queue (SQ) and completion queue (CQ) with at least <i>entries</i> entries,
+    and returns a file descriptor which can be used to perform subsequent
+    operations on the io_uring instance. The submission and completion queues
+    are shared between userspace and the kernel, which eliminates the need to
+    copy data when initiating and completing I/O.</p>
+<p class="Pp"><i>params</i> is used by the application to pass options to the
+    kernel, and by the kernel to convey information about the ring buffers.</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>struct io_uring_params {
+<br/>
+    __u32 sq_entries;
+<br/>
+    __u32 cq_entries;
+<br/>
+    __u32 flags;
+<br/>
+    __u32 sq_thread_cpu;
+<br/>
+    __u32 sq_thread_idle;
+<br/>
+    __u32 features;
+<br/>
+    __u32 wq_fd;
+<br/>
+    __u32 resv[3];
+<br/>
+    struct io_sqring_offsets sq_off;
+<br/>
+    struct io_cqring_offsets cq_off;
+};
+</pre>
+<br/>
+<p class="Pp">The <i>flags</i>, <i>sq_thread_cpu</i>, and <i>sq_thread_idle</i>
+    fields are used to configure the io_uring instance. <i>flags</i> is a bit
+    mask of 0 or more of the following values ORed together:</p>
+<dl class="Bl-tag">
+  <dt id="IORING_SETUP_IOPOLL"><a class="permalink" href="#IORING_SETUP_IOPOLL"><b>IORING_SETUP_IOPOLL</b></a></dt>
+  <dd>Perform busy-waiting for an I/O completion, as opposed to getting
+      notifications via an asynchronous IRQ (Interrupt Request). The file system
+      (if any) and block device must support polling in order for this to work.
+      Busy-waiting provides lower latency, but may consume more CPU resources
+      than interrupt driven I/O. Currently, this feature is usable only on a
+      file descriptor opened using the <b>O_DIRECT</b> flag. When a read or
+      write is submitted to a polled context, the application must poll for
+      completions on the CQ ring by calling <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a>. It is
+      illegal to mix and match polled and non-polled I/O on an io_uring
+      instance.
+    <p class="Pp">This is only applicable for storage devices for now, and the
+        storage device must be configured for polling. How to do that depends on
+        the device type in question. For NVMe devices, the nvme driver must be
+        loaded with the <i>poll_queues</i> parameter set to the desired number
+        of polling queues. The polling queues will be shared appropriately
+        between the CPUs in the system, if the number is less than the number of
+        online CPU threads.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="IORING_SETUP_SQPOLL"><a class="permalink" href="#IORING_SETUP_SQPOLL"><b>IORING_SETUP_SQPOLL</b></a></dt>
+  <dd>When this flag is specified, a kernel thread is created to perform
+      submission queue polling. An io_uring instance configured in this way
+      enables an application to issue I/O without ever context switching into
+      the kernel. By using the submission queue to fill in new submission queue
+      entries and watching for completions on the completion queue, the
+      application can submit and reap I/Os without doing a single system call.
+    <p class="Pp">If the kernel thread is idle for more than
+        <i>sq_thread_idle</i> milliseconds, it will set the
+        <b>IORING_SQ_NEED_WAKEUP</b> bit in the <i>flags</i> field of the
+        <i>struct io_sq_ring</i>. When this happens, the application must call
+        <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> to wake the kernel thread. If I/O is kept busy,
+        the kernel thread will never sleep. An application making use of this
+        feature will need to guard the <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> call with the
+        following code sequence:</p>
+    <p class="Pp">
+      <br/>
+    </p>
+    <pre>/*
+<br/>
+ * Ensure that the wakeup flag is read after the tail pointer
+<br/>
+ * has been written. It's important to use memory load acquire
+<br/>
+ * semantics for the flags read, as otherwise the application
+<br/>
+ * and the kernel might not agree on the consistency of the
+<br/>
+ * wakeup flag.
+<br/>
+ */
+unsigned flags = atomic_load_relaxed(sq_ring-&gt;flags);
+if (flags &amp; IORING_SQ_NEED_WAKEUP)
+<br/>
+    io_uring_enter(fd, 0, 0, IORING_ENTER_SQ_WAKEUP);
+    </pre>
+    <br/>
+    <p class="Pp">where <i>sq_ring</i> is a submission queue ring setup using
+        the <i>struct io_sqring_offsets</i> described below.</p>
+  </dd>
+  <dt></dt>
+  <dd>Note that, when using a ring setup with <b>IORING_SETUP_SQPOLL,</b> you
+      never directly call the <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> system call. That is
+      usually taken care of by liburing's <a class="Xr" href="../3/io_uring_submit.html"><b>io_uring_submit</b>(3)</a> function. It
+      automatically determines if you are using polling mode or not and deals
+      with when your program needs to call <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> without you
+      having to bother about it.</dd>
+  <dt></dt>
+  <dd>Before version 5.11 of the Linux kernel, to successfully use this feature,
+      the application must register a set of files to be used for IO through
+      <a class="Xr" href="../2/io_uring_register.html"><b>io_uring_register</b>(2)</a> using the <b>IORING_REGISTER_FILES</b> opcode.
+      Failure to do so will result in submitted IO being errored with
+      <b>EBADF.</b> The presence of this feature can be detected by the
+      <b>IORING_FEAT_SQPOLL_NONFIXED</b> feature flag. In version 5.11 and
+      later, it is no longer necessary to register files to use this feature.
+      5.11 also allows using this as non-root, if the user has the
+      <b>CAP_SYS_NICE</b> capability. In 5.13 this requirement was also relaxed,
+      and no special privileges are needed for SQPOLL in newer kernels. Certain
+      stable kernels older than 5.13 may also support unprivileged SQPOLL.</dd>
+  <dt id="IORING_SETUP_SQ_AFF"><a class="permalink" href="#IORING_SETUP_SQ_AFF"><b>IORING_SETUP_SQ_AFF</b></a></dt>
+  <dd>If this flag is specified, then the poll thread will be bound to the cpu
+      set in the <i>sq_thread_cpu</i> field of the <i>struct
+      io_uring_params</i>. This flag is only meaningful when
+      <b>IORING_SETUP_SQPOLL</b> is specified. When cgroup setting
+      <i>cpuset.cpus</i> changes (typically in container environment), the
+      bounded cpu set may be changed as well.</dd>
+  <dt id="IORING_SETUP_CQSIZE"><a class="permalink" href="#IORING_SETUP_CQSIZE"><b>IORING_SETUP_CQSIZE</b></a></dt>
+  <dd>Create the completion queue with <i>struct io_uring_params.cq_entries</i>
+      entries. The value must be greater than <i>entries</i>, and may be rounded
+      up to the next power-of-two.</dd>
+  <dt id="IORING_SETUP_CLAMP"><a class="permalink" href="#IORING_SETUP_CLAMP"><b>IORING_SETUP_CLAMP</b></a></dt>
+  <dd>If this flag is specified, and if <i>entries</i> exceeds
+      <b>IORING_MAX_ENTRIES ,</b> then <i>entries</i> will be clamped at
+      <b>IORING_MAX_ENTRIES .</b> If the flag <b>IORING_SETUP_SQPOLL</b> is set,
+      and if the value of <i>struct io_uring_params.cq_entries</i> exceeds
+      <b>IORING_MAX_CQ_ENTRIES ,</b> then it will be clamped at
+      <b>IORING_MAX_CQ_ENTRIES .</b></dd>
+  <dt id="IORING_SETUP_ATTACH_WQ"><a class="permalink" href="#IORING_SETUP_ATTACH_WQ"><b>IORING_SETUP_ATTACH_WQ</b></a></dt>
+  <dd>This flag should be set in conjunction with <i>struct
+      io_uring_params.wq_fd</i> being set to an existing io_uring ring file
+      descriptor. When set, the io_uring instance being created will share the
+      asynchronous worker thread backend of the specified io_uring ring, rather
+      than create a new separate thread pool.</dd>
+  <dt id="IORING_SETUP_R_DISABLED"><a class="permalink" href="#IORING_SETUP_R_DISABLED"><b>IORING_SETUP_R_DISABLED</b></a></dt>
+  <dd>If this flag is specified, the io_uring ring starts in a disabled state.
+      In this state, restrictions can be registered, but submissions are not
+      allowed. See <a class="Xr" href="../2/io_uring_register.html"><b>io_uring_register</b>(2)</a> for details on how to enable the
+      ring. Available since 5.10.</dd>
+  <dt id="IORING_SETUP_SUBMIT_ALL"><a class="permalink" href="#IORING_SETUP_SUBMIT_ALL"><b>IORING_SETUP_SUBMIT_ALL</b></a></dt>
+  <dd>Normally io_uring stops submitting a batch of requests, if one of these
+      requests results in an error. This can cause submission of less than what
+      is expected, if a request ends in error while being submitted. If the ring
+      is created with this flag, <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> will continue
+      submitting requests even if it encounters an error submitting a request.
+      CQEs are still posted for errored request regardless of whether or not
+      this flag is set at ring creation time, the only difference is if the
+      submit sequence is halted or continued when an error is observed.
+      Available since 5.18.</dd>
+  <dt id="IORING_SETUP_COOP_TASKRUN"><a class="permalink" href="#IORING_SETUP_COOP_TASKRUN"><b>IORING_SETUP_COOP_TASKRUN</b></a></dt>
+  <dd>By default, io_uring will interrupt a task running in userspace when a
+      completion event comes in. This is to ensure that completions run in a
+      timely manner. For a lot of use cases, this is overkill and can cause
+      reduced performance from both the inter-processor interrupt used to do
+      this, the kernel/user transition, the needless interruption of the tasks
+      userspace activities, and reduced batching if completions come in at a
+      rapid rate. Most applications don't need the forceful interruption, as the
+      events are processed at any kernel/user transition. The exception are
+      setups where the application uses multiple threads operating on the same
+      ring, where the application waiting on completions isn't the one that
+      submitted them. For most other use cases, setting this flag will improve
+      performance. Available since 5.19.</dd>
+  <dt id="IORING_SETUP_TASKRUN_FLAG"><a class="permalink" href="#IORING_SETUP_TASKRUN_FLAG"><b>IORING_SETUP_TASKRUN_FLAG</b></a></dt>
+  <dd>Used in conjunction with <b>IORING_SETUP_COOP_TASKRUN,</b> this provides a
+      flag, <b>IORING_SQ_TASKRUN,</b> which is set in the SQ ring <i>flags</i>
+      whenever completions are pending that should be processed. liburing will
+      check for this flag even when doing <a class="Xr" href="../3/io_uring_peek_cqe.html"><b>io_uring_peek_cqe</b>(3)</a> and enter
+      the kernel to process them, and applications can do the same. This makes
+      <b>IORING_SETUP_TASKRUN_FLAG</b> safe to use even when applications rely
+      on a peek style operation on the CQ ring to see if anything might be
+      pending to reap. Available since 5.19.</dd>
+  <dt id="IORING_SETUP_SQE128"><a class="permalink" href="#IORING_SETUP_SQE128"><b>IORING_SETUP_SQE128</b></a></dt>
+  <dd>If set, io_uring will use 128-byte SQEs rather than the normal 64-byte
+      sized variant. This is a requirement for using certain request types, as
+      of 5.19 only the <b>IORING_OP_URING_CMD</b> passthrough command for NVMe
+      passthrough needs this. Available since 5.19.</dd>
+  <dt id="IORING_SETUP_CQE32"><a class="permalink" href="#IORING_SETUP_CQE32"><b>IORING_SETUP_CQE32</b></a></dt>
+  <dd>If set, io_uring will use 32-byte CQEs rather than the normal 16-byte
+      sized variant. This is a requirement for using certain request types, as
+      of 5.19 only the <b>IORING_OP_URING_CMD</b> passthrough command for NVMe
+      passthrough needs this. Available since 5.19.</dd>
+  <dt id="IORING_SETUP_SINGLE_ISSUER"><a class="permalink" href="#IORING_SETUP_SINGLE_ISSUER"><b>IORING_SETUP_SINGLE_ISSUER</b></a></dt>
+  <dd>A hint to the kernel that only a single task (or thread) will submit
+      requests, which is used for internal optimisations. The submission task is
+      either the task that created the ring, or if
+      <b>IORING_SETUP_R_DISABLED</b> is specified then it is the task that
+      enables the ring through <a class="Xr" href="../2/io_uring_register.html"><b>io_uring_register</b>(2)</a><b>.</b> The kernel
+      enforces this rule, failing requests with <b>-EEXIST</b> if the
+      restriction is violated. Note that when <b>IORING_SETUP_SQPOLL</b> is set
+      it is considered that the polling task is doing all submissions on behalf
+      of the userspace and so it always complies with the rule disregarding how
+      many userspace tasks do <b>io_uring_enter(2).</b> Available since
+    6.0.</dd>
+  <dt id="IORING_SETUP_DEFER_TASKRUN"><a class="permalink" href="#IORING_SETUP_DEFER_TASKRUN"><b>IORING_SETUP_DEFER_TASKRUN</b></a></dt>
+  <dd>By default, io_uring will process all outstanding work at the end of any
+      system call or thread interrupt. This can delay the application from
+      making other progress. Setting this flag will hint to io_uring that it
+      should defer work until an <b>io_uring_enter(2)</b> call with the
+      <b>IORING_ENTER_GETEVENTS</b> flag set. This allows the application to
+      request work to run just before it wants to process completions. This flag
+      requires the <b>IORING_SETUP_SINGLE_ISSUER</b> flag to be set, and also
+      enforces that the call to <b>io_uring_enter(2)</b> is called from the same
+      thread that submitted requests. Note that if this flag is set then it is
+      the application's responsibility to periodically trigger work (for example
+      via any of the CQE waiting functions) or else completions may not be
+      delivered. Available since 6.1.</dd>
+  <dt id="IORING_SETUP_NO_MMAP"><a class="permalink" href="#IORING_SETUP_NO_MMAP"><b>IORING_SETUP_NO_MMAP</b></a></dt>
+  <dd>By default, io_uring allocates kernel memory that callers must
+      subsequently <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a>. If this flag is set, io_uring instead uses
+      caller-allocated buffers; <i>p-&gt;cq_off.user_addr</i> must point to the
+      memory for the sq/cq rings, and <i>p-&gt;sq_off.user_addr</i> must point
+      to the memory for the sqes. Each allocation must be contiguous memory.
+      Typically, callers should allocate this memory by using <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a> to
+      allocate a huge page. If this flag is set, a subsequent attempt to
+      <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a> the io_uring file descriptor will fail. Available since
+      6.5.</dd>
+  <dt id="IORING_SETUP_REGISTERED_FD_ONLY"><a class="permalink" href="#IORING_SETUP_REGISTERED_FD_ONLY"><b>IORING_SETUP_REGISTERED_FD_ONLY</b></a></dt>
+  <dd>If this flag is set, io_uring will register the ring file descriptor, and
+      return the registered descriptor index, without ever allocating an
+      unregistered file descriptor. The caller will need to use
+      <b>IORING_REGISTER_USE_REGISTERED_RING</b> when calling
+      <a class="Xr" href="../2/io_uring_register.html"><b>io_uring_register</b>(2)</a>.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">If no flags are specified, the io_uring instance is setup for
+    interrupt driven I/O. I/O may be submitted using <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a>
+    and can be reaped by polling the completion queue.</p>
+<p class="Pp">The <i>resv</i> array must be initialized to zero.</p>
+<p class="Pp"><i>features</i> is filled in by the kernel, which specifies
+    various features supported by current kernel version.</p>
+<dl class="Bl-tag">
+  <dt id="IORING_FEAT_SINGLE_MMAP"><a class="permalink" href="#IORING_FEAT_SINGLE_MMAP"><b>IORING_FEAT_SINGLE_MMAP</b></a></dt>
+  <dd>If this flag is set, the two SQ and CQ rings can be mapped with a single
+      <i>mmap(2)</i> call. The SQEs must still be allocated separately. This
+      brings the necessary <i>mmap(2)</i> calls down from three to two.
+      Available since kernel 5.4.</dd>
+  <dt id="IORING_FEAT_NODROP"><a class="permalink" href="#IORING_FEAT_NODROP"><b>IORING_FEAT_NODROP</b></a></dt>
+  <dd>If this flag is set, io_uring supports almost never dropping completion
+      events. If a completion event occurs and the CQ ring is full, the kernel
+      stores the event internally until such a time that the CQ ring has room
+      for more entries. If this overflow condition is entered, attempting to
+      submit more IO will fail with the <b>-EBUSY</b> error value, if it can't
+      flush the overflown events to the CQ ring. If this happens, the
+      application must reap events from the CQ ring and attempt the submit
+      again. If the kernel has no free memory to store the event internally it
+      will be visible by an increase in the overflow value on the cqring.
+      Available since kernel 5.5. Additionally <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> will
+      return <b>-EBADR</b> the next time it would otherwise sleep waiting for
+      completions (since kernel 5.19).
+    <p class="Pp"></p>
+  </dd>
+  <dt id="IORING_FEAT_SUBMIT_STABLE"><a class="permalink" href="#IORING_FEAT_SUBMIT_STABLE"><b>IORING_FEAT_SUBMIT_STABLE</b></a></dt>
+  <dd>If this flag is set, applications can be certain that any data for async
+      offload has been consumed when the kernel has consumed the SQE. Available
+      since kernel 5.5.</dd>
+  <dt id="IORING_FEAT_RW_CUR_POS"><a class="permalink" href="#IORING_FEAT_RW_CUR_POS"><b>IORING_FEAT_RW_CUR_POS</b></a></dt>
+  <dd>If this flag is set, applications can specify <i>offset</i> == <b>-1</b>
+      with <b>IORING_OP_{READV,WRITEV}</b> , <b>IORING_OP_{READ,WRITE}_FIXED</b>
+      , and <b>IORING_OP_{READ,WRITE}</b> to mean current file position, which
+      behaves like <i>preadv2(2)</i> and <i>pwritev2(2)</i> with <i>offset</i>
+      == <b>-1.</b> It'll use (and update) the current file position. This
+      obviously comes with the caveat that if the application has multiple reads
+      or writes in flight, then the end result will not be as expected. This is
+      similar to threads sharing a file descriptor and doing IO using the
+      current file position. Available since kernel 5.6.</dd>
+  <dt id="IORING_FEAT_CUR_PERSONALITY"><a class="permalink" href="#IORING_FEAT_CUR_PERSONALITY"><b>IORING_FEAT_CUR_PERSONALITY</b></a></dt>
+  <dd>If this flag is set, then io_uring guarantees that both sync and async
+      execution of a request assumes the credentials of the task that called
+      <i>io_uring_enter(2)</i> to queue the requests. If this flag isn't set,
+      then requests are issued with the credentials of the task that originally
+      registered the io_uring. If only one task is using a ring, then this flag
+      doesn't matter as the credentials will always be the same. Note that this
+      is the default behavior, tasks can still register different personalities
+      through <i>io_uring_register(2)</i> with
+      <b>IORING_REGISTER_PERSONALITY</b> and specify the personality to use in
+      the sqe. Available since kernel 5.6.</dd>
+  <dt id="IORING_FEAT_FAST_POLL"><a class="permalink" href="#IORING_FEAT_FAST_POLL"><b>IORING_FEAT_FAST_POLL</b></a></dt>
+  <dd>If this flag is set, then io_uring supports using an internal poll
+      mechanism to drive data/space readiness. This means that requests that
+      cannot read or write data to a file no longer need to be punted to an
+      async thread for handling, instead they will begin operation when the file
+      is ready. This is similar to doing poll + read/write in userspace, but
+      eliminates the need to do so. If this flag is set, requests waiting on
+      space/data consume a lot less resources doing so as they are not blocking
+      a thread. Available since kernel 5.7.</dd>
+  <dt id="IORING_FEAT_POLL_32BITS"><a class="permalink" href="#IORING_FEAT_POLL_32BITS"><b>IORING_FEAT_POLL_32BITS</b></a></dt>
+  <dd>If this flag is set, the <b>IORING_OP_POLL_ADD</b> command accepts the
+      full 32-bit range of epoll based flags. Most notably <b>EPOLLEXCLUSIVE</b>
+      which allows exclusive (waking single waiters) behavior. Available since
+      kernel 5.9.</dd>
+  <dt id="IORING_FEAT_SQPOLL_NONFIXED"><a class="permalink" href="#IORING_FEAT_SQPOLL_NONFIXED"><b>IORING_FEAT_SQPOLL_NONFIXED</b></a></dt>
+  <dd>If this flag is set, the <b>IORING_SETUP_SQPOLL</b> feature no longer
+      requires the use of fixed files. Any normal file descriptor can be used
+      for IO commands without needing registration. Available since kernel
+    5.11.</dd>
+  <dt id="IORING_FEAT_ENTER_EXT_ARG"><a class="permalink" href="#IORING_FEAT_ENTER_EXT_ARG"><b>IORING_FEAT_ENTER_EXT_ARG</b></a></dt>
+  <dd>If this flag is set, then the <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> system call
+      supports passing in an extended argument instead of just the
+      <i>sigset_t</i> of earlier kernels. This. extended argument is of type
+      <i>struct io_uring_getevents_arg</i> and allows the caller to pass in both
+      a <i>sigset_t</i> and a timeout argument for waiting on events. The struct
+      layout is as follows:</dd>
+</dl>
+<pre>struct io_uring_getevents_arg {
+<br/>
+    __u64 sigmask;
+<br/>
+    __u32 sigmask_sz;
+<br/>
+    __u32 pad;
+<br/>
+    __u64 ts;
+};
+</pre>
+<p class="Pp">and a pointer to this struct must be passed in if
+    <b>IORING_ENTER_EXT_ARG</b> is set in the flags for the enter system call.
+    Available since kernel 5.11.</p>
+<dl class="Bl-tag">
+  <dt id="IORING_FEAT_NATIVE_WORKERS"><a class="permalink" href="#IORING_FEAT_NATIVE_WORKERS"><b>IORING_FEAT_NATIVE_WORKERS</b></a></dt>
+  <dd>If this flag is set, io_uring is using native workers for its async
+      helpers. Previous kernels used kernel threads that assumed the identity of
+      the original io_uring owning task, but later kernels will actively create
+      what looks more like regular process threads instead. Available since
+      kernel 5.12.</dd>
+  <dt id="IORING_FEAT_RSRC_TAGS"><a class="permalink" href="#IORING_FEAT_RSRC_TAGS"><b>IORING_FEAT_RSRC_TAGS</b></a></dt>
+  <dd>If this flag is set, then io_uring supports a variety of features related
+      to fixed files and buffers. In particular, it indicates that registered
+      buffers can be updated in-place, whereas before the full set would have to
+      be unregistered first. Available since kernel 5.13.</dd>
+  <dt id="IORING_FEAT_CQE_SKIP"><a class="permalink" href="#IORING_FEAT_CQE_SKIP"><b>IORING_FEAT_CQE_SKIP</b></a></dt>
+  <dd>If this flag is set, then io_uring supports setting
+      <b>IOSQE_CQE_SKIP_SUCCESS</b> in the submitted SQE, indicating that no CQE
+      should be generated for this SQE if it executes normally. If an error
+      happens processing the SQE, a CQE with the appropriate error value will
+      still be generated. Available since kernel 5.17.</dd>
+  <dt id="IORING_FEAT_LINKED_FILE"><a class="permalink" href="#IORING_FEAT_LINKED_FILE"><b>IORING_FEAT_LINKED_FILE</b></a></dt>
+  <dd>If this flag is set, then io_uring supports sane assignment of files for
+      SQEs that have dependencies. For example, if a chain of SQEs are submitted
+      with <b>IOSQE_IO_LINK,</b> then kernels without this flag will prepare the
+      file for each link upfront. If a previous link opens a file with a known
+      index, eg if direct descriptors are used with open or accept, then file
+      assignment needs to happen post execution of that SQE. If this flag is
+      set, then the kernel will defer file assignment until execution of a given
+      request is started. Available since kernel 5.17.</dd>
+  <dt id="IORING_FEAT_REG_REG_RING"><a class="permalink" href="#IORING_FEAT_REG_REG_RING"><b>IORING_FEAT_REG_REG_RING</b></a></dt>
+  <dd>If this flag is set, then io_uring supports calling
+      <a class="Xr" href="../2/io_uring_register.html"><b>io_uring_register</b>(2)</a> using a registered ring fd, via
+      <b>IORING_REGISTER_USE_REGISTERED_RING</b>. Available since kernel 6.3.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">The rest of the fields in the <i>struct io_uring_params</i> are
+    filled in by the kernel, and provide the information necessary to memory map
+    the submission queue, completion queue, and the array of submission queue
+    entries. <i>sq_entries</i> specifies the number of submission queue entries
+    allocated. <i>sq_off</i> describes the offsets of various ring buffer
+    fields:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>struct io_sqring_offsets {
+<br/>
+    __u32 head;
+<br/>
+    __u32 tail;
+<br/>
+    __u32 ring_mask;
+<br/>
+    __u32 ring_entries;
+<br/>
+    __u32 flags;
+<br/>
+    __u32 dropped;
+<br/>
+    __u32 array;
+<br/>
+    __u32 resv1;
+<br/>
+    __u64 user_addr;
+};
+</pre>
+<br/>
+<p class="Pp">Taken together, <i>sq_entries</i> and <i>sq_off</i> provide all of
+    the information necessary for accessing the submission queue ring buffer and
+    the submission queue entry array. The submission queue can be mapped with a
+    call like:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>ptr = mmap(0, sq_off.array + sq_entries * sizeof(__u32),
+<br/>
+           PROT_READ|PROT_WRITE, MAP_SHARED|MAP_POPULATE,
+<br/>
+           ring_fd, IORING_OFF_SQ_RING);
+</pre>
+<br/>
+<p class="Pp">where <i>sq_off</i> is the <i>io_sqring_offsets</i> structure, and
+    <i>ring_fd</i> is the file descriptor returned from
+    <a class="Xr" href="../2/io_uring_setup.html"><b>io_uring_setup</b>(2)</a>. The addition of <i>sq_off.array</i> to the length
+    of the region accounts for the fact that the ring is located at the end of
+    the data structure. As an example, the ring buffer head pointer can be
+    accessed by adding <i>sq_off.head</i> to the address returned from
+    <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a>:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>head = ptr + sq_off.head;
+</pre>
+<br/>
+<p class="Pp">The <i>flags</i> field is used by the kernel to communicate state
+    information to the application. Currently, it is used to inform the
+    application when a call to <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> is necessary. See the
+    documentation for the <b>IORING_SETUP_SQPOLL</b> flag above. The
+    <i>dropped</i> member is incremented for each invalid submission queue entry
+    encountered in the ring buffer.</p>
+<p class="Pp">The head and tail track the ring buffer state. The tail is
+    incremented by the application when submitting new I/O, and the head is
+    incremented by the kernel when the I/O has been successfully submitted.
+    Determining the index of the head or tail into the ring is accomplished by
+    applying a mask:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>index = tail &amp; ring_mask;
+</pre>
+<br/>
+<p class="Pp">The array of submission queue entries is mapped with:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>sqentries = mmap(0, sq_entries * sizeof(struct io_uring_sqe),
+<br/>
+                 PROT_READ|PROT_WRITE, MAP_SHARED|MAP_POPULATE,
+<br/>
+                 ring_fd, IORING_OFF_SQES);
+</pre>
+<br/>
+<p class="Pp">The completion queue is described by <i>cq_entries</i> and
+    <i>cq_off</i> shown here:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>struct io_cqring_offsets {
+<br/>
+    __u32 head;
+<br/>
+    __u32 tail;
+<br/>
+    __u32 ring_mask;
+<br/>
+    __u32 ring_entries;
+<br/>
+    __u32 overflow;
+<br/>
+    __u32 cqes;
+<br/>
+    __u32 flags;
+<br/>
+    __u32 resv1;
+<br/>
+    __u64 user_addr;
+};
+</pre>
+<br/>
+<p class="Pp">The completion queue is simpler, since the entries are not
+    separated from the queue itself, and can be mapped with:</p>
+<p class="Pp">
+  <br/>
+</p>
+<pre>ptr = mmap(0, cq_off.cqes + cq_entries * sizeof(struct io_uring_cqe),
+<br/>
+           PROT_READ|PROT_WRITE, MAP_SHARED|MAP_POPULATE, ring_fd,
+<br/>
+           IORING_OFF_CQ_RING);
+</pre>
+<br/>
+<p class="Pp">Closing the file descriptor returned by <a class="Xr" href="../2/io_uring_setup.html"><b>io_uring_setup</b>(2)</a>
+    will free all resources associated with the io_uring context. Note that this
+    may happen asynchronously within the kernel, so it is not guaranteed that
+    resources are freed immediately.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp"><a class="Xr" href="../2/io_uring_setup.html"><b>io_uring_setup</b>(2)</a> returns a new file descriptor on success.
+    The application may then provide the file descriptor in a subsequent
+    <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a> call to map the submission and completion queues, or to the
+    <a class="Xr" href="../2/io_uring_register.html"><b>io_uring_register</b>(2)</a> or <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a> system calls.</p>
+<p class="Pp">On error, a negative error code is returned. The caller should not
+    rely on <i>errno</i> variable.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+<dl class="Bl-tag">
+  <dt id="EFAULT"><a class="permalink" href="#EFAULT"><b>EFAULT</b></a></dt>
+  <dd>params is outside your accessible address space.</dd>
+  <dt id="EINVAL"><a class="permalink" href="#EINVAL"><b>EINVAL</b></a></dt>
+  <dd>The resv array contains non-zero data, p.flags contains an unsupported
+      flag, <i>entries</i> is out of bounds, <b>IORING_SETUP_SQ_AFF</b> was
+      specified, but <b>IORING_SETUP_SQPOLL</b> was not, or
+      <b>IORING_SETUP_CQSIZE</b> was specified, but
+      <i>io_uring_params.cq_entries</i> was invalid.</dd>
+  <dt id="EMFILE"><a class="permalink" href="#EMFILE"><b>EMFILE</b></a></dt>
+  <dd>The per-process limit on the number of open file descriptors has been
+      reached (see the description of <b>RLIMIT_NOFILE</b> in
+      <a class="Xr" href="../2/getrlimit.html"><b>getrlimit</b>(2)</a>).</dd>
+  <dt id="ENFILE"><a class="permalink" href="#ENFILE"><b>ENFILE</b></a></dt>
+  <dd>The system-wide limit on the total number of open files has been
+    reached.</dd>
+  <dt id="ENOMEM"><a class="permalink" href="#ENOMEM"><b>ENOMEM</b></a></dt>
+  <dd>Insufficient kernel resources are available.</dd>
+  <dt id="EPERM"><a class="permalink" href="#EPERM"><b>EPERM</b></a></dt>
+  <dd><b>IORING_SETUP_SQPOLL</b> was specified, but the effective user ID of the
+      caller did not have sufficient privileges.</dd>
+  <dt id="EPERM~2"><a class="permalink" href="#EPERM~2"><b>EPERM</b></a></dt>
+  <dd><i>/proc/sys/kernel/io_uring_disabled</i> has the value 2, or it has the
+      value 1 and the calling process does not hold the <b>CAP_SYS_ADMIN</b>
+      capability or is not a member of
+    <i>/proc/sys/kernel/io_uring_group.</i></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../2/io_uring_register.html"><b>io_uring_register</b>(2)</a>, <a class="Xr" href="../2/io_uring_enter.html"><b>io_uring_enter</b>(2)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2019-01-29</td>
+    <td class="foot-os">Linux</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

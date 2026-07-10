@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="perform on a special shared receive queue (SRQ) configuration manipulations">
+<title>ibv_post_srq_ops(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">ibv_post_srq_ops(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">IBV_POST_SRQ_OPS(3)</td>
+    <td class="head-vol">Libibverbs Programmer's Manual</td>
+    <td class="head-rtitle">IBV_POST_SRQ_OPS(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">ibv_post_srq_ops - perform on a special shared receive queue (SRQ)
+    configuration manipulations</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;infiniband/verbs.h&gt;</b>
+
+<b>int ibv_post_srq_ops(struct ibv_srq </b><i>*srq</i><b>, struct ibv_ops_wr </b><i>*wr</i><b>,</b>
+<b>                     struct ibv_ops_wr </b><i>**bad_wr</i><b>);</b></pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <b>ibv_post_srq_ops()</b> performs series of offload
+    configuration manipulations on special types of SRQ <i>srq. Currenlty it is
+    used to configure tag matching SRQ. Series of configuration</i> operations
+    defined by linked lists of struct ibv_ops_wr elements starting from
+    <i>wr.</i></p>
+<p class="Pp"></p>
+<pre>struct ibv_ops_wr {
+<br/>
+uint64_t                wr_id;   /* User defined WR ID */
+/* Pointer to next WR in list, NULL if last WR */
+struct ibv_ops_wr      *next;
+enum ibv_ops_wr_opcode  opcode;  /* From enum ibv_ops_wr_opcode */
+int                     flags;   /* From enum ibv_ops_flags */
+struct {
+<br/>
+/* Number of unexpected messages
+<br/>
+ * handled by SW */
+uint32_t unexpected_cnt;
+/* Input parameter for the DEL opcode
+<br/>
+ * and output parameter for the ADD opcode */
+uint32_t handle;
+struct {
+<br/>
+uint64_t                recv_wr_id;   /* User defined WR ID for TM_RECV */
+struct ibv_sge         *sg_list; /* Pointer to the s/g array */
+int                     num_sge; /* Size of the s/g array */
+uint64_t                tag;
+uint64_t                mask;    /* Incoming message considered matching if
+<br/>
+                                    TMH.tag &amp; entry.mask == entry.tag */
+<br/>
+} add;
+<br/>
+} tm;
+<br/>
+};</pre>
+<p class="Pp">First part of struct ibv_ops_wr retains ibv_send_wr notion. Opcode
+    defines operation to perform. Currently supported IBV_WR_TAG_ADD,
+    IBV_WR_TAG_DEL and IBV_WR_TAG_SYNC values. See below for detailed
+    description.</p>
+<p class="Pp">To allow reliable data delivery TM SRQ maintains special low level
+    synchronization primitive - phase synchronization. Receive side message
+    handling comprises two concurrent activities - posting tagged buffers by SW
+    and receiving incoming messages by HW. This process considered coherent only
+    if all unexpected messages received by HW is completely processed in SW. To
+    pass to hardware number of processed unexpected messages unexpected_cnt
+    field should be used and IBV_OPS_TM_SYNC flag should be set.</p>
+<p class="Pp">To request WC for tag list operations IBV_OPS_SIGNALED flags
+    should be passed. In this case WC will be generated on TM SRQ's CQ, provided
+    wr_id will identify WC.</p>
+<p class="Pp">Opcode IBV_WR_TAG_ADD used to add tag entry to tag matching list.
+    Tag entry consists of SGE list, tag &amp; mask (matching parameters), user
+    specified opaque wr_id (passed via recv_wr_id field) and uniquely identified
+    by handle (returned by driver). Size of tag matching list is limited by
+    max_num_tags. SGE list size is limited by max_sge.</p>
+<p class="Pp">Opcode IBV_WR_TAG_DEL removes previously added tag entry. Field
+    handle should be set to value returned by previously performed
+    IBV_WR_TAG_ADD operation. Operation may fail due to concurrent tag
+    consumption - in this case IBV_WC_TM_ERR status will be returned in WC.</p>
+<p class="Pp">Opcode IBV_WR_TAG_SYNC may be used if no changes to matching list
+    required, just to updated unexpected messages counter.</p>
+<p class="Pp">IBV_WC_TM_SYNC_REQ flag returned in list operation WC shows that
+    counter synchronization required. This flag also may be returned by
+    unexpected receive WC, asking for IBV_WR_TAG_SYNC operation to keep TM
+    coherence consistency.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp"><b>ibv_post_srq_ops()</b> returns 0 on success, or the value of
+    errno on failure (which indicates the failure reason).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/ibv_create_srq_ex.html"><b>ibv_create_srq_ex</b>(3)</a>,</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<dl class="Bl-tag">
+  <dt id="Artemy"><a class="permalink" href="#Artemy">Artemy Kovalyov
+    &lt;artemyko@mellanox.com&gt;</a></dt>
+  <dd></dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2017-03-26</td>
+    <td class="foot-os">libibverbs</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

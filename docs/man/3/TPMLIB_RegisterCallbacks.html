@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Register callbacks for implementing customized behavior of certain functions">
+<title>TPMLIB_RegisterCallbacks(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">TPMLIB_RegisterCallbacks(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#LIBRARY">LIBRARY</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#ERRORS">ERRORS</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">TPMLIB_RegisterCallbacks(3)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">TPMLIB_RegisterCallbacks(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">TPMLIB_RegisterCallbacks - Register callbacks for implementing
+    customized behavior of certain functions</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBRARY"><a class="permalink" href="#LIBRARY">LIBRARY</a></h1>
+<p class="Pp">TPM library (libtpms, -ltpms)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>#include &lt;libtpms/tpm_types.h</b>&gt;</p>
+<p class="Pp"><b>#include &lt;libtpms/tpm_library.h</b>&gt;</p>
+<p class="Pp"><b>#include &lt;libtpms/tpm_error.h</b>&gt;</p>
+<p class="Pp"><b>TPM_RESULT TPMLIB_RegisterCallbacks(struct tpmlibrary_callbacks
+    *);</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <b>TPMLIB_RegisterCallbacks()</b> functions allows a user to
+    register several callback functions with libtpms that enable a user to
+    implement customized behavior of several library-internal functions. This
+    feature will typically be used if the behavior of the provided internal
+    functions is not as needed. An example would be that libtpms writes all data
+    into files with certain names. If, however, the data needs to be written
+    into a special type of storage the user will register callbacks with the
+    library that are invoked when the TPM needs to write, read or delete data
+    from storage and the user may then implement custom behavior in these
+    functions.</p>
+<p class="Pp">The following shows the data structure used for registering the
+    callbacks.</p>
+<p class="Pp"></p>
+<pre>    struct libtpms_callbacks {  
+            int sizeOfStruct;
+            TPM_RESULT (*tpm_nvram_init)(void);
+            TPM_RESULT (*tpm_nvram_loaddata)(unsigned char **data,
+                                             uint32_t *length,
+                                             uint32_t tpm_number,
+                                             const char *name);
+            TPM_RESULT (*tpm_nvram_storedata)(const unsigned char *data,
+                                              uint32_t length,
+                                              uint32_t tpm_number,
+                                              const char *name);
+            TPM_RESULT (*tpm_nvram_deletename)(uint32_t tpm_number,
+                                               const char *name,
+                                               TPM_BOOL mustExist);
+            TPM_RESULT (*tpm_io_init)(void);
+            TPM_RESULT (*tpm_io_getlocality)(TPM_MODIFIER_INDICATOR *localityModifer,
+                                             uint32_t tpm_number);
+            TPM_RESULT (*tpm_io_getphysicalpresence)(TPM_BOOL *physicalPresence,
+                                                     uint32_t tpm_number);
+    };
+</pre>
+<p class="Pp">Currently 7 callbacks are supported. If a callback pointer in the
+    above structure is set to NULL the default library-internal implementation
+    of that function will be used.</p>
+<p class="Pp">If one of the callbacks in either the <i>tpm_nvram</i> or
+    <i>tpm_io</i> group is set, then all of the callbacks in the respective
+    group should be implemented.</p>
+<dl class="Bl-tag">
+  <dt id="tpm_nvram_init"><a class="permalink" href="#tpm_nvram_init"><b>tpm_nvram_init</b></a></dt>
+  <dd>This function is called before any access to persitent storage is done. It
+      allows the user to perform initialization of access to persitent storage.
+    <p class="Pp">Upon success this function should return <b>TPM_SUCCESS</b>, a
+        failure code otherwise.</p>
+    <p class="Pp">The default implementation requires that the environment
+        variable <i>TPM_PATH</i> is set and points to a directory where the
+        TPM's state can be written to. If the variable is not set, it will
+        return <b>TPM_FAIL</b> and the initialization of the TPM in
+        <b>TPMLIB_MainInit()</b> will fail.</p>
+  </dd>
+  <dt id="tpm_nvram_loaddata"><a class="permalink" href="#tpm_nvram_loaddata"><b>tpm_nvram_loaddata</b></a></dt>
+  <dd>This function is called when the TPM wants to load state from persistent
+      storage. The implementing function must allocate a buffer (<i>data</i>)
+      and return it to the TPM along with the length of the buffer
+      (<i>length</i>). The <i>tpm_number</i> is always 0 and can be ignored. The
+      <i>name</i> parameter is either one of <b>TPM_SAVESTATE_NAME</b>,
+      <b>TPM_VOLATILESTATE_NAME</b>, or <b>TPM_PERMANENT_ALL_NAME</b> and
+      indicates which one of the 3 types of state is supposed to be loaded.
+    <p class="Pp">Upon success this function should return <b>TPM_SUCCESS</b>, a
+        failure code otherwise.</p>
+    <p class="Pp">The default implementation writes the TPM's state into files
+        in a directory where the <i>TPM_PATH</i> environment variable pointed to
+        when <b>TPMLIB_MainInit()</b> was executed. Failure to write the TPM's
+        state into files will put the TPM into failure mode.</p>
+    <p class="Pp">If this function is not set (NULL), then the original NVChip
+        file will be read when using a TPM 2. This file contains the memory dump
+        of internal data structures and is neither portable between endianesses
+        or architectures of different sizes (32 bit, 64 bit), nor will it allow
+        handling extensions of those internal data structures it carries through
+        additions in the TPM 2 code. In the worst case this may result in memory
+        access errors by internal functions and result in crashes. Therefore, it
+        is recommended to set this function and handle the writing of the TPM
+        state.</p>
+  </dd>
+  <dt id="tpm_nvram_storedata"><a class="permalink" href="#tpm_nvram_storedata"><b>tpm_nvram_storedata</b></a></dt>
+  <dd>This function is called when the TPM wants to store state to persistent
+      storage. The <i>data</i> and <i>length</i> parameters provide the data to
+      be stored and the number of bytes. The implementing function must not free
+      the <i>data</i> buffer. The <i>tpm_number</i> is always 0 and can be
+      ignored. The <i>name</i> parameter is either one of
+      <b>TPM_SAVESTATE_NAME</b>, <b>TPM_VOLATILESTATE_NAME</b>, or
+      <b>TPM_PERMANENT_ALL_NAME</b> and indicates which one of the 3 types of
+      state is supposed to be stored.
+    <p class="Pp">Upon success this function should return <b>TPM_SUCCESS</b>, a
+        failure code otherwise.</p>
+    <p class="Pp">The default implementation reads the TPM's state from files in
+        a directory where the <i>TPM_PATH</i> environment variable pointed to
+        when <b>TPMLIB_MainInit()</b> was executed. Failure to read the TPM's
+        state from files may put the TPM into failure mode.</p>
+    <p class="Pp">If this function is not set (NULL), the memory dump will be
+        written to the NVChip file (TPM 2) and the same comments apply as when
+        the <i>tpm_nvram_loaddata</i> interface function is not set.</p>
+  </dd>
+  <dt id="tpm_nvram_deletename"><a class="permalink" href="#tpm_nvram_deletename"><b>tpm_nvram_deletename</b></a></dt>
+  <dd>This function is called when the TPM wants to delete state on persistent
+      storage. The <i>tpm_number</i> is always 0 and can be ignored. The
+      <i>name</i> parameter is either one of <b>TPM_SAVESTATE_NAME</b>,
+      <b>TPM_VOLATILESTATE_NAME</b>, or <b>TPM_PERMANENT_ALL_NAME</b> and
+      indicates which one of the 3 types of state is supposed to be deleted. The
+      <i>mustExist</i> parameter indicates whether the given data must exist and
+      the implementing function should return <b>TPM_FAIL</b> if the data did
+      not exist.
+    <p class="Pp">Upon success this function should return <b>TPM_SUCCESS</b>, a
+        failure code otherwise.</p>
+    <p class="Pp">The default implementation deletes the TPM's state files in a
+        directory where the <i>TPM_PATH</i> environment variable pointed to when
+        <b>TPMLIB_MainInit()</b> was executed. Failure to delete the TPM's state
+        files may put the TPM into failure mode.</p>
+  </dd>
+  <dt id="tpm_io_init"><a class="permalink" href="#tpm_io_init"><b>tpm_io_init</b></a></dt>
+  <dd>This function is called to initialize the IO subsystem of the TPM.
+    <p class="Pp">Upon success this function should return <b>TPM_SUCCESS</b>, a
+        failure code otherwise.</p>
+    <p class="Pp">The default implementation simply returns
+      <b>TPM_SUCCESS</b>.</p>
+  </dd>
+  <dt id="tpm_io_getlocality"><a class="permalink" href="#tpm_io_getlocality"><b>tpm_io_getlocality</b></a></dt>
+  <dd>This function is called when the TPM needs to determine the locality under
+      which a command is supposed to be executed. The implementing function
+      should return the number of the locality by writing it into the
+      <b>localityModifier</b> pointer.
+    <p class="Pp">Upon success this function should return <b>TPM_SUCCESS</b>, a
+        failure code otherwise.</p>
+    <p class="Pp">The default implementation returns 0 as the locality.</p>
+  </dd>
+  <dt id="tpm_io_getphysicalpresence"><a class="permalink" href="#tpm_io_getphysicalpresence"><b>tpm_io_getphysicalpresence</b></a></dt>
+  <dd>This function is called when the TPM needs to determine whether physical
+      presence has been asserted. The implementing function should write either
+      <b>TRUE</b> or <b>FALSE</b> into the physicalPresence pointer.
+    <p class="Pp">Upon success this function should return <b>TPM_SUCCESS</b>, a
+        failure code otherwise.</p>
+    <p class="Pp">The default implementation returns <b>FALSE</b> for physical
+        presence.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">Upon successful completion, <b>TPMLIB_MainInit()</b> returns
+    <b>TPM_SUCCESS</b>, an error value otherwise.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ERRORS"><a class="permalink" href="#ERRORS">ERRORS</a></h1>
+<dl class="Bl-tag">
+  <dt id="TPM_SUCCESS"><a class="permalink" href="#TPM_SUCCESS"><b>TPM_SUCCESS</b></a></dt>
+  <dd>The function completed successfully.</dd>
+  <dt id="TPM_FAIL"><a class="permalink" href="#TPM_FAIL"><b>TPM_FAIL</b></a></dt>
+  <dd>General failure.</dd>
+</dl>
+<p class="Pp">For a complete list of TPM error codes please consult the include
+    file <b>libtpms/tpm_error.h</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre> #include &lt;libtpms/tpm_types.h&gt;
+ #include &lt;libtpms/tpm_library.h&gt;
+ #include &lt;libtpms/tpm_error.h&gt;
+ static TPM_MODIFIER_INDICATOR locality;
+ static TPM_RESULT mytpm_io_init(void)
+ {
+        return TPM_SUCCESS;
+ }
+ static TPM_RESULT mytpm_io_getlocality(TPM_MODIFIER_INDICATOR *locModif,
+                                        uint32_t tpm_number)
+ {
+        *locModif = locality;
+        return TPM_SUCCESS:
+ }
+ static TPM_RESULT mytpm_io_getphysicalpresence(TPM_BOOL *physicalPresence,
+                                                uint32_t tpm_number)
+ {
+        *physicalPresence = FALSE;
+        return TPM_SUCCESS;
+ }
+ int main(void) {
+     TPM_RESULT res;
+     unsigned char *respbuffer;
+     uint32_t resp_size;
+     uint32_t respbufsize;
+     unsigned char *command;
+     uint32_t command_size;
+     struct libtpms_callbacks cbs = {
+         .sizeOfStruct               = sizeof(struct libtpms_callbacks),
+         .tpm_nvram_init             = NULL,
+         .tpm_nvram_loaddata         = NULL,
+         .tpm_nvram_storedata        = NULL,
+         .tpm_nvram_deletename       = NULL,
+         .tpm_io_init                = mytpm_io_init,
+         .tpm_io_getlocality         = mytpm_io_getlocality,
+         .tpm_io_getphysicalpresence = mytpm_io_getphysicalpresence,
+     };
+     [...]
+     if (TPMLIB_RegisterCallbacks(&amp;cbs) != TPM_SUCCESS) {
+         fprintf(stderr, &quot;Could not register the callbacks.\n&quot;);
+         return 1;
+     }
+     if (TPMLIB_MainInit()) != TPM_SUCCESS) {
+         fprintf(stderr, &quot;Could not start the TPM.\n&quot;);
+         return 1;
+     }
+     [...]
+     /* build TPM command */
+     [...]
+     res = TPMLIB_Process(&amp;respbuffer, &amp;resp_size,
+                          &amp;respbufsize,
+                          command, command_size);
+     [...]
+     TPMLIB_Terminate();
+     return 0;
+ }
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/TPMLIB_Process.html"><b>TPMLIB_Process</b>(3)</a>, <a class="Xr" href="../3/TPMLIB_MainInit.html"><b>TPMLIB_MainInit</b>(3)</a>,
+    <a class="Xr" href="../3/TPMLIB_MainInit.html"><b>TPMLIB_Terminate</b>(3)</a>, <b>TPMLIB_DecodeBlobs</b>(3)</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2025-06-24</td>
+    <td class="foot-os">libtpms</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

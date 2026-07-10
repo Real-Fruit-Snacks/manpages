@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="How diverse parts of OpenSSL treat pass phrases character encoding">
+<title>passphrase-encoding(7ssl) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">passphrase-encoding(7ssl)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#The_general_case">The
+  general case</a></li><li><a href="#PKCS_12">PKCS#12</a></li><li><a href="#OSSL_STORE">OSSL_STORE</a></li><li><a href="#RECOMMENDATIONS">RECOMMENDATIONS</a></li><li><a href="#Creating_new_objects">Creating
+  new objects</a></li><li><a href="#Opening_existing_objects">Opening
+  existing objects</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PASSPHRASE-ENCODING(7SSL)</td>
+    <td class="head-vol">OpenSSL</td>
+    <td class="head-rtitle">PASSPHRASE-ENCODING(7SSL)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">passphrase-encoding - How diverse parts of OpenSSL treat pass
+    phrases character encoding</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">In a modern world with all sorts of character encodings, the
+    treatment of pass phrases has become increasingly complex. This manual page
+    attempts to give an overview over how this problem is currently addressed in
+    different parts of the OpenSSL library.</p>
+<section class="Ss">
+<h2 class="Ss" id="The_general_case"><a class="permalink" href="#The_general_case">The
+  general case</a></h2>
+<p class="Pp">The OpenSSL library doesn't treat pass phrases in any special way
+    as a general rule, and trusts the application or user to choose a suitable
+    character set and stick to that throughout the lifetime of affected objects.
+    This means that for an object that was encrypted using a pass phrase encoded
+    in ISO-8859-1, that object needs to be decrypted using a pass phrase encoded
+    in ISO-8859-1. Using the wrong encoding is expected to cause a decryption
+    failure.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="PKCS_12"><a class="permalink" href="#PKCS_12">PKCS#12</a></h2>
+<p class="Pp">PKCS#12 is a bit different regarding pass phrase encoding. The
+    standard stipulates that the pass phrase shall be encoded as an ASN.1
+    BMPString, which consists of the code points of the basic multilingual
+    plane, encoded in big endian (UCS-2 BE).</p>
+<p class="Pp">OpenSSL tries to adapt to this requirements in one of the
+    following manners:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>Treats the received pass phrase as UTF-8 encoded and tries to re-encode it
+      to UTF-16 (which is the same as UCS-2 for characters U+0000 to U+D7FF and
+      U+E000 to U+FFFF, but becomes an expansion for any other character), or
+      failing that, proceeds with step 2.</dd>
+  <dt>2.</dt>
+  <dd>Assumes that the pass phrase is encoded in ASCII or ISO-8859-1 and
+      opportunistically prepends each byte with a zero byte to obtain the UCS-2
+      encoding of the characters, which it stores as a BMPString.
+    <p class="Pp">Note that since there is no check of your locale, this may
+        produce UCS-2 / UTF-16 characters that do not correspond to the original
+        pass phrase characters for other character sets, such as any ISO-8859-X
+        encoding other than ISO-8859-1 (or for Windows, CP 1252 with exception
+        for the extra &quot;graphical&quot; characters in the 0x80-0x9F
+      range).</p>
+  </dd>
+</dl>
+<p class="Pp">OpenSSL versions older than 1.1.0 do variant 2 only, and that is
+    the reason why OpenSSL still does this, to be able to read files produced
+    with older versions.</p>
+<p class="Pp">It should be noted that this approach isn't entirely fault
+  free.</p>
+<p class="Pp">A pass phrase encoded in ISO-8859-2 could very well have a
+    sequence such as 0xC3 0xAF (which is the two characters &quot;LATIN CAPITAL
+    LETTER A WITH BREVE&quot; and &quot;LATIN CAPITAL LETTER Z WITH DOT
+    ABOVE&quot; in ISO-8859-2 encoding), but would be misinterpreted as the
+    perfectly valid UTF-8 encoded code point U+00EF (LATIN SMALL LETTER I WITH
+    DIAERESIS) <i>if the pass phrase doesn't contain anything that</i> <i>would
+    be invalid UTF-8</i>. A pass phrase that contains this kind of byte sequence
+    will give a different outcome in OpenSSL 1.1.0 and newer than in OpenSSL
+    older than 1.1.0.</p>
+<p class="Pp"></p>
+<pre> 0x00 0xC3 0x00 0xAF                    # OpenSSL older than 1.1.0
+ 0x00 0xEF                              # OpenSSL 1.1.0 and newer
+</pre>
+<p class="Pp">On the same accord, anything encoded in UTF-8 that was given to
+    OpenSSL older than 1.1.0 was misinterpreted as ISO-8859-1 sequences.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="OSSL_STORE"><a class="permalink" href="#OSSL_STORE">OSSL_STORE</a></h2>
+<p class="Pp"><a class="Xr" href="../7ssl/ossl_store.html"><b>ossl_store</b>(7)</a> acts as a general interface to access all
+    kinds of objects, potentially protected with a pass phrase, a PIN or
+    something else. This API stipulates that pass phrases should be UTF-8
+    encoded, and that any other pass phrase encoding may give undefined results.
+    This API relies on the application to ensure UTF-8 encoding, and doesn't
+    check that this is the case, so what it gets, it will also pass to the
+    underlying loader.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RECOMMENDATIONS"><a class="permalink" href="#RECOMMENDATIONS">RECOMMENDATIONS</a></h1>
+<p class="Pp">This section assumes that you know what pass phrase was used for
+    encryption, but that it may have been encoded in a different character
+    encoding than the one used by your current input method. For example, the
+    pass phrase may have been used at a time when your default encoding was
+    ISO-8859-1 (i.e. &quot;na&#x00EF;ve&quot; resulting in the byte sequence
+    0x6E 0x61 0xEF 0x76 0x65), and you're now in an environment where your
+    default encoding is UTF-8 (i.e. &quot;na&#x00EF;ve&quot; resulting in the
+    byte sequence 0x6E 0x61 0xC3 0xAF 0x76 0x65). Whenever it's mentioned that
+    you should use a certain character encoding, it should be understood that
+    you either change the input method to use the mentioned encoding when you
+    type in your pass phrase, or use some suitable tool to convert your pass
+    phrase from your default encoding to the target encoding.</p>
+<p class="Pp">Also note that the sub-sections below discuss human readable pass
+    phrases. This is particularly relevant for PKCS#12 objects, where human
+    readable pass phrases are assumed. For other objects, it's as legitimate to
+    use any byte sequence (such as a sequence of bytes from <i>/dev/urandom</i>
+    that's been saved away), which makes any character encoding discussion
+    irrelevant; in such cases, simply use the same byte sequence as it is.</p>
+<section class="Ss">
+<h2 class="Ss" id="Creating_new_objects"><a class="permalink" href="#Creating_new_objects">Creating
+  new objects</a></h2>
+<p class="Pp">For creating new pass phrase protected objects, make sure the pass
+    phrase is encoded using UTF-8. This is default on most modern Unixes, but
+    may involve an effort on other platforms. Specifically for Windows, setting
+    the environment variable <b>OPENSSL_WIN32_UTF8</b> will have anything
+    entered on [Windows] console prompt converted to UTF-8 (command line and
+    separately prompted pass phrases alike).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Opening_existing_objects"><a class="permalink" href="#Opening_existing_objects">Opening
+  existing objects</a></h2>
+<p class="Pp">For opening pass phrase protected objects where you know what
+    character encoding was used for the encryption pass phrase, make sure to use
+    the same encoding again.</p>
+<p class="Pp">For opening pass phrase protected objects where the character
+    encoding that was used is unknown, or where the producing application is
+    unknown, try one of the following:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>Try the pass phrase that you have as it is in the character encoding of
+      your environment. It's possible that its byte sequence is exactly
+    right.</dd>
+  <dt>2.</dt>
+  <dd>Convert the pass phrase to UTF-8 and try with the result. Specifically
+      with PKCS#12, this should open up any object that was created according to
+      the specification.</dd>
+  <dt>3.</dt>
+  <dd>Do a na&#x00EF;ve (i.e. purely mathematical) ISO-8859-1 to UTF-8
+      conversion and try with the result. This differs from the previous attempt
+      because ISO-8859-1 maps directly to U+0000 to U+00FF, which other
+      non-UTF-8 character sets do not.
+    <p class="Pp">This also takes care of the case when a UTF-8 encoded string
+        was used with OpenSSL older than 1.1.0. (for example,
+        <span class="Li">&quot;&#x00EF;&quot;</span>, which is 0xC3 0xAF when
+        encoded in UTF-8, would become 0xC3 0x83 0xC2 0xAF when re-encoded in
+        the na&#x00EF;ve manner. The conversion to BMPString would then yield
+        0x00 0xC3 0x00 0xA4 0x00 0x00, the erroneous/non-compliant encoding used
+        by OpenSSL older than 1.1.0)</p>
+  </dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../7ssl/evp.html"><b>evp</b>(7)</a>, <a class="Xr" href="../7ssl/ossl_store.html"><b>ossl_store</b>(7)</a>, <a class="Xr" href="../3ssl/EVP_BytesToKey.html"><b>EVP_BytesToKey</b>(3)</a>,
+    <b>EVP_DecryptInit</b>(3), <b>PEM_do_header</b>(3), <a class="Xr" href="../3ssl/PKCS12_parse.html"><b>PKCS12_parse</b>(3)</a>,
+    <a class="Xr" href="../3ssl/PKCS12_newpass.html"><b>PKCS12_newpass</b>(3)</a>, <a class="Xr" href="../3ssl/d2i_PKCS8PrivateKey_bio.html"><b>d2i_PKCS8PrivateKey_bio</b>(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright 2018-2021 The OpenSSL Project Authors. All Rights
+    Reserved.</p>
+<p class="Pp">Licensed under the Apache License 2.0 (the &quot;License&quot;).
+    You may not use this file except in compliance with the License. You can
+    obtain a copy in the file LICENSE in the source distribution or at
+    &lt;https://www.openssl.org/source/license.html&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2026-06-02</td>
+    <td class="foot-os">3.0.13</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

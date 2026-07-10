@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Sudoers Time Stamp Format">
+<title>sudoers_timestamp(5) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">sudoers_timestamp(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#LOCKING">LOCKING</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#HISTORY">HISTORY</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#SUPPORT">SUPPORT</a></li><li><a href="#DISCLAIMER">DISCLAIMER</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SUDOERS_TIMESTAMP(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SUDOERS_TIMESTAMP(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">sudoers_timestamp</code> &#x2014;
+    <span class="Nd">Sudoers Time Stamp Format</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <code class="Nm">sudoers</code> plugin uses per-user-ID time
+    stamp files for credential caching. Once a user has been authenticated, they
+    may use <code class="Nm">sudo</code> without a password for a short period
+    of time (<a class="permalink" href="#15"><i class="Em" id="15">15</i></a>
+    minutes unless overridden by the <i class="Em">timestamp_timeout</i>
+    option). By default, <code class="Nm">sudoers</code> uses a separate record
+    for each terminal, which means that a user's login sessions are
+    authenticated separately. The
+    <a class="permalink" href="#timestamp_type"><i class="Em" id="timestamp_type">timestamp_type</i></a>
+    option can be used to select the type of time stamp record
+    <code class="Nm">sudoers</code> will use.</p>
+<p class="Pp">A multi-record time stamp file format was introduced in
+    <code class="Nm">sudo</code> 1.8.10 that uses a single file per user.
+    Previously, a separate file was used for each user and terminal combination
+    unless tty-based time stamps were disabled. The new format is extensible and
+    records of multiple types and versions may coexist within the same file.</p>
+<p class="Pp">All records, regardless of type or version, begin with a 16-bit
+    version number and a 16-bit record size.</p>
+<p class="Pp">Time stamp records have the following structure:</p>
+<div class="Bd Pp Li">
+<pre>/* Time stamp entry types */
+#define TS_GLOBAL               0x01    /* not restricted by tty or ppid */
+#define TS_TTY                  0x02    /* restricted by tty */
+#define TS_PPID                 0x03    /* restricted by ppid */
+#define TS_LOCKEXCL             0x04    /* special lock record */
+
+/* Time stamp flags */
+#define TS_DISABLED             0x01    /* entry disabled */
+#define TS_ANYUID               0x02    /* ignore uid, only valid in key */
+
+struct timestamp_entry {
+    unsigned short version;     /* version number */
+    unsigned short size;        /* entry size */
+    unsigned short type;        /* TS_GLOBAL, TS_TTY, TS_PPID */
+    unsigned short flags;       /* TS_DISABLED, TS_ANYUID */
+    uid_t auth_uid;             /* uid to authenticate as */
+    pid_t sid;                  /* session ID associated with tty/ppid */
+    struct timespec start_time; /* session/ppid start time */
+    struct timespec ts;         /* time stamp (CLOCK_MONOTONIC) */
+    union {
+        dev_t ttydev;           /* tty device number */
+        pid_t ppid;             /* parent pid */
+    } u;
+};</pre>
+</div>
+<p class="Pp">The timestamp_entry struct fields are as follows:</p>
+<dl class="Bl-tag">
+  <dt>version</dt>
+  <dd>The version number of the timestamp_entry struct. New entries are created
+      with a version number of 2. Records with different version numbers may
+      coexist in the same file but are not inter-operable.</dd>
+  <dt>size</dt>
+  <dd>The size of the record in bytes.</dd>
+  <dt>type</dt>
+  <dd>The record type, currently <code class="Dv">TS_GLOBAL</code>,
+      <code class="Dv">TS_TTY</code>, or <code class="Dv">TS_PPID</code>.</dd>
+  <dt>flags</dt>
+  <dd>Zero or more record flags which can be bit-wise ORed together. Supported
+      flags are <code class="Dv">TS_DISABLED</code>, for records disabled via
+      <code class="Nm">sudo</code> <code class="Fl">-k</code> and
+      <code class="Dv">TS_ANYUID</code>, which is used only when matching
+      records.</dd>
+  <dt id="rootpw">auth_uid</dt>
+  <dd>The user-ID that was used for authentication. Depending on the value of
+      the <a class="permalink" href="#rootpw"><i class="Em">rootpw</i></a>,
+      <a class="permalink" href="#runaspw"><i class="Em" id="runaspw">runaspw</i></a>
+      and <i class="Em">targetpw</i> options, the user-ID may be that of the
+      invoking user, the root user, the default runas user or the target
+    user.</dd>
+  <dt>sid</dt>
+  <dd>The ID of the user's terminal session, if present. The session ID is only
+      used when matching records of type <code class="Dv">TS_TTY</code>.</dd>
+  <dt>start_time</dt>
+  <dd>The start time of the session leader for records of type
+      <code class="Dv">TS_TTY</code> or of the parent process for records of
+      type <code class="Dv">TS_PPID</code>. The <i class="Em">start_time</i> is
+      used to help prevent re-use of a time stamp record after a user has logged
+      out. Not all systems support a method to easily retrieve a process's start
+      time. The <i class="Em">start_time</i> field was added in
+      <code class="Nm">sudoers</code> version 1.8.22 for the second revision of
+      the timestamp_entry struct.</dd>
+  <dt>ts</dt>
+  <dd>The actual time stamp. A monotonic time source (which does not move
+      backward) is used if the system supports it. Where possible,
+      <code class="Nm">sudoers</code> uses a monotonic timer that increments
+      even while the system is suspended. The value of <i class="Em">ts</i> is
+      updated each time a command is run via <code class="Nm">sudo</code>. If
+      the difference between <i class="Em">ts</i> and the current time is less
+      than the value of the <i class="Em">timestamp_timeout</i> option, no
+      password is required.</dd>
+  <dt>u.ttydev</dt>
+  <dd>The device number of the terminal associated with the session for records
+      of type <code class="Dv">TS_TTY</code>.</dd>
+  <dt>u.ppid</dt>
+  <dd>The ID of the parent process for records of type
+      <code class="Dv">TS_PPID</code>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOCKING"><a class="permalink" href="#LOCKING">LOCKING</a></h1>
+<p class="Pp">In <code class="Nm">sudoers</code> versions 1.8.10 through 1.8.14,
+    the entire time stamp file was locked for exclusive access when reading or
+    writing to the file. Starting in <code class="Nm">sudoers</code> 1.8.15,
+    individual records are locked in the time stamp file instead of the entire
+    file and the lock is held for a longer period of time. This scheme is
+    described below.</p>
+<p class="Pp" id="lock">The first record in the time stamp file is of type
+    <code class="Dv">TS_LOCKEXCL</code> and is used as a
+    <a class="permalink" href="#lock"><i class="Em">lock</i></a> record to
+    prevent more than one <code class="Nm">sudo</code> process from adding a new
+    record at the same time. Once the desired time stamp record has been located
+    or created (and locked), the <code class="Dv">TS_LOCKEXCL</code> record is
+    unlocked. The lock on the individual time stamp record, however, is held
+    until authentication is complete. This allows
+    <code class="Nm">sudoers</code> to avoid prompting for a password multiple
+    times when it is used more than once in a pipeline.</p>
+<p class="Pp">Records of type <code class="Dv">TS_GLOBAL</code> cannot be locked
+    for a long period of time since doing so would interfere with other
+    <code class="Nm">sudo</code> processes. Instead, a separate lock record is
+    used to prevent multiple <code class="Nm">sudo</code> processes using the
+    same terminal (or parent process ID) from prompting for a password as the
+    same time.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../5/sudoers.html">sudoers(5)</a>,
+    <a class="Xr" href="../8/sudo.html">sudo(8)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp">Originally, <code class="Nm">sudo</code> used a single zero-length
+    file per user and the file's modification time was used as the time stamp.
+    Later versions of <code class="Nm">sudo</code> added restrictions on the
+    ownership of the time stamp files and directory as well as checks on the
+    validity of the time stamp itself. Notable changes were introduced in the
+    following <code class="Nm">sudo</code> versions:</p>
+<dl class="Bl-tag">
+  <dt>1.4.0</dt>
+  <dd>Support for tty-based time stamp file was added by appending the terminal
+      name to the time stamp file name.</dd>
+  <dt>1.6.2</dt>
+  <dd>The time stamp file was replaced by a per-user directory which contained
+      any tty-based time stamp files.</dd>
+  <dt>1.6.3p2</dt>
+  <dd>The target user name was added to the time stamp file name when the
+      <i class="Em">targetpw</i> option was set.</dd>
+  <dt>1.7.3</dt>
+  <dd>Information about the terminal device was stored in tty-based time stamp
+      files for validity checks. This included the terminal device numbers,
+      inode number and, on systems where it was not updated when the device was
+      written to, the inode change time. This helped prevent re-use of the time
+      stamp file after logout.</dd>
+  <dt>1.8.6p7</dt>
+  <dd>The terminal session ID was added to tty-based time stamp files to prevent
+      re-use of the time stamp by the same user in a different terminal session.
+      It also helped prevent re-use of the time stamp file on systems where the
+      terminal device's inode change time was updated by writing.</dd>
+  <dt>1.8.10</dt>
+  <dd>A new, multi-record time stamp file format was introduced that uses a
+      single file per user. The terminal device's change time was not included
+      since most systems now update the change time after a write is performed
+      as required by POSIX.</dd>
+  <dt>1.8.15</dt>
+  <dd>Individual records are locked in the time stamp file instead of the entire
+      file and the lock is held until authentication is complete.</dd>
+  <dt>1.8.22</dt>
+  <dd>The start time of the terminal session leader or parent process is now
+      stored in non-global time stamp records. This prevents re-use of the time
+      stamp file after logout in most cases.
+    <p class="Pp">Support was added for the kernel-based tty time stamps
+        available in <span class="Ux">OpenBSD</span> which do not use an on-disk
+        time stamp file.</p>
+  </dd>
+  <dt>1.9.15</dt>
+  <dd>Time stamp file path names are now based on the invoking user-ID instead
+      of the user name. This avoids problems with user names that include a path
+      separator character.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Many people have worked on <code class="Nm">sudo</code> over the
+    years; this version consists of code written primarily by:</p>
+<div class="Bd Pp Bd-indent"><span class="An">Todd C. Miller</span></div>
+<p class="Pp">See the CONTRIBUTORS.md file in the <code class="Nm">sudo</code>
+    distribution (https://www.sudo.ws/about/contributors/) for an exhaustive
+    list of people who have contributed to <code class="Nm">sudo</code>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">If you believe you have found a bug in
+    <code class="Nm">sudo</code>, you can submit a bug report at
+    https://bugzilla.sudo.ws/</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SUPPORT"><a class="permalink" href="#SUPPORT">SUPPORT</a></h1>
+<p class="Pp">Limited free support is available via the sudo-users mailing list,
+    see https://www.sudo.ws/mailman/listinfo/sudo-users to subscribe or search
+    the archives.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DISCLAIMER"><a class="permalink" href="#DISCLAIMER">DISCLAIMER</a></h1>
+<p class="Pp"><code class="Nm">sudo</code> is provided &#x201C;AS IS&#x201D; and
+    any express or implied warranties, including, but not limited to, the
+    implied warranties of merchantability and fitness for a particular purpose
+    are disclaimed. See the LICENSE.md file distributed with
+    <code class="Nm">sudo</code> or https://www.sudo.ws/about/license/ for
+    complete details.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">September 20, 2023</td>
+    <td class="foot-os">Sudo 1.9.15p5</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

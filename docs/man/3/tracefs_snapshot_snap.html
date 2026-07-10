@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="API to create, clear and read snapshots">
+<title>tracefs_snapshot_snap(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">tracefs_snapshot_snap(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#REPORTING_BUGS">REPORTING
+  BUGS</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#RESOURCES">RESOURCES</a></li><li><a href="#COPYING">COPYING</a></li><li><a href="#NOTES">NOTES</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">LIBTRACEFS(3)</td>
+    <td class="head-vol">libtracefs Manual</td>
+    <td class="head-rtitle">LIBTRACEFS(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">tracefs_snapshot_snap, tracefs_snapshot_clear,
+    tracefs_snapshot_free - API to create, clear and read snapshots</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;tracefs.h&gt;</b>
+int <b>tracefs_snapshot_snap</b>(struct tracefs_instance *instance);
+int <b>tracefs_snapshot_clear</b>(struct tracefs_instance *instance);
+int <b>tracefs_snapshot_free</b>(struct tracefs_instance *instance);</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The Linux kernel tracing provides a &quot;snapshot&quot; feature.
+    The kernel has two ring buffers. One that is written to by the tracing
+    system and another one that is the &quot;snapshot&quot; buffer. When a
+    snapshot happens, the two buffers are swapped, and the current snapshot
+    buffer becomes the one being written to, and the buffer that was being
+    written to becomes the saved snapshot.</p>
+<p class="Pp">Note, the snapshot buffer is allocated the first time it is taken,
+    so it is best to take a snapshot at the start before one is needed so that
+    it is allocated and a snapshot is ready, then the snapshot will happen
+    immediately.</p>
+<p class="Pp">The <b>tracefs_snapshot_snap()</b> will allocate (if not already
+    allocated) the snapshot buffer and then take a &quot;snapshot&quot; (swap
+    the main buffer that&#x2019;s being written to with the allocated snapshot
+    buffer). It will do this to the given <i>instance</i> buffer or the top
+    instance if <i>instance</i> is NULL.</p>
+<p class="Pp">The <b>tracefs_snapshot_clear()</b> will erase the content of the
+    snapshot buffer for the given <i>instance</i> or the top level instance if
+    <i>instance</i> is NULL.</p>
+<p class="Pp">The <b>tracefs_snapshot_free()</b> will free the allocated
+    snapshot for the given <i>instance</i> or the top level instance if
+    <i>instance</i> is NULL. That is, if another call to
+    <b>tracefs_snapshot_snap()</b> is done after this, then it will need to
+    allocate the snapshot buffer again before it can take a snapshot. This
+    function should be used to free up the kernel memory used by hte snapshot
+    buffer when no longer in use.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">The <b>tracefs_snapshot_snap()</b>,
+    <b>tracefs_snapshot_clear()</b> and the <b>tracefs_snapshot_free()</b> all
+    return 0 on success and -1 on failure.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<div class="Bd-indent">
+<pre>#include &lt;stdlib.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;tracefs.h&gt;
+static int callback(struct tep_event *event, struct tep_record *record, int cpu, void *data)
+{
+<br/>
+        static struct trace_seq seq;
+<br/>
+        struct tep_handle *tep = event-&gt;tep;
+<br/>
+        if (!seq.buffer)
+<br/>
+                trace_seq_init(&amp;seq);
+<br/>
+        trace_seq_reset(&amp;seq);
+<br/>
+        tep_print_event(tep, &amp;seq, record, &quot;[%03d] %s-%d %6.1000d\t%s: %s\n&quot;,
+<br/>
+                                TEP_PRINT_CPU,
+<br/>
+                                TEP_PRINT_COMM,
+<br/>
+                                TEP_PRINT_PID,
+<br/>
+                                TEP_PRINT_TIME,
+<br/>
+                                TEP_PRINT_NAME,
+<br/>
+                                TEP_PRINT_INFO);
+<br/>
+        trace_seq_do_printf(&amp;seq);
+<br/>
+        return 0;
+}
+int main (int argc, char **argv)
+{
+<br/>
+        struct tracefs_instance *instance;
+<br/>
+        struct tep_handle *tep;
+<br/>
+        char *line = NULL;
+<br/>
+        size_t len = 0;
+<br/>
+        int ret;
+<br/>
+        instance = tracefs_instance_create(&quot;my_snapshots&quot;);
+<br/>
+        if (!instance) {
+<br/>
+                perror(&quot;creating instance&quot;);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        tep = tracefs_local_events(NULL);
+<br/>
+        if (!tep) {
+<br/>
+                perror(&quot;reading event formats&quot;);
+<br/>
+                goto out;
+<br/>
+        }
+<br/>
+        /* Make sure the snapshot buffer is allocated */
+<br/>
+        ret = tracefs_snapshot_snap(instance);
+<br/>
+        if (ret &lt; 0)
+<br/>
+                goto out;
+<br/>
+        ret = tracefs_event_enable(instance, &quot;sched&quot;, NULL);
+<br/>
+        if (ret &lt; 0) {
+<br/>
+                perror(&quot;enabling event&quot;);
+<br/>
+                goto out;
+<br/>
+        }
+<br/>
+        for (;;) {
+<br/>
+                printf(&quot;Hit enter without text to take snapshot!\n&quot;);
+<br/>
+                printf(&quot;Enter any text to display the snapshot\n&quot;);
+<br/>
+                printf(&quot;Enter 'quit' to exit\n&quot;);
+<br/>
+                getline(&amp;line, &amp;len, stdin);
+<br/>
+                ret = tracefs_snapshot_snap(instance);
+<br/>
+                if (ret &lt; 0) {
+<br/>
+                        perror(&quot;taking snapshot&quot;);
+<br/>
+                        goto out;
+<br/>
+                }
+<br/>
+                if (!line)
+<br/>
+                        break;
+<br/>
+                if (strlen(line) &lt; 2)
+<br/>
+                        continue;
+<br/>
+                if (strncmp(line, &quot;quit&quot;, 4) == 0)
+<br/>
+                        break;
+<br/>
+                tracefs_iterate_snapshot_events(tep, instance, NULL, 0, callback, NULL);
+<br/>
+        }
+<br/>
+        free(line);
+<br/>
+        tracefs_instance_clear(instance);
+<br/>
+ out:
+<br/>
+        tracefs_snapshot_free(instance);
+<br/>
+        tracefs_event_disable(instance, &quot;sched&quot;, NULL);
+<br/>
+        tracefs_instance_destroy(instance);
+<br/>
+        tracefs_instance_free(instance);
+<br/>
+        exit(0);
+}</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<div class="Bd-indent">
+<pre><b>tracefs.h</b>
+<br/>
+        Header file to include in order to have access to the library APIs.
+<b>-ltracefs</b>
+<br/>
+        Linker switch to add when building a program that uses the library.</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/tracefs_iterate_raw_events.html"><b>tracefs_iterate_snapshot_events</b>(3)</a> <a class="Xr" href="../3/libtracefs.html"><b>libtracefs</b>(3)</a>,
+    <a class="Xr" href="../3/libtraceevent.html"><b>libtraceevent</b>(3)</a>, <a class="Xr" href="../1/trace-cmd.html"><b>trace-cmd</b>(1)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<div class="Bd-indent">
+<pre><b>Steven Rostedt</b> &lt;<b>rostedt@goodmis.org</b>[1]&gt;</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPORTING_BUGS"><a class="permalink" href="#REPORTING_BUGS">REPORTING
+  BUGS</a></h1>
+<p class="Pp">Report bugs to
+  &lt;<b>linux-trace-devel@vger.kernel.org</b>[2]&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">libtracefs is Free Software licensed under the GNU LGPL 2.1</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCES"><a class="permalink" href="#RESOURCES">RESOURCES</a></h1>
+<p class="Pp"><b>https://git.kernel.org/pub/scm/libs/libtrace/libtracefs.git/</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYING"><a class="permalink" href="#COPYING">COPYING</a></h1>
+<p class="Pp">Copyright (C) 2023 Google, LLC. Free use of this software is
+    granted under the terms of the GNU Public License (GPL).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>rostedt@goodmis.org</dd>
+</dl>
+<div class="Bd-indent">mailto:rostedt@goodmis.org</div>
+<dl class="Bl-tag">
+  <dt> 2.</dt>
+  <dd>linux-trace-devel@vger.kernel.org</dd>
+</dl>
+<div class="Bd-indent">mailto:linux-trace-devel@vger.kernel.org</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">04/16/2024</td>
+    <td class="foot-os">libtracefs 1.8.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

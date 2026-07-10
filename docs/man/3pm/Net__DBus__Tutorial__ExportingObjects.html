@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="tutorials on providing a DBus service">
+<title>Net::DBus::Tutorial::ExportingObjects(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">Net::DBus::Tutorial::ExportingObjects(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#CREATING_AN_OBJECT">CREATING
+  AN OBJECT</a></li><li><a href="#PROVIDING_INTROSPECTION_DATA">PROVIDING
+  INTROSPECTION DATA</a></li><li><a href="#DEFINING_A_SERVICE">DEFINING
+  A SERVICE</a></li><li><a href="#CONNECTING_TO_THE_BUS">CONNECTING
+  TO THE BUS</a></li><li><a href="#SERVICE_ACTIVATION">SERVICE
+  ACTIVATION</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">Net::DBus::Tutorial::ExportingObjects(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">Net::DBus::Tutorial::ExportingObjects(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">Net::DBus::Tutorial::ExportingObjects - tutorials on providing a
+    DBus service</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This document provides a tutorial on providing a DBus service
+    using the Perl Net::DBus application bindings. This examples in this
+    document will be based on the code from the Music::Player distribution,
+    which is a simple DBus service providing a music track player.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CREATING_AN_OBJECT"><a class="permalink" href="#CREATING_AN_OBJECT">CREATING
+  AN OBJECT</a></h1>
+<p class="Pp">The first step in creating an object is to create a new package
+    which inherits from Net::DBus::Object. The Music::Player::Manager object
+    provides an API for managing the collection of music player backends for
+    different track types. To start with, lets create the skeleton of the
+    package &amp; its constructor. The constructor of the super type,
+    Net::DBus::Object expects to be given to parameters, a handle to the
+    Net::DBus::Service owning the object, and a path under which the object
+    shall be exported. Since the manager class is intended to be a singleton
+    object, we can hard code the path to it within the constructor:</p>
+<p class="Pp"></p>
+<pre>  package Music::Player::Manager;
+  use base qw(Net::DBus::Object);
+  sub new {
+      my $class = shift;
+      my $service = shift;
+      my $self = $class-&gt;SUPER::new($service, &quot;/music/player/manager&quot;);
+      bless $self, $class;
+      return $self;
+  }
+  1;
+</pre>
+<p class="Pp">Now, as mentioned, the manager with handle a number of different
+    player backends. So we need to provide methods for registering new backends,
+    and querying for backends capable of playing a particular file type. So
+    modifying the above code we add a hash table in the constructor, to store
+    the backends:</p>
+<p class="Pp"></p>
+<pre>  sub new {
+      my $class = shift;
+      my $service = shift;
+      my $self = $class-&gt;SUPER::new($service, &quot;/music/player/manager&quot;);
+      $self-&gt;{backends} = {};
+      bless $self, $class;
+      return $self;
+  }
+</pre>
+<p class="Pp">And now a method to register a new backend. This takes a Perl
+    module name and uses it to instantiate a backend. Since the backends are
+    also going to be DBus objects, we need to pass in a reference to the service
+    we are attached to, along with a path under which to register the backend.
+    We use the <span class="Li">&quot;get_service&quot;</span> method to
+    retreieve a reference to the service the manager is attached to, and attach
+    the player backend to this same service: When a method on DBus object is
+    invoked, the first parameter is the object reference
+    (<span class="Li">$self</span>), and the remainder are the parameters
+    provided to the method call. Thus writing a method implementation on a DBUs
+    is really no different to normal object oriented Perl (cf perltoot):</p>
+<p class="Pp"></p>
+<pre>  sub register_backend {
+      my $self = shift;
+      my $name = shift;
+      my $module = shift;
+      eval &quot;use $module&quot;;
+      if ($@) {
+          die &quot;cannot load backend $module: $@&quot; ;
+      }
+      $self-&gt;{backends}-&gt;{$name} = $module-&gt;new($self-&gt;get_service,
+                                                &quot;/music/player/backend/$name&quot;);
+  }
+</pre>
+<p class="Pp">Looking at this one might wonder what happens if the
+    <span class="Li">&quot;die&quot;</span> method is triggered. In such a
+    scenario, rather than terminating the service process, the error will be
+    caught and propagated back to the remote caller to deal with.</p>
+<p class="Pp">The player backends provide a method
+    <span class="Li">&quot;get_track_types&quot;</span> which returns an array
+    reference of the music track types they support. We can use this method to
+    provide an API to allow easy retrieval of a backend for a particular track
+    type. This method will return a path with which the backend object can be
+    accessed</p>
+<p class="Pp"></p>
+<pre>  sub find_backend {
+      my $self = shift;
+      my $extension = shift;
+      foreach my $name (keys %{$self-&gt;{backends}}) {
+         my $backend = $self-&gt;{backends}-&gt;{$name};
+         foreach my $type (@{$backend-&gt;get_track_types}) {
+            if ($type eq $extension) {
+                return $backend-&gt;get_object_path;
+            }
+         }
+      }
+      die &quot;no backend for type $extension&quot;;
+  }
+</pre>
+<p class="Pp">Lets take a quick moment to consider how this method would be used
+    to play a music track. If you've not already done so, refresh your memory
+    from Net::DBus::Tutorial::UsingObjects. Now, we have an MP3 file which we
+    wish to play, so we search for the path to a backend, then retrieve the
+    object for it, and play the track:</p>
+<p class="Pp"></p>
+<pre>  ...get the music player service...
+  # Ask for a path to a player for mp3 files
+  my $path = $service-&gt;find_backend(&quot;mp3&quot;);
+  # $path now contains '/music/player/backend/mpg123'
+  # and we can get the backend object
+  my $backend = $service-&gt;get_object($path);
+  # and finally play the track
+  $backend-&gt;play(&quot;/vol/music/beck/guero/09-scarecrow.mp3&quot;);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROVIDING_INTROSPECTION_DATA"><a class="permalink" href="#PROVIDING_INTROSPECTION_DATA">PROVIDING
+  INTROSPECTION DATA</a></h1>
+<p class="Pp">The code above is a complete working object, ready to be
+    registered with a service, and since the parameters and return values for
+    the two methods are both simple strings we could stop there. In some cases,
+    however, one might want to be more specific about data types expected for
+    parameters, for example signed vs unsigned integers. Adding explicit data
+    typing also makes interaction with other programming languages more
+    reliable. Providing explicit data type definitions for exported method is
+    known in the DBus world as
+    <span class="Li">&quot;Introspection&quot;</span>, and it makes life much
+    more reliable for users of one's service whom may be using a strongly typed
+    language such as C.</p>
+<p class="Pp">The first step in providing introspection data for a DBus object
+    in Perl, is to specify the name of the interface provided by the object.
+    This is typically a period separated string, by convention containing the
+    domain name of the application as its first component. Since most Perl
+    modules end up living on CPAN, one might use
+    <span class="Li">&quot;org.cpan&quot;</span> as the first component,
+    followed by the package name of the module (replacing :: with .), eg
+    <span class="Li">&quot;org.cpan.music.player.manager&quot;</span>. If it is
+    not planned to host the module on CPAN, a personal/project domain might be
+    used eg
+    <span class="Li">&quot;com.berrange.music.player.manager&quot;</span>. The
+    interface for an object is defined by loading the Net::DBus::Exporter
+    module, providing the interface as its first parameter. So the earlier code
+    example would be modified to look like:</p>
+<p class="Pp"></p>
+<pre>  package Music::Player::Manager;
+  use base qw(Net::DBus);
+  use Net::DBus::Exporter qw(com.berrange.music.player.manager)
+</pre>
+<p class="Pp">Next up, it is necessary to provide data types for the parameters
+    and return values of the methods. The Net::DBus::Exporter module provides a
+    method <span class="Li">&quot;dbus_method&quot;</span> for this purpose,
+    which takes three parameter, the name of the method being exported, an array
+    reference of parameter types, and an array reference of return types (the
+    latter can be omitted if there are no return values). This can be called at
+    any point in the module's code, but by convention it is preferable to
+    associate calls to <span class="Li">&quot;dbus_method&quot;</span> with the
+    actual method implementation, thus:</p>
+<p class="Pp"></p>
+<pre>  dbus_method(&quot;register_backend&quot;, [&quot;string&quot;, &quot;string&quot;]);
+  sub register_backend {
+      my $self = shift;
+      my $name = shift;
+      my $module = shift;
+      .. snipped rest of method body ...
+  }
+</pre>
+<p class="Pp">And, thus:</p>
+<p class="Pp"></p>
+<pre>  dbus_method(&quot;find_backend&quot;, [&quot;string&quot;], [&quot;string&quot;])
+  sub find_backend {
+      my $self = shift;
+      my $extension = shift;
+      ... snip method body...
+  }
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFINING_A_SERVICE"><a class="permalink" href="#DEFINING_A_SERVICE">DEFINING
+  A SERVICE</a></h1>
+<p class="Pp">Now that the objects have been written, it is time to define a
+    service. A service is nothing more than a well known name for a given API
+    contract. A contract can be thought of as a definition of a list of object
+    paths, and the corresponding interfaces they provide. So, someone else could
+    come along a provide an alternate music player implementation using the
+    Python or QT bindings for DBus, and if they provided the same set of object
+    paths &amp; interfaces, they could justifiably register the same service on
+    the bus.</p>
+<p class="Pp">The Net::DBus::Service module provides the means to register a
+    service. Its constructor expects a reference to the bus object (an instance
+    of Net::DBus), along with the name of the service. As with interface names,
+    the first component of a service name is usually derived from a domain name,
+    and then suffixed with the name of the application, in our example forming
+    <span class="Li">&quot;org.cpan.Music.Player&quot;</span>. While some
+    objects will be created on the fly during execution of the application,
+    others are created upon initial startup. The music player manager object
+    created earlier in this tutorial is an example of the latter. It is typical
+    to instantiate and register these objects in the constructor for the
+    service. Thus a service object for the music player application would look
+    like:</p>
+<p class="Pp"></p>
+<pre>    package Music::Player;
+    use base qw(Net::DBus::Service);
+    sub new {
+        my $class = shift;
+        my $bus = shift;
+        my $self = $class-&gt;SUPER::new($bus, &quot;org.cpan.music.player&quot;);
+        bless $self, $class;
+        $self-&gt;{manager} = Music::Player::Manager-&gt;new($self);
+        return $self;
+    }
+</pre>
+<p class="Pp">The Net::DBus::Service automatically provides one special object
+    to all services, under the path
+    <span class="Li">&quot;/org/freedesktop/DBus/Exporter&quot;</span>. This
+    object implements the
+    <span class="Li">&quot;org.freedesktop.DBus.Exporter&quot;</span> interface
+    which has a method <span class="Li">&quot;ListObject&quot;</span>. This
+    enables clients to determine a list of all objects exported within a
+    service. While not functionally necessary for most applications, it is
+    none-the-less a useful tool for developers debugging applications, or
+    wondering what a service provides.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONNECTING_TO_THE_BUS"><a class="permalink" href="#CONNECTING_TO_THE_BUS">CONNECTING
+  TO THE BUS</a></h1>
+<p class="Pp">The final step in getting our service up and running is to connect
+    it to the bus. This brings up an interesting conundrum, does one export the
+    service on the system bus (shared by all users &amp; processes on the
+    machine), or the session bus (one per user logged into a machine). In some
+    cases the answer, with only one of the two buses conceptually making sense.
+    In other cases, however, both the session &amp; system bus are valid. In the
+    former one would use the <span class="Li">&quot;session&quot;</span> or
+    &lt;system&gt; methods on Net::DBus to get a handle to the desired bus,
+    while in the latter case, the <span class="Li">&quot;find&quot;</span>
+    method would be used. This applies a heuristic to determine the correct bus
+    based on execution environment. In the case of the music player, either bus
+    is relevant, so the code to connect the service to the bus would look
+  like:</p>
+<p class="Pp"></p>
+<pre>   use Net::DBus;
+   my $bus = Net::DBus-&gt;find;
+   my $player = Music::Player-&gt;new($bus);
+</pre>
+<p class="Pp">With the service attached to the bus, it is merely necessary to
+    run the main event processing loop to listen out for &amp; handle incoming
+    DBus messages. So the above code is modified to start a simple reactor:</p>
+<p class="Pp"></p>
+<pre>   use Net::DBus;
+   use Net::DBus::Reactor;
+   my $bus = Net::DBus-&gt;find;
+   my $player = Music::Player-&gt;new($bus);
+   Net::DBus::Reactor-&gt;main-&gt;run;
+   exit 0;
+</pre>
+<p class="Pp">Saving this code into a script
+    <span class="Li">&quot;/usr/bin/music-player.pl&quot;</span>, coding is
+    complete and the service ready for use by clients on the bus.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SERVICE_ACTIVATION"><a class="permalink" href="#SERVICE_ACTIVATION">SERVICE
+  ACTIVATION</a></h1>
+<p class="Pp">One might now wonder how best to start the service, particularly
+    if it is a service capable of running on both the system and session buses.
+    DBus has the answer in the concept of
+    <span class="Li">&quot;activation&quot;</span>. What happens is that when a
+    client on the bus attempts to call a method, or register a signal handler
+    against, a service not currently running, it will first try and start the
+    service. Service's which wish to participate in this process merely need
+    stick a simple service definition file into the directory
+    <span class="Li">&quot;/usr/share/dbus-1/services&quot;</span>. The file
+    should be named to match the service name, with the file extension
+    <span class="Li">&quot;.service&quot;</span> appended. eg,
+    <span class="Li">&quot;/usr/share/dbus-1/services/org.cpan.music.player.service&quot;</span>
+    The file contains two keys, first the name of the service, and second the
+    name of the executable used to run the service, or in this case the Perl
+    script. So, for our simple service the data file would contain:</p>
+<p class="Pp"></p>
+<pre>  [D-BUS Service]
+  Name=org.cpan.music.player
+  Exec=/usr/bin/music-player.pl
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">Net::DBus::Tutorial for details of other tutorials, and Net::DBus
+    for API documentation</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Daniel Berrange &lt;dan@berrange.com&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright (C) 2005 Daniel P. Berrange</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

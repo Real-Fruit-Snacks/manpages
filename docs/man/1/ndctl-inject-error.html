@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="inject media errors at a namespace offset">
+<title>ndctl-inject-error(1) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">ndctl-inject-error(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#THEORY_OF_OPERATION">THEORY
+  OF OPERATION</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">NDCTL-INJECT-ERROR(1)</td>
+    <td class="head-vol">ndctl Manual</td>
+    <td class="head-rtitle">NDCTL-INJECT-ERROR(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">ndctl-inject-error - inject media errors at a namespace offset</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><i>ndctl inject-error</i> &lt;namespace&gt; [&lt;options&gt;]</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THEORY_OF_OPERATION"><a class="permalink" href="#THEORY_OF_OPERATION">THEORY
+  OF OPERATION</a></h1>
+<p class="Pp">The capacity of an NVDIMM REGION (contiguous span of persistent
+    memory) is accessed via one or more NAMESPACE devices. REGION is the Linux
+    term for what ACPI and UEFI call a DIMM-interleave-set, or a
+    system-physical-address-range that is striped (by the memory controller)
+    across one or more memory modules.</p>
+<p class="Pp">The UEFI specification defines the <i>NVDIMM Label Protocol</i> as
+    the combination of label area access methods and a data format for
+    provisioning one or more NAMESPACE objects from a REGION. Note that label
+    support is optional and if Linux does not detect the label capability it
+    will automatically instantiate a &quot;label-less&quot; namespace per
+    region. Examples of label-less namespaces are the ones created by the
+    kernel&#x2019;s <i>memmap=ss!nn</i> command line option (see the nvdimm wiki
+    on kernel.org), or NVDIMMs without a valid <i>namespace index</i> in their
+    label area.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">Label-less namespaces lack many of the features of their
+    label-rich
+  <br/>
+  cousins. For example, their size cannot be modified, or they cannot be fully
+    <i>destroyed</i> (i.e. the space reclaimed). A destroy operation will zero
+    any mode-specific metadata. Finally, for create-namespace operations on
+    label-less namespaces, ndctl bypasses the region capacity availability
+    checks, and always satisfies the request using the full region capacity. The
+    only reconfiguration operation supported on a label-less namespace is
+    changing its <i>mode</i>.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">A namespace can be provisioned to operate in one of 4 modes,
+    <i>fsdax</i>, <i>devdax</i>, <i>sector</i>, and <i>raw</i>. Here are the
+    expected usage models for these modes:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;fsdax: Filesystem-DAX mode is the default mode of
+  a namespace when specifying <i>ndctl create-namespace</i> with no options. It
+  creates a block device (/dev/pmemX[.Y]) that supports the DAX capabilities of
+  Linux filesystems (xfs and ext4 to date). DAX removes the page cache from the
+  I/O path and allows mmap(2) to establish direct mappings to persistent memory
+  media. The DAX capability enables workloads / working-sets that would exceed
+  the capacity of the page cache to scale up to the capacity of persistent
+  memory. Workloads that fit in page cache or perform bulk data transfers may
+  not see benefit from DAX. When in doubt, pick this mode.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;devdax: Device-DAX mode enables similar mmap(2)
+  DAX mapping capabilities as Filesystem-DAX. However, instead of a block-device
+  that can support a DAX-enabled filesystem, this mode emits a single character
+  device file (/dev/daxX.Y). Use this mode to assign persistent memory to a
+  virtual-machine, register persistent memory for RDMA, or when gigantic
+  mappings are needed.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;sector: Use this mode to host legacy filesystems
+  that do not checksum metadata or applications that are not prepared for torn
+  sectors after a crash. Expected usage for this mode is for small boot volumes.
+  This mode is compatible with other operating systems.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;raw: Raw mode is effectively just a memory disk
+  that does not support DAX. Typically this indicates a namespace that was
+  created by tooling or another operating system that did not know how to create
+  a Linux <i>fsdax</i> or <i>devdax</i> mode namespace. This mode is compatible
+  with other operating systems, but again, does not support DAX operation.</div>
+<p class="Pp">ndctl-inject-error can be used to ask the platform to simulate
+    media errors in the NVDIMM address space to aid debugging and development of
+    features related to error handling.</p>
+<p class="Pp">By default, injecting an error actually only injects an error to
+    the first <i>n</i> bytes of the block, where <i>n</i> is the output of
+    ndctl_cmd_ars_cap_get_size(). In other words, we only inject one
+    <i>ars_unit</i> per sector. This is sufficient for Linux to mark the whole
+    sector as bad, and will show up as such in the various <i>badblocks</i>
+    lists in the kernel. If multiple blocks are being injected, only the first
+    <i>n</i> bytes of each block specified will be injected as errors. This can
+    be overridden by the --saturate option, which will force the entire block to
+    be injected as an error.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Warning</b>
+<p class="Pp">These commands are DANGEROUS and can cause data loss. They are
+  <br/>
+  only provided for testing and debugging purposes.</p>
+<p class="Pp"></p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Inject errors in namespace0.0 at block 12 for 2 blocks (i.e. 12,
+    13)</p>
+<p class="Pp"></p>
+<pre>ndctl inject-error --block=12 --count=2 namespace0.0</pre>
+<p class="Pp">Check status of injected errors on namespace0.0</p>
+<p class="Pp"></p>
+<pre>ndctl inject-error --status namespace0.0</pre>
+<p class="Pp">Uninject errors at block 12 for 2 blocks on namespace0.0</p>
+<p class="Pp"></p>
+<pre>ndctl inject-error --uninject --block=12 --count=2 namespace0.0</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">-B, --block=</p>
+<div class="Bd-indent">Namespace block offset in 512 byte sized blocks where the
+  error is to be injected.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>NOTE: The offset is interpreted in different ways based on the &quot;mode&quot;
+of the namespace. For &quot;raw&quot; mode, the offset is the base namespace
+offset. For &quot;fsdax&quot; mode (i.e. a &quot;pfn&quot; namespace), the offset is
+relative to the user-visible part of the namespace, and the offset
+introduced by the kernel's metadata will be accounted for. For a
+&quot;sector&quot; mode namespace (i.e. a &quot;BTT&quot; namespace), the offset is
+relative to the base namespace, as the BTT translation details are
+internal to the kernel, and can't be accounted for while injecting
+errors.</pre>
+</div>
+</div>
+<p class="Pp">-n, --count=</p>
+<div class="Bd-indent">Number of blocks to inject as errors. This is also in
+  terms of fixed, 512 byte blocks.</div>
+<p class="Pp">-d, --uninject</p>
+<div class="Bd-indent">This option will ask the platform to remove any injected
+  errors for the specified block offset, and count.
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>WARNING: This will not clear the kernel's internal badblock tracking,
+those can only be cleared by doing a write to the affected locations.
+Hence use the --clear option only if you know exactly what you are
+doing. For normal usage, injected errors should only be cleared by
+doing writes. Do not expect have the original data intact after
+injecting an error, and clearing it using --clear - it will be lost,
+as the only &quot;real&quot; way to clear the error location is to write to it
+or zero it (truncate/hole-punch).</pre>
+</div>
+</div>
+<p class="Pp">-t, --status</p>
+<div class="Bd-indent">This option will retrieve the status of injected errors.
+  Note that this will not retrieve all known/latent errors (i.e. non injected
+  ones), and is NOT equivalent to performing an Address Range Scrub.</div>
+<p class="Pp">-N, --no-notify</p>
+<div class="Bd-indent">This option is only valid when injecting errors. By
+  default, the error inject command and will ask platform firmware to trigger a
+  notification in the kernel, asking it to update its state of known errors.
+  With this option, the error will still be injected, the kernel will not get a
+  notification, and the error will appear as a latent media error when the
+  location is accessed. If the platform firmware does not support this feature,
+  this will have no effect.</div>
+<p class="Pp">-S, --saturate</p>
+<div class="Bd-indent">This option forces error injection or un-injection to
+  cover the entire address range covered by the specified block(s).</div>
+<p class="Pp">-v, --verbose</p>
+<div class="Bd-indent">Emit debug messages for the error injection process</div>
+<p class="Pp">-u, --human</p>
+<div class="Bd-indent">Format numbers representing storage sizes, or offsets as
+  human readable strings with units instead of the default machine-friendly
+  raw-integer data. Convert other numeric fields into hexadecimal strings.</div>
+<p class="Pp">-r, --region=</p>
+<div class="Bd-indent">A <i>regionX</i> device name, or a region id number.
+  Restrict the operation to the specified region(s). The keyword <i>all</i> can
+  be specified to indicate the lack of any restriction, however this is the same
+  as not supplying a --region option at all.</div>
+<p class="Pp">-b, --bus=</p>
+<div class="Bd-indent">A bus id number, or a provider string (e.g.
+  &quot;ACPI.NFIT&quot;). Restrict the operation to the specified bus(es). The
+  keyword <i>all</i> can be specified to indicate the lack of any restriction,
+  however this is the same as not supplying a --bus option at all.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright &#x00A9; 2016 - 2022, Intel Corporation. License GPLv2:
+    GNU GPL version 2 <i></i> &lt;http://gnu.org/licenses/gpl.html&gt;. This is
+    free software: you are free to change and redistribute it. There is NO
+    WARRANTY, to the extent permitted by law.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">ndctl-list(1),</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-04-08</td>
+    <td class="foot-os">ndctl</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Process events until a variable is written">
+<title>vwait(3tcl) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">vwait(3tcl)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#NESTED_VWAITS_BY_EXAMPLE">NESTED
+  VWAITS BY EXAMPLE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#KEYWORDS">KEYWORDS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">vwait(3tcl)</td>
+    <td class="head-vol">Tcl Built-In Commands</td>
+    <td class="head-rtitle">vwait(3tcl)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<pre>
+</pre>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">vwait - Process events until a variable is written</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>vwait</b> <i>varName</i></p>
+<pre>
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This command enters the Tcl event loop to process events, blocking
+    the application if no events are ready. It continues processing events until
+    some event handler sets the value of the global variable <i>varName</i>.
+    Once <i>varName</i> has been set, the <b>vwait</b> command will return as
+    soon as the event handler that modified <i>varName</i> completes. The
+    <i>varName</i> argument is always interpreted as a variable name with
+    respect to the global namespace, but can refer to any namespace's variables
+    if the fully-qualified name is given.</p>
+<p class="Pp">In some cases the <b>vwait</b> command may not return immediately
+    after <i>varName</i> is set. This happens if the event handler that sets
+    <i>varName</i> does not complete immediately. For example, if an event
+    handler sets <i>varName</i> and then itself calls <b>vwait</b> to wait for a
+    different variable, then it may not return for a long time. During this time
+    the top-level <b>vwait</b> is blocked waiting for the event handler to
+    complete, so it cannot return either. (See the <b>NESTED VWAITS BY
+    EXAMPLE</b> below.)</p>
+<p class="Pp">To be clear, <i>multiple </i><b>vwait</b><i> calls will nest and
+    will not happen in</i> <i>parallel</i>. The outermost call to <b>vwait</b>
+    will not return until all the inner ones do. It is recommended that code
+    should never nest <b>vwait</b> calls (by avoiding putting them in event
+    callbacks) but when that is not possible, care should be taken to add
+    interlock variables to the code to prevent all reentrant calls to
+    <b>vwait</b> that are not <i>strictly</i> necessary. Be aware that the
+    synchronous modes of operation of some Tcl packages
+    (e.g.,&#x00A0;<b>http</b>) use <b>vwait</b> internally; if using the event
+    loop, it is best to use the asynchronous callback-based modes of operation
+    of those packages where available.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Run the event-loop continually until some event calls <b>exit</b>.
+    (You can use any variable not mentioned elsewhere, but the name
+    <i>forever</i> reminds you at a glance of the intent.)</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+<b>vwait</b> forever</pre>
+</div>
+<p class="Pp">Wait five seconds for a connection to a server socket, otherwise
+    close the socket and continue running the script:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+# Initialise the state
+after 5000 set state timeout
+set server [socket -server accept 12345]
+proc accept {args} {
+<br/>
+    global state connectionInfo
+<br/>
+    set state accepted
+<br/>
+    set connectionInfo $args
+}
+# Wait for something to happen
+<b>vwait</b> state
+# Clean up events that could have happened
+close $server
+after cancel set state timeout
+# Do something based on how the vwait finished...
+switch $state {
+<br/>
+    timeout {
+<br/>
+        puts &quot;no connection on port 12345&quot;
+<br/>
+    }
+<br/>
+    accepted {
+<br/>
+       puts &quot;connection: $connectionInfo&quot;
+<br/>
+       puts [lindex $connectionInfo 0] &quot;Hello there!&quot;
+<br/>
+    }
+}</pre>
+</div>
+<p class="Pp">A command that will wait for some time delay by waiting for a
+    namespace variable to be set. Includes an interlock to prevent nested
+  waits.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+namespace eval example {
+<br/>
+    variable v done
+<br/>
+    proc wait {delay} {
+<br/>
+        variable v
+<br/>
+        if {$v ne &quot;waiting&quot;} {
+<br/>
+            set v waiting
+<br/>
+            after $delay [namespace code {set v done}]
+<br/>
+            <b>vwait</b> [namespace which -variable v]
+<br/>
+        }
+<br/>
+        return $v
+<br/>
+    }
+}</pre>
+</div>
+<p class="Pp">When running inside a <b>coroutine</b>, an alternative to using
+    <b>vwait</b> is to <b>yield</b> to an outer event loop and to get
+    recommenced when the variable is set, or at an idle moment after that.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+coroutine task apply {{} {
+<br/>
+    # simulate [after 1000]
+<br/>
+    after 1000 [info coroutine]
+<br/>
+    yield
+<br/>
+    # schedule the setting of a global variable, as normal
+<br/>
+    after 2000 {set var 1}
+<br/>
+    # simulate [<b>vwait</b> var]
+<br/>
+    proc updatedVar {task args} {
+<br/>
+        after idle $task
+<br/>
+        trace remove variable ::var write &quot;updatedVar $task&quot;
+<br/>
+    }
+<br/>
+    trace add variable ::var write &quot;updatedVar [info coroutine]&quot;
+<br/>
+    yield
+}}</pre>
+</div>
+<section class="Ss">
+<h2 class="Ss" id="NESTED_VWAITS_BY_EXAMPLE"><a class="permalink" href="#NESTED_VWAITS_BY_EXAMPLE">NESTED
+  VWAITS BY EXAMPLE</a></h2>
+<p class="Pp">This example demonstrates what can happen when the <b>vwait</b>
+    command is nested. The script will never finish because the waiting for the
+    <i>a</i> variable never finishes; that <b>vwait</b> command is still waiting
+    for a script scheduled with <b>after</b> to complete, which just happens to
+    be running an inner <b>vwait</b> (for <i>b</i>) even though the event that
+    the outer <b>vwait</b> was waiting for (the setting of <i>a</i>) has
+    occurred.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+after 500 {
+<br/>
+    puts &quot;waiting for b&quot;
+<br/>
+    <b>vwait</b> b
+<br/>
+    puts &quot;b was set&quot;
+}
+after 1000 {
+<br/>
+    puts &quot;setting a&quot;
+<br/>
+    set a 10
+}
+puts &quot;waiting for a&quot;
+<b>vwait</b> a
+puts &quot;a was set&quot;
+puts &quot;setting b&quot;
+set b 42</pre>
+</div>
+<p class="Pp">If you run the above code, you get this output:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+waiting for a
+waiting for b
+setting a</pre>
+</div>
+<p class="Pp">The script will never print &#x201C;a was set&#x201D; until after
+    it has printed &#x201C;b was set&#x201D; because of the nesting of
+    <b>vwait</b> commands, and yet <i>b</i> will not be set until after the
+    outer <b>vwait</b> returns, so the script has deadlocked. The only ways to
+    avoid this are to either structure the overall program in
+    continuation-passing style or to use <b>coroutine</b> to make the
+    continuations implicit. The first of these options would be written as:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+after 500 {
+<br/>
+    puts &quot;waiting for b&quot;
+<br/>
+    trace add variable b write {apply {args {
+<br/>
+        global a b
+<br/>
+        trace remove variable ::b write \
+<br/>
+                [lrange [info level 0] 0 1]
+<br/>
+        puts &quot;b was set&quot;
+<br/>
+        set ::done ok
+<br/>
+    }}}
+}
+after 1000 {
+<br/>
+    puts &quot;setting a&quot;
+<br/>
+    set a 10
+}
+puts &quot;waiting for a&quot;
+trace add variable a write {apply {args {
+<br/>
+    global a b
+<br/>
+    trace remove variable a write [lrange [info level 0] 0 1]
+<br/>
+    puts &quot;a was set&quot;
+<br/>
+    puts &quot;setting b&quot;
+<br/>
+    set b 42
+}}}
+<b>vwait</b> done</pre>
+</div>
+<p class="Pp">The second option, with <b>coroutine</b> and some helper
+    procedures, is done like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+# A coroutine-based wait-for-variable command
+proc waitvar globalVar {
+<br/>
+    trace add variable ::$globalVar write \
+<br/>
+            [list apply {{v c args} {
+<br/>
+        trace remove variable $v write \
+<br/>
+                [lrange [info level 0] 0 3]
+<br/>
+        after 0 $c
+<br/>
+    }} ::$globalVar [info coroutine]]
+<br/>
+    yield
+}
+# A coroutine-based wait-for-some-time command
+proc waittime ms {
+<br/>
+    after $ms [info coroutine]
+<br/>
+    yield
+}
+coroutine task-1 eval {
+<br/>
+    puts &quot;waiting for a&quot;
+<br/>
+    waitvar a
+<br/>
+    puts &quot;a was set&quot;
+<br/>
+    puts &quot;setting b&quot;
+<br/>
+    set b 42
+}
+coroutine task-2 eval {
+<br/>
+    waittime 500
+<br/>
+    puts &quot;waiting for b&quot;
+<br/>
+    waitvar b
+<br/>
+    puts &quot;b was set&quot;
+<br/>
+    set done ok
+}
+coroutine task-3 eval {
+<br/>
+    waittime 1000
+<br/>
+    puts &quot;setting a&quot;
+<br/>
+    set a 10
+}
+<b>vwait</b> done</pre>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">global(3tcl), update(3tcl)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="KEYWORDS"><a class="permalink" href="#KEYWORDS">KEYWORDS</a></h1>
+<p class="Pp">asynchronous I/O, event, variable, wait</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">8.0</td>
+    <td class="foot-os">Tcl</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

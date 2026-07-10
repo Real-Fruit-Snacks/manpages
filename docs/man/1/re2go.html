@@ -1,0 +1,4293 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="generate fast lexical analyzers for C/C++, Go and Rust">
+<title>re2go(1) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">re2go(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#INTRODUCTION">INTRODUCTION</a></li><li><a href="#SYNTAX">SYNTAX</a></li><li><a href="#PROGRAM_INTERFACE">PROGRAM
+  INTERFACE</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#WARNINGS">WARNINGS</a></li><li><a href="#BLOCKS_AND_DIRECTIVES">BLOCKS
+  AND DIRECTIVES</a></li><li><a href="#API_PRIMITIVES">API
+  PRIMITIVES</a></li><li><a href="#CONFIGURATIONS">CONFIGURATIONS</a></li><li><a href="#REGULAR_EXPRESSIONS">REGULAR
+  EXPRESSIONS</a></li><li><a href="#HANDLING_THE_END_OF_INPUT">HANDLING
+  THE END OF INPUT</a></li><li><a href="#Sentinel">Sentinel</a></li><li><a href="#Sentinel_with_bounds_checks">Sentinel
+  with bounds checks</a></li><li><a href="#Bounds_checks_with_padding">Bounds
+  checks with padding</a></li><li><a href="#Custom_checks">Custom
+  checks</a></li><li><a href="#BUFFER_REFILLING">BUFFER
+  REFILLING</a></li><li><a href="#YYFILL_with_sentinel">YYFILL
+  with sentinel</a></li><li><a href="#YYFILL_with_padding">YYFILL
+  with padding</a></li><li><a href="#MULTIPLE_BLOCKS">MULTIPLE
+  BLOCKS</a></li><li><a href="#START_CONDITIONS">START
+  CONDITIONS</a></li><li><a href="#STORABLE_STATE">STORABLE
+  STATE</a></li><li><a href="#REUSABLE_BLOCKS">REUSABLE
+  BLOCKS</a></li><li><a href="#SUBMATCH_EXTRACTION">SUBMATCH
+  EXTRACTION</a></li><li><a href="#ENCODING_SUPPORT">ENCODING
+  SUPPORT</a></li><li><a href="#INCLUDE_FILES">INCLUDE
+  FILES</a></li><li><a href="#Include_file_1_(definitions.go)">Include
+  file 1 (definitions.go)</a></li><li><a href="#Include_file_2_(extra_rules.re.inc)">Include
+  file 2 (extra_rules.re.inc)</a></li><li><a href="#HEADER_FILES">HEADER
+  FILES</a></li><li><a href="#Header_file">Header
+  file</a></li><li><a href="#SKELETON_PROGRAMS">SKELETON
+  PROGRAMS</a></li><li><a href="#VISUALIZATION_AND_DEBUG">VISUALIZATION
+  AND DEBUG</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">RE2C(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">RE2C(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">re2c - generate fast lexical analyzers for C/C++, Go and Rust</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Note: This manual is for Go, but it refers to re2c as the general
+    program.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>re2c    [ OPTIONS ] [ WARNINGS ] INPUT
+re2go   [ OPTIONS ] [ WARNINGS ] INPUT
+re2rust [ OPTIONS ] [ WARNINGS ] INPUT
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Input can be either a file or <b>-</b> for stdin.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INTRODUCTION"><a class="permalink" href="#INTRODUCTION">INTRODUCTION</a></h1>
+<p class="Pp">re2c works as a preprocessor. It reads the input file (which is
+    usually a program in the target language, but can be anything) and looks for
+    blocks of code enclosed in special-form comments. The text outside of these
+    blocks is copied verbatim into the output file. The contents of the blocks
+    are processed by re2c. It translates them to code in the target language and
+    outputs the generated code in place of the block.</p>
+<p class="Pp">Here is an example of a small program that checks if a given
+    string contains a decimal number:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT -i
+package main
+func lex(str string) {
+<br/>
+    var cursor int
+<br/>
+    /*!re2c
+<br/>
+        re2c:define:YYCTYPE = byte;
+<br/>
+        re2c:define:YYPEEK = &quot;str[cursor]&quot;;
+<br/>
+        re2c:define:YYSKIP = &quot;cursor += 1&quot;;
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        number = [1-9][0-9]*;
+<br/>
+        number { return }
+<br/>
+        *      { panic(&quot;error!&quot;) }
+<br/>
+    */
+}
+func main() {
+<br/>
+    lex(&quot;1234\x00&quot;)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">In the output everything between <b>/*!re2c</b> and <b>*/</b> has
+    been replaced with the generated code:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>// Code generated by re2c, DO NOT EDIT.
+//go:generate re2go $INPUT -o $OUTPUT -i
+package main
+func lex(str string) {
+<br/>
+    var cursor int
+<br/>
+    
+{
+<br/>
+    var yych byte
+<br/>
+    yych = str[cursor]
+<br/>
+    switch (yych) {
+<br/>
+    case '1','2','3','4','5','6','7','8','9':
+<br/>
+        goto yy2
+<br/>
+    default:
+<br/>
+        goto yy1
+<br/>
+    }
+yy1:
+<br/>
+    cursor += 1
+<br/>
+    { panic(&quot;error!&quot;) }
+yy2:
+<br/>
+    cursor += 1
+<br/>
+    yych = str[cursor]
+<br/>
+    switch (yych) {
+<br/>
+    case '0','1','2','3','4','5','6','7','8','9':
+<br/>
+        goto yy2
+<br/>
+    default:
+<br/>
+        goto yy3
+<br/>
+    }
+yy3:
+<br/>
+    { return }
+}
+}
+func main() {
+<br/>
+    lex(&quot;1234\x00&quot;)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNTAX"><a class="permalink" href="#SYNTAX">SYNTAX</a></h1>
+<p class="Pp">A re2c program consists of a sequence of <i>blocks</i> intermixed
+    with code in the target language. There are three main kinds of blocks:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>/*!re2c[:&lt;name&gt;] ... */</b></b></dt>
+  <dd>A <i>global block</i> contains definitions, configurations, directives and
+      rules. re2c compiles regular expressions associated with each rule into a
+      deterministic finite automaton, encodes it in the form of conditional
+      jumps in the target language and replaces the block with the generated
+      code. Names and configurations defined in a global block are added to the
+      global scope and become visible to subsequent blocks. At the start of the
+      program the global scope is initialized with command-line <i>options</i>.
+      The <b>:&lt;name&gt;</b> part is optional: if specified, the name can be
+      used to refer to the block in another part of the program.</dd>
+  <dt><b><b>/*!local:re2c[:&lt;name&gt;] ... */</b></b></dt>
+  <dd>A <i>local block</i> is like a global block, but the names and
+      configurations in it have local scope (they do not affect other
+    blocks).</dd>
+  <dt><b><b>/*!rules:re2c[:&lt;name&gt;] ... */</b></b></dt>
+  <dd>A <i>rules block</i> is like a local block, but it does not generate any
+      code and is meant to be reused in other blocks. This is a way of sharing
+      code (more details in the <i>reusable blocks</i> section).</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">There are also many auxiliary blocks; see section <i>blocks and
+    directives</i> for a full list of them. A block may contain the following
+    kinds of statements:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>&lt;name&gt; = &lt;regular expression&gt;;</b></b></dt>
+  <dd>A <i>definition</i> binds a name to a regular expression. Names may
+      contain alphanumeric characters and underscore. The <i>regular
+      expressions</i> section gives an overview of re2c syntax for regular
+      expressions. Once defined, the name can be used in other regular
+      expressions and in rules. Recursion in named definitions is not allowed,
+      and each name should be defined before it is used. A block inherits named
+      definitions from the global scope. Redefining a name that exists in the
+      current scope is an error.</dd>
+  <dt><b><b>&lt;configuration&gt; = &lt;value&gt;;</b></b></dt>
+  <dd>A <i>configuration</i> allows one to change re2c behavior and customize
+      the generated code. For a full list of configurations supported by re2c
+      see the <i>configurations</i> section. Depending on a particular
+      configuration, the value can be a keyword, a nonnegative integer number or
+      a one-line string which should be enclosed in double or single quotes
+      unless it consists of alphanumeric characters. A block inherits
+      configurations from the global scope and may redefine them or add new
+      ones. Configurations defined inside of a block affect the whole block,
+      even if they appear at the end of it.</dd>
+  <dt><b><b>&lt;regular expression&gt; { &lt;code&gt; }</b></b></dt>
+  <dd>A <i>rule</i> binds a regular expression to a semantic action (a block of
+      code in the target language). If the regular expression matches, the
+      associated semantic action is executed. If multiple rules match, the
+      longest match takes precedence. If multiple rules match the same string,
+      the earliest one takes precedence. There are two special rules: the
+      default rule <b>*</b> and the end of input rule <b>$</b>. The default rule
+      should always be defined, it has the lowest priority regardless of its
+      place in the block, and it matches any code unit (not necessarily a valid
+      character, see the <i>encoding support</i> section). The end of input rule
+      should be defined if the corresponding method for <i>handling the end of
+      input</i> is used. If <i>start conditions</i> are used, rules have more
+      complex syntax.</dd>
+  <dt><b><b>!&lt;directive&gt;;</b></b></dt>
+  <dd>A <i>directive</i> is one of the special predefined statements. Each
+      directive has a unique purpose. For example, the <b>!use</b> directive
+      merges a rules block into the current one (see the <i>reusable blocks</i>
+      section), and the <b>!include</b> directive allows one to include an outer
+      file (see the <i>include files</i> section).</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROGRAM_INTERFACE"><a class="permalink" href="#PROGRAM_INTERFACE">PROGRAM
+  INTERFACE</a></h1>
+<p class="Pp">The generated code interfaces with the outer program with the help
+    of <i>primitives</i> -- symbolic names that can be defined as variables,
+    functions or macros in the target language (collectively referred to as the
+    <b>API</b>). The definition of primitives is left for the user: this gives
+    them both freedom in customizing the lexer and responsibility to understand
+    how it works. Not all primitives have to be defined --- only those used by a
+    given program. The manual provides definitions for the most popular use
+    cases. For a full list of primitives and their meaning see the <i>API
+    primitives</i> section.</p>
+<p class="Pp">There are two API flavors that define the set of primitives used
+    by re2c:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Pointer"><a class="permalink" href="#Pointer"><b><b>Pointer
+    API</b></b></a></dt>
+  <dd>This API is based on C pointer arithmetic. It was historically the first,
+      and for a long time the only one. It consists of pointer-like primitives
+      <b>YYCURSOR</b>, <b>YYMARKER</b>, <b>YYCTXMARKER</b>, <b>YYLIMIT</b>
+      (which are normally defined as pointers of type <b>YYCTYPE*</b>) and
+      <b>YYFILL</b>. This API is enabled by default for C, and it cannot be used
+      with other backends that do not support pointer arithmetic.</dd>
+  <dt id="Generic"><a class="permalink" href="#Generic"><b><b>Generic
+    API</b></b></a></dt>
+  <dd>This API is more flexible. It consists generic operations and does not
+      assume any particular implementation. The primitives are <b>YYPEEK</b>,
+      <b>YYSKIP</b>, <b>YYBACKUP</b>, <b>YYBACKUPCTX</b>, <b>YYSTAGP</b>,
+      <b>YYSTAGN</b>, <b>YYMTAGP</b>, <b>YYMTAGN</b>, <b>YYRESTORE</b>,
+      <b>YYRESTORECTX</b>, <b>YYRESTORETAG</b>, <b>YYSHIFT</b>,
+      <b>YYSHIFTSTAG</b>, <b>YYSHIFTMTAG</b>, <b>YYLESSTHAN</b> and
+      <b>YYFILL</b>. For the C backend generic API is enabled with <b>--api
+      custom</b> option or <b>re2c:api = custom;</b> configuration; for Go and
+      Rust it is enabled by default. Generic API was added in version 0.14.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">There are two API styles that determine the form in which the
+    primitives should be defined:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Free"><a class="permalink" href="#Free"><b><b>Free-form</b></b></a></dt>
+  <dd>Free-form style is enabled with configuration <b>re2c:api:style =
+      free-form;</b>. It is the default for Go. In this style interface
+      primitives should be defined as free-form pieces of code with interpolated
+      variables of the form <b>@@{var}</b> or optionally just <b>@@</b> if there
+      is a single variable. The set of variables is specific to each primitive.
+      Free-form style generic API can be defined in terms of integer variables
+      <b>cursor</b>, <b>limit</b>, <b>marker</b>, <b>ctxmarker</b> and a string
+      (or a byte slice) <b>data</b> as follows:</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>/*!re2c
+<br/>
+  re2c:define:YYPEEK       = &quot;data[cursor]&quot;;
+<br/>
+  re2c:define:YYSKIP       = &quot;cursor++&quot;;
+<br/>
+  re2c:define:YYBACKUP     = &quot;marker = cursor&quot;;
+<br/>
+  re2c:define:YYRESTORE    = &quot;cursor = marker&quot;;
+<br/>
+  re2c:define:YYBACKUPCTX  = &quot;ctxmarker = cursor&quot;;
+<br/>
+  re2c:define:YYRESTORECTX = &quot;cursor = ctxmarker&quot;;
+<br/>
+  re2c:define:YYRESTORETAG = &quot;cursor = ${tag}&quot;;
+<br/>
+  re2c:define:YYLESSTHAN   = &quot;limit - cursor &lt; @@{len}&quot;;
+<br/>
+  re2c:define:YYSTAGP      = &quot;@@{tag} = cursor&quot;;
+<br/>
+  re2c:define:YYSTAGN      = &quot;@@{tag} = -1&quot;;
+<br/>
+  re2c:define:YYSHIFT      = &quot;cursor += @@{shift}&quot;;
+<br/>
+  re2c:define:YYSHIFTSTAG  = &quot;@@{tag} += @@{shift}&quot;;
+*/
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<pre>
+</pre>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="Function"><a class="permalink" href="#Function"><b><b>Function-like</b></b></a></dt>
+  <dd>Function-like style is enabled with configuration <b>re2c:api:style =
+      functions;</b>. In this style primitives should be defined as functions or
+      macros with parentheses, accepting the necessary arguments. This style is
+      more restrictive than the free-form style, but it can be used with Go
+      closures. For example, if the input is a string (or a byte slice)
+      <b>data</b>, and integer variables <b>cursor</b>, <b>limit</b>,
+      <b>marker</b> and <b>ctxmarker</b> represent input positions, then the
+      primitives can be defined as follows:</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>YYPEEK := func() byte { return data[cursor] }
+YYSKIP := func() { cursor++ }
+YYBACKUP := func() { marker = cursor }
+YYRESTORE := func() { cursor = marker }
+YYBACKUPCTX := func() { ctxmarker = cursor }
+YYRESTORECTX := func() { cursor = ctxmarker }
+YYLESSTHAN := func(n int) bool { return limit-cursor &lt; n }
+YYSHIFT := func(n int) { cursor += n }
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">For <b>YYFILL</b> definition and instructions how to customize or
+    disable end-of-input checks see the <i>handling the end of input</i> and
+    <i>buffer refilling</i> sections.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">Some of the options have corresponding <i>configurations</i>,
+    others are global and cannot be changed after re2c starts reading the input
+    file. Debug options generally require building re2c in debug configuration.
+    Internal options are useful for experimenting with the algorithms used in
+    re2c.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>-? --help -h</b></b></dt>
+  <dd>Show help message.</dd>
+  <dt id="api"><a class="permalink" href="#api"><b><b>--api --input &lt;default
+    | custom&gt;</b></b></a></dt>
+  <dd>Specify the API used by the generated code to interface with used-defined
+      code: <b>default</b> is the API based on pointer arithmetic (the default
+      for C), and <b>custom</b> is the generic API (the default for Go and
+      Rust).</dd>
+  <dt id="bit"><a class="permalink" href="#bit"><b><b>--bit-vectors
+    -b</b></b></a></dt>
+  <dd>Optimize conditional jumps using bit masks. This option implies
+      <b>--nested-ifs</b>.</dd>
+  <dt id="case"><a class="permalink" href="#case"><b><b>--case-insensitive</b></b></a></dt>
+  <dd>Treat single-quoted and double-quoted strings as case-insensitive.</dd>
+  <dt id="case~2"><a class="permalink" href="#case~2"><b><b>--case-inverted</b></b></a></dt>
+  <dd>Invert the meaning of single-quoted and double-quoted strings: treat
+      single-quoted strings as case-sensitive and double-quoted strings as
+      case-insensitive.</dd>
+  <dt id="case~3"><a class="permalink" href="#case~3"><b><b>--case-ranges</b></b></a></dt>
+  <dd>Collapse consecutive cases in a switch statements into a range of the form
+      <b>low ... high</b>. This syntax is a C/C++ language extension that is
+      supported by compilers like GCC, Clang and Tcc. The main advantage over
+      using single cases is smaller generated code and faster generation time,
+      although for some compilers like Tcc it also results in smaller binary
+      size. This option is supported only for C.</dd>
+  <dt id="computed"><a class="permalink" href="#computed"><b><b>--computed-gotos
+    -g</b></b></a></dt>
+  <dd>Optimize conditional jumps using non-standard &quot;computed goto&quot;
+      extension (which must be supported by the compiler). re2c generates jump
+      tables only in complex cases with a lot of conditional branches.
+      Complexity threshold can be configured with <b>cgoto:threshold</b>
+      configuration. This option implies <b>--bit-vectors</b>. It is supported
+      only for C.</dd>
+  <dt id="conditions"><a class="permalink" href="#conditions"><b><b>--conditions
+    --start-conditions -c</b></b></a></dt>
+  <dd>Enable support of Flex-like &quot;conditions&quot;: multiple interrelated
+      lexers within one block. This is an alternative to manually specifying
+      different re2c blocks connected with <b>goto</b> or function calls.</dd>
+  <dt id="depfile"><a class="permalink" href="#depfile"><b><b>--depfile
+    FILE</b></b></a></dt>
+  <dd>Write dependency information to <b>FILE</b> in the form of a Makefile rule
+      <b>&lt;output-file&gt; : &lt;input-file&gt; [include-file ...]</b>. This
+      allows one to track build dependencies in the presence of
+      <b>include:re2c</b> directives, so that updating include files triggers
+      regeneration of the output file. This option depends on the
+      <b>--output</b> option.</dd>
+  <dt id="ebcdic"><a class="permalink" href="#ebcdic"><b><b>--ebcdic --ecb
+    -e</b></b></a></dt>
+  <dd>Generate a lexer that reads input in EBCDIC encoding. re2c assumes that
+      the character range is 0 -- 0xFF and character size is 1 byte.</dd>
+  <dt id="empty"><a class="permalink" href="#empty"><b><b>--empty-class
+    &lt;match-empty | match-none | error&gt;</b></b></a></dt>
+  <dd>Define the way re2c treats empty character classes. With
+      <b>match-empty</b> (the default) empty class matches empty input (which is
+      illogical, but backwards-compatible). With <b>match-none</b> empty class
+      always fails to match. With <b>error</b> empty class raises a compilation
+      error.</dd>
+  <dt id="encoding"><a class="permalink" href="#encoding"><b><b>--encoding-policy
+    &lt;fail | substitute | ignore&gt;</b></b></a></dt>
+  <dd>Define the way re2c treats Unicode surrogates. With <b>fail</b> re2c
+      aborts with an error when a surrogate is encountered. With
+      <b>substitute</b> re2c silently replaces surrogates with the error code
+      point 0xFFFD. With <b>ignore</b> (the default) re2c treats surrogates as
+      normal code points. The Unicode standard says that standalone surrogates
+      are invalid, but real-world libraries and programs behave in different
+      ways.</dd>
+  <dt id="flex"><a class="permalink" href="#flex"><b><b>--flex-syntax
+    -F</b></b></a></dt>
+  <dd>Partial support for Flex syntax: in this mode named definitions don't need
+      the equal sign and the terminating semicolon, and when used they must be
+      surrounded with curly braces. Names without curly braces are treated as
+      double-quoted strings.</dd>
+  <dt id="header"><a class="permalink" href="#header"><b><b>--header
+    --type-header -t HEADER</b></b></a></dt>
+  <dd>Generate a <b>HEADER</b> file. The contents of the file can be specified
+      with directives <b>header:re2c:on</b> and <b>header:re2c:off</b>. If
+      conditions are used the header will have a condition enum automatically
+      appended to it (unless there is an explicit <b>conditions:re2c</b>
+      directive).</dd>
+  <dt id="I"><a class="permalink" href="#I"><b><b>-I PATH</b></b></a></dt>
+  <dd>Add <b>PATH</b> to the list of locations which are used when searching for
+      include files. This option is useful in combination with
+      <b>include:re2c</b> directive. re2c looks for <b>FILE</b> in the directory
+      of the parent file and in the include locations specified with <b>-I</b>
+      option.</dd>
+  <dt id="input"><a class="permalink" href="#input"><b><b>--input-encoding
+    &lt;ascii | utf8&gt;</b></b></a></dt>
+  <dd>Specify the way re2c parses regular expressions. With <b>ascii</b> (the
+      default) re2c handles input as ASCII-encoded: any sequence of code units
+      is a sequence of standalone 1-byte characters. With <b>utf8</b> re2c
+      handles input as UTF8-encoded and recognizes multibyte characters.</dd>
+  <dt id="invert"><a class="permalink" href="#invert"><b><b>--invert-captures</b></b></a></dt>
+  <dd>Invert the meaning of capturing and non-capturing groups. By default
+      <b>(...)</b> is capturing and <b>(! ...)</b> is non-capturing. With this
+      option <b>(! ...)</b> is capturing and <b>(...)</b> is non-capturing.</dd>
+  <dt id="lang"><a class="permalink" href="#lang"><b><b>--lang &lt;c | go |
+    rust&gt;</b></b></a></dt>
+  <dd>Specify the output language. Supported languages are C, Go and Rust. The
+      default is C for re2c, Go for re2go and Rust for re2rust.</dd>
+  <dt id="leftmost"><a class="permalink" href="#leftmost"><b><b>--leftmost-captures</b></b></a></dt>
+  <dd>Enable submatch extraction with leftmost greedy capturing groups.</dd>
+  <dt id="location"><a class="permalink" href="#location"><b><b>--location-format
+    &lt;gnu | msvc&gt;</b></b></a></dt>
+  <dd>Specify location format in messages. With <b>gnu</b> locations are printed
+      as 'filename:line:column: ...'. With <b>msvc</b> locations are printed as
+      'filename(line,column) ...'. The default is <b>gnu</b>.</dd>
+  <dt id="loop"><a class="permalink" href="#loop"><b><b>--loop-switch</b></b></a></dt>
+  <dd>Encode DFA in a form of a loop over a switch statement. Individual states
+      are switch cases. The current state is stored in a variable
+      <b>yystate</b>. Transitions between states update <b>yystate</b> to the
+      case label of the destination state and <b>continue</b> to the head of the
+      loop. This option is always enabled for Rust, as it has no <b>goto</b>
+      statement and cannot use the goto/label approach which is the default for
+      C and Go backends.</dd>
+  <dt id="nested"><a class="permalink" href="#nested"><b><b>--nested-ifs
+    -s</b></b></a></dt>
+  <dd>Use nested <b>if</b> statements instead of <b>switch</b> statements in
+      conditional jumps. This usually results in more efficient code with
+      non-optimizing compilers.</dd>
+  <dt id="no"><a class="permalink" href="#no"><b><b>--no-debug-info
+    -i</b></b></a></dt>
+  <dd>Do not output line directives. This may be useful when the generated code
+      is stored in a version control system (to avoid huge autogenerated diffs
+      on small changes). This option is on by default for Rust, as it does not
+      have line directives.</dd>
+  <dt id="no~2"><a class="permalink" href="#no~2"><b><b>--no-generation-date</b></b></a></dt>
+  <dd>Suppress date output in the generated file.</dd>
+  <dt id="no~3"><a class="permalink" href="#no~3"><b><b>--no-version</b></b></a></dt>
+  <dd>Suppress version output in the generated file.</dd>
+  <dt id="no~4"><a class="permalink" href="#no~4"><b><b>--no-unsafe</b></b></a></dt>
+  <dd>Do not generate <b>unsafe</b> wrapper over <b>YYPEEK</b> (this option is
+      specific to Rust). For performance reasons <b>YYPEEK</b> should avoid
+      bounds-checking, as the lexer already performs end-of-input checks in a
+      more efficient way. The user may choose to provide a safe <b>YYPEEK</b>
+      definition, or a definition that is unsafe only in release builds, in
+      which case the <b>--no-unsafe</b> option helps to avoid warnings about
+      redundant <b>unsafe</b> blocks.</dd>
+  <dt id="output"><a class="permalink" href="#output"><b><b>--output -o
+    OUTPUT</b></b></a></dt>
+  <dd>Specify the <b>OUTPUT</b> file.</dd>
+  <dt id="posix"><a class="permalink" href="#posix"><b><b>--posix-captures
+    -P</b></b></a></dt>
+  <dd>Enable submatch extraction with POSIX-style capturing groups.</dd>
+  <dt id="reusable"><a class="permalink" href="#reusable"><b><b>--reusable
+    -r</b></b></a></dt>
+  <dd>Deprecated since version 2.2 (reusable blocks are allowed by default
+    now).</dd>
+  <dt id="skeleton"><a class="permalink" href="#skeleton"><b><b>--skeleton
+    -S</b></b></a></dt>
+  <dd>Ignore user-defined interface code and generate a self-contained
+      &quot;skeleton&quot; program. Additionally, generate input files with
+      strings derived from the regular grammar and compressed match results that
+      are used to verify &quot;skeleton&quot; behavior on all inputs. This
+      option is useful for finding bugs in optimizations and code generation.
+      This option is supported only for C.</dd>
+  <dt id="storable"><a class="permalink" href="#storable"><b><b>--storable-state
+    -f</b></b></a></dt>
+  <dd>Generate a lexer which can store its inner state. This is useful in
+      push-model lexers which are stopped by an outer program when there is not
+      enough input, and then resumed when more input becomes available. In this
+      mode users should additionally define <b>YYGETSTATE</b> and
+      <b>YYSETSTATE</b> primitives, and variables <b>yych</b>, <b>yyaccept</b>
+      and <b>state</b> should be part of the stored lexer state.</dd>
+  <dt id="tags"><a class="permalink" href="#tags"><b><b>--tags
+    -T</b></b></a></dt>
+  <dd>Enable submatch extraction with tags.</dd>
+  <dt id="ucs2"><a class="permalink" href="#ucs2"><b><b>--ucs2 --wide-chars
+    -w</b></b></a></dt>
+  <dd>Generate a lexer that reads UCS2-encoded input. re2c assumes that the
+      character range is 0 -- 0xFFFF and character size is 2 bytes. This option
+      implies <b>--nested-ifs</b>.</dd>
+  <dt id="utf8"><a class="permalink" href="#utf8"><b><b>--utf8 --utf-8
+    -8</b></b></a></dt>
+  <dd>Generate a lexer that reads input in UTF-8 encoding. re2c assumes that the
+      character range is 0 -- 0x10FFFF and character size is 1 byte.</dd>
+  <dt id="utf16"><a class="permalink" href="#utf16"><b><b>--utf16 --utf-16
+    -x</b></b></a></dt>
+  <dd>Generate a lexer that reads UTF16-encoded input. re2c assumes that the
+      character range is 0 -- 0x10FFFF and character size is 2 bytes. This
+      option implies <b>--nested-ifs</b>.</dd>
+  <dt id="utf32"><a class="permalink" href="#utf32"><b><b>--utf32 --unicode
+    -u</b></b></a></dt>
+  <dd>Generate a lexer that reads UTF32-encoded input. re2c assumes that the
+      character range is 0 -- 0x10FFFF and character size is 4 bytes. This
+      option implies <b>--nested-ifs</b>.</dd>
+  <dt id="verbose"><a class="permalink" href="#verbose"><b><b>--verbose</b></b></a></dt>
+  <dd>Output a short message in case of success.</dd>
+  <dt id="vernum"><a class="permalink" href="#vernum"><b><b>--vernum
+    -V</b></b></a></dt>
+  <dd>Show version information in <b>MMmmpp</b> format (major, minor,
+    patch).</dd>
+  <dt id="version"><a class="permalink" href="#version"><b><b>--version
+    -v</b></b></a></dt>
+  <dd>Show version information.</dd>
+  <dt id="single"><a class="permalink" href="#single"><b><b>--single-pass
+    -1</b></b></a></dt>
+  <dd>Deprecated. Does nothing (single pass is the default now).</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="debug"><a class="permalink" href="#debug"><b><b>--debug-output
+    -d</b></b></a></dt>
+  <dd>Emit <b>YYDEBUG</b> invocations in the generated code. This is useful to
+      trace lexer execution.</dd>
+  <dt id="dump"><a class="permalink" href="#dump"><b><b>--dump-adfa</b></b></a></dt>
+  <dd>Debug option: output DFA after tunneling (in .dot format).</dd>
+  <dt id="dump~2"><a class="permalink" href="#dump~2"><b><b>--dump-cfg</b></b></a></dt>
+  <dd>Debug option: output control flow graph of tag variables (in .dot
+    format).</dd>
+  <dt id="dump~3"><a class="permalink" href="#dump~3"><b><b>--dump-closure-stats</b></b></a></dt>
+  <dd>Debug option: output statistics on the number of states in closure.</dd>
+  <dt id="dump~4"><a class="permalink" href="#dump~4"><b><b>--dump-dfa-det</b></b></a></dt>
+  <dd>Debug option: output DFA immediately after determinization (in .dot
+      format).</dd>
+  <dt id="dump~5"><a class="permalink" href="#dump~5"><b><b>--dump-dfa-min</b></b></a></dt>
+  <dd>Debug option: output DFA after minimization (in .dot format).</dd>
+  <dt id="dump~6"><a class="permalink" href="#dump~6"><b><b>--dump-dfa-tagopt</b></b></a></dt>
+  <dd>Debug option: output DFA after tag optimizations (in .dot format).</dd>
+  <dt id="dump~7"><a class="permalink" href="#dump~7"><b><b>--dump-dfa-tree</b></b></a></dt>
+  <dd>Debug option: output DFA under construction with states represented as tag
+      history trees (in .dot format).</dd>
+  <dt id="dump~8"><a class="permalink" href="#dump~8"><b><b>--dump-dfa-raw</b></b></a></dt>
+  <dd>Debug option: output DFA under construction with expanded state-sets (in
+      .dot format).</dd>
+  <dt id="dump~9"><a class="permalink" href="#dump~9"><b><b>--dump-interf</b></b></a></dt>
+  <dd>Debug option: output interference table produced by liveness analysis of
+      tag variables.</dd>
+  <dt id="dump~10"><a class="permalink" href="#dump~10"><b><b>--dump-nfa</b></b></a></dt>
+  <dd>Debug option: output NFA (in .dot format).</dd>
+  <dt id="emit"><a class="permalink" href="#emit"><b><b>--emit-dot
+    -D</b></b></a></dt>
+  <dd>Instead of normal output generate lexer graph in .dot format. The output
+      can be converted to an image with the help of Graphviz (e.g. something
+      like <b>dot -Tpng -odfa.png dfa.dot</b>).</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="dfa"><a class="permalink" href="#dfa"><b><b>--dfa-minimization
+    &lt;moore | table&gt;</b></b></a></dt>
+  <dd>Internal option: DFA minimization algorithm used by re2c. The <b>moore</b>
+      option is the Moore algorithm (it is the default). The <b>table</b> option
+      is the &quot;table filling&quot; algorithm. Both algorithms should produce
+      the same DFA up to states relabeling; table filling is simpler and much
+      slower and serves as a reference implementation.</dd>
+  <dt id="eager"><a class="permalink" href="#eager"><b><b>--eager-skip</b></b></a></dt>
+  <dd>Internal option: make the generated lexer advance the input position
+      eagerly -- immediately after reading the input symbol. This changes the
+      default behavior when the input position is advanced lazily -- after
+      transition to the next state.</dd>
+  <dt id="no~5"><a class="permalink" href="#no~5"><b><b>--no-lookahead</b></b></a></dt>
+  <dd>Internal option, deprecated. It used to enable TDFA(0) algorithm. Unlike
+      TDFA(1), TDFA(0) algorithm does not use one-symbol lookahead. It applies
+      register operations to the incoming transitions rather than the outgoing
+      ones. Benchmarks showed that TDFA(0) algorithm is less efficient than
+      TDFA(1).</dd>
+  <dt id="no~6"><a class="permalink" href="#no~6"><b><b>--no-optimize-tags</b></b></a></dt>
+  <dd>Internal option: suppress optimization of tag variables (useful for
+      debugging).</dd>
+  <dt id="posix~2"><a class="permalink" href="#posix~2"><b><b>--posix-closure
+    &lt;gor1 | gtop&gt;</b></b></a></dt>
+  <dd>Internal option: specify shortest-path algorithm used for the construction
+      of epsilon-closure with POSIX disambiguation semantics: <b>gor1</b> (the
+      default) stands for Goldberg-Radzik algorithm, and <b>gtop</b> stands for
+      &quot;global topological order&quot; algorithm.</dd>
+  <dt id="posix~3"><a class="permalink" href="#posix~3"><b><b>--posix-prectable
+    &lt;complex | naive&gt;</b></b></a></dt>
+  <dd>Internal option: specify the algorithm used to compute POSIX precedence
+      table. The <b>complex</b> algorithm computes precedence table in one
+      traversal of tag history tree and has quadratic complexity in the number
+      of TNFA states; it is the default. The <b>naive</b> algorithm has
+      worst-case cubic complexity in the number of TNFA states, but it is much
+      simpler than <b>complex</b> and may be slightly faster in non-pathological
+      cases.</dd>
+  <dt id="stadfa"><a class="permalink" href="#stadfa"><b><b>--stadfa</b></b></a></dt>
+  <dd>Internal option, deprecated. It used to enable staDFA algorithm, which
+      differs from TDFA in that register operations are placed in states rather
+      than on transitions. Benchmarks showed that staDFA algorithm is less
+      efficient than TDFA.</dd>
+  <dt id="fixed"><a class="permalink" href="#fixed"><b><b>--fixed-tags &lt;none
+    | toplevel | all&gt;</b></b></a></dt>
+  <dd>Internal option: specify whether the fixed-tag optimization should be
+      applied to all tags (<b>all</b>), none of them (<b>none</b>), or only
+      those in toplevel concatenation (<b>toplevel</b>). The default is
+      <b>all</b>. &quot;Fixed&quot; tags are those that are located within a
+      fixed distance to some other tag (called &quot;base&quot;). In such cases
+      only the base tag needs to be tracked, and the value of the fixed tag can
+      be computed as the value of the base tag plus a static offset. For tags
+      that are under alternative or repetition it is also necessary to check if
+      the base tag has a no-match value (in that case fixed tag should also be
+      set to no-match, disregarding the offset). For tags in top-level
+      concatenation the check is not needed, because they always match.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WARNINGS"><a class="permalink" href="#WARNINGS">WARNINGS</a></h1>
+<p class="Pp">Warnings can be invividually enabled, disabled and turned into an
+    error.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="W"><a class="permalink" href="#W"><b><b>-W</b></b></a></dt>
+  <dd>Turn on all warnings.</dd>
+  <dt id="Werror"><a class="permalink" href="#Werror"><b><b>-Werror</b></b></a></dt>
+  <dd>Turn warnings into errors. Note that this option alone doesn't turn on any
+      warnings; it only affects those warnings that have been turned on so far
+      or will be turned on later.</dd>
+  <dt id="W_warning_"><a class="permalink" href="#W_warning_"><b><b>-W&lt;warning&gt;</b></b></a></dt>
+  <dd>Turn on <b>warning</b>.</dd>
+  <dt id="Wno"><a class="permalink" href="#Wno"><b><b>-Wno-&lt;warning&gt;</b></b></a></dt>
+  <dd>Turn off <b>warning</b>.</dd>
+  <dt id="Werror~2"><a class="permalink" href="#Werror~2"><b><b>-Werror-&lt;warning&gt;</b></b></a></dt>
+  <dd>Turn on <b>warning</b> and treat it as an error (this implies
+      <b>-W&lt;warning&gt;</b>).</dd>
+  <dt id="Wno~2"><a class="permalink" href="#Wno~2"><b><b>-Wno-error-&lt;warning&gt;</b></b></a></dt>
+  <dd>Don't treat this particular <b>warning</b> as an error. This doesn't turn
+      off the warning itself.</dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Wcondition"><a class="permalink" href="#Wcondition"><b><b>-Wcondition-order</b></b></a></dt>
+  <dd>Warn if the generated program makes implicit assumptions about condition
+      numbering. One should use either the <b>---header</b> option or the
+      <b>conditions:re2c</b> directive to generate a mapping of condition names
+      to numbers and then use the autogenerated condition names.</dd>
+  <dt id="Wempty"><a class="permalink" href="#Wempty"><b><b>-Wempty-character-class</b></b></a></dt>
+  <dd>Warn if a regular expression contains an empty character class. Trying to
+      match an empty character class makes no sense: it should always fail.
+      However, for backwards compatibility reasons re2c permits empty character
+      classes and treats them as empty strings. Use the <b>--empty-class</b>
+      option to change the default behavior.</dd>
+  <dt id="Wmatch"><a class="permalink" href="#Wmatch"><b><b>-Wmatch-empty-string</b></b></a></dt>
+  <dd>Warn if a rule is nullable (matches an empty string). If the lexer runs in
+      a loop and the empty match is unintentional, the lexer may unexpectedly
+      hang in an infinite loop.</dd>
+  <dt id="Wswapped"><a class="permalink" href="#Wswapped"><b><b>-Wswapped-range</b></b></a></dt>
+  <dd>Warn if the lower bound of a range is greater than its upper bound. The
+      default behavior is to silently swap the range bounds.</dd>
+  <dt id="Wundefined"><a class="permalink" href="#Wundefined"><b><b>-Wundefined-control-flow</b></b></a></dt>
+  <dd>Warn if some input strings cause undefined control flow in the lexer (the
+      faulty patterns are reported). This is a dangerous and common mistake. It
+      can be easily fixed by adding the default rule <b>*</b> which has the
+      lowest priority, matches any code unit, and always consumes a single code
+      unit.</dd>
+  <dt id="Wunreachable"><a class="permalink" href="#Wunreachable"><b><b>-Wunreachable-rules</b></b></a></dt>
+  <dd>Warn about rules that are shadowed by other rules and will never
+    match.</dd>
+  <dt id="Wuseless"><a class="permalink" href="#Wuseless"><b><b>-Wuseless-escape</b></b></a></dt>
+  <dd>Warn if a symbol is escaped when it shouldn't be. By default, re2c
+      silently ignores such escapes, but this may as well indicate a typo or an
+      error in the escape sequence.</dd>
+  <dt id="Wnondeterministic"><a class="permalink" href="#Wnondeterministic"><b><b>-Wnondeterministic-tags</b></b></a></dt>
+  <dd>Warn if a tag has <b>n</b>-th degree of nondeterminism, where <b>n</b> is
+      greater than 1.</dd>
+  <dt id="Wsentinel"><a class="permalink" href="#Wsentinel"><b><b>-Wsentinel-in-midrule</b></b></a></dt>
+  <dd>Warn if the sentinel symbol occurs in the middle of a rule --- this may
+      cause reads past the end of buffer, crashes or memory corruption in the
+      generated lexer. This warning is only applicable if the sentinel method of
+      checking for the end of input is used. It is set to an error if
+      <b>re2c:sentinel</b> configuration is used.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BLOCKS_AND_DIRECTIVES"><a class="permalink" href="#BLOCKS_AND_DIRECTIVES">BLOCKS
+  AND DIRECTIVES</a></h1>
+<p class="Pp">Below is the list of re2c directives (syntactic constructs that
+    mark the beginning and end of the code that should be processed by re2c).
+    Named blocks were added in re2c version 2.2. They are exactly the same as
+    unnamed blocks, except that the name can be used to reference a block in
+    other parts of the program. More information on each directive can be found
+    in the related sections.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>/*!re2c[:&lt;name&gt;] ... */</b></b></dt>
+  <dd>A global re2c block with an optional name. The block may contain named
+      definitions, configurations and rules in any order. Named definitions and
+      configurations are defined in the global scope, so they are inherited by
+      subsequent blocks. The code for a global block is generated at the point
+      where the block is specified.</dd>
+  <dt><b><b>/*!local:re2c[:&lt;name&gt;] ... */</b></b></dt>
+  <dd>A local re2c block with an optional name. Unlike global blocks,
+      definitions and configurations inside of a local block are not added into
+      the global scope. In all other respects local blocks are the same as
+      global blocks.</dd>
+  <dt><b><b>/*!rules:re2c[:&lt;name&gt;] ... */</b></b></dt>
+  <dd>A reusable block with an optional name. Rules blocks have the same
+      structure as local or global blocks, but they do not produce any code and
+      they can be reused multiple times in other blocks with the help of a
+      <b>!use:&lt;name&gt;;</b> directive or a <b>/*!use:re2c[:&lt;name&gt;] ...
+      */</b> block. A rules block on its own does not add any definitions into
+      the global scope. The code for it is generated at the point of use. Prior
+      to re2c version 2.2 rules blocks required <b>-r --reusable</b>
+    option.</dd>
+  <dt><b><b>/*!use:re2c[:&lt;name&gt;] ... */</b></b></dt>
+  <dd>A use block that references a previously defined rules block. If the name
+      is specified, re2c looks for a rules blocks with this name. Otherwise the
+      most recent rules block is used (either a named or an unnamed one). A use
+      block can add definitions, configurations and rules of its own, which are
+      added to those of the referenced rules block. Prior to re2c version 2.2
+      use blocks required <b>-r --reusable</b> option.</dd>
+  <dt><b><b>!use:&lt;name&gt;;</b></b></dt>
+  <dd>An in-block use directive that merges a previously defined rules block
+      with the specified name into the current block. Named definitions,
+      configurations and rules of the referenced block are added to the current
+      ones. Conflicts between overlapping rules and configurations are resolved
+      in the usual way: the first rule takes priority, and the latest
+      configuration overrides the preceding ones. One exception is the special
+      rules <b>*</b>, <b>$</b> and <b>&lt;!&gt;</b> for which a block-local
+      definition always takes priority. A use directive can be placed anywhere
+      inside of a block, and multiple use directives are allowed.</dd>
+  <dt><b><b>/*!max:re2c[:&lt;name1&gt;[:&lt;name2&gt;...]] ... */</b></b></dt>
+  <dd>A directive that generates <b>YYMAXFILL</b> definition. An optional list
+      of block names specifies which blocks should be included when computing
+      <b>YYMAXFILL</b> value (if the list is empty, all blocks are included). By
+      default the generated code is a macro-definition for C (<b>#define
+      YYMAXFILL &lt;n&gt;</b>), or a global variable for Go (<b>var YYMAXFILL
+      int = &lt;n&gt;</b>). It can be customized with an optional configuration
+      <b>format</b> that specifies a template string where <b>@@{max}</b> (or
+      <b>@@</b> for short) is replaced with the numeric value of
+      <b>YYMAXFILL</b>.</dd>
+  <dt><b><b>/*!maxnmatch:re2c[:&lt;name1&gt;[:&lt;name2&gt;...]] ...
+    */</b></b></dt>
+  <dd>A directive that generates <b>YYMAXNMATCH</b> definition (it requires
+      <b>-P --posix-captures</b> option). An optional list of block names
+      specifies which blocks should be included when computing
+      <b>YYMAXNMATCH</b> value (if the list is empty, all blocks are included).
+      By default the generated code is a macro-definition for C (<b>#define
+      YYMAXNMATCH &lt;n&gt;</b>), or a global variable for Go (<b>var
+      YYMAXNMATCH int = &lt;n&gt;</b>). It can be customized with an optional
+      configuration <b>format</b> that specifies a template string where
+      <b>@@{max}</b> (or <b>@@</b> for short) is replaced with the numeric value
+      of <b>YYMAXNMATCH</b>.</dd>
+  <dt><b><b>/*!stags:re2c[:&lt;name1&gt;[:&lt;name2&gt;...]] ... */</b>,
+    <b>/*!mtags:re2c[:&lt;name1&gt;[:&lt;name2&gt;...]] ... */</b></b></dt>
+  <dd>Directives that specify a template piece of code that is expanded for each
+      s-tag/m-tag variable generated by re2c. An optional list of block names
+      specifies which blocks should be included when computing the set of tag
+      variables (if the list is empty, all blocks are included). There are two
+      optional configurations: <b>format</b> and <b>separator</b>. Configuration
+      <b>format</b> specifies a template string where <b>@@{tag}</b> (or
+      <b>@@</b> for short) is replaced with the name of each tag variable.
+      Configuration <b>separator</b> specifies a piece of code used to join the
+      generated <b>format</b> pieces for different tag variables.</dd>
+  <dt><b><b>/*!getstate:re2c[:&lt;name1&gt;[:&lt;name2&gt;...]] ...
+    */</b></b></dt>
+  <dd>A directive that generates conditional dispatch on the lexer state (it
+      requires <b>--storable-state</b> option). An optional list of block names
+      specifies which blocks should be included in the state dispatch. The
+      default transition goes to the start label of the first block on the list.
+      If the list is empty, all blocks are included, and the default transition
+      goes to the first block in the file that has a start label. This directive
+      is incompatible with the <b>--loop-switch</b> option and Rust, as it
+      requires cross-block transitions that are unsupported without the
+      <b>goto</b> statement.</dd>
+  <dt><b><b>/*!conditions:re2c[:&lt;name1&gt;[:&lt;name2&gt;...]] ... */</b>,
+    <b>/*!types:re2c... */</b></b></dt>
+  <dd>A directive that generates condition enumeration (it requires
+      <b>--conditions</b> option). An optional list of block names specifies
+      which blocks should be included when computing the set of conditions (if
+      the list is empty, all blocks are included). By default the generated code
+      is an enumeration <b>YYCONDTYPE</b>. It can be customized with optional
+      configurations <b>format</b> and <b>separator</b>. Configuration
+      <b>format</b> specifies a template string where <b>@@{cond}</b> (or
+      <b>@@</b> for short) is replaced with the name of each condition, and
+      <b>@@{num}</b> is replaced with a numeric index of that condition.
+      Configuration <b>separator</b> specifies a piece of code used to join the
+      generated <b>format</b> pieces for different conditions.</dd>
+  <dt><b><b>/*!include:re2c &lt;file&gt; */</b></b></dt>
+  <dd>This directive allows one to include <b>&lt;file&gt;</b>, which must be a
+      double-quoted file path. The contents of the file are literally
+      substituted in place of the directive, in the same way as <b>#include</b>
+      works in C/C++. This directive can be used together with the
+      <b>--depfile</b> option to generate build system dependencies on the
+      included files.</dd>
+  <dt><b><b>!include &lt;file&gt;;</b></b></dt>
+  <dd>This directive is the same as <b>/*!include:re2c &lt;file&gt; */</b>,
+      except that it should be used inside of a re2c block.</dd>
+  <dt><b><b>/*!header:re2c:on*/</b></b></dt>
+  <dd>This directive marks the start of header file. Everything after it and up
+      to the following <b>/*!header:re2c:off*/</b> directive is processed by
+      re2c and written to the header file specified with <b>-t --type-header</b>
+      option.</dd>
+  <dt><b><b>/*!header:re2c:off*/</b></b></dt>
+  <dd>This directive marks the end of header file started with
+      <b>/*!header:re2c:on*/</b>.</dd>
+  <dt><b><b>/*!ignore:re2c ... */</b></b></dt>
+  <dd>A block which contents are ignored and removed from the output file.</dd>
+  <dt><b><b>%{ ... %}</b></b></dt>
+  <dd>A global re2c block in the <b>--flex-support</b> mode. This is deprecated
+      and exists for backward compatibility.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="API_PRIMITIVES"><a class="permalink" href="#API_PRIMITIVES">API
+  PRIMITIVES</a></h1>
+<p class="Pp">Here is a list of API primitives that may be used by the generated
+    code in order to interface with the outer program. Which primitives are
+    needed depends on multiple factors, including the complexity of regular
+    expressions, input representation, buffering, the use of various features
+    and so on. All the necessary primitives should be defined by the user in the
+    form of macros, functions, variables, free-form pieces of code, or any other
+    suitable form. re2c does not (and cannot) check the definitions, so if
+    anything is missing or defined incorrectly the generated code will not
+    compile.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="YYCTYPE"><a class="permalink" href="#YYCTYPE"><b><b>YYCTYPE</b></b></a></dt>
+  <dd>The type of the input characters (code units). For ASCII, EBCDIC and UTF-8
+      encodings it should be 1-byte unsigned integer. For UTF-16 or UCS-2 it
+      should be 2-byte unsigned integer. For UTF-32 it should be 4-byte unsigned
+      integer.</dd>
+  <dt id="YYCURSOR"><a class="permalink" href="#YYCURSOR"><b><b>YYCURSOR</b></b></a></dt>
+  <dd>A pointer-like l-value that stores the current input position (usually a
+      pointer of type <b>YYCTYPE*</b>). Initially <b>YYCURSOR</b> should point
+      to the first input character. It is advanced by the generated code. When a
+      rule matches, <b>YYCURSOR</b> points to the position after the last
+      matched character. It is used only in C pointer API.</dd>
+  <dt id="YYLIMIT"><a class="permalink" href="#YYLIMIT"><b><b>YYLIMIT</b></b></a></dt>
+  <dd>A pointer-like r-value that stores the end of input position (usually a
+      pointer of type <b>YYCTYPE*</b>). Initially <b>YYLIMIT</b> should point to
+      the position after the last available input character. It is not changed
+      by the generated code. The lexer compares <b>YYCURSOR</b> to
+      <b>YYLIMIT</b> in order to determine if there are enough input characters
+      left. <b>YYLIMIT</b> is used only in C pointer API.</dd>
+  <dt id="YYMARKER"><a class="permalink" href="#YYMARKER"><b><b>YYMARKER</b></b></a></dt>
+  <dd>A pointer-like l-value (usually a pointer of type <b>YYCTYPE*</b>) that
+      stores the position of the latest matched rule. It is used to restore the
+      <b>YYCURSOR</b> position if the longer match fails and the lexer needs to
+      rollback. Initialization is not needed. <b>YYMARKER</b> is used only in C
+      pointer API.</dd>
+  <dt id="YYCTXMARKER"><a class="permalink" href="#YYCTXMARKER"><b><b>YYCTXMARKER</b></b></a></dt>
+  <dd>A pointer-like l-value that stores the position of the trailing context
+      (usually a pointer of type <b>YYCTYPE*</b>). No initialization is needed.
+      It is used only in C pointer API, and only with the lookahead operator
+      <b>/</b>.</dd>
+  <dt id="YYFILL"><a class="permalink" href="#YYFILL"><b><b>YYFILL</b></b></a></dt>
+  <dd>A generic API primitive with one argument <b>len</b>. <b>YYFILL</b> should
+      provide at least <b>len</b> more input characters or fail. If
+      <b>re2c:eof</b> is used, then <b>len</b> is always <b>1</b> and
+      <b>YYFILL</b> should always return to the calling function; zero return
+      value indicates success. If <b>re2c:eof</b> is not used, then
+      <b>YYFILL</b> return value is ignored and it should not return on failure.
+      The maximum value of <b>len</b> is <b>YYMAXFILL</b>. The definition of
+      <b>YYFILL</b> can be either function-like or free-form depending on the
+      API style (see <b>re2c:api:style</b> and
+    <b>re2c:define:YYFILL:naked</b>).</dd>
+  <dt id="YYMAXFILL"><a class="permalink" href="#YYMAXFILL"><b><b>YYMAXFILL</b></b></a></dt>
+  <dd>An integral constant equal to the maximum value of the argument to
+      <b>YYFILL</b>. It can be generated with <b>/*!max:re2c*/</b>
+    directive.</dd>
+  <dt id="YYLESSTHAN"><a class="permalink" href="#YYLESSTHAN"><b><b>YYLESSTHAN</b></b></a></dt>
+  <dd>A generic API primitive with one argument <b>len</b>. It should be defined
+      as an r-value of boolean type that equals <b>true</b> if and only if there
+      are less than <b>len</b> input characters left. The definition can be
+      either function-like or free-form depending on the API style (see
+      <b>re2c:api:style</b>).</dd>
+  <dt id="YYPEEK"><a class="permalink" href="#YYPEEK"><b><b>YYPEEK</b></b></a></dt>
+  <dd>A generic API primitive with no arguments. It should be defined as an
+      r-value of type <b>YYCTYPE</b> that is equal to the character at the
+      current input position. The definition can be either function-like or
+      free-form depending on the API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYSKIP"><a class="permalink" href="#YYSKIP"><b><b>YYSKIP</b></b></a></dt>
+  <dd>A generic API primitive with no arguments. <b>YYSKIP</b> should advance
+      the current input position by one character. The definition can be either
+      function-like or free-form depending on the API style (see
+      <b>re2c:api:style</b>).</dd>
+  <dt id="YYBACKUP"><a class="permalink" href="#YYBACKUP"><b><b>YYBACKUP</b></b></a></dt>
+  <dd>A generic API primitive with no arguments. <b>YYBACKUP</b> should save the
+      current input position, which is later restored with <b>YYRESTORE</b>. The
+      definition should be either function-like or free-form depending on the
+      API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYRESTORE"><a class="permalink" href="#YYRESTORE"><b><b>YYRESTORE</b></b></a></dt>
+  <dd>A generic API primitive with no arguments. <b>YYRESTORE</b> should restore
+      the current input position to the value saved by <b>YYBACKUP</b>. The
+      definition should be either function-like or free-form depending on the
+      API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYBACKUPCTX"><a class="permalink" href="#YYBACKUPCTX"><b><b>YYBACKUPCTX</b></b></a></dt>
+  <dd>A generic API primitive with zero arguments. <b>YYBACKUPCTX</b> should
+      save the current input position as the position of the trailing context,
+      which is later restored by <b>YYRESTORECTX</b>. The definition should be
+      either function-like or free-form depending on the API style (see
+      <b>re2c:api:style</b>).</dd>
+  <dt id="YYRESTORECTX"><a class="permalink" href="#YYRESTORECTX"><b><b>YYRESTORECTX</b></b></a></dt>
+  <dd>A generic API primitive with no arguments. <b>YYRESTORECTX</b> should
+      restore the trailing context position saved with <b>YYBACKUPCTX</b>. The
+      definition should be either function-like or free-form depending on the
+      API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYRESTORETAG"><a class="permalink" href="#YYRESTORETAG"><b><b>YYRESTORETAG</b></b></a></dt>
+  <dd>A generic API primitive with one argument <b>tag</b>. <b>YYRESTORETAG</b>
+      should restore the trailing context position to the value of <b>tag</b>.
+      The definition should be either function-like or free-form depending on
+      the API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYSTAGP"><a class="permalink" href="#YYSTAGP"><b><b>YYSTAGP</b></b></a></dt>
+  <dd>A generic API primitive with one argument <b>tag</b>, where <b>tag</b> can
+      be a pointer or an offset (see submatch extraction section for details).
+      <b>YYSTAGP</b> should set <b>tag</b> to the current input position. The
+      definition should be either function-like or free-form depending on the
+      API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYSTAGN"><a class="permalink" href="#YYSTAGN"><b><b>YYSTAGN</b></b></a></dt>
+  <dd>A generic API primitive with one argument <b>tag</b>, where <b>tag</b> can
+      be a pointer or an offset (see submatch extraction section for details).
+      <b>YYSTAGN</b> should to set <b>tag</b> to a value that represents
+      non-existent input position. The definition should be either function-like
+      or free-form depending on the API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYMTAGP"><a class="permalink" href="#YYMTAGP"><b><b>YYMTAGP</b></b></a></dt>
+  <dd>A generic API primitive with one argument <b>tag</b>. <b>YYMTAGP</b>
+      should append the current position to the submatch history of <b>tag</b>
+      (see the submatch extraction section for details.) The definition should
+      be either function-like or free-form depending on the API style (see
+      <b>re2c:api:style</b>).</dd>
+  <dt id="YYMTAGN"><a class="permalink" href="#YYMTAGN"><b><b>YYMTAGN</b></b></a></dt>
+  <dd>A generic API primitive with one argument <b>tag</b>. <b>YYMTAGN</b>
+      should append a value that represents non-existent input position position
+      to the submatch history of <b>tag</b> (see the submatch extraction section
+      for details.) The definition can be either function-like or free-form
+      depending on the API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYSHIFT"><a class="permalink" href="#YYSHIFT"><b><b>YYSHIFT</b></b></a></dt>
+  <dd>A generic API primitive with one argument <b>shift</b>. <b>YYSHIFT</b>
+      should shift the current input position by <b>shift</b> characters (the
+      shift value may be negative). The definition can be either function-like
+      or free-form depending on the API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYSHIFTSTAG"><a class="permalink" href="#YYSHIFTSTAG"><b><b>YYSHIFTSTAG</b></b></a></dt>
+  <dd>A generic API primitive with two arguments, <b>tag</b> and <b>shift</b>.
+      <b>YYSHIFTSTAG</b> should shift <b>tag</b> by <b>shift</b> characters (the
+      shift value may be negative). The definition can be either function-like
+      or free-form depending on the API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYSHIFTMTAG"><a class="permalink" href="#YYSHIFTMTAG"><b><b>YYSHIFTMTAG</b></b></a></dt>
+  <dd>A generic API primitive with two arguments, <b>tag</b> and <b>shift</b>.
+      <b>YYSHIFTMTAG</b> should shift the latest value in the history of
+      <b>tag</b> by <b>shift</b> characters (the shift value may be negative).
+      The definition should be either function-like or free-form depending on
+      the API style (see <b>re2c:api:style</b>).</dd>
+  <dt id="YYMAXNMATCH"><a class="permalink" href="#YYMAXNMATCH"><b><b>YYMAXNMATCH</b></b></a></dt>
+  <dd>An integral constant equal to the maximal number of POSIX capturing groups
+      in a rule. It is generated with <b>/*!maxnmatch:re2c*/</b> directive.</dd>
+  <dt id="YYCONDTYPE"><a class="permalink" href="#YYCONDTYPE"><b><b>YYCONDTYPE</b></b></a></dt>
+  <dd>The type of the condition enum. It should be generated either with the
+      <b>/*!types:re2c*/</b> directive or the <b>-t</b> <b>--type-header</b>
+      option.</dd>
+  <dt id="YYGETCONDITION"><a class="permalink" href="#YYGETCONDITION"><b><b>YYGETCONDITION</b></b></a></dt>
+  <dd>An API primitive with zero arguments. It should be defined as an r-value
+      of type <b>YYCONDTYPE</b> that is equal to the current condition
+      identifier. The definition can be either function-like or free-form
+      depending on the API style (see <b>re2c:api:style</b> and
+      <b>re2c:define:YYGETCONDITION:naked</b>).</dd>
+  <dt id="YYSETCONDITION"><a class="permalink" href="#YYSETCONDITION"><b><b>YYSETCONDITION</b></b></a></dt>
+  <dd>An API primitive with one argument <b>cond</b>. The meaning of
+      <b>YYSETCONDITION</b> is to set the current condition identifier to
+      <b>cond</b>. The definition should be either function-like or free-form
+      depending on the API style (see <b>re2c:api:style</b> and
+      <b>re2c:define:YYSETCONDITION@cond</b>).</dd>
+  <dt id="YYGETSTATE"><a class="permalink" href="#YYGETSTATE"><b><b>YYGETSTATE</b></b></a></dt>
+  <dd>An API primitive with zero arguments. It should be defined as an r-value
+      of integer type that is equal to the current lexer state. Should be
+      initialized to <b>-1</b>. The definition can be either function-like or
+      free-form depending on the API style (see <b>re2c:api:style</b> and
+      <b>re2c:define:YYGETSTATE:naked</b>).</dd>
+  <dt id="YYSETSTATE"><a class="permalink" href="#YYSETSTATE"><b><b>YYSETSTATE</b></b></a></dt>
+  <dd>An API primitive with one argument <b>state</b>. The meaning of
+      <b>YYSETSTATE</b> is to set the current lexer state to <b>state</b>. The
+      definition should be either function-like or free-form depending on the
+      API style (see <b>re2c:api:style</b> and
+      <b>re2c:define:YYSETSTATE@state</b>).</dd>
+  <dt id="YYDEBUG"><a class="permalink" href="#YYDEBUG"><b><b>YYDEBUG</b></b></a></dt>
+  <dd>A debug API primitive with two arguments. It can be used to debug the
+      generated code (with <b>-d</b> <b>--debug-output</b> option).
+      <b>YYDEBUG</b> should return no value and accept two arguments:
+      <b>state</b> (either a DFA state index or <b>-1</b>) and <b>symbol</b>
+      (the current input symbol).</dd>
+  <dt id="yych"><a class="permalink" href="#yych"><b><b>yych</b></b></a></dt>
+  <dd>An l-value of type <b>YYCTYPE</b> that stores the current input character.
+      User definition is necessary only with <b>-f</b> <b>--storable-state</b>
+      option.</dd>
+  <dt id="yyaccept"><a class="permalink" href="#yyaccept"><b><b>yyaccept</b></b></a></dt>
+  <dd>An l-value of unsigned integral type that stores the number of the latest
+      matched rule. User definition is necessary only with <b>-f</b>
+      <b>--storable-state</b> option.</dd>
+  <dt id="yynmatch"><a class="permalink" href="#yynmatch"><b><b>yynmatch</b></b></a></dt>
+  <dd>An l-value of unsigned integral type that stores the number of POSIX
+      capturing groups in the matched rule. Used only with <b>-P</b>
+      <b>--posix-captures</b> option.</dd>
+  <dt id="yypmatch"><a class="permalink" href="#yypmatch"><b><b>yypmatch</b></b></a></dt>
+  <dd>An array of l-values that are used to hold the tag values corresponding to
+      the capturing parentheses in the matching rule. Array length must be at
+      least <b>yynmatch * 2</b> (usually <b>YYMAXNMATCH * 2</b> is a good
+      choice). Used only with <b>-P</b> <b>--posix-captures</b> option.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATIONS"><a class="permalink" href="#CONFIGURATIONS">CONFIGURATIONS</a></h1>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="re2c:api"><a class="permalink" href="#re2c:api"><b><b>re2c:api</b>,
+    <b>re2c:flags:input</b></b></a></dt>
+  <dd>Same as the <b>--api</b> option.</dd>
+  <dt id="re2c:api:sigil"><a class="permalink" href="#re2c:api:sigil"><b><b>re2c:api:sigil</b></b></a></dt>
+  <dd>Specify the marker (&quot;sigil&quot;) that is used for argument
+      placeholders in the API primitives. The default is <b>@@</b>. A
+      placeholder starts with sigil followed by the argument name in curly
+      braces. For example, if sigil is set to <b>$</b>, then placeholders will
+      have the form <b>${name}</b>. Single-argument APIs may use shorthand
+      notation without the name in braces. This option can be overridden by
+      options for individual API primitives, e.g. <b>re2c:define:YYFILL@len</b>
+      for <b>YYFILL</b>.</dd>
+  <dt id="re2c:api:style"><a class="permalink" href="#re2c:api:style"><b><b>re2c:api:style</b></b></a></dt>
+  <dd>Specify API style. Possible values are <b>functions</b> (the default for
+      C) and <b>free-form</b> (the default for Go and Rust). In <b>functions</b>
+      style API primitives are generated with an argument list in parentheses
+      following the name of the primitive. The arguments are provided only for
+      autogenerated parameters (such as the number of characters passed to
+      <b>YYFILL</b>), but not for the general lexer context, so the primitives
+      behave more like macros in C/C++ or closures in Go and Rust. In free-form
+      style API primitives do not have a fixed form: they should be defined as
+      strings containing free-form pieces of code with interpolated variables of
+      the form <b>@@{var}</b> or <b>@@</b> (they correspond to arguments in
+      function-like style). This configuration may be overridden for individual
+      API primitives, see for example <b>re2c:define:YYFILL:naked</b>
+      configuration for <b>YYFILL</b>.</dd>
+  <dt id="re2c:bit"><a class="permalink" href="#re2c:bit"><b><b>re2c:bit-vectors</b>,
+    <b>re2c:flags:bit-vectors</b>, <b>re2c:flags:b</b></b></a></dt>
+  <dd>Same as the <b>--bit-vectors</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:case"><a class="permalink" href="#re2c:case"><b><b>re2c:case-insensitive</b>,
+    <b>re2c:flags:case-insensitive</b></b></a></dt>
+  <dd>Same as the <b>--case-insensitive</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:case~2"><a class="permalink" href="#re2c:case~2"><b><b>re2c:case-inverted</b>,
+    <b>re2c:flags:case-inverted</b></b></a></dt>
+  <dd>Same as the <b>--case-inverted</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:case~3"><a class="permalink" href="#re2c:case~3"><b><b>re2c:case-ranges</b>,
+    <b>re2c:flags:case-ranges</b></b></a></dt>
+  <dd>Same as the <b>--case-ranges</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:computed"><a class="permalink" href="#re2c:computed"><b><b>re2c:computed-gotos</b>,
+    <b>re2c:flags:computed-gotos</b>, <b>re2c:flags:g</b></b></a></dt>
+  <dd>Same as the <b>--computed-gotos</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:computed~2"><a class="permalink" href="#re2c:computed~2"><b><b>re2c:computed-gotos:threshold</b>,
+    <b>re2c:cgoto:threshold</b></b></a></dt>
+  <dd>If computed <b>goto</b> is used, this configuration specifies the
+      complexity threshold that triggers the generation of jump tables instead
+      of nested <b>if</b> statements and bitmaps. The default value is
+    <b>9</b>.</dd>
+  <dt id="re2c:cond:goto"><a class="permalink" href="#re2c:cond:goto"><b><b>re2c:cond:goto</b></b></a></dt>
+  <dd>Specifies a piece of code used for the autogenerated shortcut rules
+      <b>:=&gt;</b> in conditions. The default is <b>goto @@;</b>. The <b>@@</b>
+      placeholder is substituted with condition name (see configurations
+      <b>re2c:api:sigil</b> and <b>re2c:cond:goto@cond</b>).</dd>
+  <dt id="re2c:cond:goto@cond"><a class="permalink" href="#re2c:cond:goto@cond"><b><b>re2c:cond:goto@cond</b></b></a></dt>
+  <dd>Specifies the sigil used for argument substitution in
+      <b>re2c:cond:goto</b> definition. The default value is <b>@@</b>.
+      Overrides the more generic <b>re2c:api:sigil</b> configuration.</dd>
+  <dt id="re2c:cond:divider"><a class="permalink" href="#re2c:cond:divider"><b><b>re2c:cond:divider</b></b></a></dt>
+  <dd>Defines the divider for condition blocks. The default value is <b>/*
+      *********************************** */</b>. Placeholders are substituted
+      with condition name (see <b>re2c:api;sigil</b> and
+      <b>re2c:cond:divider@cond</b>).</dd>
+  <dt id="re2c:cond:divider@cond"><a class="permalink" href="#re2c:cond:divider@cond"><b><b>re2c:cond:divider@cond</b></b></a></dt>
+  <dd>Specifies the sigil used for argument substitution in
+      <b>re2c:cond:divider</b> definition. The default is <b>@@</b>. Overrides
+      the more generic <b>re2c:api:sigil</b> configuration.</dd>
+  <dt id="re2c:cond:prefix"><a class="permalink" href="#re2c:cond:prefix"><b><b>re2c:cond:prefix</b>,
+    <b>re2c:condprefix</b></b></a></dt>
+  <dd>Specifies the prefix used for condition labels. The default is
+      <b>yyc_</b>.</dd>
+  <dt id="re2c:cond:enumprefix"><a class="permalink" href="#re2c:cond:enumprefix"><b><b>re2c:cond:enumprefix</b>,
+    <b>re2c:condenumprefix</b></b></a></dt>
+  <dd>Specifies the prefix used for condition identifiers. The default is
+      <b>yyc</b>.</dd>
+  <dt id="re2c:debug"><a class="permalink" href="#re2c:debug"><b><b>re2c:debug-output</b>,
+    <b>re2c:flags:debug-output</b>, <b>re2c:flags:d</b></b></a></dt>
+  <dd>Same as the <b>--debug-output</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:define:YYBACKUP"><a class="permalink" href="#re2c:define:YYBACKUP"><b><b>re2c:define:YYBACKUP</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYBACKUP</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYBACKUPCTX"><a class="permalink" href="#re2c:define:YYBACKUPCTX"><b><b>re2c:define:YYBACKUPCTX</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYBACKUPCTX</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYCONDTYPE"><a class="permalink" href="#re2c:define:YYCONDTYPE"><b><b>re2c:define:YYCONDTYPE</b></b></a></dt>
+  <dd>Defines <b>YYCONDTYPE</b> (see the API primitives section).</dd>
+  <dt id="re2c:define:YYCTYPE"><a class="permalink" href="#re2c:define:YYCTYPE"><b><b>re2c:define:YYCTYPE</b></b></a></dt>
+  <dd>Defines <b>YYCTYPE</b> (see the API primitives section).</dd>
+  <dt id="re2c:define:YYCTXMARKER"><a class="permalink" href="#re2c:define:YYCTXMARKER"><b><b>re2c:define:YYCTXMARKER</b></b></a></dt>
+  <dd>Defines API primitive <b>YYCTXMARKER</b> (see the API primitives
+    section).</dd>
+  <dt id="re2c:define:YYCURSOR"><a class="permalink" href="#re2c:define:YYCURSOR"><b><b>re2c:define:YYCURSOR</b></b></a></dt>
+  <dd>Defines API primitive <b>YYCURSOR</b> (see the API primitives
+    section).</dd>
+  <dt id="re2c:define:YYDEBUG"><a class="permalink" href="#re2c:define:YYDEBUG"><b><b>re2c:define:YYDEBUG</b></b></a></dt>
+  <dd>Defines API primitive <b>YYDEBUG</b> (see the API primitives
+    section).</dd>
+  <dt id="re2c:define:YYFILL"><a class="permalink" href="#re2c:define:YYFILL"><b><b>re2c:define:YYFILL</b></b></a></dt>
+  <dd>Defines API primitive <b>YYFILL</b> (see the API primitives section).</dd>
+  <dt id="re2c:define:YYFILL@len"><a class="permalink" href="#re2c:define:YYFILL@len"><b><b>re2c:define:YYFILL@len</b></b></a></dt>
+  <dd>Specifies the sigil used for argument substitution in <b>YYFILL</b>
+      definition. Defaults to <b>@@</b>. Overrides the more generic
+      <b>re2c:api:sigil</b> configuration.</dd>
+  <dt id="re2c:define:YYFILL:naked"><a class="permalink" href="#re2c:define:YYFILL:naked"><b><b>re2c:define:YYFILL:naked</b></b></a></dt>
+  <dd>Overrides the more generic <b>re2c:api:style</b> configuration for
+      <b>YYFILL</b>. Zero value corresponds to free-form API style.</dd>
+  <dt id="re2c:define:YYGETCONDITION"><a class="permalink" href="#re2c:define:YYGETCONDITION"><b><b>re2c:define:YYGETCONDITION</b></b></a></dt>
+  <dd>Defines API primitive <b>YYGETCONDITION</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYGETCONDITION:naked"><a class="permalink" href="#re2c:define:YYGETCONDITION:naked"><b><b>re2c:define:YYGETCONDITION:naked</b></b></a></dt>
+  <dd>Overrides the more generic <b>re2c:api:style</b> configuration for
+      <b>YYGETCONDITION</b>. Zero value corresponds to free-form API style.</dd>
+  <dt id="re2c:define:YYGETSTATE"><a class="permalink" href="#re2c:define:YYGETSTATE"><b><b>re2c:define:YYGETSTATE</b></b></a></dt>
+  <dd>Defines API primitive <b>YYGETSTATE</b> (see the API primitives
+    section).</dd>
+  <dt id="re2c:define:YYGETSTATE:naked"><a class="permalink" href="#re2c:define:YYGETSTATE:naked"><b><b>re2c:define:YYGETSTATE:naked</b></b></a></dt>
+  <dd>Overrides the more generic <b>re2c:api:style</b> configuration for
+      <b>YYGETSTATE</b>. Zero value corresponds to free-form API style.</dd>
+  <dt id="re2c:define:YYLESSTHAN"><a class="permalink" href="#re2c:define:YYLESSTHAN"><b><b>re2c:define:YYLESSTHAN</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYLESSTHAN</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYLIMIT"><a class="permalink" href="#re2c:define:YYLIMIT"><b><b>re2c:define:YYLIMIT</b></b></a></dt>
+  <dd>Defines API primitive <b>YYLIMIT</b> (see the API primitives
+    section).</dd>
+  <dt id="re2c:define:YYMARKER"><a class="permalink" href="#re2c:define:YYMARKER"><b><b>re2c:define:YYMARKER</b></b></a></dt>
+  <dd>Defines API primitive <b>YYMARKER</b> (see the API primitives
+    section).</dd>
+  <dt id="re2c:define:YYMTAGN"><a class="permalink" href="#re2c:define:YYMTAGN"><b><b>re2c:define:YYMTAGN</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYMTAGN</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYMTAGP"><a class="permalink" href="#re2c:define:YYMTAGP"><b><b>re2c:define:YYMTAGP</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYMTAGP</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYPEEK"><a class="permalink" href="#re2c:define:YYPEEK"><b><b>re2c:define:YYPEEK</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYPEEK</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYRESTORE"><a class="permalink" href="#re2c:define:YYRESTORE"><b><b>re2c:define:YYRESTORE</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYRESTORE</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYRESTORECTX"><a class="permalink" href="#re2c:define:YYRESTORECTX"><b><b>re2c:define:YYRESTORECTX</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYRESTORECTX</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYRESTORETAG"><a class="permalink" href="#re2c:define:YYRESTORETAG"><b><b>re2c:define:YYRESTORETAG</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYRESTORETAG</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYSETCONDITION"><a class="permalink" href="#re2c:define:YYSETCONDITION"><b><b>re2c:define:YYSETCONDITION</b></b></a></dt>
+  <dd>Defines API primitive <b>YYSETCONDITION</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYSETCONDITION@cond"><a class="permalink" href="#re2c:define:YYSETCONDITION@cond"><b><b>re2c:define:YYSETCONDITION@cond</b></b></a></dt>
+  <dd>Specifies the sigil used for argument substitution in
+      <b>YYSETCONDITION</b> definition. The default value is <b>@@</b>.
+      Overrides the more generic <b>re2c:api:sigil</b> configuration.</dd>
+  <dt id="re2c:define:YYSETCONDITION:naked"><a class="permalink" href="#re2c:define:YYSETCONDITION:naked"><b><b>re2c:define:YYSETCONDITION:naked</b></b></a></dt>
+  <dd>Overrides the more generic <b>re2c:api:style</b> configuration for
+      <b>YYSETCONDITION</b>. Zero value corresponds to free-form API style.</dd>
+  <dt id="re2c:define:YYSETSTATE"><a class="permalink" href="#re2c:define:YYSETSTATE"><b><b>re2c:define:YYSETSTATE</b></b></a></dt>
+  <dd>Defines API primitive <b>YYSETSTATE</b> (see the API primitives
+    section).</dd>
+  <dt id="re2c:define:YYSETSTATE@state"><a class="permalink" href="#re2c:define:YYSETSTATE@state"><b><b>re2c:define:YYSETSTATE@state</b></b></a></dt>
+  <dd>Specifies the sigil used for argument substitution in <b>YYSETSTATE</b>
+      definition. The default value is <b>@@</b>. Overrides the more generic
+      <b>re2c:api:sigil</b> configuration.</dd>
+  <dt id="re2c:define:YYSETSTATE:naked"><a class="permalink" href="#re2c:define:YYSETSTATE:naked"><b><b>re2c:define:YYSETSTATE:naked</b></b></a></dt>
+  <dd>Overrides the more generic <b>re2c:api:style</b> configuration for
+      <b>YYSETSTATE</b>. Zero value corresponds to free-form API style.</dd>
+  <dt id="re2c:define:YYSKIP"><a class="permalink" href="#re2c:define:YYSKIP"><b><b>re2c:define:YYSKIP</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYSKIP</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYSHIFT"><a class="permalink" href="#re2c:define:YYSHIFT"><b><b>re2c:define:YYSHIFT</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYSHIFT</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYSHIFTMTAG"><a class="permalink" href="#re2c:define:YYSHIFTMTAG"><b><b>re2c:define:YYSHIFTMTAG</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYSHIFTMTAG</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYSHIFTSTAG"><a class="permalink" href="#re2c:define:YYSHIFTSTAG"><b><b>re2c:define:YYSHIFTSTAG</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYSHIFTSTAG</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYSTAGN"><a class="permalink" href="#re2c:define:YYSTAGN"><b><b>re2c:define:YYSTAGN</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYSTAGN</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:define:YYSTAGP"><a class="permalink" href="#re2c:define:YYSTAGP"><b><b>re2c:define:YYSTAGP</b></b></a></dt>
+  <dd>Defines generic API primitive <b>YYSTAGP</b> (see the API primitives
+      section).</dd>
+  <dt id="re2c:empty"><a class="permalink" href="#re2c:empty"><b><b>re2c:empty-class</b>,
+    <b>re2c:flags:empty-class</b></b></a></dt>
+  <dd>Same as the <b>--empty-class</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:encoding:ebcdic"><a class="permalink" href="#re2c:encoding:ebcdic"><b><b>re2c:encoding:ebcdic</b>,
+    <b>re2c:flags:ecb</b>, <b>re2c:flags:e</b></b></a></dt>
+  <dd>Same as the <b>--ebcdic</b> option, but can be configured on per-block
+      basis.</dd>
+  <dt id="re2c:encoding:ucs2"><a class="permalink" href="#re2c:encoding:ucs2"><b><b>re2c:encoding:ucs2</b>,
+    <b>re2c:flags:wide-chars</b>, <b>re2c:flags:w</b></b></a></dt>
+  <dd>Same as the <b>--ucs2</b> option, but can be configured on per-block
+      basis.</dd>
+  <dt id="re2c:encoding:utf8"><a class="permalink" href="#re2c:encoding:utf8"><b><b>re2c:encoding:utf8</b>,
+    <b>re2c:flags:utf-8</b>, <b>re2c:flags:8</b></b></a></dt>
+  <dd>Same as the <b>--utf8</b> option, but can be configured on per-block
+      basis.</dd>
+  <dt id="re2c:encoding:utf16"><a class="permalink" href="#re2c:encoding:utf16"><b><b>re2c:encoding:utf16</b>,
+    <b>re2c:flags:utf-16</b>, <b>re2c:flags:x</b></b></a></dt>
+  <dd>Same as the <b>--utf16</b> option, but can be configured on per-block
+      basis.</dd>
+  <dt id="re2c:encoding:utf32"><a class="permalink" href="#re2c:encoding:utf32"><b><b>re2c:encoding:utf32</b>,
+    <b>re2c:flags:unicode</b>, <b>re2c:flags:u</b></b></a></dt>
+  <dd>Same as the <b>--utf32</b> option, but can be configured on per-block
+      basis.</dd>
+  <dt id="re2c:encoding"><a class="permalink" href="#re2c:encoding"><b><b>re2c:encoding-policy</b>,
+    <b>re2c:flags:encoding-policy</b></b></a></dt>
+  <dd>Same as the <b>--encoding-policy</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:eof"><a class="permalink" href="#re2c:eof"><b><b>re2c:eof</b></b></a></dt>
+  <dd>Specifies the sentinel symbol used with the end-of-input rule <b>$</b>.
+      The default value is <b>-1</b> (<b>$</b> rule is not used). Other possible
+      values include all valid code units. Only decimal numbers are
+    recognized.</dd>
+  <dt id="re2c:header"><a class="permalink" href="#re2c:header"><b><b>re2c:header</b>,
+    <b>re2c:flags:type-header</b>, <b>re2c:flags:t</b></b></a></dt>
+  <dd>Specifies the name of the generated header file relative to the directory
+      of the output file. Same as the <b>--header</b> option except that the
+      file path is relative.</dd>
+  <dt id="re2c:indent:string"><a class="permalink" href="#re2c:indent:string"><b><b>re2c:indent:string</b></b></a></dt>
+  <dd>Specifies the string used for indentation. The default is a single tab
+      character <b>&quot;\t&quot;</b>. Indent string should contain whitespace
+      characters only. To disable indentation entirely, set this configuration
+      to an empty string.</dd>
+  <dt id="re2c:indent:top"><a class="permalink" href="#re2c:indent:top"><b><b>re2c:indent:top</b></b></a></dt>
+  <dd>Specifies the minimum amount of indentation to use. The default value is
+      zero. The value should be a non-negative integer number.</dd>
+  <dt id="re2c:invert"><a class="permalink" href="#re2c:invert"><b><b>re2c:invert-captures</b></b></a></dt>
+  <dd>Same as the <b>--invert-captures</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:label:prefix"><a class="permalink" href="#re2c:label:prefix"><b><b>re2c:label:prefix</b>,
+    <b>re2c:labelprefix</b></b></a></dt>
+  <dd>Specifies the prefix used for DFA state labels. The default is
+    <b>yy</b>.</dd>
+  <dt id="re2c:label:start"><a class="permalink" href="#re2c:label:start"><b><b>re2c:label:start</b>,
+    <b>re2c:startlabel</b></b></a></dt>
+  <dd>Controls the generation of a block start label. The default value is zero,
+      which means that the start label is generated only if it is used. An
+      integer value greater than zero forces the generation of start label even
+      if it is unused by the lexer. A string value also forces start label
+      generation and sets the label name to the specified string. This
+      configuration applies only to the current block (it is reset to default
+      for the next block).</dd>
+  <dt id="re2c:label:yyFillLabel"><a class="permalink" href="#re2c:label:yyFillLabel"><b><b>re2c:label:yyFillLabel</b></b></a></dt>
+  <dd>Specifies the prefix of <b>YYFILL</b> labels used with <b>re2c:eof</b> and
+      in storable state mode.</dd>
+  <dt id="re2c:label:yyloop"><a class="permalink" href="#re2c:label:yyloop"><b><b>re2c:label:yyloop</b></b></a></dt>
+  <dd>Specifies the name of the label marking the start of the lexer loop with
+      <b>--loop-switch</b> option. The default is <b>yyloop</b>.</dd>
+  <dt id="re2c:label:yyNext"><a class="permalink" href="#re2c:label:yyNext"><b><b>re2c:label:yyNext</b></b></a></dt>
+  <dd>Specifies the name of the optional label that follows <b>YYGETSTATE</b>
+      switch in storable state mode (enabled with <b>re2c:state:nextlabel</b>).
+      The default is <b>yyNext</b>.</dd>
+  <dt id="re2c:leftmost"><a class="permalink" href="#re2c:leftmost"><b><b>re2c:leftmost-captures</b></b></a></dt>
+  <dd>Same as the <b>--leftmost-captures</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:lookahead"><a class="permalink" href="#re2c:lookahead"><b><b>re2c:lookahead</b>,
+    <b>re2c:flags:lookahead</b></b></a></dt>
+  <dd>Deprecated (see the deprecated <b>--no-lookahead</b> option).</dd>
+  <dt id="re2c:nested"><a class="permalink" href="#re2c:nested"><b><b>re2c:nested-ifs</b>,
+    <b>re2c:flags:nested-ifs</b>, <b>re2c:flags:s</b></b></a></dt>
+  <dd>Same as the <b>--nested-ifs</b> option, but can be configured on per-block
+      basis.</dd>
+  <dt id="re2c:posix"><a class="permalink" href="#re2c:posix"><b><b>re2c:posix-captures</b>,
+    <b>re2c:flags:posix-captures</b>, <b>re2c:flags:P</b></b></a></dt>
+  <dd>Same as the <b>--posix-captures</b> option, but can be configured on
+      per-block basis.</dd>
+  <dt id="re2c:tags"><a class="permalink" href="#re2c:tags"><b><b>re2c:tags</b>,
+    <b>re2c:flags:tags</b>, <b>re2c:flags:T</b></b></a></dt>
+  <dd>Same as the <b>--tags</b> option, but can be configured on per-block
+      basis.</dd>
+  <dt id="re2c:tags:expression"><a class="permalink" href="#re2c:tags:expression"><b><b>re2c:tags:expression</b></b></a></dt>
+  <dd>Specifies the expression used for tag variables. By default re2c generates
+      expressions of the form <b>yyt&lt;N&gt;</b>. This might be inconvenient,
+      for example if tag variables are defined as fields in a struct. All
+      occurrences of <b>@@{tag}</b> or <b>@@</b> are replaced with the actual
+      tag name. For example, <b>re2c:tags:expression = &quot;s.@@&quot;;</b>
+      results in expressions of the form <b>s.yyt&lt;N&gt;</b> in the generated
+      code. See also <b>re2c:api:sigil</b> configuration.</dd>
+  <dt id="re2c:tags:prefix"><a class="permalink" href="#re2c:tags:prefix"><b><b>re2c:tags:prefix</b></b></a></dt>
+  <dd>Specifies the prefix for tag variable names. The default is
+    <b>yyt</b>.</dd>
+  <dt id="re2c:sentinel"><a class="permalink" href="#re2c:sentinel"><b><b>re2c:sentinel</b></b></a></dt>
+  <dd>Specifies the sentinel symbol used for the end-of-input checks (when
+      bounds checks are disabled with <b>re2c:yyfill:enable = 0;</b> and
+      <b>re2c:eof</b> is not set). This configuration does not affect code
+      generation: its purpose is to verify that the sentinel is not allowed in
+      the middle of a rule, and ensure that the lexer won't read past the end of
+      buffer. The default value is <i>-1`</i> (in that case re2c assumes that
+      the sentinel is zero, which is the most common case). Only decimal numbers
+      are recognized.</dd>
+  <dt id="re2c:state:abort"><a class="permalink" href="#re2c:state:abort"><b><b>re2c:state:abort</b></b></a></dt>
+  <dd>If set to a positive integer value, changes the default case in
+      <b>YYGETSTATE</b> switch: by default it aborts the program, and an
+      explicit <b>-1</b> case contains transition to the start of the
+    block.</dd>
+  <dt id="re2c:state:nextlabel"><a class="permalink" href="#re2c:state:nextlabel"><b><b>re2c:state:nextlabel</b></b></a></dt>
+  <dd>Controls if the <b>YYGETSTATE</b> switch is followed by an <b>yyNext</b>
+      label (the default value is zero, which corresponds to no label).
+      Alternatively one can use <b>re2c:label:start</b> to generate a specific
+      start label, or an explicit <b>getstate:re2c</b> directive to generate the
+      <b>YYGETSTATE</b> switch separately from the lexer block.</dd>
+  <dt id="re2c:unsafe"><a class="permalink" href="#re2c:unsafe"><b><b>re2c:unsafe</b>,
+    <b>re2c:flags:unsafe</b></b></a></dt>
+  <dd>Same as the <b>--no-unsafe</b> option, but can be configured on per-block
+      basis. If set to zero, it suppresses the generation of <b>unsafe</b>
+      wrappers around <b>YYPEEK</b>. The default is non-zero (wrappers are
+      generated). This configuration is specific to Rust.</dd>
+  <dt id="re2c:variable:yyaccept"><a class="permalink" href="#re2c:variable:yyaccept"><b><b>re2c:variable:yyaccept</b></b></a></dt>
+  <dd>Specifies the name of the <b>yyaccept</b> variable (see the API primitives
+      section).</dd>
+  <dt id="re2c:variable:yybm"><a class="permalink" href="#re2c:variable:yybm"><b><b>re2c:variable:yybm</b></b></a></dt>
+  <dd>Specifies the name of the <b>yybm</b> variable (used for bitmaps).</dd>
+  <dt id="re2c:variable:yybm:hex"><a class="permalink" href="#re2c:variable:yybm:hex"><b><b>re2c:variable:yybm:hex</b>,
+    <b>re2c:yybm:hex</b></b></a></dt>
+  <dd>If set to nonzero, bitmaps for the <b>--bit-vectors</b> option are
+      generated in hexadecimal format. The default is zero (bitmaps are in
+      decimal format).</dd>
+  <dt id="re2c:variable:yych"><a class="permalink" href="#re2c:variable:yych"><b><b>re2c:variable:yych</b></b></a></dt>
+  <dd>Specifies the name of the <b>yych</b> variable (see the API primitives
+      section).</dd>
+  <dt id="re2c:variable:yych:emit"><a class="permalink" href="#re2c:variable:yych:emit"><b><b>re2c:variable:yych:emit</b>,
+    <b>re2c:yych:emit</b></b></a></dt>
+  <dd>If set to zero, <b>yych</b> definition is not generated. The default is
+      non-zero.</dd>
+  <dt id="re2c:variable:yych:conversion"><a class="permalink" href="#re2c:variable:yych:conversion"><b><b>re2c:variable:yych:conversion</b>,
+    <b>re2c:yych:conversion</b></b></a></dt>
+  <dd>If set to non-zero, re2c automatically generates a conversion to
+      <b>YYCTYPE</b> every time <b>yych</b> is read. The default is to zero (no
+      conversion).</dd>
+  <dt id="re2c:variable:yyctable"><a class="permalink" href="#re2c:variable:yyctable"><b><b>re2c:variable:yyctable</b></b></a></dt>
+  <dd>Specifies the name of the <b>yyctable</b> variable (the jump table
+      generated for <b>YYGETCONDITION</b> switch with <b>--computed-gotos</b>
+      option).</dd>
+  <dt id="re2c:variable:yytarget"><a class="permalink" href="#re2c:variable:yytarget"><b><b>re2c:variable:yytarget</b></b></a></dt>
+  <dd>Specifies the name of the <b>yytarget</b> variable.</dd>
+  <dt id="re2c:variable:yystable"><a class="permalink" href="#re2c:variable:yystable"><b><b>re2c:variable:yystable</b></b></a></dt>
+  <dd>Deprecated.</dd>
+  <dt id="re2c:variable:yystate"><a class="permalink" href="#re2c:variable:yystate"><b><b>re2c:variable:yystate</b></b></a></dt>
+  <dd>Specifies the name of the <b>yystate</b> variable (used with the
+      <b>--loop-switch</b> option to store the current DFA state).</dd>
+  <dt id="re2c:yyfill:check"><a class="permalink" href="#re2c:yyfill:check"><b><b>re2c:yyfill:check</b></b></a></dt>
+  <dd>If set to zero, suppresses the generation of pre-<b>YYFILL</b> check for
+      the number of input characters (the <b>YYLESSTHAN</b> definition in
+      generic API and the <b>YYLIMIT</b>-based comparison in C pointer API). The
+      default is non-zero (generate the check).</dd>
+  <dt id="re2c:yyfill:enable"><a class="permalink" href="#re2c:yyfill:enable"><b><b>re2c:yyfill:enable</b></b></a></dt>
+  <dd>If set to zero, suppresses the generation of <b>YYFILL</b> (together with
+      the check). This should be used when the whole input fits into one piece
+      of memory (there is no need for buffering) and the end-of-input checks do
+      not rely on the <b>YYFILL</b> checks (e.g. if a sentinel character is
+      used). Use warnings (<b>-W</b> option) and <b>re2c:sentinel</b>
+      configuration to verify that the generated lexer cannot read past the end
+      of input. The default is non-zero (<b>YYFILL</b> is enabled).</dd>
+  <dt id="re2c:yyfill:parameter"><a class="permalink" href="#re2c:yyfill:parameter"><b><b>re2c:yyfill:parameter</b></b></a></dt>
+  <dd>If set to zero, suppresses the generation of parameter passed to
+      <b>YYFILL</b>. The parameter is the minimum number of characters that must
+      be supplied. Defaults to non-zero (the parameter is generated). This
+      configuration can be overridden with <b>re2c:define:YYFILL:naked</b> or
+      <b>re2c:api:style</b>.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REGULAR_EXPRESSIONS"><a class="permalink" href="#REGULAR_EXPRESSIONS">REGULAR
+  EXPRESSIONS</a></h1>
+<p class="Pp">re2c uses the following syntax for regular expressions:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>&quot;foo&quot;</b> case-sensitive string literal</li>
+  <li><b>'foo'</b> case-insensitive string literal</li>
+  <li><b>[a-xyz]</b>, <b>[^a-xyz]</b> character class (possibly negated)</li>
+  <li><b>.</b> any character except newline</li>
+  <li><b>R \ S</b> difference of character classes <b>R</b> and <b>S</b></li>
+  <li><b>R*</b> zero or more occurrences of <b>R</b></li>
+  <li><b>R+</b> one or more occurrences of <b>R</b></li>
+  <li><b>R?</b> optional <b>R</b></li>
+  <li><b>R{n}</b> repetition of <b>R</b> exactly <b>n</b> times</li>
+  <li><b>R{n,}</b> repetition of <b>R</b> at least <b>n</b> times</li>
+  <li><b>R{n,m}</b> repetition of <b>R</b> from <b>n</b> to <b>m</b> times</li>
+  <li><b>(R)</b> just <b>R</b>; parentheses are used to override precedence. If
+      submatch extraction is enabled, <b>(R)</b> is a capturing or a
+      non-capturing group depending on <b>--invert-captures</b> option.</li>
+  <li><b>(!R)</b> If submatch extraction is enabled, <b>(!R)</b> is a
+      non-capturing or a capturing group depending on <b>--invert-captures</b>
+      option.</li>
+  <li><b>R S</b> concatenation: <b>R</b> followed by <b>S</b></li>
+  <li><b>R | S</b> alternative: <b>R or S</b></li>
+  <li><b>R / S</b> lookahead: <b>R</b> followed by <b>S</b>, but <b>S</b> is not
+      consumed</li>
+  <li><b>name</b> the regular expression defined as <b>name</b> (or literal
+      string <b>&quot;name&quot;</b> in Flex compatibility mode)</li>
+  <li><b>{name}</b> the regular expression defined as <b>name</b> in Flex
+      compatibility mode</li>
+  <li><b>@stag</b> an <i>s-tag</i>: saves the last input position at which
+      <b>@stag</b> matches in a variable named <b>stag</b></li>
+  <li><b>#mtag</b> an <i>m-tag</i>: saves all input positions at which
+      <b>#mtag</b> matches in a variable named <b>mtag</b></li>
+</ul>
+</div>
+<br/>
+<p class="Pp">Character classes and string literals may contain the following
+    escape sequences: <b>\a</b>, <b>\b</b>, <b>\f</b>, <b>\n</b>, <b>\r</b>,
+    <b>\t</b>, <b>\v</b>, <b>\\</b>, octal escapes <b>\ooo</b> and hexadecimal
+    escapes <b>\xhh</b>, <b>\uhhhh</b> and <b>\Uhhhhhhhh</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HANDLING_THE_END_OF_INPUT"><a class="permalink" href="#HANDLING_THE_END_OF_INPUT">HANDLING
+  THE END OF INPUT</a></h1>
+<p class="Pp">One of the main problems for the lexer is to know when to stop.
+    There are a few terminating conditions:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>the lexer may match some rule (including default rule <b>*</b>) and come
+      to a final state</li>
+  <li>the lexer may fail to match any rule and come to a default state</li>
+  <li>the lexer may reach the end of input</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">The first two conditions terminate the lexer in a
+    &quot;natural&quot; way: it comes to a state with no outgoing transitions,
+    and the matching automatically stops. The third condition, end of input, is
+    different: it may happen in any state, and the lexer should be able to
+    handle it. Checking for the end of input interrupts the normal lexer
+    workflow and adds conditional branches to the generated program, therefore
+    it is necessary to minimize the number of such checks. re2c supports a few
+    different methods for handling the end of input. Which one to use depends on
+    the complexity of regular expressions, the need for buffering, performance
+    considerations and other factors. Here is a list of methods:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>Sentinel.</b> This method eliminates the need for the end of input
+      checks altogether. It is simple and efficient, but limited to the case
+      when there is a natural &quot;sentinel&quot; character that can never
+      occur in valid input. This character may still occur in invalid input, but
+      it should not be allowed by the regular expressions, except perhaps as the
+      last character of a rule. The sentinel is appended at the end of input and
+      serves as a stop signal: when the lexer reads this character, it is either
+      a syntax error or the end of input. In both cases the lexer should stop.
+      This method is used if <b>YYFILL</b> is disabled with
+      <b>re2c:yyfill:enable = 0;</b> and <b>re2c:eof</b> has the default value
+      <b>-1</b>.
+    <pre>
+    </pre>
+    <p class="Pp"></p>
+  </li>
+  <li><b>Sentinel with bounds checks.</b> This method is generic: it allows one
+      to handle any input without restrictions on the regular expressions. The
+      idea is to reduce the number of end of input checks by performing them
+      only on certain characters. Similar to the &quot;sentinel&quot; method,
+      one of the characters is chosen as a &quot;sentinel&quot; and appended at
+      the end of input. However, there is no restriction on where the sentinel
+      may occur (in fact, any character can be chosen for a sentinel). When the
+      lexer reads this character, it additionally performs a bounds check. If
+      the current position is within bounds, the lexer resumes matching and
+      handles the sentinel as a regular character. Otherwise it invokes
+      <b>YYFILL</b> (unless it is disabled). If more input is supplied, the
+      lexer will rematch the last character and continue as if the sentinel
+      wasn't there. Otherwise it must be the real end of input, and the lexer
+      stops. This method is used when <b>re2c:eof</b> has non-negative value (it
+      should be set to the numeric value of the sentinel). <b>YYFILL</b> is
+      optional.
+    <pre>
+    </pre>
+    <p class="Pp"></p>
+  </li>
+  <li><b>Bounds checks with padding.</b> This method is generic, and it may be
+      faster than the &quot;sentinel with bounds checks&quot; method, but it is
+      also more complex. The idea is to partition DFA states into strongly
+      connected components (SCCs) and generate a single check per SCC for enough
+      characters to cover the longest non-looping path in this SCC. This reduces
+      the number of checks, but there is a problem with short lexemes at the end
+      of input, as the check requires enough characters to cover the longest
+      lexeme. This can be fixed by padding the input with a few fake characters
+      that do not form a valid lexeme suffix (so that the lexer cannot match
+      them). The length of padding should be <b>YYMAXFILL</b>, generated with
+      <b>/*!max:re2c*/</b>. If there is not enough input, the lexer invokes
+      <b>YYFILL</b> which should supply at least the required number of
+      characters or not return. This method is used if <b>YYFILL</b> is enabled
+      and <b>re2c:eof</b> is <b>-1</b> (this is the default configuration).
+    <pre>
+    </pre>
+    <p class="Pp"></p>
+  </li>
+  <li><b>Custom checks.</b> Generic API allows one to override basic operations
+      like reading a character, which makes it possible to include the
+      end-of-input checks as part of them. This approach is error-prone and
+      should be used with caution. To use a custom method, enable generic API
+      with <b>--api custom</b> or <b>re2c:api = custom;</b> and disable default
+      bounds checks with <b>re2c:yyfill:enable = 0;</b> or <b>re2c:yyfill:check
+      = 0;</b>.</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">The following subsections contain an example of each method.</p>
+<section class="Ss">
+<h2 class="Ss" id="Sentinel"><a class="permalink" href="#Sentinel">Sentinel</a></h2>
+<p class="Pp">This example uses a sentinel character to handle the end of input.
+    The program counts space-separated words in a null-terminated string. The
+    sentinel is null: it is the last character of each input string, and it is
+    not allowed in the middle of a lexeme by any of the rules (in particular, it
+    is not included in character ranges where it is easy to overlook). If a null
+    occurs in the middle of a string, it is a syntax error and the lexer will
+    match default rule <b>*</b>, but it won't read past the end of input or
+    crash (use <i>-Wsentinel-in-midrule</i> warning and <b>re2c:sentinel</b>
+    configuration to verify this). Configuration <b>re2c:yyfill:enable = 0;</b>
+    suppresses the generation of bounds checks and <b>YYFILL</b>
+  invocations.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT
+package main
+// Expect a null-terminated string.
+func lex(str string) int {
+<br/>
+    var cur int
+<br/>
+    count := 0
+<br/>
+    for { /*!re2c
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        re2c:define:YYCTYPE = byte;
+<br/>
+        re2c:define:YYPEEK  = &quot;str[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP  = &quot;cur += 1&quot;;
+<br/>
+        *      { return -1 }
+<br/>
+        [\x00] { return count }
+<br/>
+        [a-z]+ { count += 1; continue }
+<br/>
+        [ ]+   { continue }
+<br/>
+    */
+<br/>
+    }
+}
+func main() {
+<br/>
+    assert_eq := func(x, y int) { if x != y { panic(&quot;error&quot;) } }
+<br/>
+    assert_eq(lex(&quot;\000&quot;), 0)
+<br/>
+    assert_eq(lex(&quot;one two three\000&quot;), 3)
+<br/>
+    assert_eq(lex(&quot;f0ur\000&quot;), -1)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Sentinel_with_bounds_checks"><a class="permalink" href="#Sentinel_with_bounds_checks">Sentinel
+  with bounds checks</a></h2>
+<p class="Pp">This example uses sentinel with bounds checks to handle the end of
+    input (this method was added in version 1.2). The program counts
+    space-separated single-quoted strings. The sentinel character is null, which
+    is specified with <b>re2c:eof = 0;</b> configuration. As in the
+    <i>sentinel</i> method, null is the last character of each input string, but
+    it is allowed in the middle of a rule (for example, <b>'aaa\0aa'\0</b> is
+    valid input, but <b>'aaa\0</b> is a syntax error). Bounds checks are
+    generated in each state that matches an input character, but they are scoped
+    to the branch that handles null. Bounds checks are of the form <b>YYLIMIT
+    &lt;= YYCURSOR</b> or <b>YYLESSTHAN(1)</b> with generic API. If the check
+    condition is true, lexer has reached the end of input and should stop
+    (<b>YYFILL</b> is disabled with <b>re2c:yyfill:enable = 0;</b> as the input
+    fits into one buffer, see the <i>YYFILL with sentinel</i> section for an
+    example that uses <b>YYFILL</b>). Reaching the end of input opens three
+    possibilities: if the lexer is in the initial state it will match the
+    end-of-input rule <b>$</b>, otherwise it may fallback to a previously
+    matched rule (including default rule <b>*</b>) or go to a default state,
+    causing <i>-Wundefined-control-flow</i>.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT
+package main
+// Expects a null-terminated string.
+func lex(str string) int {
+<br/>
+    var cur, mar int
+<br/>
+    lim := len(str) - 1 // lim points at the terminating null
+<br/>
+    count := 0
+<br/>
+    for { /*!re2c
+<br/>
+        re2c:eof = 0;
+<br/>
+        re2c:define:YYCTYPE    = byte;
+<br/>
+        re2c:define:YYPEEK     = &quot;str[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP     = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP   = &quot;mar = cur&quot;;
+<br/>
+        re2c:define:YYRESTORE  = &quot;cur = mar&quot;;
+<br/>
+        re2c:define:YYLESSTHAN = &quot;lim &lt;= cur&quot;;
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        str = ['] ([^'\\] | [\\][^])* ['];
+<br/>
+        *    { return -1 }
+<br/>
+        $    { return count }
+<br/>
+        str  { count += 1; continue }
+<br/>
+        [ ]+ { continue }
+<br/>
+    */
+<br/>
+    }
+}
+func main() {
+<br/>
+    assert_eq := func(x, y int) { if x != y { panic(&quot;error&quot;) } }
+<br/>
+    assert_eq(lex(&quot;\000&quot;), 0)
+<br/>
+    assert_eq(lex(&quot;'qu\000tes' 'are' 'fine: \\'' \000&quot;), 3)
+<br/>
+    assert_eq(lex(&quot;'unterminated\\'\000&quot;), -1)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Bounds_checks_with_padding"><a class="permalink" href="#Bounds_checks_with_padding">Bounds
+  checks with padding</a></h2>
+<p class="Pp">This example uses bounds checks with padding to handle the end of
+    input (this method is enabled by default). The program counts
+    space-separated single-quoted strings. There is a padding of
+    <b>YYMAXFILL</b> null characters appended at the end of input, where
+    <b>YYMAXFILL</b> value is autogenerated with <b>/*!max:re2c*/</b>. It is not
+    necessary to use null for padding --- any characters can be used as long as
+    they do not form a valid lexeme suffix (in this example padding should not
+    contain single quotes, as they may be mistaken for a suffix of a
+    single-quoted string). There is a &quot;stop&quot; rule that matches the
+    first padding character (null) and terminates the lexer (note that it checks
+    if null is at the beginning of padding, otherwise it is a syntax error).
+    Bounds checks are generated only in some states that are determined by the
+    strongly connected components of the underlying automaton. Checks have the
+    form <b>(YYLIMIT - YYCURSOR) &lt; n</b> or <b>YYLESSTHAN(n)</b> with generic
+    API, where <b>n</b> is the minimum number of characters that are needed for
+    the lexer to proceed (it also means that the next bounds check will occur in
+    at most <b>n</b> characters). If the check condition is true, the lexer has
+    reached the end of input and will invoke <b>YYFILL(n)</b> that should either
+    supply at least <b>n</b> input characters or not return. In this example
+    <b>YYFILL</b> always fails and terminates the lexer with an error (which is
+    fine because the input fits into one buffer). See the <i>YYFILL with
+    padding</i> section for an example that refills the input buffer with
+    <b>YYFILL</b>.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT
+package main
+import &quot;strings&quot;
+/*!max:re2c*/
+// Expects YYMAXFILL-padded string.
+func lex(str string) int {
+<br/>
+    // Pad string with YYMAXFILL zeroes at the end.
+<br/>
+    buf := str + strings.Repeat(&quot;\000&quot;, YYMAXFILL)
+<br/>
+    var cur int
+<br/>
+    lim := len(buf)
+<br/>
+    count := 0
+<br/>
+    for { /*!re2c
+<br/>
+        re2c:define:YYCTYPE    = byte;
+<br/>
+        re2c:define:YYPEEK     = &quot;buf[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP     = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYLESSTHAN = &quot;lim - cur &lt; @@&quot;;
+<br/>
+        re2c:define:YYFILL     = &quot;return -1&quot;;
+<br/>
+        str = ['] ([^'\\] | [\\][^])* ['];
+<br/>
+        [\x00] {
+<br/>
+            // Check that it is the sentinel, not some unexpected null.
+<br/>
+            if cur - 1 == len(str) { return count } else { return -1 }
+<br/>
+        }
+<br/>
+        str  { count += 1; continue }
+<br/>
+        [ ]+ { continue }
+<br/>
+        *    { return -1 }
+<br/>
+    */
+<br/>
+    }
+}
+func main() {
+<br/>
+    assert_eq := func(x, y int) { if x != y { panic(&quot;error&quot;) } }
+<br/>
+    assert_eq(lex(&quot;&quot;), 0)
+<br/>
+    assert_eq(lex(&quot;'qu\000tes' 'are' 'fine: \\'' &quot;), 3)
+<br/>
+    assert_eq(lex(&quot;'unterminated\\'&quot;), -1)
+<br/>
+    assert_eq(lex(&quot;'unexpected \000 null\\'&quot;), -1)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Custom_checks"><a class="permalink" href="#Custom_checks">Custom
+  checks</a></h2>
+<p class="Pp">This example uses a custom end-of-input handling method based on
+    generic API. The program counts space-separated single-quoted strings. It is
+    the same as the <i>sentinel with bounds checks</i> example, except that the
+    input is not null-terminated (this method can be used if padding is not an
+    option, not even a single character). To cover up for the absence of
+    sentinel character at the end of input, <b>YYPEEK</b> is redefined to
+    perform a bounds check before it reads the next input character. This is
+    inefficient because checks are done very often. If the check condition
+    fails, <b>YYPEEK</b> returns the real character, otherwise it returns a fake
+    sentinel character.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT
+package main
+// Returns &quot;fake&quot; terminating null if cursor has reached limit.
+func peek(str string, cur int, lim int) byte {
+<br/>
+    if cur &gt;= lim {
+<br/>
+        return 0 // fake null
+<br/>
+    } else {
+<br/>
+        return str[cur]
+<br/>
+    }
+}
+// Expects a string without terminating null.
+func lex(str string) int {
+<br/>
+    var cur, mar int
+<br/>
+    lim := len(str)
+<br/>
+    count := 0
+<br/>
+    for { /*!re2c
+<br/>
+        re2c:eof = 0;
+<br/>
+        re2c:define:YYCTYPE    = byte;
+<br/>
+        re2c:define:YYLESSTHAN = &quot;cur &gt;= lim&quot;;
+<br/>
+        re2c:define:YYPEEK     = &quot;peek(str, cur, lim)&quot;;
+<br/>
+        re2c:define:YYSKIP     = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP   = &quot;mar = cur&quot;;
+<br/>
+        re2c:define:YYRESTORE  = &quot;cur = mar&quot;;
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        str = ['] ([^'\\] | [\\][^])* ['];
+<br/>
+        *    { return -1 }
+<br/>
+        $    { return count }
+<br/>
+        str  { count += 1; continue }
+<br/>
+        [ ]+ { continue }
+<br/>
+    */
+<br/>
+    }
+}
+func main() {
+<br/>
+    assert_eq := func(x, y int) { if x != y { panic(&quot;error&quot;) } }
+<br/>
+    assert_eq(lex(&quot;&quot;), 0)
+<br/>
+    assert_eq(lex(&quot;'qu\000tes' 'are' 'fine: \\'' &quot;), 3)
+<br/>
+    assert_eq(lex(&quot;'unterminated\\'&quot;), -1)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUFFER_REFILLING"><a class="permalink" href="#BUFFER_REFILLING">BUFFER
+  REFILLING</a></h1>
+<p class="Pp">The need for buffering arises when the input cannot be mapped in
+    memory all at once: either it is too large, or it comes in a streaming
+    fashion (like reading from a socket). The usual technique in such cases is
+    to allocate a fixed-sized memory buffer and process input in chunks that fit
+    into the buffer. When the current chunk is processed, it is moved out and
+    new data is moved in. In practice it is somewhat more complex, because lexer
+    state consists not of a single input position, but a set of interrelated
+    positions:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>cursor: the next input character to be read (<b>YYCURSOR</b> in C pointer
+      API or <b>YYSKIP</b>/<b>YYPEEK</b> in generic API)</li>
+  <li>limit: the position after the last available input character
+      (<b>YYLIMIT</b> in C pointer API, implicitly handled by <b>YYLESSTHAN</b>
+      in generic API)</li>
+  <li>marker: the position of the most recent match, if any (<b>YYMARKER</b> in
+      default API or <b>YYBACKUP</b>/<b>YYRESTORE</b> in generic API)</li>
+  <li>token: the start of the current lexeme (implicit in re2c API, as it is not
+      needed for the normal lexer operation and can be defined and updated by
+      the user)</li>
+  <li>context marker: the position of the trailing context (<b>YYCTXMARKER</b>
+      in C pointer API or <b>YYBACKUPCTX</b>/<b>YYRESTORECTX</b> in generic
+    API)</li>
+  <li>tag variables: submatch positions (defined with <b>/*!stags:re2c*/</b> and
+      <b>/*!mtags:re2c*/</b> directives and
+      <b>YYSTAGP</b>/<b>YYSTAGN</b>/<b>YYMTAGP</b>/<b>YYMTAGN</b> in generic
+      API)</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">Not all these are used in every case, but if used, they must be
+    updated by <b>YYFILL</b>. All active positions are contained in the segment
+    between token and cursor, therefore everything between buffer start and
+    token can be discarded, the segment from token and up to limit should be
+    moved to the beginning of buffer, and the free space at the end of buffer
+    should be filled with new data. In order to avoid frequent <b>YYFILL</b>
+    calls it is best to fill in as many input characters as possible (even
+    though fewer characters might suffice to resume the lexer). The details of
+    <b>YYFILL</b> implementation are slightly different depending on which EOF
+    handling method is used: the case of EOF rule is somewhat simpler than the
+    case of bounds-checking with padding. Also note that if <b>-f
+    --storable-state</b> option is used, <b>YYFILL</b> has slightly different
+    semantics (described in the section about storable state).</p>
+<section class="Ss">
+<h2 class="Ss" id="YYFILL_with_sentinel"><a class="permalink" href="#YYFILL_with_sentinel">YYFILL
+  with sentinel</a></h2>
+<p class="Pp">If EOF rule is used, <b>YYFILL</b> is a function-like primitive
+    that accepts no arguments and returns a value which is checked against zero.
+    <b>YYFILL</b> invocation is triggered by condition <b>YYLIMIT &lt;=
+    YYCURSOR</b> in C pointer API and <b>YYLESSTHAN()</b> in generic API. A
+    non-zero return value means that <b>YYFILL</b> has failed. A successful
+    <b>YYFILL</b> call must supply at least one character and adjust input
+    positions accordingly. Limit must always be set to one after the last input
+    position in buffer, and the character at the limit position must be the
+    sentinel symbol specified by <b>re2c:eof</b> configuration. The pictures
+    below show the relative locations of input positions in buffer before and
+    after <b>YYFILL</b> call (sentinel symbol is marked with <b>#</b>, and the
+    second picture shows the case when there is not enough input to fill the
+    whole buffer).</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+               &lt;-- shift --&gt;
+<br/>
+             &gt;-A------------B---------C-------------D#-----------E-&gt;
+<br/>
+             buffer       token    marker         limit,
+<br/>
+                                                  cursor
+&gt;-A------------B---------C-------------D------------E#-&gt;
+<br/>
+             buffer,  marker        cursor        limit
+<br/>
+             token
+<br/>
+               &lt;-- shift --&gt;
+<br/>
+             &gt;-A------------B---------C-------------D#--E (EOF)
+<br/>
+             buffer       token    marker         limit,
+<br/>
+                                                  cursor
+&gt;-A------------B---------C-------------D---E#........
+<br/>
+             buffer,  marker       cursor limit
+<br/>
+             token
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Here is an example of a program that reads input file
+    <b>input.txt</b> in chunks of 4096 bytes and uses EOF rule.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT
+package main
+import (
+<br/>
+    &quot;os&quot;
+<br/>
+    &quot;strings&quot;
+)
+const BUFSIZE int = 4096
+type Input struct {
+<br/>
+    file *os.File
+<br/>
+    buf  []byte
+<br/>
+    cur  int
+<br/>
+    mar  int
+<br/>
+    tok  int
+<br/>
+    lim  int
+<br/>
+    eof  bool
+}
+func fill(in *Input) int {
+<br/>
+    if in.eof { return -1 } // unexpected EOF
+<br/>
+    // Error: lexeme too long. In real life can reallocate a larger buffer.
+<br/>
+    if in.tok &lt; 1 { return -2 }
+<br/>
+    // Shift buffer contents (discard everything up to the current token).
+<br/>
+    copy(in.buf[0:], in.buf[in.tok:in.lim])
+<br/>
+    in.cur -= in.tok
+<br/>
+    in.mar -= in.tok
+<br/>
+    in.lim -= in.tok
+<br/>
+    in.tok = 0
+<br/>
+    // Fill free space at the end of buffer with new data from file.
+<br/>
+    n, _ := in.file.Read(in.buf[in.lim:BUFSIZE])
+<br/>
+    in.lim += n
+<br/>
+    in.buf[in.lim] = 0
+<br/>
+    // If read less than expected, this is the end of input.
+<br/>
+    in.eof = in.lim &lt; BUFSIZE
+<br/>
+    return 0
+}
+func lex(in *Input) int {
+<br/>
+    count := 0
+<br/>
+    for {
+<br/>
+        in.tok = in.cur
+<br/>
+    /*!re2c
+<br/>
+        re2c:eof = 0;
+<br/>
+        re2c:define:YYCTYPE    = byte;
+<br/>
+        re2c:define:YYPEEK     = &quot;in.buf[in.cur]&quot;;
+<br/>
+        re2c:define:YYSKIP     = &quot;in.cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP   = &quot;in.mar = in.cur&quot;;
+<br/>
+        re2c:define:YYRESTORE  = &quot;in.cur = in.mar&quot;;
+<br/>
+        re2c:define:YYLESSTHAN = &quot;in.lim &lt;= in.cur&quot;;
+<br/>
+        re2c:define:YYFILL     = &quot;fill(in) == 0&quot;;
+<br/>
+        str = ['] ([^'\\] | [\\][^])* ['];
+<br/>
+        *    { return -1 }
+<br/>
+        $    { return count }
+<br/>
+        str  { count += 1; continue }
+<br/>
+        [ ]+ { continue }
+<br/>
+    */
+<br/>
+    }
+}
+func main() () {
+<br/>
+    fname := &quot;input&quot;
+<br/>
+    content := &quot;'qu\000tes' 'are' 'fine: \\'' &quot;;
+<br/>
+    // Prepare input file: a few times the size of the buffer, containing
+<br/>
+    // strings with zeroes and escaped quotes.
+<br/>
+    f, _ := os.Create(fname)
+<br/>
+    f.WriteString(strings.Repeat(content, BUFSIZE))
+<br/>
+    f.Seek(0, 0)
+<br/>
+    count := 3 * BUFSIZE // number of quoted strings written to file
+<br/>
+    // Prepare lexer state: all offsets are at the end of buffer.
+<br/>
+    in := &amp;Input{
+<br/>
+        file: f,
+<br/>
+        // Sentinel at `lim` offset is set to zero, which triggers YYFILL.
+<br/>
+        buf:  make([]byte, BUFSIZE+1),
+<br/>
+        cur:  BUFSIZE,
+<br/>
+        mar:  BUFSIZE,
+<br/>
+        tok:  BUFSIZE,
+<br/>
+        lim:  BUFSIZE,
+<br/>
+        eof:  false,
+<br/>
+    }
+<br/>
+    // Run the lexer.
+<br/>
+    if lex(in) != count { panic(&quot;error&quot;); }
+<br/>
+    // Cleanup: remove input file.
+<br/>
+    f.Close();
+<br/>
+    os.Remove(fname);
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="YYFILL_with_padding"><a class="permalink" href="#YYFILL_with_padding">YYFILL
+  with padding</a></h2>
+<p class="Pp">In the default case (when EOF rule is not used) <b>YYFILL</b> is a
+    function-like primitive that accepts a single argument and does not return
+    any value. <b>YYFILL</b> invocation is triggered by condition <b>(YYLIMIT -
+    YYCURSOR) &lt; n</b> in C pointer API and <b>YYLESSTHAN(n)</b> in generic
+    API. The argument passed to <b>YYFILL</b> is the minimal number of
+    characters that must be supplied. If it fails to do so, <b>YYFILL</b> must
+    not return to the lexer (for that reason it is best implemented as a macro
+    that returns from the calling function on failure). In case of a successful
+    <b>YYFILL</b> invocation the limit position must be set either to one after
+    the last input position in buffer, or to the end of <b>YYMAXFILL</b> padding
+    (in case <b>YYFILL</b> has successfully read at least <b>n</b> characters,
+    but not enough to fill the entire buffer). The pictures below show the
+    relative locations of input positions in buffer before and after
+    <b>YYFILL</b> invocation (<b>YYMAXFILL</b> padding on the second picture is
+    marked with <b>#</b> symbols).</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+               &lt;-- shift --&gt;                 &lt;-- need --&gt;
+<br/>
+             &gt;-A------------B---------C-----D-------E---F--------G-&gt;
+<br/>
+             buffer       token    marker cursor  limit
+&gt;-A------------B---------C-----D-------E---F--------G-&gt;
+<br/>
+             buffer,  marker cursor               limit
+<br/>
+             token
+<br/>
+               &lt;-- shift --&gt;                 &lt;-- need --&gt;
+<br/>
+             &gt;-A------------B---------C-----D-------E-F        (EOF)
+<br/>
+             buffer       token    marker cursor  limit
+&gt;-A------------B---------C-----D-------E-F###############
+<br/>
+             buffer,  marker cursor                   limit
+<br/>
+             token                        &lt;- YYMAXFILL -&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Here is an example of a program that reads input file
+    <b>input.txt</b> in chunks of 4096 bytes and uses bounds-checking with
+    padding.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT
+package main
+import (
+<br/>
+    &quot;os&quot;
+<br/>
+    &quot;strings&quot;
+)
+/*!max:re2c*/
+const BUFSIZE int = 4096
+type Input struct {
+<br/>
+    file *os.File
+<br/>
+    buf  []byte
+<br/>
+    cur  int
+<br/>
+    tok  int
+<br/>
+    lim  int
+<br/>
+    eof  bool
+}
+func fill(in *Input, need int) int {
+<br/>
+    if in.eof { return -1 } // unexpected EOF
+<br/>
+    // Error: lexeme too long. In real life can reallocate a larger buffer.
+<br/>
+    if in.tok &lt; need { return -2 }
+<br/>
+    // Shift buffer contents (discard everything up to the current token).
+<br/>
+    copy(in.buf[0:], in.buf[in.tok:in.lim])
+<br/>
+    in.cur -= in.tok
+<br/>
+    in.lim -= in.tok
+<br/>
+    in.tok = 0
+<br/>
+    // Fill free space at the end of buffer with new data from file.
+<br/>
+    n, _ := in.file.Read(in.buf[in.lim:BUFSIZE])
+<br/>
+    in.lim += n
+<br/>
+    // If read less than expected, this is end of input =&gt; add zero padding
+<br/>
+    // so that the lexer can access characters at the end of buffer.
+<br/>
+    if in.lim &lt; BUFSIZE {
+<br/>
+        in.eof = true
+<br/>
+        for i := 0; i &lt; YYMAXFILL; i += 1 { in.buf[in.lim+i] = 0 }
+<br/>
+        in.lim += YYMAXFILL
+<br/>
+    }
+<br/>
+    return 0
+}
+func lex(in *Input) int {
+<br/>
+    count := 0
+<br/>
+    for {
+<br/>
+        in.tok = in.cur
+<br/>
+    /*!re2c
+<br/>
+        re2c:define:YYCTYPE    = byte;
+<br/>
+        re2c:define:YYPEEK     = &quot;in.buf[in.cur]&quot;;
+<br/>
+        re2c:define:YYSKIP     = &quot;in.cur += 1&quot;;
+<br/>
+        re2c:define:YYLESSTHAN = &quot;in.lim-in.cur &lt; @@&quot;;
+<br/>
+        re2c:define:YYFILL     = &quot;if r := fill(in, @@); r != 0 { return r }&quot;;
+<br/>
+        str = ['] ([^'\\] | [\\][^])* ['];
+<br/>
+        [\x00] {
+<br/>
+            // Check that it is the sentinel, not some unexpected null.
+<br/>
+            if in.tok == in.lim - YYMAXFILL { return count } else { return -1 }
+<br/>
+        }
+<br/>
+        str  { count += 1; continue }
+<br/>
+        [ ]+ { continue }
+<br/>
+        *    { return -1 }
+<br/>
+    */
+<br/>
+    }
+}
+func main() () {
+<br/>
+    fname := &quot;input&quot;
+<br/>
+    content := &quot;'qu\000tes' 'are' 'fine: \\'' &quot;;
+<br/>
+    // Prepare input file: a few times the size of the buffer, containing
+<br/>
+    // strings with zeroes and escaped quotes.
+<br/>
+    f, _ := os.Create(fname)
+<br/>
+    f.WriteString(strings.Repeat(content, BUFSIZE))
+<br/>
+    f.Seek(0, 0)
+<br/>
+    count := 3 * BUFSIZE // number of quoted strings written to file
+<br/>
+    // Prepare lexer state: all offsets are at the end of buffer.
+<br/>
+    // This immediately triggers YYFILL, as the YYLESSTHAN condition is true.
+<br/>
+    in := &amp;Input{
+<br/>
+        file: f,
+<br/>
+        buf:  make([]byte, BUFSIZE+YYMAXFILL),
+<br/>
+        cur:  BUFSIZE,
+<br/>
+        tok:  BUFSIZE,
+<br/>
+        lim:  BUFSIZE,
+<br/>
+        eof:  false,
+<br/>
+    }
+<br/>
+    // Run the lexer.
+<br/>
+    if lex(in) != count { panic(&quot;error&quot;); }
+<br/>
+    // Cleanup: remove input file.
+<br/>
+    f.Close();
+<br/>
+    os.Remove(fname);
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MULTIPLE_BLOCKS"><a class="permalink" href="#MULTIPLE_BLOCKS">MULTIPLE
+  BLOCKS</a></h1>
+<p class="Pp">Sometimes it is necessary to have multiple interrelated lexers
+    (for example, if there is a high-level state machine that transitions
+    between lexer modes). This can be implemented using multiple connected re2c
+    blocks. Another option is to use <i>start conditions</i>.</p>
+<p class="Pp">The implementation of connections between blocks depends on the
+    target language. In languages that have <b>goto</b> statement (such as C/C++
+    and Go) one can have all blocks in one function, each of them prefixed with
+    a label. Transition from one block to another is a simple <b>goto</b>. In
+    languages that do not have <b>goto</b> (such as Rust) it is necessary to use
+    a loop with a switch on a state variable, similar to the <b>yystate</b>
+    loop/switch generated by re2c, or else wrap each block in a function and use
+    function calls.</p>
+<p class="Pp">The example below uses multiple blocks to parse binary, octal,
+    decimal and hexadecimal numbers. Each base has its own block. The initial
+    block determines base and dispatches to other blocks. Common configurations
+    are defined in a separate block at the beginning of the program; they are
+    inherited by the other blocks.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT -i
+package main
+import &quot;errors&quot;
+const u32Limit uint64 = 1&lt;&lt;32
+var (
+<br/>
+    eSyntax   = errors.New(&quot;syntax error&quot;)
+<br/>
+    eOverflow = errors.New(&quot;overflow error&quot;)
+)
+func parse_u32(str string) (uint32, error) {
+<br/>
+    var cur, mar int
+<br/>
+    result := uint64(0)
+<br/>
+    add := func(base uint64, offset byte) {
+<br/>
+        result = result * base + uint64(str[cur-1] - offset)
+<br/>
+        if result &gt;= u32Limit {
+<br/>
+            result = u32Limit
+<br/>
+        }
+<br/>
+    }
+<br/>
+    /*!re2c
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        re2c:define:YYCTYPE   = byte;
+<br/>
+        re2c:define:YYPEEK    = &quot;str[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP    = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYSHIFT   = &quot;cur += @@{shift}&quot;;
+<br/>
+        re2c:define:YYBACKUP  = &quot;mar = cur&quot;;
+<br/>
+        re2c:define:YYRESTORE = &quot;cur = mar&quot;;
+<br/>
+        end = &quot;\x00&quot;;
+<br/>
+        '0b' / [01]        { goto bin }
+<br/>
+        &quot;0&quot;                { goto oct }
+<br/>
+        &quot;&quot;   / [1-9]       { goto dec }
+<br/>
+        '0x' / [0-9a-fA-F] { goto hex }
+<br/>
+        *                  { goto err }
+<br/>
+    */
+bin:
+<br/>
+    /*!re2c
+<br/>
+        end   { goto end }
+<br/>
+        [01]  { add(2, '0'); goto bin }
+<br/>
+        *     { goto err }
+<br/>
+    */
+oct:
+<br/>
+    /*!re2c
+<br/>
+        end   { goto end }
+<br/>
+        [0-7] { add(8, '0'); goto oct }
+<br/>
+        *     { goto err }
+<br/>
+    */
+dec:
+<br/>
+    /*!re2c
+<br/>
+        end   { goto end }
+<br/>
+        [0-9] { add(10, '0'); goto dec }
+<br/>
+        *     { goto err }
+<br/>
+    */
+hex:
+<br/>
+    /*!re2c
+<br/>
+        end   { goto end }
+<br/>
+        [0-9] { add(16, '0');    goto hex }
+<br/>
+        [a-f] { add(16, 'a'-10); goto hex }
+<br/>
+        [A-F] { add(16, 'A'-10); goto hex }
+<br/>
+        *     { goto err }
+<br/>
+    */
+end:
+<br/>
+    if result &lt; u32Limit {
+<br/>
+        return uint32(result), nil
+<br/>
+    } else {
+<br/>
+        return 0, eOverflow
+<br/>
+    }
+err:
+<br/>
+    return 0, eSyntax
+}
+func main() {
+<br/>
+    test := func(num uint32, str string, err error) {
+<br/>
+        if n, e := parse_u32(str); !(n == num &amp;&amp; e == err) {
+<br/>
+            panic(&quot;error&quot;)
+<br/>
+        }
+<br/>
+    }
+<br/>
+    test(1234567890, &quot;1234567890\000&quot;, nil)
+<br/>
+    test(13, &quot;0b1101\000&quot;, nil)
+<br/>
+    test(0x7fe, &quot;0x007Fe\000&quot;, nil)
+<br/>
+    test(0644, &quot;0644\000&quot;, nil)
+<br/>
+    test(0, &quot;9999999999\000&quot;, eOverflow)
+<br/>
+    test(0, &quot;123??\000&quot;, eSyntax)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="START_CONDITIONS"><a class="permalink" href="#START_CONDITIONS">START
+  CONDITIONS</a></h1>
+<p class="Pp">Start conditions are enabled with <b>--start-conditions</b>
+    option. They provide a way to encode multiple interrelated automata within
+    the same re2c block.</p>
+<p class="Pp">Each condition corresponds to a single automaton and has a unique
+    name specified by the user and a unique internal number defined by re2c. The
+    numbers are used to switch between conditions: the generated code uses
+    <b>YYGETCONDITION</b> and <b>YYSETCONDITION</b> primitives to get the
+    current condition or set it to the given number. Use
+    <b>/*!conditions:re2c*/</b> directive or the <b>--header</b> option to
+    generate numeric condition identifiers. Configuration
+    <b>re2c:cond:enumprefix</b> specifies the generated identifier prefix.</p>
+<p class="Pp">In condition mode every rule must be prefixed with a list of
+    comma-separated condition names in angle brackets, or a wildcard
+    <b>&lt;*&gt;</b> to denote all conditions. The rule syntax is extended as
+    follows:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>&lt; cond-list &gt; regexp action</b></b></dt>
+  <dd>A rule that is merged to every condition on the <b>cond-list</b>. It
+      matches <b>regexp</b> and executes the associated <b>action</b>.</dd>
+  <dt><b><b>&lt; cond-list &gt; regexp =&gt; cond action</b></b></dt>
+  <dd>A rule that is merged to every condition on the <b>cond-list</b>. It
+      matches <b>regexp</b>, sets the current condition to <b>cond</b> and
+      executes the associated <b>action</b>.</dd>
+  <dt><b><b>&lt; cond-list &gt; regexp :=&gt; cond</b></b></dt>
+  <dd>A rule that is merged to every condition on the <b>cond-list</b>. It
+      matches <b>regexp</b> and immediately transitions to <b>cond</b> (there is
+      no semantic action).</dd>
+  <dt><b><b>&lt;! cond-list &gt; action</b></b></dt>
+  <dd>The <b>action</b> is prepended to semantic actions of all rules for every
+      condition on the <b>cond-list</b>. This may be used to deduplicate common
+      code.</dd>
+  <dt><b><b>&lt; &gt; action</b></b></dt>
+  <dd>A rule that is merged to a special entry condition with number zero and
+      name <b>&quot;0&quot;</b>. It matches empty string and executes the
+      <b>action</b>.</dd>
+  <dt><b><b>&lt; &gt; =&gt; cond action</b></b></dt>
+  <dd>A rule that is merged to a special entry condition with number zero and
+      name <b>&quot;0&quot;</b>. It matches empty string, sets the current
+      condition to <b>cond</b> and executes the <b>action</b>.</dd>
+  <dt><b><b>&lt; &gt; :=&gt; cond</b></b></dt>
+  <dd>A rule that is merged to a special entry condition with number zero and
+      name <b>&quot;0&quot;</b>. It matches empty string and immediately
+      transitions to <b>cond</b>.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The code re2c generates for conditions depends on whether re2c
+    uses goto/label approach or loop/switch approach to encode the automata.</p>
+<p class="Pp">In languages that have <b>goto</b> statement (such as C/C++ and
+    Go) conditions are naturally implemented as blocks of code prefixed with
+    labels of the form <b>yyc_&lt;cond&gt;</b>, where <b>cond</b> is a condition
+    name (label prefix can be changed with <b>re2c:cond:prefix</b>). Transitions
+    between conditions are implemented using <b>goto</b> and condition labels.
+    Before all conditions re2c generates an initial switch on <b>YYGETSTATE</b>
+    that jumps to the start state of the current condition. The shortcut rules
+    <b>:=&gt;</b> bypass the initial switch and jump directly to the specified
+    condition (<b>re2c:cond:goto</b> can be used to change the default
+    behavior). The rules with semantic actions do not automatically jump to the
+    next condition; this should be done by the user-defined action code.</p>
+<p class="Pp">In languages that do not have <b>goto</b> (such as Rust) re2c
+    reuses the <b>yystate</b> variable to store condition numbers. Each
+    condition gets a numeric identifier equal to the number of its start state,
+    and a switch between conditions is no different than a switch between DFA
+    states of a single condition. There is no need for a separate initial
+    condition switch. (Since the same approach is used to implement storable
+    states, <b>YYGETCONDITION</b>/<b>YYSETCONDITION</b> are redundant if both
+    storable states and conditions are used).</p>
+<p class="Pp">The program below uses start conditions to parse binary, octal,
+    decimal and hexadecimal numbers. There is a single block where each base has
+    its own condition, and the initial condition is connected to all of them.
+    User-defined variable <b>cond</b> stores the current condition number; it is
+    initialized to the number of the initial condition generated with
+    <b>/*!conditions:re2c*/</b>.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go -c $INPUT -o $OUTPUT -i
+package main
+import &quot;errors&quot;
+var (
+<br/>
+    eSyntax   = errors.New(&quot;syntax error&quot;)
+<br/>
+    eOverflow = errors.New(&quot;overflow error&quot;)
+)
+/*!conditions:re2c*/
+const u32Limit uint64 = 1&lt;&lt;32
+func parse_u32(str string) (uint32, error) {
+<br/>
+    var cur, mar int
+<br/>
+    result := uint64(0)
+<br/>
+    cond := yycinit
+<br/>
+    add := func(base uint64, offset byte) {
+<br/>
+        result = result * base + uint64(str[cur-1] - offset)
+<br/>
+        if result &gt;= u32Limit {
+<br/>
+            result = u32Limit
+<br/>
+        }
+<br/>
+    }
+<br/>
+    /*!re2c
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        re2c:define:YYCTYPE        = byte;
+<br/>
+        re2c:define:YYPEEK         = &quot;str[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP         = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYSHIFT        = &quot;cur += @@{shift}&quot;;
+<br/>
+        re2c:define:YYBACKUP       = &quot;mar = cur&quot;;
+<br/>
+        re2c:define:YYRESTORE      = &quot;cur = mar&quot;;
+<br/>
+        re2c:define:YYGETCONDITION = &quot;cond&quot;;
+<br/>
+        re2c:define:YYSETCONDITION = &quot;cond = @@&quot;;
+<br/>
+        &lt;*&gt; * { return 0, eSyntax }
+<br/>
+        &lt;init&gt; '0b' / [01]        :=&gt; bin
+<br/>
+        &lt;init&gt; &quot;0&quot;                :=&gt; oct
+<br/>
+        &lt;init&gt; &quot;&quot;   / [1-9]       :=&gt; dec
+<br/>
+        &lt;init&gt; '0x' / [0-9a-fA-F] :=&gt; hex
+<br/>
+        &lt;bin, oct, dec, hex&gt; &quot;\x00&quot; {
+<br/>
+            if result &lt; u32Limit {
+<br/>
+                return uint32(result), nil
+<br/>
+            } else {
+<br/>
+                return 0, eOverflow
+<br/>
+            }
+<br/>
+        }
+<br/>
+        &lt;bin&gt; [01]  { add(2, '0');     goto yyc_bin }
+<br/>
+        &lt;oct&gt; [0-7] { add(8, '0');     goto yyc_oct }
+<br/>
+        &lt;dec&gt; [0-9] { add(10, '0');    goto yyc_dec }
+<br/>
+        &lt;hex&gt; [0-9] { add(16, '0');    goto yyc_hex }
+<br/>
+        &lt;hex&gt; [a-f] { add(16, 'a'-10); goto yyc_hex }
+<br/>
+        &lt;hex&gt; [A-F] { add(16, 'A'-10); goto yyc_hex }
+<br/>
+    */
+}
+func main() {
+<br/>
+    test := func(num uint32, str string, err error) {
+<br/>
+        if n, e := parse_u32(str); !(n == num &amp;&amp; e == err) {
+<br/>
+            panic(&quot;error&quot;)
+<br/>
+        }
+<br/>
+    }
+<br/>
+    test(1234567890, &quot;1234567890\000&quot;, nil)
+<br/>
+    test(13, &quot;0b1101\000&quot;, nil)
+<br/>
+    test(0x7fe, &quot;0x007Fe\000&quot;, nil)
+<br/>
+    test(0644, &quot;0644\000&quot;, nil)
+<br/>
+    test(0, &quot;9999999999\000&quot;, eOverflow)
+<br/>
+    test(0, &quot;123??\000&quot;, eSyntax)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STORABLE_STATE"><a class="permalink" href="#STORABLE_STATE">STORABLE
+  STATE</a></h1>
+<p class="Pp">With <b>--storable-state</b> option re2c generates a lexer that
+    can store its current state, return to the caller, and later resume
+    operations exactly where it left off. The default mode of operation in re2c
+    is a &quot;pull&quot; model, in which the lexer &quot;pulls&quot; more input
+    whenever it needs it. This may be unacceptable in cases when the input
+    becomes available piece by piece (for example, if the lexer is invoked by
+    the parser, or if the lexer program communicates via a socket protocol with
+    some other program that must wait for a reply from the lexer before it
+    transmits the next message). Storable state feature is intended exactly for
+    such cases: it allows one to generate lexers that work in a &quot;push&quot;
+    model. When the lexer needs more input, it stores its state and returns to
+    the caller. Later, when more input becomes available, the caller resumes the
+    lexer exactly where it stopped. There are a few changes necessary compared
+    to the &quot;pull&quot; model:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>Define <b>YYSETSTATE()</b> and <b>YYGETSTATE(state)</b> primitives.</li>
+  <li>Define <b>yych</b>, <b>yyaccept</b> (if used) and <b>state</b> variables
+      as a part of persistent lexer state. The <b>state</b> variable should be
+      initialized to <b>-1</b>.</li>
+  <li><b>YYFILL</b> should return to the outer program instead of trying to
+      supply more input. Return code should indicate that lexer needs more
+      input.</li>
+  <li>The outer program should recognize situations when lexer needs more input
+      and respond appropriately.</li>
+  <li>Optionally use <b>getstate:re2c</b> to generate <b>YYGETSTATE</b> switch
+      detached from the main lexer. This only works for languages that have
+      <b>goto</b> (not in <b>--loop-switch</b> mode).</li>
+  <li>Use <b>re2c:eof</b> and the <i>sentinel with bounds checks</i> method to
+      handle the end of input. Padding-based method may not work because it is
+      unclear when to append padding: the current end of input may not be the
+      ultimate end of input, and appending padding too early may cut off a
+      partially read greedy lexeme. Furthermore, due to high-level program logic
+      getting more input may depend on processing the lexeme at the end of
+      buffer (which already is blocked due to the end-of-input condition).</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">Here is an example of a &quot;push&quot; model lexer that
+    simulates reading packets from a socket. The lexer loops until it encounters
+    the end of input and returns to the calling function. The calling function
+    provides more input by &quot;sending&quot; the next packet and resumes
+    lexing. This process stops when all the packets have been sent, or when
+    there is an error.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go -f $INPUT -o $OUTPUT
+package main
+import (
+<br/>
+    &quot;fmt&quot;
+<br/>
+    &quot;os&quot;
+)
+// Use a small buffer to cover the case when a lexeme doesn't fit.
+// In real world use a larger buffer.
+const BUFSIZE int = 10
+type State struct {
+<br/>
+    file  *os.File
+<br/>
+    buf   []byte
+<br/>
+    cur   int
+<br/>
+    mar   int
+<br/>
+    tok   int
+<br/>
+    lim   int
+<br/>
+    state int
+}
+const (
+<br/>
+    lexEnd = iota
+<br/>
+    lexReady
+<br/>
+    lexWaitingForInput
+<br/>
+    lexPacketBroken
+<br/>
+    lexPacketTooBig
+)
+func fill(st *State) int {
+<br/>
+    shift := st.tok
+<br/>
+    used := st.lim - st.tok
+<br/>
+    free := BUFSIZE - used
+<br/>
+    // Error: no space. In real life can reallocate a larger buffer.
+<br/>
+    if free &lt; 1 { return lexPacketTooBig }
+<br/>
+    // Shift buffer contents (discard already processed data).
+<br/>
+    copy(st.buf[0:], st.buf[shift:shift+used])
+<br/>
+    st.cur -= shift
+<br/>
+    st.mar -= shift
+<br/>
+    st.lim -= shift
+<br/>
+    st.tok -= shift
+<br/>
+    // Fill free space at the end of buffer with new data.
+<br/>
+    n, _ := st.file.Read(st.buf[st.lim:BUFSIZE])
+<br/>
+    st.lim += n
+<br/>
+    st.buf[st.lim] = 0 // append sentinel symbol
+<br/>
+    return lexReady
+}
+func lex(st *State, recv *int) int {
+<br/>
+    var yych byte
+<br/>
+    /*!getstate:re2c*/
+loop:
+<br/>
+    st.tok = st.cur
+<br/>
+    /*!re2c
+<br/>
+        re2c:eof = 0;
+<br/>
+        re2c:define:YYPEEK     = &quot;st.buf[st.cur]&quot;;
+<br/>
+        re2c:define:YYSKIP     = &quot;st.cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP   = &quot;st.mar = st.cur&quot;;
+<br/>
+        re2c:define:YYRESTORE  = &quot;st.cur = st.mar&quot;;
+<br/>
+        re2c:define:YYLESSTHAN = &quot;st.lim &lt;= st.cur&quot;;
+<br/>
+        re2c:define:YYFILL     = &quot;return lexWaitingForInput&quot;;
+<br/>
+        re2c:define:YYGETSTATE = &quot;st.state&quot;;
+<br/>
+        re2c:define:YYSETSTATE = &quot;st.state = @@{state}&quot;;
+<br/>
+        packet = [a-z]+[;];
+<br/>
+        *      { return lexPacketBroken }
+<br/>
+        $      { return lexEnd }
+<br/>
+        packet { *recv = *recv + 1; goto loop }
+<br/>
+    */
+}
+func test(expect int, packets []string) {
+<br/>
+    // Create a &quot;socket&quot; (open the same file for reading and writing).
+<br/>
+    fname := &quot;pipe&quot;
+<br/>
+    fw, _ := os.Create(fname)
+<br/>
+    fr, _ := os.Open(fname)
+<br/>
+    // Initialize lexer state: `state` value is -1, all offsets are at the end
+<br/>
+    // of buffer.
+<br/>
+    st := &amp;State{
+<br/>
+        file:  fr,
+<br/>
+        // Sentinel at `lim` offset is set to zero, which triggers YYFILL.
+<br/>
+        buf:   make([]byte, BUFSIZE+1),
+<br/>
+        cur:   BUFSIZE,
+<br/>
+        mar:   BUFSIZE,
+<br/>
+        tok:   BUFSIZE,
+<br/>
+        lim:   BUFSIZE,
+<br/>
+        state: -1,
+<br/>
+    }
+<br/>
+    // Main loop. The buffer contains incomplete data which appears packet by
+<br/>
+    // packet. When the lexer needs more input it saves its internal state and
+<br/>
+    // returns to the caller which should provide more input and resume lexing.
+<br/>
+    var status int
+<br/>
+    send := 0
+<br/>
+    recv := 0
+<br/>
+    for {
+<br/>
+        status = lex(st, &amp;recv)
+<br/>
+        if status == lexEnd {
+<br/>
+            break
+<br/>
+        } else if status == lexWaitingForInput {
+<br/>
+            if send &lt; len(packets) {
+<br/>
+                fw.WriteString(packets[send])
+<br/>
+                send += 1
+<br/>
+            }
+<br/>
+            status = fill(st)
+<br/>
+            if status != lexReady {
+<br/>
+                break
+<br/>
+            }
+<br/>
+        } else if status == lexPacketBroken {
+<br/>
+            break
+<br/>
+        }
+<br/>
+    }
+<br/>
+    // Check results.
+<br/>
+    if status != expect || (status == lexEnd &amp;&amp; recv != send) {
+<br/>
+        panic(fmt.Sprintf(&quot;got %d, want %d&quot;, status, expect))
+<br/>
+    }
+<br/>
+    // Cleanup: remove input file.
+<br/>
+    fr.Close()
+<br/>
+    fw.Close()
+<br/>
+    os.Remove(fname)
+}
+func main() {
+<br/>
+    test(lexEnd, []string{})
+<br/>
+    test(lexEnd, []string{&quot;zero;&quot;, &quot;one;&quot;, &quot;two;&quot;, &quot;three;&quot;, &quot;four;&quot;})
+<br/>
+    test(lexPacketBroken, []string{&quot;??;&quot;})
+<br/>
+    test(lexPacketTooBig, []string{&quot;looooooooooooong;&quot;})
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REUSABLE_BLOCKS"><a class="permalink" href="#REUSABLE_BLOCKS">REUSABLE
+  BLOCKS</a></h1>
+<p class="Pp">Reusable blocks are re2c blocks that can be reused any number of
+    times and combined with other re2c blocks. They are defined with
+    <b>/*!rules:re2c[:&lt;name&gt;] ... */</b> (the <b>&lt;name&gt;</b> is
+    optional). A rules block can be used in two contexts: either in a use block,
+    or in a use directive inside of another block. The code for a rules block is
+    generated at every point of use.</p>
+<p class="Pp">Use blocks are defined with <b>/*!use:re2c[:&lt;name&gt;] ...
+    */</b>. The <b>&lt;name&gt;</b> is optional; if not specified, the
+    associated rules block is the most recent one (whether named or unnamed). A
+    use block can add named definitions, configurations and rules of its own. An
+    important use case for use blocks is a lexer that supports multiple input
+    encodings: the same rules block is reused multiple times with
+    encoding-specific configurations (see the example below).</p>
+<p class="Pp">In-block use directive <b>!use:&lt;name&gt;;</b> can be used from
+    inside of a re2c block. It merges the referenced block <b>&lt;name&gt;</b>
+    into the current one. If some of the merged rules and configurations overlap
+    with the previously defined ones, conflicts are resolved in the usual way:
+    the earliest rule takes priority, and latest configuration overrides
+    preceding ones. One exception are the special rules <b>*</b>, <b>$</b> and
+    (in condition mode) <b>&lt;!&gt;</b>, for which a block-local definition
+    overrides any inherited ones. Use directive allows one to combine different
+    re2c blocks together in one block (see the example below).</p>
+<p class="Pp">Named blocks and in-block use directive were added in re2c version
+    2.2. Since that version reusable blocks are allowed by default (no special
+    option is needed). Before version 2.2 reuse mode was enabled with <b>-r
+    --reusable</b> option. Before version 1.2 reusable blocks could not be mixed
+    with normal blocks.</p>
+<section class="Ss">
+<h2 class="Ss">Example of a <b>!use</b> directive</h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT
+package main
+// This example shows how to combine reusable re2c blocks: two blocks
+// ('colors' and 'fish') are merged into one. The 'salmon' rule occurs
+// in both blocks; the 'fish' block takes priority because it is used
+// earlier. Default rule * occurs in all three blocks; the local (not
+// inherited) definition takes priority.
+const (
+<br/>
+    Color = iota
+<br/>
+    Fish
+<br/>
+    Dunno
+)
+/*!rules:re2c:colors
+<br/>
+    *                            { panic(&quot;eh!&quot;) }
+<br/>
+    &quot;red&quot; | &quot;salmon&quot; | &quot;magenta&quot; { return Color }
+*/
+/*!rules:re2c:fish
+<br/>
+    *                            { panic(&quot;oh!&quot;) }
+<br/>
+    &quot;haddock&quot; | &quot;salmon&quot; | &quot;eel&quot; { return Fish }
+*/
+func lex(str string) int {
+<br/>
+    var cur, mar int
+<br/>
+    /*!re2c
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        re2c:define:YYCTYPE   = byte;
+<br/>
+        re2c:define:YYPEEK    = &quot;str[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP    = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP  = &quot;mar = cur&quot;;
+<br/>
+        re2c:define:YYRESTORE = &quot;cur = mar&quot;;
+<br/>
+        !use:fish;
+<br/>
+        !use:colors;
+<br/>
+        * { return Dunno }  // overrides inherited '*' rules
+<br/>
+    */
+}
+func main() {
+<br/>
+    assert_eq := func(x, y int) { if x != y { panic(&quot;error&quot;) } }
+<br/>
+    assert_eq(lex(&quot;salmon&quot;), Fish);
+<br/>
+    assert_eq(lex(&quot;what?&quot;), Dunno);
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss">Example of a <b>/*!use:re2c</b> <b>...</b> <b>*/</b> block</h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT --input-encoding utf8
+package main
+// This example supports multiple input encodings: UTF-8 and UTF-32.
+// Both lexers are generated from the same rules block, and the use
+// blocks add only encoding-specific configurations.
+/*!rules:re2c
+<br/>
+    re2c:yyfill:enable = 0;
+<br/>
+    re2c:define:YYPEEK    = &quot;str[cur]&quot;;
+<br/>
+    re2c:define:YYSKIP    = &quot;cur += 1&quot;;
+<br/>
+    re2c:define:YYBACKUP  = &quot;mar = cur&quot;;
+<br/>
+    re2c:define:YYRESTORE = &quot;cur = mar&quot;;
+<br/>
+    &quot;&#x2200;x &#x2203;y&quot; { return 0; }
+<br/>
+    *       { return 1; }
+*/
+func lexUTF8(str []uint8) int {
+<br/>
+    var cur, mar int
+<br/>
+    /*!use:re2c
+<br/>
+        re2c:encoding:utf8 = 1;
+<br/>
+        re2c:define:YYCTYPE = uint8;
+<br/>
+    */
+}
+func lexUTF32(str []uint32) int {
+<br/>
+    var cur, mar int
+<br/>
+    /*!use:re2c
+<br/>
+        re2c:encoding:utf32 = 1;
+<br/>
+        re2c:define:YYCTYPE = uint32;
+<br/>
+    */
+}
+func main() {
+<br/>
+    assert_eq := func(x, y int) { if x != y { panic(&quot;error&quot;) } }
+<br/>
+    assert_eq(lexUTF8([]uint8{0xe2, 0x88, 0x80, 0x78, 0x20, 0xe2, 0x88, 0x83, 0x79}), 0)
+<br/>
+    assert_eq(lexUTF32([]uint32{0x2200, 0x78, 0x20, 0x2203, 0x79}), 0)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SUBMATCH_EXTRACTION"><a class="permalink" href="#SUBMATCH_EXTRACTION">SUBMATCH
+  EXTRACTION</a></h1>
+<p class="Pp">re2c has two options for submatch extraction.</p>
+<p class="Pp">The first option is <b>-T --tags</b>. With this option one can use
+    standalone tags of the form <b>@stag</b> and <b>#mtag</b>, where <b>stag</b>
+    and <b>mtag</b> are arbitrary used-defined names. Tags can be used anywhere
+    inside of a regular expression; semantically they are just position markers.
+    Tags of the form <b>@stag</b> are called s-tags: they denote a single
+    submatch value (the last input position where this tag matched). Tags of the
+    form <b>#mtag</b> are called m-tags: they denote multiple submatch values
+    (the whole history of repetitions of this tag). All tags should be defined
+    by the user as variables with the corresponding names. With standalone tags
+    re2c uses leftmost greedy disambiguation: submatch positions correspond to
+    the leftmost matching path through the regular expression.</p>
+<p class="Pp">The second option is <b>-P --posix-captures</b>: it enables
+    POSIX-compliant capturing groups. In this mode parentheses in regular
+    expressions denote the beginning and the end of capturing groups; the whole
+    regular expression is group number zero. The number of groups for the
+    matching rule is stored in a variable <b>yynmatch</b>, and submatch results
+    are stored in <b>yypmatch</b> array. Both <b>yynmatch</b> and
+    <b>yypmatch</b> should be defined by the user, and <b>yypmatch</b> size must
+    be at least <b>[yynmatch * 2]</b>. re2c provides a directive
+    <b>/*!maxnmatch:re2c*/</b> that defines <b>YYMAXNMATCH</b>: a constant equal
+    to the maximal value of <b>yynmatch</b> among all rules. Note that re2c
+    implements POSIX-compliant disambiguation: each subexpression matches as
+    long as possible, and subexpressions that start earlier in regular
+    expression have priority over those starting later. Capturing groups are
+    translated into s-tags under the hood, therefore we use the word
+    &quot;tag&quot; to describe them as well.</p>
+<p class="Pp">With both <b>-P --posix-captures</b> and <b>T --tags</b> options
+    re2c uses efficient submatch extraction algorithm described in the <i>Tagged
+    Deterministic Finite Automata with Lookahead</i> paper. The overhead on
+    submatch extraction in the generated lexer grows with the number of tags ---
+    if this number is moderate, the overhead is barely noticeable. In the lexer
+    tags are implemented using a number of tag variables generated by re2c.
+    There is no one-to-one correspondence between tag variables and tags: a
+    single variable may be reused for different tags, and one tag may require
+    multiple variables to hold all its ambiguous values. Eventually ambiguity is
+    resolved, and only one final variable per tag survives. When a rule matches,
+    all its tags are set to the values of the corresponding tag variables. The
+    exact number of tag variables is unknown to the user; this number is
+    determined by re2c. However, tag variables should be defined by the user as
+    a part of the lexer state and updated by <b>YYFILL</b>, therefore re2c
+    provides directives <b>/*!stags:re2c*/</b> and <b>/*!mtags:re2c*/</b> that
+    can be used to declare, initialize and manipulate tag variables. These
+    directives have two optional configurations: <b>format = &quot;@@&quot;;</b>
+    (specifies the template where <b>@@</b> is substituted with the name of each
+    tag variable), and <b>separator = &quot;&quot;;</b> (specifies the piece of
+    code used to join the generated pieces for different tag variables).</p>
+<p class="Pp">S-tags support the following operations:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>save input position to an s-tag: <b>t = YYCURSOR</b> with C pointer API or
+      a user-defined operation <b>YYSTAGP(t)</b> with generic API</li>
+  <li>save default value to an s-tag: <b>t = NULL</b> with C pointer API or a
+      user-defined operation <b>YYSTAGN(t)</b> with generic API</li>
+  <li>copy one s-tag to another: <b>t1 = t2</b></li>
+</ul>
+</div>
+<br/>
+<p class="Pp">M-tags support the following operations:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>append input position to an m-tag: a user-defined operation
+      <b>YYMTAGP(t)</b> with both default and generic API</li>
+  <li>append default value to an m-tag: a user-defined operation
+      <b>YYMTAGN(t)</b> with both default and generic API</li>
+  <li>copy one m-tag to another: <b>t1 = t2</b></li>
+</ul>
+</div>
+<br/>
+<p class="Pp">S-tags can be implemented as scalar values (pointers or offsets).
+    M-tags need a more complex representation, as they need to store a sequence
+    of tag values. The most naive and inefficient representation of an m-tag is
+    a list (array, vector) of tag values; a more efficient representation is to
+    store all m-tags in a prefix-tree represented as array of nodes <b>(v,
+    p)</b>, where <b>v</b> is tag value and <b>p</b> is a pointer to parent
+    node.</p>
+<p class="Pp">Here is a simple example of using s-tags to parse semantic
+    versions consisting of three numeric components: major, minor, patch (the
+    latter is optional). See below for a more complex example that uses
+    <b>YYFILL</b>.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT
+package main
+import &quot;reflect&quot;
+type SemVer struct { major, minor, patch int }
+func s2n(s string) int { // convert pre-parsed string to a number
+<br/>
+    n := 0
+<br/>
+    for _, c := range s { n = n*10 + int(c-'0') }
+<br/>
+    return n
+}
+func parse(str string) *SemVer {
+<br/>
+    var cur, mar int
+<br/>
+    // User-defined tag variables that are available in semantic action.
+<br/>
+    var t1, t2, t3, t4, t5 int
+<br/>
+    // Autogenerated tag variables used by the lexer to track tag values.
+<br/>
+    /*!stags:re2c format = 'var @@ int'; separator = &quot;\n\t&quot;; */
+<br/>
+    /*!re2c
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        re2c:define:YYCTYPE     = byte;
+<br/>
+        re2c:define:YYPEEK      = &quot;str[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP      = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP    = &quot;mar = cur&quot;;
+<br/>
+        re2c:define:YYRESTORE   = &quot;cur = mar&quot;;
+<br/>
+        re2c:define:YYSTAGP     = &quot;@@{tag} = cur&quot;;
+<br/>
+        re2c:define:YYSTAGN     = &quot;@@{tag} = -1&quot;;
+<br/>
+        re2c:define:YYSHIFTSTAG = &quot;@@{tag} += @@{shift}&quot;;
+<br/>
+        re2c:tags = 1;
+<br/>
+        num = [0-9]+;
+<br/>
+        @t1 num @t2 &quot;.&quot; @t3 num @t4 (&quot;.&quot; @t5 num)? [\x00] {
+<br/>
+            major := s2n(str[t1:t2])
+<br/>
+            minor := s2n(str[t3:t4])
+<br/>
+            patch := 0
+<br/>
+            if t5 != -1 { patch = s2n(str[t5:cur-1]) }
+<br/>
+            return &amp;SemVer{major, minor, patch}
+<br/>
+        }
+<br/>
+        * { return nil }
+<br/>
+    */
+}
+func main() {
+<br/>
+    assert_eq := func(x, y *SemVer) {
+<br/>
+        if !reflect.DeepEqual(x, y) { panic(&quot;error&quot;) }
+<br/>
+    }
+<br/>
+    assert_eq(parse(&quot;23.34\000&quot;), &amp;SemVer{23, 34, 0})
+<br/>
+    assert_eq(parse(&quot;1.2.9999\000&quot;), &amp;SemVer{1, 2, 9999})
+<br/>
+    assert_eq(parse(&quot;1.a\000&quot;), nil)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Here is a more complex example of using s-tags with <b>YYFILL</b>
+    to parse a file with newline-separated semantic versions. Tag variables are
+    part of the lexer state, and they are adjusted in <b>YYFILL</b> like other
+    input positions. Note that it is necessary for s-tags because their values
+    are invalidated after shifting buffer contents. It may not be necessary in a
+    custom implementation where tag variables store offsets relative to the
+    start of the input string rather than the buffer, which may be the case with
+    m-tags.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT --tags
+package main
+import (
+<br/>
+    &quot;os&quot;
+<br/>
+    &quot;reflect&quot;
+<br/>
+    &quot;strings&quot;
+)
+const BUFSIZE int = 4095
+type Input struct {
+<br/>
+    file *os.File
+<br/>
+    buf  []byte
+<br/>
+    cur  int
+<br/>
+    mar  int
+<br/>
+    tok  int
+<br/>
+    lim  int
+<br/>
+    // Tag variables must be part of the lexer state passed to YYFILL.
+<br/>
+    // They don't correspond to tags and should be autogenerated by re2c.
+<br/>
+    /*!stags:re2c format = &quot;\t@@ int\n&quot;; */
+<br/>
+    eof  bool
+}
+type SemVer struct { major, minor, patch int }
+func s2n(s []byte) int { // convert pre-parsed string to a number
+<br/>
+    n := 0
+<br/>
+    for _, c := range s { n = n*10 + int(c-'0') }
+<br/>
+    return n
+}
+func fill(in *Input) int {
+<br/>
+    if in.eof { return -1 } // unexpected EOF
+<br/>
+    // Error: lexeme too long. In real life can reallocate a larger buffer.
+<br/>
+    if in.tok &lt; 1 { return -2 }
+<br/>
+    // Shift buffer contents (discard everything up to the current token).
+<br/>
+    copy(in.buf[0:], in.buf[in.tok:in.lim])
+<br/>
+    in.cur -= in.tok
+<br/>
+    in.mar -= in.tok
+<br/>
+    in.lim -= in.tok
+<br/>
+    // Tag variables need to be shifted like other input positions. The check
+<br/>
+    // for -1 is only needed if some tags are nested inside of alternative or
+<br/>
+    // repetition, so that they can have -1 value.
+<br/>
+    /*!stags:re2c format = &quot;\tif in.@@ != -1 { in.@@ -= in.tok }\n&quot;; */
+<br/>
+    in.tok = 0
+<br/>
+    // Fill free space at the end of buffer with new data from file.
+<br/>
+    n, _ := in.file.Read(in.buf[in.lim:BUFSIZE])
+<br/>
+    in.lim += n
+<br/>
+    in.buf[in.lim] = 0
+<br/>
+    // If read less than expected, this is the end of input.
+<br/>
+    in.eof = in.lim &lt; BUFSIZE
+<br/>
+    return 0
+}
+func parse(in *Input) []SemVer {
+<br/>
+    // User-defined local variables that store final tag values. They are
+<br/>
+    // different from tag variables autogenerated with `stags:re2c`, as
+<br/>
+    // they are set at the end of match and used only in semantic actions.
+<br/>
+    var t1, t2, t3, t4 int
+<br/>
+    vers := make([]SemVer, 0)
+<br/>
+    for {
+<br/>
+        in.tok = in.cur
+<br/>
+    /*!re2c
+<br/>
+        re2c:eof = 0;
+<br/>
+        re2c:define:YYCTYPE     = byte;
+<br/>
+        re2c:define:YYPEEK      = &quot;in.buf[in.cur]&quot;;
+<br/>
+        re2c:define:YYSKIP      = &quot;in.cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP    = &quot;in.mar = in.cur&quot;;
+<br/>
+        re2c:define:YYRESTORE   = &quot;in.cur = in.mar&quot;;
+<br/>
+        re2c:define:YYLESSTHAN  = &quot;in.lim &lt;= in.cur&quot;;
+<br/>
+        re2c:define:YYFILL      = &quot;fill(in) == 0&quot;;
+<br/>
+        re2c:define:YYSTAGP     = &quot;@@{tag} = in.cur&quot;;
+<br/>
+        re2c:define:YYSTAGN     = &quot;@@{tag} = -1&quot;;
+<br/>
+        re2c:define:YYSHIFTSTAG = &quot;@@{tag} += @@{shift}&quot;;
+<br/>
+        re2c:tags:expression    = &quot;in.@@&quot;;
+<br/>
+        num = [0-9]+;
+<br/>
+        num @t1 &quot;.&quot; @t2 num @t3 (&quot;.&quot; @t4 num)? [\n] {
+<br/>
+            major := s2n(in.buf[in.tok:t1])
+<br/>
+            minor := s2n(in.buf[t2:t3])
+<br/>
+            patch := 0
+<br/>
+            if t4 != -1 { patch = s2n(in.buf[t4:in.cur-1]) }
+<br/>
+            vers = append(vers, SemVer{major, minor, patch})
+<br/>
+            continue
+<br/>
+        }
+<br/>
+        $ { return vers }
+<br/>
+        * { return nil }
+<br/>
+    */
+<br/>
+    }
+}
+func main() () {
+<br/>
+    fname := &quot;input&quot;
+<br/>
+    content := &quot;1.22.333\n&quot;;
+<br/>
+    expect := make([]SemVer, 0, BUFSIZE)
+<br/>
+    for i := 0; i &lt; BUFSIZE; i += 1 { expect = append(expect, SemVer{1, 22, 333}) }
+<br/>
+    // Prepare input file (make sure it exceeds buffer size).
+<br/>
+    f, _ := os.Create(fname)
+<br/>
+    f.WriteString(strings.Repeat(content, BUFSIZE))
+<br/>
+    f.Seek(0, 0)
+<br/>
+    // Initialize lexer state: all offsets are at the end of buffer.
+<br/>
+    in := &amp;Input{
+<br/>
+        file: f,
+<br/>
+        // Sentinel at `lim` offset is set to zero, which triggers YYFILL.
+<br/>
+        buf:  make([]byte, BUFSIZE+1),
+<br/>
+        cur:  BUFSIZE,
+<br/>
+        mar:  BUFSIZE,
+<br/>
+        tok:  BUFSIZE,
+<br/>
+        lim:  BUFSIZE,
+<br/>
+        eof:  false,
+<br/>
+    }
+<br/>
+    // Run the lexer and check results.
+<br/>
+    if !reflect.DeepEqual(parse(in), expect) { panic(&quot;error&quot;); }
+<br/>
+    // Cleanup: remove input file.
+<br/>
+    f.Close();
+<br/>
+    os.Remove(fname);
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Here is an example of using POSIX capturing groups to parse
+    semantic versions.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT
+package main
+import &quot;reflect&quot;
+// Maximum number of capturing groups among all rules.
+/*!maxnmatch:re2c*/
+type SemVer struct { major, minor, patch int }
+func s2n(s string) int { // convert pre-parsed string to a number
+<br/>
+    n := 0
+<br/>
+    for _, c := range s { n = n*10 + int(c-'0') }
+<br/>
+    return n
+}
+func parse(str string) *SemVer {
+<br/>
+    var cur, mar int
+<br/>
+    // Allocate memory for capturing parentheses (twice the number of groups).
+<br/>
+    yypmatch := make([]int, YYMAXNMATCH*2)
+<br/>
+    var yynmatch int
+<br/>
+    // Autogenerated tag variables used by the lexer to track tag values.
+<br/>
+    /*!stags:re2c format = '\tvar @@ int\n'; */
+<br/>
+    /*!re2c
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        re2c:define:YYCTYPE     = byte;
+<br/>
+        re2c:define:YYPEEK      = &quot;str[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP      = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP    = &quot;mar = cur&quot;;
+<br/>
+        re2c:define:YYRESTORE   = &quot;cur = mar&quot;;
+<br/>
+        re2c:define:YYSTAGP     = &quot;@@{tag} = cur&quot;;
+<br/>
+        re2c:define:YYSTAGN     = &quot;@@{tag} = -1&quot;;
+<br/>
+        re2c:define:YYSHIFTSTAG = &quot;@@{tag} += @@{shift}&quot;;
+<br/>
+        re2c:posix-captures = 1;
+<br/>
+        num = [0-9]+;
+<br/>
+        (num) &quot;.&quot; (num) (&quot;.&quot; num)? [\x00] {
+<br/>
+            // `yynmatch` is the number of capturing groups
+<br/>
+            if yynmatch != 4 { panic(&quot;expected 4 submatch groups&quot;) }
+<br/>
+            // Even `yypmatch` values are for opening parentheses, odd values
+<br/>
+            // are for closing parentheses, the first group is the whole match.
+<br/>
+            major := s2n(str[yypmatch[2]:yypmatch[3]])
+<br/>
+            minor := s2n(str[yypmatch[4]:yypmatch[5]])
+<br/>
+            patch := 0
+<br/>
+            if yypmatch[6] != -1 { patch = s2n(str[yypmatch[6]+1:yypmatch[7]]) }
+<br/>
+            return &amp;SemVer{major, minor, patch}
+<br/>
+        }
+<br/>
+        * { return nil }
+<br/>
+    */
+}
+func main() {
+<br/>
+    assert_eq := func(x, y *SemVer) {
+<br/>
+        if !reflect.DeepEqual(x, y) { panic(&quot;error&quot;) }
+<br/>
+    }
+<br/>
+    assert_eq(parse(&quot;23.34\000&quot;), &amp;SemVer{23, 34, 0})
+<br/>
+    assert_eq(parse(&quot;1.2.9999\000&quot;), &amp;SemVer{1, 2, 9999})
+<br/>
+    assert_eq(parse(&quot;1.a\000&quot;), nil)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Here is an example of using m-tags to parse a version with a
+    variable number of components. Tag variables are stored in a trie.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT
+package main
+import &quot;reflect&quot;
+const (
+<br/>
+    mtagRoot int = -1
+<br/>
+    tagNone int = -1
+)
+// An m-tag tree is a way to store histories with an O(1) copy operation.
+// Histories naturally form a tree, as they have common start and fork at some
+// point. The tree is stored as an array of pairs (tag value, link to parent).
+// An m-tag is represented with a single link in the tree (array index).
+type mtagElem struct {
+<br/>
+    elem int
+<br/>
+    pred int
+}
+type mtagTrie = []mtagElem
+type Ver = []int // unbounded number of version components
+func s2n(s string) int { // convert pre-parsed string to a number
+<br/>
+    n := 0
+<br/>
+    for _, c := range s { n = n*10 + int(c-'0') }
+<br/>
+    return n
+}
+// Append a single value to an m-tag history.
+func add_mtag(trie *mtagTrie, mtag int, value int) int {
+<br/>
+    *trie = append(*trie, mtagElem{value, mtag})
+<br/>
+    return len(*trie) - 1
+}
+// Recursively unwind tag histories and collect version components.
+func unwind(trie mtagTrie, x int, y int, str string) Ver {
+<br/>
+    // Reached the root of the m-tag tree, stop recursion.
+<br/>
+    if x == mtagRoot &amp;&amp; y == mtagRoot {
+<br/>
+        return []int{}
+<br/>
+    }
+<br/>
+    // Unwind history further.
+<br/>
+    ver := unwind(trie, trie[x].pred, trie[y].pred, str)
+<br/>
+    // Get tag values. Tag histories must have equal length.
+<br/>
+    if x == mtagRoot || y == mtagRoot {
+<br/>
+        panic(&quot;tag histories have different length&quot;)
+<br/>
+    }
+<br/>
+    ex := trie[x].elem
+<br/>
+    ey := trie[y].elem
+<br/>
+    if ex != tagNone &amp;&amp; ey != tagNone {
+<br/>
+        // Both tags are valid string indices, extract component.
+<br/>
+        ver = append(ver, s2n(str[ex:ey]))
+<br/>
+    } else if !(ex == tagNone &amp;&amp; ey == tagNone) {
+<br/>
+        panic(&quot;both tags should be tagNone&quot;)
+<br/>
+    }
+<br/>
+    return ver
+}
+func parse(str string) []int {
+<br/>
+    var cur, mar int
+<br/>
+    trie := make([]mtagElem, 0)
+<br/>
+    // User-defined tag variables that are available in semantic action.
+<br/>
+    var t1, t2, t3, t4 int
+<br/>
+    // Autogenerated tag variables used by the lexer to track tag values.
+<br/>
+    /*!stags:re2c format = 'var @@ int'; separator = &quot;\n\t&quot;; */
+<br/>
+    /*!mtags:re2c format = &quot;\t@@ := mtagRoot\n&quot;; */
+<br/>
+    /*!re2c
+<br/>
+        re2c:tags = 1;
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        re2c:define:YYCTYPE   = byte;
+<br/>
+        re2c:define:YYPEEK    = &quot;str[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP    = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP  = &quot;mar = cur&quot;;
+<br/>
+        re2c:define:YYRESTORE = &quot;cur = mar&quot;;
+<br/>
+        re2c:define:YYSTAGP   = &quot;@@ = cur&quot;;
+<br/>
+        re2c:define:YYSTAGN   = &quot;@@ = tagNone&quot;;
+<br/>
+        re2c:define:YYMTAGP   = &quot;@@ = add_mtag(&amp;trie, @@, cur)&quot;;
+<br/>
+        re2c:define:YYMTAGN   = &quot;@@ = add_mtag(&amp;trie, @@, tagNone)&quot;;
+<br/>
+        num = [0-9]+;
+<br/>
+        @t1 num @t2 (&quot;.&quot; #t3 num #t4)* [\x00] {
+<br/>
+            ver := make([]int, 0)
+<br/>
+            ver = append(ver, s2n(str[t1:t2]))
+<br/>
+            ver = append(ver, unwind(trie, t3, t4, str)...)
+<br/>
+            return ver
+<br/>
+        }
+<br/>
+        * { return nil }
+<br/>
+    */
+}
+func main() {
+<br/>
+    assert_eq := func(x, y []int) {
+<br/>
+        if !reflect.DeepEqual(x, y) { panic(&quot;error&quot;) }
+<br/>
+    }
+<br/>
+    assert_eq(parse(&quot;1\000&quot;), []int{1})
+<br/>
+    assert_eq(parse(&quot;1.2.3.4.5.6.7\000&quot;), []int{1, 2, 3, 4, 5, 6, 7})
+<br/>
+    assert_eq(parse(&quot;1.\000&quot;), nil)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENCODING_SUPPORT"><a class="permalink" href="#ENCODING_SUPPORT">ENCODING
+  SUPPORT</a></h1>
+<p class="Pp">It is necessary to understand the difference between <b>code
+    points</b> and <b>code units</b>. A code point is a numeric identifier of a
+    symbol. A code unit is the smallest unit of storage in the encoded text. A
+    single code point may be represented with one or more code units. In a
+    fixed-length encoding all code points are represented with the same number
+    of code units. In a variable-length encoding code points may be represented
+    with a different number of code units. Note that the &quot;any&quot; rule
+    <b>[^]</b> matches any code point, but not necessarily any code unit (the
+    only way to match any code unit regardless of the encoding is the default
+    rule <b>*</b>). The generated lexer works with a stream of code units:
+    <b>yych</b> stores a code unit, and <b>YYCTYPE</b> is the code unit type.
+    Regular expressions, on the other hand, are specified in terms of code
+    points. When re2c compiles regular expressions to automata it translates
+    code points to code units. This is generally not a simple mapping: in
+    variable-length encodings a single code point range may get translated to a
+    complex code unit graph. The following encodings are supported:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>ASCII</b> (enabled by default). It is a fixed-length encoding with code
+      space <b>[0-255]</b> and 1-byte code points and code units.</li>
+  <li><b>EBCDIC</b> (enabled with <b>--ebcdic</b> or
+      <b>re2c:encoding:ebcdic</b>). It is a fixed-length encoding with code
+      space <b>[0-255]</b> and 1-byte code points and code units.</li>
+  <li><b>UCS2</b> (enabled with <b>--ucs2</b> or <b>re2c:encoding:ucs2</b>). It
+      is a fixed-length encoding with code space <b>[0-0xFFFF]</b> and 2-byte
+      code points and code units.</li>
+  <li><b>UTF8</b> (enabled with <b>--utf8</b> or <b>re2c:encoding:utf8</b>). It
+      is a variable-length Unicode encoding. Code unit size is 1 byte. Code
+      points are represented with 1 -- 4 code units.</li>
+  <li><b>UTF16</b> (enabled with <b>--utf16</b> or <b>re2c:encoding:utf16</b>).
+      It is a variable-length Unicode encoding. Code unit size is 2 bytes. Code
+      points are represented with 1 -- 2 code units.</li>
+  <li><b>UTF32</b> (enabled with <b>--utf32</b> or <b>re2c:encoding:utf32</b>).
+      It is a fixed-length Unicode encoding with code space <b>[0-0x10FFFF]</b>
+      and 4-byte code points and code units.</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">Include file <b>include/unicode_categories.re</b> provides re2c
+    definitions for the standard Unicode categories.</p>
+<p class="Pp">Option <b>--input-encoding</b> specifies source file encoding,
+    which can be used to enable Unicode literals in regular expressions. For
+    example <b>--input-encoding utf8</b> tells re2c that the source file is in
+    UTF8 (it differs from <b>--utf8</b> which sets input text encoding). Option
+    <b>--encoding-policy</b> specifies the way re2c handles Unicode surrogates
+    (code points in range <b>[0xD800-0xDFFF]</b>).</p>
+<p class="Pp">Below is an example of a lexer for UTF8 encoded Unicode
+    identifiers.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT -8 -s -i
+package main
+/*!include:re2c &quot;unicode_categories.re&quot; */
+func lex(str string) int {
+<br/>
+    var cur, mar int
+<br/>
+    /*!re2c
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        re2c:define:YYCTYPE   = byte;
+<br/>
+        re2c:define:YYPEEK    = &quot;str[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP    = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP  = &quot;mar = cur&quot;;
+<br/>
+        re2c:define:YYRESTORE = &quot;cur = mar&quot;;
+<br/>
+        // Simplified &quot;Unicode Identifier and Pattern Syntax&quot;
+<br/>
+        // (see https://unicode.org/reports/tr31)
+<br/>
+        id_start    = L | Nl | [$_];
+<br/>
+        id_continue = id_start | Mn | Mc | Nd | Pc | [\u200D\u05F3];
+<br/>
+        identifier  = id_start id_continue*;
+<br/>
+        identifier { return 0 }
+<br/>
+        *          { return 1 }
+<br/>
+    */
+}
+func main() {
+<br/>
+    if lex(&quot;_&#x042B;&#x0434;&#x0435;&#x043D;&#x0442;&#x0438;&#x0444;&#x0438;&#x043A;&#x0430;&#x0442;&#x043E;&#x0440;\000&quot;) != 0 {
+<br/>
+        panic(&quot;error&quot;)
+<br/>
+    }
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INCLUDE_FILES"><a class="permalink" href="#INCLUDE_FILES">INCLUDE
+  FILES</a></h1>
+<p class="Pp">re2c allows one to include other files using directive
+    <b>/*!include:re2c FILE */</b> or <b>!include FILE ;</b>, where <b>FILE</b>
+    is a path to the file to be included. The first form should be used outside
+    of re2c blocks, and the second form allows one to include a file in the
+    middle of a re2c block. re2c looks for included files in the directory of
+    the including file and in include locations, which can be specified with
+    <b>-I</b> option. Include directives in re2c work in the same way as C/C++
+    <b>#include</b>: the contents of <b>FILE</b> are copy-pasted verbatim in
+    place of the directive. Include files may have further includes of their
+    own. Use <b>--depfile</b> option to track build dependencies of the output
+    file on include files. re2c provides some predefined include files that can
+    be found in the <b>include/</b> subdirectory of the project. These files
+    contain definitions that can be useful to other projects (such as Unicode
+    categories) and form something like a standard library for re2c. Below is an
+    example of using include directive.</p>
+<section class="Ss">
+<h2 class="Ss" id="Include_file_1_(definitions.go)"><a class="permalink" href="#Include_file_1_(definitions.go)">Include
+  file 1 (definitions.go)</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>const (
+<br/>
+    ResultOk = iota
+<br/>
+    ResultFail
+)
+/*!re2c
+<br/>
+    number = [1-9][0-9]*;
+*/
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Include_file_2_(extra_rules.re.inc)"><a class="permalink" href="#Include_file_2_(extra_rules.re.inc)">Include
+  file 2 (extra_rules.re.inc)</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>// floating-point numbers
+frac  = [0-9]* &quot;.&quot; [0-9]+ | [0-9]+ &quot;.&quot;;
+exp   = 'e' [+-]? [0-9]+;
+float = frac exp? | [0-9]+ exp;
+float { return ResultOk }
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss">Input file</h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT -i
+package main
+/*!include:re2c &quot;definitions.go&quot; */
+func lex(str string) int {
+<br/>
+    var cur, mar int
+<br/>
+    /*!re2c
+<br/>
+        re2c:define:YYCTYPE   = byte;
+<br/>
+        re2c:define:YYPEEK    = &quot;str[cur]&quot;;
+<br/>
+        re2c:define:YYSKIP    = &quot;cur += 1&quot;;
+<br/>
+        re2c:define:YYBACKUP  = &quot;mar = cur&quot;;
+<br/>
+        re2c:define:YYRESTORE = &quot;cur = mar&quot;;
+<br/>
+        re2c:yyfill:enable    = 0;
+<br/>
+        *      { return ResultFail }
+<br/>
+        number { return ResultOk }
+<br/>
+        !include &quot;extra_rules.re.inc&quot;;
+<br/>
+    */
+}
+func main() {
+<br/>
+    assert_eq := func(x, y int) { if x != y { panic(&quot;error&quot;) } }
+<br/>
+    assert_eq(lex(&quot;123\000&quot;), ResultOk)
+<br/>
+    assert_eq(lex(&quot;123.4567\000&quot;), ResultOk)
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HEADER_FILES"><a class="permalink" href="#HEADER_FILES">HEADER
+  FILES</a></h1>
+<p class="Pp">re2c allows one to generate header file from the input <b>.re</b>
+    file using option <b>-t</b>, <b>--type-header</b> or configuration
+    <b>re2c:flags:type-header</b> and directives <b>/*!header:re2c:on*/</b> and
+    <b>/*!header:re2c:off*/</b>. The first directive marks the beginning of
+    header file, and the second directive marks the end of it. Everything
+    between these directives is processed by re2c, and the generated code is
+    written to the file specified by the <b>-t --type-header</b> option (or
+    <b>stdout</b> if this option was not used). Autogenerated header file may be
+    needed in cases when re2c is used to generate definitions of constants,
+    variables and structs that must be visible from other translation units.</p>
+<p class="Pp">Here is an example of generating a header file that contains
+    definition of the lexer state with tag variables (the number variables
+    depends on the regular grammar and is unknown to the programmer).</p>
+<section class="Ss">
+<h2 class="Ss">Input file</h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>//go:generate re2go $INPUT -o $OUTPUT -i --header lexer/state.go
+package main
+import &quot;./lexer&quot; // the package is generated by re2c
+/*!header:re2c:on*/
+package lexer
+type State struct {
+<br/>
+    Data string
+<br/>
+    Cur /*!stags:re2c format=&quot;, @@&quot;; */ int
+}
+/*!header:re2c:off*/
+func lex(st *lexer.State) int {
+<br/>
+    var t int
+<br/>
+    /*!re2c
+<br/>
+        re2c:header = &quot;lexer/state.go&quot;;
+<br/>
+        re2c:yyfill:enable = 0;
+<br/>
+        re2c:define:YYCTYPE  = byte;
+<br/>
+        re2c:define:YYPEEK   = &quot;st.Data[st.Cur]&quot;;
+<br/>
+        re2c:define:YYSKIP   = &quot;st.Cur++&quot;;
+<br/>
+        re2c:define:YYSTAGP  = &quot;@@ = st.Cur&quot;;
+<br/>
+        re2c:tags            = 1;
+<br/>
+        re2c:tags:expression = &quot;st.@@&quot;;
+<br/>
+        re2c:tags:prefix     = &quot;Tag&quot;;
+<br/>
+        [a]* @t [b]* { return t }
+<br/>
+    */
+}
+func main() {
+<br/>
+    st := &amp;lexer.State{Data:&quot;ab\x00&quot;,}
+<br/>
+    if lex(st) != 1 {
+<br/>
+        panic(&quot;error&quot;)
+<br/>
+    }
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Header_file"><a class="permalink" href="#Header_file">Header
+  file</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>// Code generated by re2c, DO NOT EDIT.
+package lexer
+type State struct {
+<br/>
+    Data string
+<br/>
+    Cur, Mar, Tag1 int
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SKELETON_PROGRAMS"><a class="permalink" href="#SKELETON_PROGRAMS">SKELETON
+  PROGRAMS</a></h1>
+<p class="Pp">With the <b>-S, --skeleton</b> option, re2c ignores all non-re2c
+    code and generates a self-contained C program that can be further compiled
+    and executed. The program consists of lexer code and input data. For each
+    constructed DFA (block or condition) re2c generates a standalone lexer and
+    two files: an <b>.input</b> file with strings derived from the DFA and a
+    <b>.keys</b> file with expected match results. The program runs each lexer
+    on the corresponding <b>.input</b> file and compares results with the
+    expectations. Skeleton programs are very useful for a number of reasons:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>They can check correctness of various re2c optimizations (the data is
+      generated early in the process, before any DFA transformations have taken
+      place).</li>
+  <li>Generating a set of input data with good coverage may be useful for both
+      testing and benchmarking.</li>
+  <li>Generating self-contained executable programs allows one to get minimized
+      test cases (the original code may be large or have a lot of
+    dependencies).</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">The difficulty with generating input data is that for all but the
+    most trivial cases the number of possible input strings is too large (even
+    if the string length is limited). re2c solves this difficulty by generating
+    sufficiently many strings to cover almost all DFA transitions. It uses the
+    following algorithm. First, it constructs a skeleton of the DFA. For
+    encodings with 1-byte code unit size (such as ASCII, UTF-8 and EBCDIC)
+    skeleton is just an exact copy of the original DFA. For encodings with
+    multibyte code units skeleton is a copy of DFA with certain transitions
+    omitted: namely, re2c takes at most 256 code units for each disjoint
+    continuous range that corresponds to a DFA transition. The chosen values are
+    evenly distributed and include range bounds. Instead of trying to cover all
+    possible paths in the skeleton (which is infeasible) re2c generates
+    sufficiently many paths to cover all skeleton transitions, and thus trigger
+    the corresponding conditional jumps in the lexer. The algorithm
+    implementation is limited by ~1Gb of transitions and consumes constant
+    amount of memory (re2c writes data to file as soon as it is generated).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VISUALIZATION_AND_DEBUG"><a class="permalink" href="#VISUALIZATION_AND_DEBUG">VISUALIZATION
+  AND DEBUG</a></h1>
+<p class="Pp">With the <b>-D, --emit-dot</b> option, re2c does not generate
+    code. Instead, it dumps the generated DFA in DOT format. One can convert
+    this dump to an image of the DFA using Graphviz or another library. Note
+    that this option shows the final DFA after it has gone through a number of
+    optimizations and transformations. Earlier stages can be dumped with various
+    debug options, such as <b>--dump-nfa</b>, <b>--dump-dfa-raw</b> etc. (see
+    the full list of options).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">You can find more information about re2c at the official website:
+    <i>http://re2c.org</i>. Similar programs are flex(1), lex(1),
+    quex(<i>http://quex.sourceforge.net</i>).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">re2c was originaly written by Peter Bumbulis in 1993. Since then
+    it has been developed and maintained by multiple volunteers; mots notably,
+    Brain Young, Marcus Boerger, Dan Nuffer and Ulya Trofimovich.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

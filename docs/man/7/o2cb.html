@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Default cluster stack of the OCFS2 file system.">
+<title>o2cb(7) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">o2cb(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#CONFIGURATION">CONFIGURATION</a></li><li><a href="#DISK_HEARTBEAT">DISK
+  HEARTBEAT</a></li><li><a href="#ONLINE_CLUSTER_MODIFICATION">ONLINE
+  CLUSTER MODIFICATION</a></li><li><a href="#GETTING_STARTED">GETTING
+  STARTED</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">o2cb(7)</td>
+    <td class="head-vol">OCFS2 Manual Pages</td>
+    <td class="head-rtitle">o2cb(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">o2cb - Default cluster stack of the <i>OCFS2</i> file system.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>o2cb</b> is the default cluster stack of the <i>OCFS2</i> file
+    system. It is an in-kernel cluster stack that includes a node manager (o2nm)
+    to keep track of the nodes in the cluster, a disk heartbeat agent (o2hb) to
+    detect node live-ness, a network agent (o2net) for intra-cluster node
+    communication and a distributed lock manager (o2dlm) to keep track of lock
+    resources. It also includes a synthetic file system, dlmfs, to allow
+    applications to access the in-kernel dlm.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+<p class="Pp">The stack is configured using the <b>o2cb(8)</b> cluster
+    configuration utility and operated (online/offline/status) using the
+    <i>o2cb</i> init service.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="CLUSTER"><a class="permalink" href="#CLUSTER"><b>CLUSTER
+    CONFIGURATION</b></a></dt>
+  <dd>
+    <p class="Pp">It has two configuration files. One for the cluster layout
+        (/etc/ocfs2/cluster.conf) and the other for the cluster timeouts, etc.
+        (/etc/sysconfig/o2cb). More information about these two files can be
+        found in <b>ocfs2.cluster.conf(5)</b> and <b>o2cb.sysconfig(5)</b>.</p>
+    <p class="Pp">The <b>o2cb</b> cluster stack supports two heartbeat modes,
+        namely, <b>local</b> and <b>global</b>. Only one heartbeat mode can be
+        active at any one time.</p>
+    <p class="Pp"><b>Local heartbeat</b> refers to disk heartbeating on all
+        shared devices. In this mode, the <i>heartbeat is started during mount
+        and stopped during umount</i>. This mode is easy to setup as it does not
+        require configuring heartbeat devices. The one drawback in this mode is
+        the overhead on servers having a large number of <i>OCFS2</i> mounts.
+        For example, a server with 50 mounts will have 50 heartbeat threads.
+        This is the default heartbeat mode.</p>
+    <p class="Pp"><b>Global heartbeat</b>, on the other hand, refers to
+        heartbeating on specific shared devices. These devices are normal
+        <i>OCFS2</i> formatted volumes that could also be mounted and used as
+        clustered file systems. In this mode, the <i>heartbeat is started during
+        cluster online</i> <i>and stopped during cluster offline</i>. While this
+        mode can be used for all clusters, it is <i>strongly</i> recommended for
+        clusters having a large number of mounts.</p>
+    <p class="Pp">More information on disk heartbeat is provided below.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="KERNEL"><a class="permalink" href="#KERNEL"><b>KERNEL
+    CONFIGURATION</b></a></dt>
+  <dd>
+    <p class="Pp">Two sysctl values need to be set for <b>o2cb</b> to function
+        properly. The first, panic_on_oops, must be enabled to turn a kernel
+        oops into a panic. If a kernel thread required for <b>o2cb</b> to
+        function crashes, the system must be reset to prevent a cluster hang. If
+        it is not set, another node may not be able to distinguish whether a
+        node is unable to respond or slow to respond.</p>
+    <p class="Pp">The other related sysctl parameter is panic, which specifies
+        the number of seconds after a panic that the system will be auto-reset.
+        Setting this parameter to zero disables autoreset; the cluster will
+        require manual intervention. This is not preferred in a cluster
+        environment.</p>
+    <p class="Pp">To manually enable panic on oops and set a 30 sec timeout for
+        reboot on panic, do:</p>
+    <p class="Pp"></p>
+    <pre># echo 1 &gt; /proc/sys/kernel/panic_on_oops
+# echo 30 &gt; /proc/sys/kernel/panic
+    </pre>
+    <p class="Pp">To enable the above on every boot, add the following to
+        /etc/sysctl.conf:</p>
+    <p class="Pp"></p>
+    <pre>kernel.panic_on_oops = 1
+kernel.panic = 30
+    </pre>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="OS"><a class="permalink" href="#OS"><b>OS CONFIGURATION</b></a></dt>
+  <dd>
+    <p class="Pp">The <b>o2cb</b> cluster stack also requires iptables
+        (firewalling) to be either disabled or modified to allow network traffic
+        on the private network interface. The port used by <b>o2cb</b> is
+        specified in /etc/ocfs2/cluster.conf.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DISK_HEARTBEAT"><a class="permalink" href="#DISK_HEARTBEAT">DISK
+  HEARTBEAT</a></h1>
+<p class="Pp">O2CB uses disk heartbeat to detect node liveness. The disk
+    heartbeat thread, <b>o2hb</b>, periodically reads and writes to a heartbeat
+    file in a OCFS2 file system. Its write payload contains a sequence number
+    that it increments in each write. This allows other nodes reading the same
+    heartbeat file to detect the change and associate that with a live node.
+    Conversely, a node whose sequence number has stopped changing is marked as a
+    possible dead node. Possible. Not confirmed. That is because it just could
+    be slow I/Os.</p>
+<p class="Pp">To differentiate between a dead node and one that has slow I/Os,
+    O2CB has a disk heartbeat threshold (timeout). Only nodes whose sequence
+    number has not incremented for that duration are marked dead.</p>
+<p class="Pp">However that node may not be dead but just experiencing slow I/O.
+    To prevent that, the heartbeat thread keeps track of the time elapsed since
+    the last completed write. If that time exceeds the timeout, it forces a
+    self-fence. It does so to prevent other nodes from marking it as dead while
+    it is still alive.</p>
+<p class="Pp">This self-fencing scheme has proven to be very reliable as it
+    relies on kernel timers and pci bus reset. External fencing, while
+    attractive, is rarely as reliable as it relies on external hardware and
+    software that is prone to failure due to misconfiguration, etc.</p>
+<p class="Pp">Having said that, O2CB disk heartbeat has had its share of
+    problems with self fencing. Nodes experiencing slow I/O on only one of
+    multiple devices have to initiate self-fence.</p>
+<p class="Pp">This is because in the default <b>local heartbeat</b> scheme,
+    nodes in a cluster may not be heartbeating on the same set of devices.</p>
+<p class="Pp">The <b>global heartbeat</b> mode addresses this shortcoming by
+    introducing a scheme that forces all nodes to heartbeat on the same set of
+    devices. In this scheme, a node experiencing a slowdown in I/O on a device
+    may not need to initiate self-fence. It will only have to do so if it
+    encounters slowdown on 50% or more of the heartbeat devices. In a cluster
+    with 3 heartbeat regions, a slowdown in 1 region will be tolerated. In a
+    cluster with 5 regions, a slowdown in 2 will be tolerated.</p>
+<p class="Pp">It is for this reason, this mode is recommended for users that
+    have 3 or more OCFS2 mounts.</p>
+<p class="Pp">O2CB allows up to <b>32</b> heartbeat regions to be configured in
+    the global heartbeat mode.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ONLINE_CLUSTER_MODIFICATION"><a class="permalink" href="#ONLINE_CLUSTER_MODIFICATION">ONLINE
+  CLUSTER MODIFICATION</a></h1>
+<p class="Pp">The O2CB cluster stack allows <i>adding and removing nodes in an
+    online cluster</i> when run in the <b>global</b> heartbeat mode. Use the
+    <b>o2cb(8)</b> utility to make the changes in the configuration and
+    (re)online the cluster using the <i>o2cb</i> init script. The user
+    <b>must</b> do the same on <i>all</i> nodes in the cluster. The cluster will
+    not allow any new cluster mounts if the node configuration on all nodes is
+    not the same.</p>
+<p class="Pp">The removal of nodes will only succeed if that node is no longer
+    in use. If the user removes an active node from the configuration, the
+    re-online will fail.</p>
+<p class="Pp">The cluster stack also allows <i>adding and removing heartbeat
+    regions in an online cluster</i>. Use the <b>o2cb(8)</b> utility to make the
+    changes in the configuration file and (re)online the cluster using the
+    <i>o2cb</i> init script. The user <b>must</b> do the same on <i>all</i>
+    nodes in the cluster. The cluster will not allow any new cluster mounts if
+    the heartbeat region configuration on all nodes is not the same.</p>
+<p class="Pp">The removal of heartbeat regions will only succeed if the active
+    heartbeat region count is greater than <b>3</b>. This is to protect against
+    edge conditions that can destabilize the cluster.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GETTING_STARTED"><a class="permalink" href="#GETTING_STARTED">GETTING
+  STARTED</a></h1>
+<p class="Pp">The first step in configuring <b>o2cb</b> is deciding whether to
+    setup <b>local</b> or <b>global</b> heartbeat. If <b>global</b> heartbeat,
+    then one has to format atleast one heartbeat device.</p>
+<p class="Pp">To format a OCFS2 volume with global heartbeat enabled, do:</p>
+<p class="Pp"></p>
+<pre># mkfs.ocfs2 --cluster-stack=o2cb --cluster-name=webcluster --global-heartbeat -L &quot;hbvol1&quot; /dev/sdb1
+</pre>
+<p class="Pp">Once formatted, setup /etc/ocfs2/cluster.conf following the
+    example provided in <b>ocfs2.cluster.conf(5)</b>.</p>
+<p class="Pp">If <b>local</b> heartbeat, then one can setup cluster.conf without
+    any heartbeat devices. The next step is starting the cluster.</p>
+<p class="Pp">To online the cluster stack, do:</p>
+<p class="Pp"></p>
+<pre># service o2cb online
+Loading stack plugin &quot;o2cb&quot;: OK
+Loading filesystem &quot;ocfs2_dlmfs&quot;: OK
+Mounting ocfs2_dlmfs filesystem at /dlm: OK
+Setting cluster stack &quot;o2cb&quot;: OK
+Registering O2CB cluster &quot;webcluster&quot;: OK
+Setting O2CB cluster timeouts : OK
+Starting global heartbeat for cluster &quot;webcluster&quot;: OK
+</pre>
+<p class="Pp">Once the cluster stack is online, new <b>OCFS2</b> volumes can be
+    formatted normally without specifying the cluster stack information.
+    <i>mkfs.ocfs2(8)</i> will pick up that information automatically.</p>
+<p class="Pp"></p>
+<pre># mkfs.ocfs2 -L &quot;datavol&quot; /dev/sdc1
+</pre>
+<p class="Pp">Meanwhile existing volumes can be converted to the new cluster
+    stack using <b>tunefs.ocfs2(8)</b> utility.</p>
+<p class="Pp"></p>
+<pre># tunefs.ocfs2 --update-cluster-stack /dev/sdd1
+Updating on-disk cluster information to match the running cluster.
+DANGER: YOU MUST BE ABSOLUTELY SURE THAT NO OTHER NODE IS USING THIS FILESYSTEM
+BEFORE MODIFYING ITS CLUSTER CONFIGURATION.
+Update the on-disk cluster information? y
+</pre>
+<p class="Pp">Another utility <b>mounted.ocfs2(8)</b> is useful is listing all
+    the <i>OCFS2</i> volumes alonghwith the cluster stack information.</p>
+<p class="Pp">To get a list of OCFS2 volumes, do:</p>
+<p class="Pp"></p>
+<pre># mounted.ocfs2 -d
+Device     Stack  Cluster     F  UUID                              Label
+/dev/sdb1  o2cb   webcluster  G  DCDA2845177F4D59A0F2DCD8DE507CC3  hbvol1
+/dev/sdc1  None                  23878C320CF3478095D1318CB5C99EED  localmount
+/dev/sdd1  o2cb   webcluster  G  8AB016CD59FC4327A2CDAB69F08518E3  webvol
+/dev/sdg1  o2cb   webcluster  G  77D95EF51C0149D2823674FCC162CF8B  logsvol
+/dev/sdh1  o2cb   webcluster  G  BBA1DBD0F73F449384CE75197D9B7098  scratch
+</pre>
+<p class="Pp">The <i>o2cb</i> init script can also be used to check the status
+    of the cluster, offline the cluster, etc.</p>
+<p class="Pp">To check the status of the cluster stack, do:</p>
+<p class="Pp"></p>
+<pre># service o2cb status
+Driver for &quot;configfs&quot;: Loaded
+Filesystem &quot;configfs&quot;: Mounted
+Stack glue driver: Loaded
+Stack plugin &quot;o2cb&quot;: Loaded
+Driver for &quot;ocfs2_dlmfs&quot;: Loaded
+Filesystem &quot;ocfs2_dlmfs&quot;: Mounted
+Checking O2CB cluster &quot;webcluster&quot;: Online
+<br/>
+  Heartbeat dead threshold: 62
+<br/>
+  Network idle timeout: 60000
+<br/>
+  Network keepalive delay: 2000
+<br/>
+  Network reconnect delay: 2000
+<br/>
+  Heartbeat mode: Global
+Checking O2CB heartbeat: Active
+<br/>
+  77D95EF51C0149D2823674FCC162CF8B /dev/sdg1
+<br/>
+  DCDA2845177F4D59A0F2DCD8DE507CC3 /dev/sdk1
+<br/>
+  BBA1DBD0F73F449384CE75197D9B7098 /dev/sdh1
+Nodes in O2CB cluster: 6 7 10
+Active userdlm domains:  ovm
+</pre>
+<p class="Pp">To offline and unload the cluster stack, do:</p>
+<p class="Pp"></p>
+<pre># service o2cb offline
+Clean userdlm domains: OK
+Stopping global heartbeat on cluster &quot;webcluster&quot;: OK
+Stopping O2CB cluster webcluster: OK
+Unregistering O2CB cluster &quot;webcluster&quot;: OK
+# service o2cb unload
+Clean userdlm domains: OK
+Unmounting ocfs2_dlmfs filesystem: OK
+Unloading module &quot;ocfs2_dlmfs&quot;: OK
+Unloading module &quot;ocfs2_stack_o2cb&quot;: OK
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>o2cb(8)</b> <b>o2cb.sysconfig(5)</b>
+    <b>ocfs2.cluster.conf(5)</b> <b>o2hbmonitor(8)</b></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Oracle Corporation</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright &#x00A9; 2004, 2011 Oracle. All rights reserved.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">August 2011</td>
+    <td class="foot-os">Version 1.8.7</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

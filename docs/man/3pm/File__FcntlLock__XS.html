@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="File locking with fcntl(2)">
+<title>File::FcntlLock::XS(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">File::FcntlLock::XS(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Creating_objects">Creating
+  objects</a></li><li><a href="#Object_properties">Object
+  properties</a></li><li><a href="#Locking">Locking</a></li><li><a href="#Error_handling">Error
+  handling</a></li><li><a href="#EXPORT">EXPORT</a></li><li><a href="#INCOMPATIBILITIES">INCOMPATIBILITIES</a></li><li><a href="#CREDITS">CREDITS</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#LICENSE">LICENSE</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">File::FcntlLock::XS(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">File::FcntlLock::XS(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">File::FcntlLock - File locking with fcntl(2)</p>
+<p class="Pp">This text also documents the following sub-packages:</p>
+<dl class="Bl-tag">
+  <dt id="File::FcntlLock::XS"><a class="permalink" href="#File::FcntlLock::XS">File::FcntlLock::XS</a></dt>
+  <dd></dd>
+  <dt id="File::FcntlLock::Pure"><a class="permalink" href="#File::FcntlLock::Pure">File::FcntlLock::Pure</a></dt>
+  <dd></dd>
+  <dt id="File::FcntlLock::Inline"><a class="permalink" href="#File::FcntlLock::Inline">File::FcntlLock::Inline</a></dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>  use File::FcntlLock;
+  my $fs = new File::FcntlLock;
+  $fs-&gt;l_type( F_RDLCK );
+  $fs-&gt;l_whence( SEEK_CUR );
+  $fs-&gt;l_start( 100 );
+  $fs-&gt;l_len( 123 );
+  open my $fh, '&lt;', 'file_name' or die &quot;Can't open file: $!\n&quot;;
+  $fs-&gt;lock( $fh, F_SETLK )
+      or print &quot;Locking failed: &quot; . $fs-&gt;error . &quot;\n&quot;;
+  $fs-&gt;l_type( F_UNLCK );
+  $fs-&gt;lock( $fh, F_SETLK )
+      or print &quot;Unlocking failed: &quot; . $fs-&gt;error . &quot;\n&quot;;
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">File locking in Perl is usually done using the
+    <span class="Li">&quot;flock&quot;</span> function. Unfortunately, this only
+    allows locks on whole files and is often implemented in terms of the
+    <a class="Xr" href="../2/flock.html"><b>flock</b>(2)</a> system function which has some shortcomings (especially
+    concerning locks on remotely mounted file systems) and slightly different
+    behaviour than <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a>.</p>
+<p class="Pp">Using this module file locking via <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a> can be done
+    (obviously, this restricts the use of the module to systems that have a
+    <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a> system call). Before a file (or parts of a file) can be
+    locked, an object simulating a flock structure, containing information in a
+    binary format to be passed to <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a> for locking requests, must be
+    created and its properties set. Afterwards, by calling the <b>lock()</b>
+    method a lock can be set and removed or it can be determined if and which
+    process currently holds the lock.</p>
+<p class="Pp">File::FcntlLock (or its alias File::FcntlLock::XS) uses a shared
+    library, build during installation, to call the <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a> system
+    function directly. If this is unsuitable there are two alternatives,
+    File::FcntlLock::Pure and File::FcntlLock::Inline. Both call the Perl
+    <span class="Li">&quot;fcntl&quot;</span> function instead and use Perl code
+    to assemble and disassemble the structure. For this at some time the
+    (system-dependent) binary layout of the flock structure must have been
+    determined via a program written in C. The difference between
+    File::FcntlLock::Pure and File::FcntlLock::Inline is that for the former
+    this happened when the package is installed while for the latter it is done
+    each time the package is loaded (e.g., with
+    <span class="Li">&quot;use&quot;</span>). Thus, for File::FcntlLock::Inline
+    to work a C compiler must be available. There are some minor differences in
+    the functionality and the behaviour on passing the method for locking
+    invalid arguments to be described below.</p>
+<section class="Ss">
+<h2 class="Ss" id="Creating_objects"><a class="permalink" href="#Creating_objects">Creating
+  objects</a></h2>
+<dl class="Bl-tag">
+  <dt id="new()"><a class="permalink" href="#new()">new()</a></dt>
+  <dd>To create a new object, representing a flock structure, call <b>new()</b>:
+    <p class="Pp"></p>
+    <pre>  $fs = new File::FcntlLock;
+    </pre>
+    <p class="Pp">The object has a number of properties, reflecting the members
+        of the flock structure to be passed to <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a> (see below). Per
+        default on object creation the l_type property is set to
+        <span class="Li">&quot;F_RDLCK&quot;</span>, l_whence to
+        <span class="Li">&quot;SEEK_SET&quot;</span>, and both l_start and l_len
+        to 0, i.e., the settings for a read lock on the whole file.</p>
+    <p class="Pp">These defaults can be overruled by passing the <b>new()</b>
+        method a set of key-value pairs to initialize the objects properties,
+        e.g. use</p>
+    <p class="Pp"></p>
+    <pre>  $fs = new File::FcntlLock( l_type   =&gt; F_WRLCK,
+                             l_whence =&gt; SEEK_SET,
+                             l_start  =&gt; 0,
+                             l_len    =&gt; 100 );
+    </pre>
+    <p class="Pp">if you intend to obtain a write lock for the first 100 bytes
+        of a file.</p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Object_properties"><a class="permalink" href="#Object_properties">Object
+  properties</a></h2>
+<p class="Pp">Once the object simulating the flock structure has been created
+    the following methods allow to query and, in most cases, to also modify its
+    properties.</p>
+<dl class="Bl-tag">
+  <dt id="l_type()"><a class="permalink" href="#l_type()">l_type()</a></dt>
+  <dd>If called without an argument the method returns the current setting of
+      the lock type, otherwise the lock type is set to the argument's value
+      which must be either <span class="Li">&quot;F_RDLCK&quot;</span>,
+      <span class="Li">&quot;F_WRLCK&quot;</span> or
+      <span class="Li">&quot;F_UNLCK&quot;</span> (for read lock, write lock or
+      unlock).</dd>
+  <dt id="l_whence()"><a class="permalink" href="#l_whence()">l_whence()</a></dt>
+  <dd>This method sets, when called with an argument, the l_whence property of
+      the flock object, determining if the l_start value is relative to the
+      start of the file, to the current position in the file or to the end of
+      the file. These values are <span class="Li">&quot;SEEK_SET&quot;</span>,
+      <span class="Li">&quot;SEEK_CUR&quot;</span> and
+      <span class="Li">&quot;SEEK_END&quot;</span> (also see the man page for
+      <a class="Xr" href="../2/lseek.html"><b>lseek</b>(2)</a>). If called with no argument the current value of the
+      property is returned.</dd>
+  <dt id="l_start()"><a class="permalink" href="#l_start()">l_start()</a></dt>
+  <dd>Queries or sets the start position (offset) of the lock in the file
+      according to the mode selected by the l_whence member. See also the man
+      page for <a class="Xr" href="../2/lseek.html"><b>lseek</b>(2)</a>.</dd>
+  <dt id="l_len()"><a class="permalink" href="#l_len()">l_len()</a></dt>
+  <dd>Queries or sets the length of the region (in bytes) in the file to be
+      locked. A value of 0 is interpreted to mean a lock, starting at
+      <span class="Li">&quot;l_start&quot;</span>, to the end of the file. E.g.,
+      a lock obtained with l_whence set to
+      <span class="Li">&quot;SEEK_SET&quot;</span> and both l_start and l_len
+      set to 0 locks the complete file.
+    <p class="Pp">According to SUSv3 support for negative values for l_len are
+        permitted, resulting in a lock ranging from
+        <span class="Li">&quot;l_start+l_len&quot;</span> up to and including
+        <span class="Li">&quot;l_start-1&quot;</span>. But not all systems
+        support negative values for l_len and will return an error when you try
+        to obtain such a lock, so please read the <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a> man page of
+        the system carefully for details.</p>
+  </dd>
+  <dt id="l_pid()"><a class="permalink" href="#l_pid()">l_pid()</a></dt>
+  <dd>If a call of the <b>lock()</b> method with
+      <span class="Li">&quot;F_GETLK&quot;</span> indicates that another process
+      is holding the lock (in which case the l_type property will be either
+      <span class="Li">&quot;F_WRLCK&quot;</span> or
+      <span class="Li">&quot;F_RDLCK&quot;</span>) a call of the <b>l_pid()</b>
+      method returns the PID of the process holding the lock. This method does
+      not accept any arguments.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Locking"><a class="permalink" href="#Locking">Locking</a></h2>
+<p class="Pp">After having set up the object representing a flock structure one
+    can then try to obtain a lock, release it or determine the current holder of
+    the lock by invoking the <b>lock()</b> method:</p>
+<dl class="Bl-tag">
+  <dt id="lock()"><a class="permalink" href="#lock()">lock()</a></dt>
+  <dd>This method expects two arguments. The first one is a file handle (or
+      typeglob). File::FcntlLock, and thus File::FcntlLock::XS (<b>but</b>
+      <b>neither</b> File::FcntlLock::Pure <b>nor</b> File::FcntlLock::Inline),
+      also accepts a &quot;raw&quot; integer file descriptor. The second
+      argument is a flag indicating the action to be taken. So call it as in
+    <p class="Pp"></p>
+    <pre>  $fs-&gt;lock( $fh, F_SETLK );
+    </pre>
+    <p class="Pp">There are three values that can be used as the second
+        argument:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>&quot;F_SETLK&quot;</dt>
+  <dd>With <span class="Li">&quot;F_SETLK&quot;</span> the <b>lock()</b> method
+      tries to obtain a lock (when l_type is set to either
+      <span class="Li">&quot;F_WRLCK&quot;</span> or
+      <span class="Li">&quot;F_RDLCK&quot;</span>) or releases it (if l_type is
+      set to <span class="Li">&quot;F_UNLCK&quot;</span>). If an attempt is made
+      to obtain a lock but a lock is already being held by some other process
+      the method returns <span class="Li">&quot;undef&quot;</span> and
+      <span class="Li">&quot;errno&quot;</span> is set to
+      <span class="Li">&quot;EACCESS&quot;</span> or
+      <span class="Li">&quot;EAGAIN&quot;</span> (please see the the man page
+      for <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a> for more details).</dd>
+  <dt>&quot;F_SETLKW&quot;</dt>
+  <dd>is similar to <span class="Li">&quot;F_SETLK&quot;</span>, but instead of
+      returning an error if the lock can't be obtained immediately it puts the
+      calling process to sleep, i.e., it blocks, until the lock is obtained at
+      some later time. If a signal is received while waiting for the lock the
+      method returns <span class="Li">&quot;undef&quot;</span> and
+      <span class="Li">&quot;errno&quot;</span> is set to
+      <span class="Li">&quot;EINTR&quot;</span>.</dd>
+  <dt>&quot;F_GETLK&quot;</dt>
+  <dd>With <span class="Li">&quot;F_GETLK&quot;</span> the <b>lock()</b> method
+      determines if and which process currently is holding the lock. If there's
+      no other lock the l_type property will be set to
+      <span class="Li">&quot;F_UNLCK&quot;</span>. Otherwise the flock structure
+      object is set to the values that would prevent us from obtaining a lock.
+      There may be several processes that keep us from getting a lock, including
+      some that themselves are blocked waiting to obtain a lock.
+      <span class="Li">&quot;F_GETLK&quot;</span> will only make details of one
+      of these processes visible, and one has no control over which process this
+      is.</dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">On success the <b>lock()</b> method returns the string &quot;0 but
+    true&quot;, i.e., a value that is true in boolean but 0 in numeric context.
+    If the method fails (as indicated by an
+    <span class="Li">&quot;undef&quot;</span> return value) you can either
+    immediately evaluate the error number (using $!,
+    <span class="Li">$ERRNO</span> or <span class="Li">$OS_ERROR</span>) or
+    check for it via the methods discussed below at some later time.</p>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Error_handling"><a class="permalink" href="#Error_handling">Error
+  handling</a></h2>
+<p class="Pp">There are minor differences between File::FcntlLock on the one
+    hand and File::FcntlLock::Pure and File::FcntlLock::Inline on the other, due
+    to the first calling the system function <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a> directly while the
+    latter two invoke the Perl <span class="Li">&quot;fcntl&quot;</span>
+    function. Perl's <span class="Li">&quot;fcntl&quot;</span> function already
+    returns a Perl error on some types of invalid arguments. In contrast
+    File::FcntlLock passes them on to the <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a> system call and then
+    returns the systems response to the caller.</p>
+<p class="Pp">There are three methods for obtaining information about the reason
+    the a call of the <b>lock()</b> method failed:</p>
+<dl class="Bl-tag">
+  <dt id="lock_errno()"><a class="permalink" href="#lock_errno()">lock_errno()</a></dt>
+  <dd>Returns the <span class="Li">&quot;errno&quot;</span> error number from
+      the latest call of <b>lock()</b>. If the last call did not result in an
+      error <span class="Li">&quot;undef&quot;</span> is returned.</dd>
+  <dt id="error()"><a class="permalink" href="#error()">error()</a></dt>
+  <dd>Returns a short description of the error that happened during the latest
+      call of <b>lock()</b>. Please take the messages with a grain of salt, they
+      represent what SUSv3 (IEEE 1003.1-2001) and the Linux, TRUE64, OpenBSD3
+      and Solaris8 man pages tell what the error numbers mean. There could be
+      differences (and additional error numbers) on other systems. If there was
+      no error the method returns
+    <span class="Li">&quot;undef&quot;</span>.</dd>
+  <dt id="system_error()"><a class="permalink" href="#system_error()">system_error()</a></dt>
+  <dd>While the <b>error()</b> method tries to return a string with some direct
+      relevance to the locking operation (i.e., &quot;File or segment already
+      locked by other process(es)&quot; instead of &quot;Permission
+      denied&quot;) this method returns the &quot;normal&quot; system error
+      message associated with <span class="Li">&quot;errno&quot;</span>. The
+      method returns <span class="Li">&quot;undef&quot;</span> if there was no
+      error.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="EXPORT"><a class="permalink" href="#EXPORT">EXPORT</a></h2>
+<p class="Pp">The package exports the following constants:</p>
+<dl class="Bl-tag">
+  <dt id="F_GETLK"><a class="permalink" href="#F_GETLK">F_GETLK F_SETLK
+    F_SETLKW</a></dt>
+  <dd></dd>
+  <dt id="F_RDLCK"><a class="permalink" href="#F_RDLCK">F_RDLCK F_WRLCK
+    F_UNLCK</a></dt>
+  <dd></dd>
+  <dt id="SEEK_SET"><a class="permalink" href="#SEEK_SET">SEEK_SET SEEK_CUR
+    SEEK_END</a></dt>
+  <dd></dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INCOMPATIBILITIES"><a class="permalink" href="#INCOMPATIBILITIES">INCOMPATIBILITIES</a></h1>
+<p class="Pp">Obviously, this module requires that there's a <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a>
+    system call. Note also that under certain circumstances the
+    File::FcntlLock::Pure and File::FcntlLock::Inline modules may not have been
+    installed. This happens on 32-bit systems that use 64-bit integers in their
+    flock structure but where the installed Perl version doesn't support the 'q'
+    format for its <span class="Li">&quot;pack&quot;</span> and
+    <span class="Li">&quot;unpack&quot;</span> functions.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CREDITS"><a class="permalink" href="#CREDITS">CREDITS</a></h1>
+<p class="Pp">Thanks to Mark Jason Dominus and Benjamin Goldberg for helpful
+    discussions, code examples and encouragement. Glenn Herteg pointed out
+    several problems and also helped improve the documentation. Julian Moreno
+    Patino helped correcting the documentation and pointed out problems arising
+    on GNU Hurd which seems to have only very rudimentary support for locking
+    with <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a>. Niko Tyni and Guillem Jover encouraged and helped with
+    implementing alternatives to an XS-only approach which hopefully will make
+    the module more useful under certain circumstances.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Jens Thoms Toerring &lt;jt@toerring.de&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/perl.html"><b>perl</b>(1)</a>, <a class="Xr" href="../2/fcntl.html"><b>fcntl</b>(2)</a>, <a class="Xr" href="../2/lseek.html"><b>lseek</b>(2)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">This library is free software. You can redistribute it and/or
+    modify it under the same terms as Perl itself.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

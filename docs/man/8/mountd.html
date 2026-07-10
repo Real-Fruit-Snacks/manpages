@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="NFS mount daemon">
+<title>mountd(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">mountd(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Mounting_exported_NFS_File_Systems">Mounting
+  exported NFS File Systems</a></li><li><a href="#The_rmtab_File">The
+  rmtab File</a></li><li><a href="#Mounting_File_Systems_with_NFSv4">Mounting
+  File Systems with NFSv4</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#CONFIGURATION_FILE">CONFIGURATION
+  FILE</a></li><li><a href="#TCP_WRAPPERS_SUPPORT">TCP_WRAPPERS
+  SUPPORT</a></li><li><a href="#IPv6_and_TI-RPC_support">IPv6
+  and TI-RPC support</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">rpc.mountd(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">rpc.mountd(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">rpc.mountd - NFS mount daemon</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>/usr/sbin/rpc.mountd [</b><i>options</i><b>]</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <b>rpc.mountd</b> daemon implements the server side of the NFS
+    MOUNT protocol, an NFS side protocol used by NFS version 2 [RFC1094] and NFS
+    version 3 [RFC1813]. It also responds to requests from the Linux kernel to
+    authenticate clients and provides details of access permissions.</p>
+<p class="Pp">The NFS server (<i>nfsd</i>) maintains a cache of authentication
+    and authorization information which is used to identify the source of each
+    request, and then what access permissions that source has to any local
+    filesystem. When required information is not found in the cache, the server
+    sends a request to <b>mountd</b> to fill in the missing information. Mountd
+    uses a table of information stored in <b>/var/lib/nfs/etab</b> and
+    maintained by <a class="Xr" href="../8/exportfs.html"><b>exportfs</b>(8)</a>, possibly based on the contents of
+    <a class="Xr" href="../5/exports.html"><b>exports</b>(5)</a>, to respond to each request.</p>
+<section class="Ss">
+<h2 class="Ss" id="Mounting_exported_NFS_File_Systems"><a class="permalink" href="#Mounting_exported_NFS_File_Systems">Mounting
+  exported NFS File Systems</a></h2>
+<p class="Pp">The NFS MOUNT protocol has several procedures. The most important
+    of these are MNT (mount an export) and UMNT (unmount an export).</p>
+<p class="Pp">A MNT request has two arguments: an explicit argument that
+    contains the pathname of the root directory of the export to be mounted, and
+    an implicit argument that is the sender's IP address.</p>
+<p class="Pp">When receiving a MNT request from an NFS client, <b>rpc.mountd</b>
+    checks both the pathname and the sender's IP address against its export
+    table. If the sender is permitted to access the requested export,
+    <b>rpc.mountd</b> returns an NFS file handle for the export's root directory
+    to the client. The client can then use the root file handle and NFS LOOKUP
+    requests to navigate the directory structure of the export.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_rmtab_File"><a class="permalink" href="#The_rmtab_File">The
+  rmtab File</a></h2>
+<p class="Pp">The <b>rpc.mountd</b> daemon registers every successful MNT
+    request by adding an entry to the <i>/var/lib/nfs/rmtab</i> file. When
+    receivng a UMNT request from an NFS client, <b>rpc.mountd</b> simply removes
+    the matching entry from <i>/var/lib/nfs/rmtab</i>, as long as the access
+    control list for that export allows that sender to access the export.</p>
+<p class="Pp">Clients can discover the list of file systems an NFS server is
+    currently exporting, or the list of other clients that have mounted its
+    exports, by using the <a class="Xr" href="../8/showmount.html"><b>showmount</b>(8)</a> command. <a class="Xr" href="../8/showmount.html"><b>showmount</b>(8)</a> uses
+    other procedures in the NFS MOUNT protocol to report information about the
+    server's exported file systems.</p>
+<p class="Pp">Note, however, that there is little to guarantee that the contents
+    of <i>/var/lib/nfs/rmtab</i> are accurate. A client may continue accessing
+    an export even after invoking UMNT. If the client reboots without sending a
+    UMNT request, stale entries remain for that client in
+    <i>/var/lib/nfs/rmtab</i>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Mounting_File_Systems_with_NFSv4"><a class="permalink" href="#Mounting_File_Systems_with_NFSv4">Mounting
+  File Systems with NFSv4</a></h2>
+<p class="Pp">Version 4 (and later) of NFS does not use a separate NFS MOUNT
+    protocol. Instead mounting is performed using regular NFS requests handled
+    by the NFS server in the Linux kernel (<i>nfsd</i>). Consequently
+    <i>/var/lib/nfs/rmtab</i> is not updated to reflect any NFSv4 activity.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="d"><a class="permalink" href="#d"><b>-d kind or --debug
+    kind</b></a></dt>
+  <dd>Turn on debugging. Valid kinds are: all, auth, call, general and
+    parse.</dd>
+  <dt id="l"><a class="permalink" href="#l"><b>-l</b> or
+    <b>--log-auth</b></a></dt>
+  <dd>Enable logging of responses to authentication and access requests from
+      nfsd. Each response is then cached by the kernel for 30 minutes (or as set
+      by <b>--ttl</b> below), and will be refreshed after 15 minutes (half the
+      ttl time) if the relevant client remains active. Note that <b>-l</b> is
+      equivalent to <b>-d auth</b> and so can be enabled in <b>/etc/nfs.conf</b>
+      with <b>&quot;debug = auth&quot;</b> in the <b>[mountd]</b> section.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd><b>rpc.mountd</b> will always log authentication responses to MOUNT
+      requests when NFSv3 is used, but to get similar logs for NFSv4, this
+      option is required.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="i"><a class="permalink" href="#i"><b>-i</b> or
+    <b>--cache-use-ipaddr</b></a></dt>
+  <dd>Normally each client IP address is matched against each host identifier
+      (name, wildcard, netgroup etc) found in <b>/etc/exports</b> and a combined
+      identity is formed from all matching identifiers. Often many clients will
+      map to the same combined identity so performing this mapping reduces the
+      number of distinct access details that the kernel needs to store.
+      Specifying the <b>-i</b> option suppresses this mapping so that access to
+      each filesystem is requested and cached separately for each client IP
+      address. Doing this can increase the burden of updating the cache
+      slightly, but can make the log messages produced by the <b>-l</b> option
+      easier to read.</dd>
+  <dt id="T"><a class="permalink" href="#T"><b>-T or --ttl</b></a></dt>
+  <dd>Provide a time-to-live (TTL) for cached information given to the kernel.
+      The kernel will normally request an update if the information is needed
+      after half of this time has expired. Increasing the provided number, which
+      is in seconds, reduces the rate of cache update requests, and this is
+      particularly noticeable when these requests are logged with <b>-l</b>.
+      However increasing also means that changes to hostname to address mappings
+      can take longer to be noticed. The default TTL is 1800 (30 minutes).</dd>
+  <dt id="F"><a class="permalink" href="#F"><b>-F or --foreground</b></a></dt>
+  <dd>Run in foreground (do not daemonize)</dd>
+  <dt id="h"><a class="permalink" href="#h"><b>-h or --help</b></a></dt>
+  <dd>Display usage message.</dd>
+  <dt id="o"><a class="permalink" href="#o"><b>-o num or --descriptors
+    num</b></a></dt>
+  <dd>Set the limit of the number of open file descriptors to num. The default
+      is to leave the limit unchanged.</dd>
+  <dt id="N"><a class="permalink" href="#N"><b>-N mountd-version or
+    --no-nfs-version mountd-version</b></a></dt>
+  <dd>This option can be used to request that <b>rpc.mountd</b> do not offer
+      certain versions of NFS. The current version of <b>rpc.mountd</b> can
+      support both NFS version 2, 3 and 4. If the either one of these version
+      should not be offered, <b>rpc.mountd</b> must be invoked with the option
+      <b>--no-nfs-version &lt;vers&gt; .</b></dd>
+  <dt id="n"><a class="permalink" href="#n"><b>-n or --no-tcp</b></a></dt>
+  <dd>Don't advertise TCP for mount.</dd>
+  <dt id="p"><a class="permalink" href="#p"><b>-p num or -P num or --port
+    num</b></a></dt>
+  <dd>Specifies the port number used for RPC listener sockets. If this option is
+      not specified, <b>rpc.mountd</b> will try to consult <i>/etc/services</i>,
+      if gets port succeed, set the same port for all listener socket, otherwise
+      chooses a random ephemeral port for each listener socket.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>This option can be used to fix the port value of <b>rpc.mountd</b>'s
+      listeners when NFS MOUNT requests must traverse a firewall between clients
+      and servers.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="H"><a class="permalink" href="#H"><b>-H prog or --ha-callout
+    prog</b></a></dt>
+  <dd>Specify a high availability callout program. This program receives
+      callouts for all MOUNT and UNMOUNT requests. This allows <b>rpc.mountd</b>
+      to be used in a High Availability NFS (HA-NFS) environment.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The callout program is run with 4 arguments. The first is <b>mount</b> or
+      <b>unmount</b> depending on the reason for the callout. The second will be
+      the name of the client performing the mount. The third will be the path
+      that the client is mounting. The last is the number of concurrent mounts
+      that we believe the client has of that path.</dd>
+  <dt></dt>
+  <dd>This callout is not needed with 2.6 and later kernels. Instead, mount the
+      nfsd filesystem on <i>/proc/fs/nfsd</i>.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt id="s,"><a class="permalink" href="#s,"><b>-s,</b><i></i><b>
+    --state-directory-path </b><i>directory</i></a></dt>
+  <dd>Specify a directory in which to place state information (etab and rmtab).
+      If this option is not specified the default of <i>/var/lib/nfs</i> is
+      used.</dd>
+  <dt id="r,"><a class="permalink" href="#r,"><b>-r,</b><i></i><b>
+    --reverse-lookup</b></a></dt>
+  <dd><b>rpc.mountd</b> tracks IP addresses in the <i>rmtab</i> file. When a
+      DUMP request is made (by someone running <b>showmount -a</b>, for
+      instance), it returns IP addresses instead of hostnames by default. This
+      option causes <b>rpc.mountd</b> to perform a reverse lookup on each IP
+      address and return that hostname instead. Enabling this can have a
+      substantial negative effect on performance in some situations.</dd>
+  <dt id="t"><a class="permalink" href="#t"><b>-t N</b> or <b>--num-threads=N
+    </b>or<b> --num-threads N </b></a></dt>
+  <dd>This option specifies the number of worker threads that rpc.mountd spawns.
+      The default is 1 thread, which is probably enough. More threads are
+      usually only needed for NFS servers which need to handle mount storms of
+      hundreds of NFS mounts in a few seconds, or when your DNS server is slow
+      or unreliable.</dd>
+  <dt id="u"><a class="permalink" href="#u"><b>-u or --no-udp</b></a></dt>
+  <dd>Don't advertise UDP for mounting</dd>
+  <dt id="V"><a class="permalink" href="#V"><b>-V version or --nfs-version
+    version</b></a></dt>
+  <dd>This option can be used to request that <b>rpc.mountd</b> offer certain
+      versions of NFS. The current version of <b>rpc.mountd</b> can support both
+      NFS version 2 and the newer version 3.</dd>
+  <dt id="v"><a class="permalink" href="#v"><b>-v or --version</b></a></dt>
+  <dd>Print the version of <b>rpc.mountd</b> and exit.</dd>
+  <dt id="g"><a class="permalink" href="#g"><b>-g or --manage-gids</b></a></dt>
+  <dd>Accept requests from the kernel to map user id numbers into lists of group
+      id numbers for use in access control. An NFS request will normally (except
+      when using Kerberos or other cryptographic authentication) contains a
+      user-id and a list of group-ids. Due to a limitation in the NFS protocol,
+      at most 16 groups ids can be listed. If you use the <b>-g</b> flag, then
+      the list of group ids received from the client will be replaced by a list
+      of group ids determined by an appropriate lookup on the server. Note that
+      the 'primary' group id is not affected so a <b>newgroup</b> command on the
+      client will still be effective. This function requires a Linux Kernel with
+      version at least 2.6.21.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_FILE"><a class="permalink" href="#CONFIGURATION_FILE">CONFIGURATION
+  FILE</a></h1>
+<p class="Pp">Many of the options that can be set on the command line can also
+    be controlled through values set in the <b>[mountd]</b> or, in some cases,
+    the <b>[nfsd]</b> sections of the <i>/etc/nfs.conf</i> configuration file.
+    Values recognized in the <b>[mountd]</b> section include <b>manage-gids</b>,
+    <b>cache-use-ipaddr</b>, <b>descriptors</b>, <b>port</b>, <b>threads</b>,
+    <b>ttl</b>, <b>reverse-lookup</b>, and <b>state-directory-path</b>,
+    <b>ha-callout</b> which each have the same effect as the option with the
+    same name.</p>
+<p class="Pp">The values recognized in the <b>[nfsd]</b> section include
+    <b>TCP</b>, <b>UDP</b>, <b>vers3</b>, and <b>vers4</b> which each have the
+    same meaning as given by <a class="Xr" href="../8/nfsd.html"><b>rpc.nfsd</b>(8)</a>.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TCP_WRAPPERS_SUPPORT"><a class="permalink" href="#TCP_WRAPPERS_SUPPORT">TCP_WRAPPERS
+  SUPPORT</a></h1>
+<p class="Pp">You can protect your <b>rpc.mountd</b> listeners using the
+    <b>tcp_wrapper</b> library or <a class="Xr" href="../8/iptables.html"><b>iptables</b>(8)</a>.</p>
+<p class="Pp">Note that the <b>tcp_wrapper</b> library supports only IPv4
+    networking.</p>
+<p class="Pp">Add the hostnames of NFS peers that are allowed to access
+    <b>rpc.mountd</b> to <i>/etc/hosts.allow</i>. Use the daemon name
+    <b>mountd</b> even if the <b>rpc.mountd</b> binary has a different name.</p>
+<p class="Pp">Hostnames used in either access file will be ignored when they can
+    not be resolved into IP addresses. For further information see the
+    <b>tcpd</b>(8) and <a class="Xr" href="../5/hosts_access.html"><b>hosts_access</b>(5)</a> man pages.</p>
+<section class="Ss">
+<h2 class="Ss" id="IPv6_and_TI-RPC_support"><a class="permalink" href="#IPv6_and_TI-RPC_support">IPv6
+  and TI-RPC support</a></h2>
+<p class="Pp">TI-RPC is a pre-requisite for supporting NFS on IPv6. If TI-RPC
+    support is built into <b>rpc.mountd</b>, it attempts to start listeners on
+    network transports marked 'visible' in <i>/etc/netconfig</i>. As long as at
+    least one network transport listener starts successfully, <b>rpc.mountd</b>
+    will operate.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><i>/etc/exports</i></dt>
+  <dd>input file for <b>exportfs</b>, listing exports, export options, and
+      access control lists</dd>
+  <dt><i>/var/lib/nfs/rmtab</i></dt>
+  <dd>table of clients accessing server's exports</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/exportfs.html"><b>exportfs</b>(8)</a>, <a class="Xr" href="../5/exports.html"><b>exports</b>(5)</a>, <a class="Xr" href="../8/showmount.html"><b>showmount</b>(8)</a>,
+    <a class="Xr" href="../8/nfsd.html"><b>rpc.nfsd</b>(8)</a>, <a class="Xr" href="../8/rpc.rquotad.html"><b>rpc.rquotad</b>(8)</a>, <a class="Xr" href="../5/nfs.html"><b>nfs</b>(5)</a>,
+    <a class="Xr" href="../5/nfs.conf.html"><b>nfs.conf</b>(5)</a>, <b>tcpd</b>(8), <a class="Xr" href="../5/hosts_access.html"><b>hosts_access</b>(5)</a>,
+    <a class="Xr" href="../8/iptables.html"><b>iptables</b>(8)</a>, <a class="Xr" href="../5/netconfig.html"><b>netconfig</b>(5)</a></p>
+<p class="Pp">RFC 1094 - &quot;NFS: Network File System Protocol
+    Specification&quot;
+  <br/>
+  RFC 1813 - &quot;NFS Version 3 Protocol Specification&quot;
+  <br/>
+  RFC 7530 - &quot;Network File System (NFS) Version 4 Protocol&quot;
+  <br/>
+  RFC 8881 - &quot;Network File System (NFS) Version 4 Minor Version 1
+    Protocol&quot;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Olaf Kirch, H. J. Lu, G. Allan Morris III, and a host of
+  others.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">31 Dec 2009</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Samba&#x27;s idmap_autorid Backend for Winbind">
+<title>idmap_autorid(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">idmap_autorid(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#IDMAP_OPTIONS">IDMAP
+  OPTIONS</a></li><li><a href="#THE_MAPPING_FORMULAS">THE
+  MAPPING FORMULAS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">IDMAP_AUTORID(8)</td>
+    <td class="head-vol">System Administration tools</td>
+    <td class="head-rtitle">IDMAP_AUTORID(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">idmap_autorid - Samba's idmap_autorid Backend for Winbind</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The idmap_autorid backend provides a way to use an algorithmic
+    mapping scheme to map UIDs/GIDs and SIDs that is more deterministic than
+    idmap_tdb and easier to configure than idmap_rid.</p>
+<p class="Pp">The module works similar to idmap_rid, but it automatically
+    configures the range to be used for each domain, so there is no need to
+    specify a specific range for each domain in the forest, the only
+    configuration that is needed is the range of uid/gids that shall be used for
+    user/group mappings and an optional size of the ranges to be used.</p>
+<p class="Pp">The mappings of which domain is mapped to which range is stored in
+    autorid.tdb, thus you should backup this database regularly.</p>
+<p class="Pp">Due to the algorithm being used, it is the module that is most
+    easy to use as it only requires a minimal configuration.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="IDMAP_OPTIONS"><a class="permalink" href="#IDMAP_OPTIONS">IDMAP
+  OPTIONS</a></h1>
+<p class="Pp">range = low - high</p>
+<div class="Bd-indent">Defines the available matching uid and gid range for
+  which the backend is authoritative. Note that the range acts as a filter. If
+  algorithmically determined UID or GID fall outside the range, they are ignored
+  and the corresponding map is discarded. It is intended as a way to avoid
+  accidental UID/GID overlaps between local and remotely defined IDs. Note that
+  the range should be a multiple of the rangesize and needs to be at least twice
+  as large in order to have sufficient id range space for the mandatory BUILTIN
+  domain. With a default rangesize of 100000 the range needs to span at least
+  200000. This would be: range = 100000 - 299999.</div>
+<p class="Pp">rangesize = numberofidsperrange</p>
+<div class="Bd-indent">Defines the number of uids/gids available per domain
+  range. The minimum needed value is 2000. SIDs with RIDs larger than this value
+  will be mapped into extension ranges depending upon number of available
+  ranges. If the autorid backend runs out of available ranges, mapping requests
+  for new domains (or new extension ranges for domains already known) are
+  ignored and the corresponding map is discarded.
+<p class="Pp">Example: with rangesize set to 10000, users/groups with a RID up
+    to 10000 will be put into the first range for the domain. When attempting to
+    map the an object with a RID of 25000, an extension range will be allocated
+    that will then be used to map all RIDs from 20000-29999.</p>
+<p class="Pp">One range will be used for local users and groups and for
+    non-domain well-known SIDs like Everyone (S-1-1-0) or Creator Owner
+    (S-1-3-0). A chosen list of well-known SIDs will be preallocated on first
+    start to create deterministic mappings for those.</p>
+<p class="Pp">Thus the number of local users and groups that can be created is
+    limited by this option as well. If you plan to create a large amount of
+    local users or groups, you will need set this parameter accordingly.</p>
+<p class="Pp">The default value is 100000.</p>
+</div>
+<p class="Pp">read only = [ yes | no ]</p>
+<div class="Bd-indent">Turn the module into read-only mode. No new ranges will
+  be allocated nor will new mappings be created in the idmap pool. Defaults to
+  no.</div>
+<p class="Pp">ignore builtin = [ yes | no ]</p>
+<div class="Bd-indent">Ignore any mapping requests for the BUILTIN domain.
+  Defaults to no.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THE_MAPPING_FORMULAS"><a class="permalink" href="#THE_MAPPING_FORMULAS">THE
+  MAPPING FORMULAS</a></h1>
+<p class="Pp">The Unix ID for a RID is calculated this way:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>			ID =  REDUCED RID + IDMAP RANGE LOW VALUE + RANGE NUMBER * RANGE SIZE
+		</pre>
+</div>
+<p class="Pp">where REDUCED RID = RID % RANGE_SIZE and a DOMAIN RANGE INDEX =
+    RID / RANGE_SIZE is used together with the domain sid to determine the RANGE
+    NUMBER (stored in the database).</p>
+<p class="Pp">Correspondingly, the formula for calculating the RID for a given
+    Unix ID is this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>			RID = (ID - LOW ID) % RANGE SIZE + DOMAIN RANGE INDEX * RANGE SIZE
+		</pre>
+</div>
+<p class="Pp">Where the DOMAIN RANGE INDEX is retrieved from the database along
+    with the domain sid by the RANGE NUMBER = (ID - LOW ID) / RANGE SIZE .</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">This example shows you the minimal configuration that will work
+    for the principal domain and 19 trusted domains / range extensions.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>	[global]
+	security = ads
+	workgroup = CUSTOMER
+	realm = CUSTOMER.COM
+	idmap config * : backend = autorid
+	idmap config * : range = 1000000-1999999
+	</pre>
+</div>
+<p class="Pp">This example shows how to configure idmap_autorid as default for
+    all domains with a potentially large amount of users plus a specific
+    configuration for a trusted domain that uses the SFU mapping scheme. Please
+    note that idmap ranges and sfu ranges are not allowed to overlap.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>	[global]
+	security = ads
+	workgroup = CUSTOMER
+	realm = CUSTOMER.COM
+	idmap config * : backend = autorid
+	idmap config * : range = 1000000-19999999
+	idmap config * : rangesize = 1000000
+	idmap config TRUSTED : backend  = ad
+	idmap config TRUSTED : range    = 50000 - 99999
+	idmap config TRUSTED : schema_mode = sfu
+	</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">The original Samba software and related utilities were created by
+    Andrew Tridgell. Samba is now developed by the Samba Team as an Open Source
+    project similar to the way the Linux kernel is developed.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">05/21/2026</td>
+    <td class="foot-os">Samba 4.19.5-Ubuntu</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

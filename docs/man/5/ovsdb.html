@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Open vSwitch Database (File Formats)">
+<title>ovsdb(5) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">ovsdb(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#JSON_Notation">JSON
+  Notation</a></li><li><a href="#Standalone_Format">Standalone
+  Format</a></li><li><a href="#Clustered_Format">Clustered
+  Format</a></li><li><a href="#Joining_a_Cluster">Joining
+  a Cluster</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">OVSDB(5)</td>
+    <td class="head-vol">Open vSwitch</td>
+    <td class="head-rtitle">OVSDB(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">ovsdb - Open vSwitch Database (File Formats)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">OVSDB, the Open vSwitch Database, is a database system whose
+    network protocol is specified by RFC 7047. The RFC does not specify an
+    on-disk storage format. The OVSDB implementation in Open vSwitch implements
+    two storage formats: one for standalone (and active-backup) databases, and
+    the other for clustered databases. This manpage documents both of these
+    formats.</p>
+<p class="Pp">Most users do not need to be concerned with this specification.
+    Instead, to manipulate OVSDB files, refer to <i>ovsdb-tool(1)</i>. For an
+    introduction to OVSDB as a whole, read <i>ovsdb(7)</i>.</p>
+<p class="Pp">OVSDB files explicitly record changes that are implied by the
+    database schema. For example, the OVSDB &#x201C;garbage collection&#x201D;
+    feature means that when a client removes the last reference to a
+    garbage-collected row, the database server automatically removes that row.
+    The database file explicitly records the deletion of the garbage-collected
+    row, so that the reader does not need to infer it.</p>
+<p class="Pp">OVSDB files do not include the values of ephemeral columns.</p>
+<p class="Pp">Standalone and clustered database files share the common structure
+    described here. They are text files encoded in UTF-8 with LF (U+000A) line
+    ends, organized as append-only series of records. Each record consists of 2
+    lines of text.</p>
+<p class="Pp">The first line in each record has the format <b>OVSDB
+    &lt;magic&gt; &lt;length&gt; &lt;hash&gt;</b>, where &lt;magic&gt; is
+    <b>JSON</b> for standalone databases or <b>CLUSTER</b> for clustered
+    databases, &lt;length&gt; is a positive decimal integer, and &lt;hash&gt; is
+    a SHA-1 checksum expressed as 40 hexadecimal digits. Words in the first line
+    must be separated by exactly one space.</p>
+<p class="Pp">The second line must be exactly <i>length</i> bytes long
+    (including the LF) and its SHA-1 checksum (including the LF) must match
+    <i>hash</i> exactly. The line&#x2019;s contents must be a valid JSON object
+    as specified by RFC 4627. Strings in the JSON object must be valid UTF-8. To
+    ensure that the second line is exactly one line of text, the OVSDB
+    implementation expresses any LF characters within a JSON string as
+    <b>\n</b>. For the same reason, and to save space, the OVSDB implementation
+    does not &#x201C;pretty print&#x201D; the JSON object with spaces and LFs.
+    (The OVSDB implementation tolerates LFs when reading an OVSDB database file,
+    as long as <i>length</i> and <i>hash</i> are correct.)</p>
+<section class="Ss">
+<h2 class="Ss" id="JSON_Notation"><a class="permalink" href="#JSON_Notation">JSON
+  Notation</a></h2>
+<p class="Pp">We use notation from RFC 7047 here to describe the JSON data in
+    records. In addition to the notation defined there, we add the
+  following:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>&lt;raw-uuid&gt;</b></dt>
+  <dd>A 36-character JSON string that contains a UUID in the format described by
+      RFC 4122, e.g.
+    <b>&quot;550e8400-e29b-41d4-a716-446655440000&quot;</b></dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Standalone_Format"><a class="permalink" href="#Standalone_Format">Standalone
+  Format</a></h2>
+<p class="Pp">The first record in a standalone database contains the JSON schema
+    for the database, as specified in RFC 7047. Only this record is mandatory (a
+    standalone file that contains only a schema represents an empty
+  database).</p>
+<p class="Pp">The second and subsequent records in a standalone database are
+    transaction records. Each record may have the following optional special
+    members, which do not have any semantics but are often useful to
+    administrators looking through a database log with <b>ovsdb-tool
+    show-log</b>:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>&quot;_date&quot;: &lt;integer&gt;</b></b></dt>
+  <dd>The time at which the transaction was committed, as an integer number of
+      milliseconds since the Unix epoch. Early versions of OVSDB counted seconds
+      instead of milliseconds; these can be detected by noticing that their
+      values are less than 2**32.
+    <p class="Pp">OVSDB always writes a <b>_date</b> member.</p>
+  </dd>
+  <dt><b><b>&quot;_comment&quot;: &lt;string&gt;</b></b></dt>
+  <dd>A JSON string that specifies the comment provided in a transaction
+      <b>comment</b> operation. If a transaction has multiple <b>comment</b>
+      operations, OVSDB concatenates them into a single <b>_comment</b> member,
+      separated by a new-line.
+    <p class="Pp">OVSDB only writes a <b>_comment</b> member if it would be a
+        nonempty string.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">Each of these records also has one or more additional members,
+    each of which maps from the name of a database table to a
+  &lt;table-txn&gt;:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>&lt;table-txn&gt;</b></dt>
+  <dd>A JSON object that describes the effects of a transaction on a database
+      table. Its names are &lt;raw-uuid&gt;s for rows in the table and its
+      values are &lt;row-txn&gt;s.</dd>
+  <dt><b>&lt;row-txn&gt;</b></dt>
+  <dd>Either <b>null</b>, which indicates that the transaction deleted this row,
+      or a JSON object that describes how the transaction inserted or modified
+      the row, whose names are the names of columns and whose values are
+      &lt;value&gt;s that give the column&#x2019;s new value.
+    <p class="Pp">For new rows, the OVSDB implementation omits columns whose
+        values have the default values for their types defined in RFC 7047
+        section 5.2.1; for modified rows, the OVSDB implementation omits columns
+        whose values are unchanged.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Clustered_Format"><a class="permalink" href="#Clustered_Format">Clustered
+  Format</a></h2>
+<p class="Pp">The clustered format has the following additional notation:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>&lt;uint64&gt;</b></dt>
+  <dd>A JSON integer that represents a 64-bit unsigned integer. The OVS JSON
+      implementation only supports integers in the range -2**63 through 2**63-1,
+      so 64-bit unsigned integer values from 2**63 through 2**64-1 are expressed
+      as negative numbers.</dd>
+  <dt><b>&lt;address&gt;</b></dt>
+  <dd>A JSON string that represents a network address to support clustering, in
+      the <b>&lt;protocol&gt;:&lt;ip&gt;:&lt;port&gt;</b> syntax described in
+      <b>ovsdb-tool(1)</b>.</dd>
+  <dt><b>&lt;servers&gt;</b></dt>
+  <dd>A JSON object whose names are &lt;raw-uuid&gt;s that identify servers and
+      whose values are &lt;address&gt;es that specify those servers&#x2019;
+      addresses.</dd>
+  <dt><b>&lt;cluster-txn&gt;</b></dt>
+  <dd>A JSON array with two elements:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>The first element is either a &lt;database-schema&gt; or <b>null</b>. A
+      &lt;database-schema&gt; element is always present in the first record of a
+      clustered database to indicate the database&#x2019;s initial schema. If it
+      is not <b>null</b> in a later record, it indicates a change of schema for
+      the database.</dd>
+  <dt>2.</dt>
+  <dd>The second element is either a transaction record in the format described
+      under <b>Standalone Format</b> above, or <b>null</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">When a schema is present, the transaction record is relative to an
+    empty database. That is, a schema change effectively resets the database to
+    empty and the transaction record represents the full database contents. This
+    allows readers to be ignorant of the full semantics of schema change.</p>
+</div>
+<br/>
+<p class="Pp">The first record in a clustered database contains the following
+    members, all of which are required, except <b>prev_election_timer</b>:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>&quot;server_id&quot;: &lt;raw-uuid&gt;</b></b></dt>
+  <dd>The server&#x2019;s own UUID, which must be unique within the
+    cluster.</dd>
+  <dt><b><b>&quot;local_address&quot;: &lt;address&gt;</b></b></dt>
+  <dd>The address on which the server listens for connections from other servers
+      in the cluster.</dd>
+  <dt><b><b>&quot;name&quot;: &lt;id&gt;</b></b></dt>
+  <dd>The database schema name. It is only important when a server is in the
+      process of joining a cluster: a server will only join a cluster if the
+      name matches. (If the database schema name were unique, then we would not
+      also need a cluster ID.)</dd>
+  <dt><b><b>&quot;cluster_id&quot;: &lt;raw-uuid&gt;</b></b></dt>
+  <dd>The cluster&#x2019;s UUID. The all-zeros UUID is not a valid cluster
+    ID.</dd>
+  <dt><b><b>&quot;prev_term&quot;: &lt;uint64&gt;</b> and
+    <b>&quot;prev_index&quot;: &lt;uint64&gt;</b></b></dt>
+  <dd>The Raft term and index just before the beginning of the log.</dd>
+  <dt><b><b>&quot;prev_servers&quot;: &lt;servers&gt;</b></b></dt>
+  <dd>The set of one or more servers in the cluster at index
+      &#x201C;prev_index&#x201D; and term &#x201C;prev_term&#x201D;. It might
+      not include this server, if it was not the initial server in the
+    cluster.</dd>
+  <dt><b><b>&quot;prev_election_timer&quot;: &lt;uint64&gt;</b></b></dt>
+  <dd>The election base time before the beginning of the log. If not exist, the
+      default value 1000 ms is used as if it exists this record.</dd>
+  <dt><b><b>&quot;prev_data&quot;: &lt;json-value&gt;</b> and
+    <b>&quot;prev_eid&quot;: &lt;raw-uuid&gt;</b></b></dt>
+  <dd>A snapshot of the data in the database at index &#x201C;prev_index&#x201D;
+      and term &#x201C;prev_term&#x201D;, and the entry ID for that data. The
+      snapshot must contain a schema.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">The second and subsequent records, if present, in a clustered
+    database represent changes to the database, to the cluster state, or both.
+    There are several types of these records. The most important types of
+    records directly represent persistent state described in the Raft
+    specification:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Entry"><a class="permalink" href="#Entry"><b>Entry</b></a></dt>
+  <dd>A Raft log entry.</dd>
+  <dt id="Term"><a class="permalink" href="#Term"><b>Term</b></a></dt>
+  <dd>The start of a new term.</dd>
+  <dt id="Vote"><a class="permalink" href="#Vote"><b>Vote</b></a></dt>
+  <dd>The server&#x2019;s vote for a leader in the current term.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">The following additional types of records aid debugging and
+    troubleshooting, but they do not affect correctness.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Leader"><a class="permalink" href="#Leader"><b>Leader</b></a></dt>
+  <dd>Identifies a newly elected leader for the current term.</dd>
+  <dt id="Commit"><a class="permalink" href="#Commit"><b>Commit
+    Index</b></a></dt>
+  <dd>An update to the server&#x2019;s <b>commit_index</b>.</dd>
+  <dt id="Note"><a class="permalink" href="#Note"><b>Note</b></a></dt>
+  <dd>A human-readable description of some event.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">The table below identifies the members that each type of record
+    contains. &#x201C;yes&#x201D; indicates that a member is required,
+    &#x201C;?&#x201D; that it is optional, blank that it is forbidden, and [1]
+    that <b>data</b> and <b>eid</b> must be either both present or both
+  absent.</p>
+<table class="tbl" style="border-top-style: solid;">
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">member</td>
+    <td style="border-right-style: solid;">Entry</td>
+    <td style="border-right-style: solid;">Term</td>
+    <td style="border-right-style: solid;">Vote</td>
+    <td style="border-right-style: solid;">Leader</td>
+    <td style="border-right-style: solid;">Commit Index</td>
+    <td style="border-right-style: solid;">Note</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">comment</td>
+    <td style="border-right-style: solid;">?</td>
+    <td style="border-right-style: solid;">?</td>
+    <td style="border-right-style: solid;">?</td>
+    <td style="border-right-style: solid;">?</td>
+    <td style="border-right-style: solid;">?</td>
+    <td style="border-right-style: solid;">?</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">term</td>
+    <td style="border-right-style: solid;">yes</td>
+    <td style="border-right-style: solid;">yes</td>
+    <td style="border-right-style: solid;">yes</td>
+    <td style="border-right-style: solid;">yes</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">index</td>
+    <td style="border-right-style: solid;">yes</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">servers</td>
+    <td style="border-right-style: solid;">?</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">election_timer</td>
+    <td style="border-right-style: solid;">?</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">data</td>
+    <td style="border-right-style: solid;">[1]</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">eid</td>
+    <td style="border-right-style: solid;">[1]</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">vote</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">yes</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">leader</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">yes</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">commit_index</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">yes</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">note</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">yes</td>
+  </tr>
+</table>
+<p class="Pp">The members are:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>&quot;comment&quot;: &lt;string&gt;</b></b></dt>
+  <dd>A human-readable string giving an administrator more information about the
+      reason a record was emitted.</dd>
+  <dt><b><b>&quot;term&quot;: &lt;uint64&gt;</b></b></dt>
+  <dd>The term in which the activity occurred.</dd>
+  <dt><b><b>&quot;index&quot;: &lt;uint64&gt;</b></b></dt>
+  <dd>The index of a log entry.</dd>
+  <dt><b><b>&quot;servers&quot;: &lt;servers&gt;</b></b></dt>
+  <dd>Server configuration in a log entry.</dd>
+  <dt><b><b>&quot;election_timer&quot;: &lt;uint64&gt;</b></b></dt>
+  <dd>Leader election timeout base value in a log entry.</dd>
+  <dt><b><b>&quot;data&quot;: &lt;json-value&gt;</b></b></dt>
+  <dd>The data in a log entry.</dd>
+  <dt><b><b>&quot;eid&quot;: &lt;raw-uuid&gt;</b></b></dt>
+  <dd>Entry ID in a log entry.</dd>
+  <dt><b><b>&quot;vote&quot;: &lt;raw-uuid&gt;</b></b></dt>
+  <dd>The server ID for which this server voted.</dd>
+  <dt><b><b>&quot;leader&quot;: &lt;raw-uuid&gt;</b></b></dt>
+  <dd>The server ID of the server. Emitted by both leaders and followers when a
+      leader is elected.</dd>
+  <dt><b><b>&quot;commit_index&quot;: &lt;uint64&gt;</b></b></dt>
+  <dd>Updated <b>commit_index</b> value.</dd>
+  <dt><b><b>&quot;note&quot;: &lt;string&gt;</b></b></dt>
+  <dd>One of a few special strings indicating important events. The currently
+      defined strings are:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>&quot;transfer leadership&quot;</b></b></dt>
+  <dd>This server transferred leadership to a different server (with details
+      included in <b>comment</b>).</dd>
+  <dt><b><b>&quot;left&quot;</b></b></dt>
+  <dd>This server finished leaving the cluster. (This lets subsequent readers
+      know that the server is not part of the cluster and should not attempt to
+      connect to it.)</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Joining_a_Cluster"><a class="permalink" href="#Joining_a_Cluster">Joining
+  a Cluster</a></h2>
+<p class="Pp">In addition to general format for a clustered database, there is
+    also a special case for a database file created by <b>ovsdb-tool
+    join-cluster</b>. Such a file contains exactly one record, which conveys the
+    information passed to the <b>join-cluster</b> command. It has the following
+    members:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>&quot;server_id&quot;: &lt;raw-uuid&gt;</b> and
+    <b>&quot;local_address&quot;: &lt;address&gt;</b> and <b>&quot;name&quot;:
+    &lt;id&gt;</b></b></dt>
+  <dd>These have the same semantics described above in the general description
+      of the format.</dd>
+  <dt><b><b>&quot;cluster_id&quot;: &lt;raw-uuid&gt;</b></b></dt>
+  <dd>This is provided only if the user gave the <b>--cid</b> option to
+      <b>join-cluster</b>. It has the same semantics described above.</dd>
+  <dt><b><b>&quot;remote_addresses&quot;; [&lt;address&gt;*]</b></b></dt>
+  <dd>One or more remote servers to contact for joining the cluster.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">When the server successfully joins the cluster, the database file
+    is replaced by one described in <i>Clustered Format</i>.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">The Open vSwitch Development Community</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">2016-2026, The Open vSwitch Development Community</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">March 24, 2026</td>
+    <td class="foot-os">3.3</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

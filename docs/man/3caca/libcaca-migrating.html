@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Migrating from libcaca 0.x to the 1.0 API">
+<title>libcaca-migrating(3caca) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">libcaca-migrating(3caca)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#Overview">Overview</a></li><li><a href="#Migration_strategy">Migration
+  strategy</a></li><li><a href="#Function_equivalence_list">Function
+  equivalence list</a></li><li><a href="#Basic_functions">Basic
+  functions</a></li><li><a href="#Event_handling">Event
+  handling</a></li><li><a href="#Character_printing">Character
+  printing</a></li><li><a href="#Primitives_drawing">Primitives
+  drawing</a></li><li><a href="#Mathematical_functions">Mathematical
+  functions</a></li><li><a href="#Sprite_handling">Sprite
+  handling</a></li><li><a href="#Bitmap_handling">Bitmap
+  handling</a></li><li><a href="#Compilation">Compilation</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">libcaca-migrating(3caca)</td>
+    <td class="head-vol">libcaca</td>
+    <td class="head-rtitle">libcaca-migrating(3caca)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">libcaca-migrating - Migrating from libcaca 0.x to the 1.0 API</p>
+<p class="Pp">This section will guide you through the migration of a
+    <i>libcaca</i> 0.x application to the latest API version.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Overview"><a class="permalink" href="#Overview">Overview</a></h1>
+<p class="Pp">The most important change in the 1.0 API of <i>libcaca</i> is the
+    object-oriented design. See these two examples for a rough idea of what
+    changed:</p>
+<p class="Pp"></p>
+<pre>#include &lt;caca.h&gt;
+/* libcaca program - 0.x API */
+int main(void)
+{
+<br/>
+    /* Initialise libcaca */
+<br/>
+    caca_init();
+<br/>
+    /* Set window title */
+<br/>
+    caca_set_window_title(&quot;Window&quot;);
+<br/>
+    /* Choose drawing colours */
+<br/>
+    caca_set_color(CACA_COLOR_BLACK,
+<br/>
+                   CACA_COLOR_WHITE);
+<br/>
+    /* Draw a string at (0, 0) */
+<br/>
+    caca_putstr(0, 0, &quot;Hello world!&quot;);
+<br/>
+    /* Refresh display */
+<br/>
+    caca_refresh();
+<br/>
+    /* Wait for a key press event */
+<br/>
+    caca_wait_event(CACA_EVENT_KEY_PRESS);
+<br/>
+    /* Clean up library */
+<br/>
+    caca_end();
+<br/>
+    return 0;
+}</pre>
+<p class="Pp"></p>
+<pre>#include &lt;caca.h&gt;
+/* libcaca program - 1.0 API */
+int main(void)
+{
+<br/>
+    /* Initialise libcaca */
+<br/>
+    caca_canvas_t *cv;
+<br/>
+    caca_display_t *dp;
+<br/>
+    dp = caca_create_display(NULL);
+<br/>
+    cv = caca_get_canvas(dp);
+<br/>
+    /* Set window title */
+<br/>
+    caca_set_display_title(dp, &quot;Window&quot;);
+<br/>
+    /* Choose drawing colours */
+<br/>
+    caca_set_color_ansi(cv, CACA_BLACK,
+<br/>
+                            CACA_WHITE);
+<br/>
+    /* Draw a string at (0, 0) */
+<br/>
+    caca_put_str(cv, 0, 0, &quot;Hello world!&quot;);
+<br/>
+    /* Refresh display */
+<br/>
+    caca_refresh_display();
+<br/>
+    /* Wait for a key press event */
+<br/>
+    caca_get_event(dp, CACA_EVENT_KEY_PRESS,
+<br/>
+                   NULL, -1);
+<br/>
+    /* Clean up library */
+<br/>
+    caca_free_display(dp);
+<br/>
+    return 0;
+}
+</pre>
+<p class="Pp">Note the following important things:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Most functions now take an object handle as their first argument.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Migration_strategy"><a class="permalink" href="#Migration_strategy">Migration
+  strategy</a></h1>
+<p class="Pp">You have two ways to migrate your application to use
+    <i>libcaca</i> 1.x:</p>
+<ul class="Bl-bullet">
+  <li>Port your code using the function equivalence list. This is the preferred
+      way because new functions are thread safe and offer much more features to
+      both the programmer and the end user.</li>
+  <li>Use the legacy compatibility layer.</li>
+</ul>
+<p class="Pp">Using the compatibility layer is as easy as adding the following
+    three lines:</p>
+<p class="Pp"></p>
+<pre>#include &lt;caca.h&gt;
+/* libcaca program - 0.x API */
+...</pre>
+<p class="Pp"></p>
+<pre>#include &lt;caca.h&gt;
+#ifdef CACA_API_VERSION_1
+#   include &lt;caca0.h&gt;
+#endif
+/* libcaca program - 0.x API */
+...
+</pre>
+<p class="Pp">The modified code is guaranteed to build both with <i>libcaca</i>
+    0.x and <i>libcaca</i> 1.0.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Function_equivalence_list"><a class="permalink" href="#Function_equivalence_list">Function
+  equivalence list</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Basic_functions"><a class="permalink" href="#Basic_functions">Basic
+  functions</a></h2>
+<ul class="Bl-bullet">
+  <li><b>caca_init()</b>: use <b>caca_create_canvas()</b> to create a
+      <i>libcaca</i> canvas, followed by <b>caca_create_display()</b> to attach
+      a <i>libcaca</i> display to it. Alternatively,
+      <b>caca_create_display()</b> with a NULL argument will create a canvas
+      automatically.</li>
+  <li><b>caca_set_delay()</b>: use <b>caca_set_display_time()</b>.</li>
+  <li><b>caca_get_feature()</b>: deprecated.</li>
+  <li><b>caca_set_feature()</b>: deprecated, see
+      <b>caca_set_dither_antialias()</b>, <b>caca_set_dither_color()</b> and
+      caca_set_dither_mode() instead.</li>
+  <li><b>caca_get_feature_name()</b>: deprecated, see
+      caca_get_dither_mode_list(), <b>caca_get_dither_antialias_list()</b> and
+      <b>caca_get_dither_color_list()</b> instead.</li>
+  <li><b>caca_get_rendertime()</b>: use <b>caca_get_display_time()</b>.</li>
+  <li><b>caca_get_width()</b>: use <b>caca_get_canvas_width()</b>.</li>
+  <li><b>caca_get_height()</b>: use <b>caca_get_canvas_height()</b>.</li>
+  <li><b>caca_set_window_title()</b>: use <b>caca_set_display_title()</b>.</li>
+  <li><b>caca_get_window_width()</b>: use <b>caca_get_display_width()</b>.</li>
+  <li><b>caca_get_window_height()</b>: use
+    <b>caca_get_display_height()</b>.</li>
+  <li><b>caca_refresh()</b>: use <b>caca_refresh_display()</b>.</li>
+  <li><b>caca_end()</b>: use <b>caca_free_display()</b> to detach the
+      <i>libcaca</i> display, followed by <b>caca_free_canvas()</b> to free the
+      underlying <i>libcaca</i> canvas. Alternatively, if the canvas was created
+      by <b>caca_create_display()</b>, it will be automatically destroyed by
+      <b>caca_free_display()</b>.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Event_handling"><a class="permalink" href="#Event_handling">Event
+  handling</a></h2>
+<ul class="Bl-bullet">
+  <li><b></b><b>caca_get_event()</b><b></b><b>: unchanged, but the event
+      information retrieval changed a lot.</b></li>
+  <li><b>caca_wait_event()</b>: use <b>caca_get_event()</b> with a timeout<b>
+      argument of </b><b>-1</b><b>.</b></li>
+  <li><b></b><b>caca_get_mouse_x()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_get_mouse_y()</b><b></b><b>: unchanged.</b></li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Character_printing"><a class="permalink" href="#Character_printing">Character
+  printing</a></h2>
+<ul class="Bl-bullet">
+  <li><b>caca_set_color()</b>: use <b>caca_set_color_ansi()</b> or
+      <b>caca_set_color_argb()</b>.</li>
+  <li><b>caca_get_fg_color()</b>: use <b>caca_get_attr()</b>.</li>
+  <li><b>caca_get_bg_color()</b>: use <b>caca_get_attr()</b>.</li>
+  <li><b>caca_get_color_name()</b>: this function is now deprecated due to major
+      uselessness.</li>
+  <li><b>caca_putchar()</b>: use <b>caca_put_char()</b>.</li>
+  <li><b>caca_putstr()</b>: use <b>caca_put_str()</b>.</li>
+  <li><b></b><b>caca_printf()</b><b></b><b>: unchanged.</b></li>
+  <li><b>caca_clear()</b>: use <b>caca_clear_canvas()</b>.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Primitives_drawing"><a class="permalink" href="#Primitives_drawing">Primitives
+  drawing</a></h2>
+<p class="Pp">These functions are almost unchanged, except for Unicode support
+    and the fact that they now act on a given canvas.</p>
+<ul class="Bl-bullet">
+  <li><b></b><b>caca_draw_line()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_draw_polyline()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_draw_thin_line()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_draw_thin_polyline()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_draw_circle()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_draw_ellipse()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_draw_thin_ellipse()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_fill_ellipse()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_draw_box()</b><b></b><b>: unchanged, but the argument
+      meaning changed (width and height instead of corner coordinates).</b></li>
+  <li><b></b><b>caca_draw_thin_box()</b><b></b><b>: use
+      </b><b>caca_draw_thin_box()</b><b> or </b><b>caca_draw_cp437_box()</b><b>,
+      also the argument meaning changed (width and height instead of corner
+      coordinates).</b></li>
+  <li><b></b><b>caca_fill_box()</b><b></b><b>: unchanged, but the argument
+      meaning changed (width and height instead of corner coordinates).</b></li>
+  <li><b></b><b>caca_draw_triangle()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_draw_thin_triangle()</b><b></b><b>: unchanged.</b></li>
+  <li><b></b><b>caca_fill_triangle()</b><b></b><b>: unchanged.</b></li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Mathematical_functions"><a class="permalink" href="#Mathematical_functions">Mathematical
+  functions</a></h2>
+<ul class="Bl-bullet">
+  <li><b>caca_rand()</b>: unchanged, but the second argument is different, make
+      sure you take that into account.</li>
+  <li><b>caca_sqrt()</b>: this function is now deprecated, use your system's
+      <b>sqrt()</b> call instead.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Sprite_handling"><a class="permalink" href="#Sprite_handling">Sprite
+  handling</a></h2>
+<p class="Pp">The newly introduced canvases can have several frames. Sprites are
+    hence completely deprecated.</p>
+<ul class="Bl-bullet">
+  <li><b>caca_load_sprite()</b>: use caca_import_file().</li>
+  <li><b>caca_get_sprite_frames()</b>: use <b>caca_get_frame_count()</b>.</li>
+  <li><b>caca_get_sprite_width()</b>: use <b>caca_get_canvas_width()</b>.</li>
+  <li><b>caca_get_sprite_height()</b>: use <b>caca_get_canvas_height()</b>.</li>
+  <li><b>caca_get_sprite_dx()</b>: use <b>caca_get_canvas_handle_x()</b>.</li>
+  <li><b>caca_get_sprite_dy()</b>: use <b>caca_get_canvas_handle_y()</b>.</li>
+  <li><b>caca_draw_sprite()</b>: use <b>caca_set_frame()</b> and
+      <b>caca_blit()</b>.</li>
+  <li><b>caca_free_sprite()</b>: use <b>caca_free_canvas()</b>.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Bitmap_handling"><a class="permalink" href="#Bitmap_handling">Bitmap
+  handling</a></h2>
+<p class="Pp">Bitmaps have been renamed to dithers, because these objects do not
+    in fact store any pixels, they just have information on how bitmaps will be
+    dithered.</p>
+<ul class="Bl-bullet">
+  <li><b>caca_create_bitmap()</b>: use <b>caca_create_dither()</b>.</li>
+  <li><b>caca_set_bitmap_palette()</b>: use
+    <b>caca_set_dither_palette()</b>.</li>
+  <li><b>caca_draw_bitmap()</b>: use <b>caca_dither_bitmap()</b>.</li>
+  <li><b>caca_free_bitmap()</b>: use <b>caca_free_dither()</b>.</li>
+</ul>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Compilation"><a class="permalink" href="#Compilation">Compilation</a></h1>
+<p class="Pp">The caca-config<b> utility is deprecated in favour of the standard
+    pkg-config</b> interface:</p>
+<p class="Pp"></p>
+<pre>gcc -c foobar.c -o foobar.o `pkg-config --cflags caca`
+gcc foobar.o -o foobar `pkg-config --libs caca`</pre>
+<p class="Pp">caca-config<b> is still provided as a convenience tool but may be
+    removed in the future.</b></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"><b>Sat May 23 2026 23:10:25</b></td>
+    <td class="foot-os"><b>Version 0.99.beta20</b></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="get a function that provides optimized copying to persistent memory">
+<title>pmem2_get_memmove_fn(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pmem2_get_memmove_fn(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">()</td>
+    <td class="head-vol">PMDK Programmer's Manual</td>
+    <td class="head-rtitle">()</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>pmem2_get_memmove_fn</b>(), <b>pmem2_get_memset_fn</b>(),
+    <b>pmem2_get_memcpy_fn</b>() - get a function that provides optimized
+    copying to persistent memory</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+#include &lt;libpmem2.h&gt;
+typedef void *(*pmem2_memmove_fn)(void *pmemdest, const void *src, size_t len,
+<br/>
+        unsigned flags);
+typedef void *(*pmem2_memcpy_fn)(void *pmemdest, const void *src, size_t len,
+<br/>
+        unsigned flags);
+typedef void *(*pmem2_memset_fn)(void *pmemdest, int c, size_t len,
+<br/>
+        unsigned flags);
+struct pmem2_map;
+pmem2_memmove_fn pmem2_get_memmove_fn(struct pmem2_map *map);
+pmem2_memset_fn pmem2_get_memset_fn(struct pmem2_map *map);
+pmem2_memcpy_fn pmem2_get_memcpy_fn(struct pmem2_map *map);
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <b>pmem2_get_memmove_fn</b>(), <b>pmem2_get_memset_fn</b>(),
+    <b>pmem2_get_memcpy_fn</b>() functions return a pointer to a function
+    responsible for efficient storing and flushing of data for mapping
+    <i>map</i>.</p>
+<p class="Pp"><b>pmem2_memmove_fn</b>(), <b>pmem2_memset_fn</b>() and
+    <b>pmem2_memcpy_fn</b>() functions provide the same memory copying
+    functionalities as their namesakes <a class="Xr" href="../3/memmove.html"><b>memmove</b>(3)</a>, <a class="Xr" href="../3/memcpy.html"><b>memcpy</b>(3)</a> and
+    <a class="Xr" href="../3/memset.html"><b>memset</b>(3)</a>, and ensure that the result has been flushed to persistence
+    before returning (unless <b>PMEM2_F_MEM_NOFLUSH</b> flag was used).</p>
+<p class="Pp">For example, the following code:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+<br/>
+        memmove(dest, src, len);
+<br/>
+        pmem2_persist_fn persist_fn = pmem2_get_persist_fn(map);
+<br/>
+        persist_fn(dest, len);
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">is functionally equivalent to:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+<br/>
+        pmem2_memmove_fn memmove_fn = pmem2_get_memmove_fn(map);
+<br/>
+        memmove_fn(dest, src, len, 0);
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">Unlike libc implementation, <b>libpmem2</b> functions guarantee
+    that if destination buffer address and length are 8 byte aligned then all
+    stores will be performed using at least 8 byte store instructions. This
+    means that a series of 8 byte stores followed by <i>persist_fn</i> can be
+    safely replaced by a single <i>memmove_fn</i> call.</p>
+<p class="Pp">The <i>flags</i> argument of all of the above functions has the
+    same meaning. It can be 0 or a bitwise OR of one or more of the following
+    flags:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>PMEM2_F_MEM_NODRAIN</b> - modifies the behavior to skip the final
+      <i>pmem2_drain_fn</i> step. This allows applications to optimize cases
+      where several ranges are being copied to persistent memory, followed by a
+      single call to <i>pmem2_drain_fn</i>. The following example illustrates
+      how this flag might be used to avoid multiple calls to
+      <i>pmem2_drain_fn</i> when copying several ranges of memory to pmem:</dd>
+  <dt></dt>
+  <dd>
+    <pre>
+pmem2_memcpy_fn memcpy_fn = pmem2_get_memcpy_fn(map);
+pmem2_drain_fn drain_fn = pmem2_get_drain_fn(map);
+/* ... write several ranges to pmem ... */
+memcpy_fn(pmemdest1, src1, len1, PMEM2_F_MEM_NODRAIN);
+memcpy_fn(pmemdest2, src2, len2, PMEM2_F_MEM_NODRAIN);
+/* ... */
+/* wait for any pmem stores to drain from HW buffers */
+drain_fn();
+    </pre>
+  </dd>
+  <dt>&#x2022;</dt>
+  <dd><b>PMEM2_F_MEM_NOFLUSH</b> - Don&#x2019;t flush anything. This implies
+      <b>PMEM2_F_MEM_NODRAIN</b>. Using this flag only makes sense when
+      it&#x2019;s followed by any function that flushes data.</dd>
+</dl>
+<p class="Pp">The remaining flags say <i>how</i> the operation should be done,
+    and are merely hints.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>PMEM2_F_MEM_NONTEMPORAL</b> - Use non-temporal instructions. This flag
+      is mutually exclusive with <b>PMEM2_F_MEM_TEMPORAL</b>. On x86_64 this
+      flag is mutually exclusive with <b>PMEM2_F_MEM_NOFLUSH</b>.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>PMEM2_F_MEM_TEMPORAL</b> - Use temporal instructions. This flag is
+      mutually exclusive with <b>PMEM2_F_MEM_NONTEMPORAL</b>.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>PMEM2_F_MEM_WC</b> - Use write combining mode. This flag is mutually
+      exclusive with <b>PMEM2_F_MEM_WB</b>. On x86_64 this flag is mutually
+      exclusive with <b>PMEM2_F_MEM_NOFLUSH</b>.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>PMEM2_F_MEM_WB</b> - Use write back mode. This flag is mutually
+      exclusive with <b>PMEM2_F_MEM_WC</b>. On x86_64 this is an alias for
+      <b>PMEM2_F_MEM_TEMPORAL</b>.</dd>
+</dl>
+<p class="Pp">Using an invalid combination of flags has undefined behavior.</p>
+<p class="Pp">Without any of the above flags <b>libpmem2</b> will try to guess
+    the best strategy based on the data size. See <b>PMEM_MOVNT_THRESHOLD</b>
+    description in <a class="Xr" href="../7/libpmem2.html"><b>libpmem2</b>(7)</a> for details.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">The <b>pmem2_get_memmove_fn</b>(), <b>pmem2_get_memset_fn</b>(),
+    <b>pmem2_get_memcpy_fn</b>() functions never return NULL.</p>
+<p class="Pp">They return the same function for the same mapping.</p>
+<p class="Pp">This means that it&#x2019;s safe to cache their return values.
+    However, these functions are very cheap (because their return values are
+    precomputed), so caching may not be necessary.</p>
+<p class="Pp">If two (or more) mappings share the same <i>pmem2_memmove_fn</i>,
+    <i>pmem2_memset_fn</i>, <i>pmem2_memcpy_fn</i> and they are adjacent to each
+    other, it is safe to call these functions for a range spanning those
+    mappings.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/memcpy.html"><b>memcpy</b>(3)</a>, <a class="Xr" href="../3/memmove.html"><b>memmove</b>(3)</a>, <a class="Xr" href="../3/memset.html"><b>memset</b>(3)</a>,
+    <a class="Xr" href="../3/pmem2_get_drain_fn.html"><b>pmem2_get_drain_fn</b>(3)</a>, <a class="Xr" href="../3/pmem2_get_memmove_fn.html"><b>pmem2_get_memcpy_fn</b>(3)</a>,
+    <a class="Xr" href="../3/pmem2_get_memmove_fn.html"><b>pmem2_get_memset_fn</b>(3)</a>, <a class="Xr" href="../3/pmem2_map_new.html"><b>pmem2_map_new</b>(3)</a>,
+    <a class="Xr" href="../3/pmem2_get_persist_fn.html"><b>pmem2_get_persist_fn</b>(3)</a>, <a class="Xr" href="../7/libpmem2.html"><b>libpmem2</b>(7)</a> and
+    <b>&lt;https://pmem.io&gt;</b></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-05-31</td>
+    <td class="foot-os">PMDK - </td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="buffering BIO">
+<title>BIO_f_buffer(3ssl) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">BIO_f_buffer(3ssl)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#RETURN_VALUES">RETURN
+  VALUES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">BIO_F_BUFFER(3SSL)</td>
+    <td class="head-vol">OpenSSL</td>
+    <td class="head-rtitle">BIO_F_BUFFER(3SSL)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">BIO_get_buffer_num_lines, BIO_set_read_buffer_size,
+    BIO_set_write_buffer_size, BIO_set_buffer_size, BIO_set_buffer_read_data,
+    BIO_f_buffer - buffering BIO</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre> #include &lt;openssl/bio.h&gt;
+ const BIO_METHOD *BIO_f_buffer(void);
+ long BIO_get_buffer_num_lines(BIO *b);
+ long BIO_set_read_buffer_size(BIO *b, long size);
+ long BIO_set_write_buffer_size(BIO *b, long size);
+ long BIO_set_buffer_size(BIO *b, long size);
+ long BIO_set_buffer_read_data(BIO *b, void *buf, long num);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>BIO_f_buffer()</b> returns the buffering BIO method.</p>
+<p class="Pp">Data written to a buffering BIO is buffered and periodically
+    written to the next BIO in the chain. Data read from a buffering BIO comes
+    from an internal buffer which is filled from the next BIO in the chain. Both
+    <b>BIO_gets()</b> and <b>BIO_puts()</b> are supported.</p>
+<p class="Pp">Calling <b>BIO_reset()</b> on a buffering BIO clears any buffered
+    data.</p>
+<p class="Pp"><b>BIO_get_buffer_num_lines()</b> returns the number of lines
+    currently buffered.</p>
+<p class="Pp"><b>BIO_set_read_buffer_size()</b>,
+    <b>BIO_set_write_buffer_size()</b> and <b>BIO_set_buffer_size()</b> set the
+    read, write or both read and write buffer sizes to <b>size</b>. The initial
+    buffer size is DEFAULT_BUFFER_SIZE, currently 4096. Any attempt to reduce
+    the buffer size below DEFAULT_BUFFER_SIZE is ignored. Any buffered data is
+    cleared when the buffer is resized.</p>
+<p class="Pp"><b>BIO_set_buffer_read_data()</b> clears the read buffer and fills
+    it with <b>num</b> bytes of <b>buf</b>. If <b>num</b> is larger than the
+    current buffer size the buffer is expanded.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">These functions, other than <b>BIO_f_buffer()</b>, are implemented
+    as macros.</p>
+<p class="Pp">Buffering BIOs implement <b>BIO_read_ex()</b> and
+    <b>BIO_gets()</b> by using <b>BIO_read_ex()</b> operations on the next BIO
+    in the chain and storing the result in an internal buffer, from which bytes
+    are given back to the caller as appropriate for the call; a
+    <b>BIO_gets()</b> is guaranteed to give the caller a whole line, and
+    <b>BIO_read_ex()</b> is guaranteed to give the caller the number of bytes it
+    asks for, unless there's an error or end of communication is reached in the
+    next BIO. By prepending a buffering BIO to a chain it is therefore possible
+    to provide <b>BIO_gets()</b> or exact size <b>BIO_read_ex()</b>
+    functionality if the following BIOs do not support it.</p>
+<p class="Pp">Do not add more than one <b>BIO_f_buffer()</b> to a BIO chain. The
+    result of doing so will force a full read of the size of the internal buffer
+    of the top <b>BIO_f_buffer()</b>, which is 4 KiB at a minimum.</p>
+<p class="Pp">Data is only written to the next BIO in the chain when the write
+    buffer fills or when <b>BIO_flush()</b> is called. It is therefore important
+    to call <b>BIO_flush()</b> whenever any pending data should be written such
+    as when removing a buffering BIO using <b>BIO_pop()</b>. <b>BIO_flush()</b>
+    may need to be retried if the ultimate source/sink BIO is non blocking.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><b>BIO_f_buffer()</b> returns the buffering BIO method.</p>
+<p class="Pp"><b>BIO_get_buffer_num_lines()</b> returns the number of lines
+    buffered (may be 0) or a negative value in case of errors.</p>
+<p class="Pp"><b>BIO_set_read_buffer_size()</b>,
+    <b>BIO_set_write_buffer_size()</b> and <b>BIO_set_buffer_size()</b> return 1
+    if the buffer was successfully resized or &lt;=0 for failure.</p>
+<p class="Pp"><b>BIO_set_buffer_read_data()</b> returns 1 if the data was set
+    correctly or &lt;=0 if there was an error.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../7ssl/bio.html"><b>bio</b>(7)</a>, <b>BIO_reset</b>(3), <b>BIO_flush</b>(3),
+    <b>BIO_pop</b>(3), <a class="Xr" href="../3ssl/BIO_ctrl.html"><b>BIO_ctrl</b>(3)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright 2000-2021 The OpenSSL Project Authors. All Rights
+    Reserved.</p>
+<p class="Pp">Licensed under the Apache License 2.0 (the &quot;License&quot;).
+    You may not use this file except in compliance with the License. You can
+    obtain a copy in the file LICENSE in the source distribution or at
+    &lt;https://www.openssl.org/source/license.html&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2026-06-02</td>
+    <td class="foot-os">3.0.13</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Template Toolkit views (experimental)">
+<title>Template::Manual::Views(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">Template::Manual::Views(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#Overview">Overview</a></li><li><a href="#Views_as_Template_Collectors/Providers">Views
+  as Template Collectors/Providers</a></li><li><a href="#Local_BLOCK_Definitions">Local
+  BLOCK Definitions</a></li><li><a href="#Preserving_Variable_State_within_Views">Preserving
+  Variable State within Views</a></li><li><a href="#Inheritance,_Delegation_and_Reuse">Inheritance,
+  Delegation and Reuse</a></li><li><a href="#Self-Reference">Self-Reference</a></li><li><a href="#Saving_References_to_External_Views">Saving
+  References to External Views</a></li><li><a href="#Views_as_Data_Presenters">Views
+  as Data Presenters</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">Template::Manual::Views(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">Template::Manual::Views(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">Template::Manual::Views - Template Toolkit views
+  (experimental)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Overview"><a class="permalink" href="#Overview">Overview</a></h1>
+<p class="Pp">A view is effectively a collection of templates and/or variable
+    definitions which can be passed around as a self-contained unit. This then
+    represents a particular interface or presentation style for other objects or
+    items of data.</p>
+<p class="Pp">You can use views to implement custom &quot;skins&quot; for an
+    application or content set. You can use them to help simplify the
+    presentation of common objects or data types. You can even use then to
+    automate the presentation of complex data structures such as that generated
+    in an <span class="Li">&quot;XML::DOM&quot;</span> tree or similar. You let
+    an iterator do the walking, and the view does the talking (or in this case,
+    the presenting). Voila - you have view independent, structure shy traversal
+    using templates.</p>
+<p class="Pp">In general, views can be used in a number of different ways to
+    achieve several different things. They elegantly solve some problems which
+    were otherwise difficult or complicated, and make easy some things that were
+    previously hard.</p>
+<p class="Pp">At the moment, they're still very experimental. The directive
+    syntax and underlying API are likely to change quite considerably over the
+    next version or two. Please be very wary about building your multi-million
+    dollar e-commerce solutions based around this feature.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Views_as_Template_Collectors/Providers"><a class="permalink" href="#Views_as_Template_Collectors/Providers">Views
+  as Template Collectors/Providers</a></h1>
+<p class="Pp">The <span class="Li">&quot;VIEW&quot;</span> directive starts a
+    view definition and includes a name by which the view can be referenced. The
+    view definition continues up to the matching
+    <span class="Li">&quot;END&quot;</span> directive.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW myview %]
+       ...
+    [% END %]
+</pre>
+<p class="Pp">The first role of a view is to act as a collector and provider of
+    templates. The <span class="Li">include()</span> method can be called on a
+    view to effectively do the same thing as the
+    <span class="Li">&quot;INCLUDE&quot;</span> directive. The template name is
+    passed as the first argument, followed by any local variable definitions for
+    the template.</p>
+<p class="Pp"></p>
+<pre>    [% myview.include('header', title='The Title') %]
+    
+    # equivalent to
+    [% INCLUDE header  title='The Title' %]
+</pre>
+<p class="Pp">Views accept a number of configuration options which can be used
+    to control different aspects of their behaviour. The
+    '<span class="Li">&quot;prefix&quot;</span>' and
+    '<span class="Li">&quot;suffix&quot;</span>' options can be specified to add
+    a fixed prefix and/or suffix to the name of each template.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW myview 
+         prefix = 'my/'
+         suffix = '.tt2' ;
+       END
+    %]
+</pre>
+<p class="Pp">Now the call</p>
+<p class="Pp"></p>
+<pre>    [% myview.include('header', title='The Title') %]
+</pre>
+<p class="Pp">is equivalent to</p>
+<p class="Pp"></p>
+<pre>    [% INCLUDE my/header.tt2  title='The Title' %]
+</pre>
+<p class="Pp">Views provide an <span class="Li">&quot;AUTOLOAD&quot;</span>
+    method which maps method names to the <span class="Li">include()</span>
+    method. Thus, the following are all equivalent:</p>
+<p class="Pp"></p>
+<pre>    [% myview.include('header', title='Hello World') %]
+    [% myview.include_header(title='Hello World') %]
+    [% myview.header(title='Hello World') %]
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Local_BLOCK_Definitions"><a class="permalink" href="#Local_BLOCK_Definitions">Local
+  BLOCK Definitions</a></h1>
+<p class="Pp">A <span class="Li">&quot;VIEW&quot;</span> definition can include
+    <span class="Li">&quot;BLOCK&quot;</span> definitions which remain local to
+    the view. A request for a particular template will return a
+    <span class="Li">&quot;BLOCK&quot;</span>, if defined, in preference to any
+    other template of the same name.</p>
+<p class="Pp"></p>
+<pre>    [% BLOCK foo %]
+       public foo block
+    [% END %]
+    
+    [% VIEW plain %]
+       [% BLOCK foo %]
+       plain foo block
+       [% END %]
+    [% END %]
+    
+    [% VIEW fancy %]
+       [% BLOCK foo %]
+       fancy foo block
+       [% END %]
+    [% END %]
+    
+    [% INCLUDE foo %]       # public foo block
+    [% plain.foo %]         # plain foo block 
+    [% fancy.foo %]         # fancy foo block
+</pre>
+<p class="Pp">In addition to <span class="Li">&quot;BLOCK&quot;</span>
+    definitions, a <span class="Li">&quot;VIEW&quot;</span> can contain any
+    other template directives. The entire
+    <span class="Li">&quot;VIEW&quot;</span> definition block is processed to
+    initialise the view but no output is generated (this may change RSN - and
+    get stored as '<span class="Li">&quot;output&quot;</span>' item,
+    subsequently accessible as <span class="Li">&quot;[%</span>
+    <span class="Li">view.output %]&quot;</span>). However, directives that have
+    side-effects, such as those that update a variable, will have noticeable
+    consequences.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Preserving_Variable_State_within_Views"><a class="permalink" href="#Preserving_Variable_State_within_Views">Preserving
+  Variable State within Views</a></h1>
+<p class="Pp">Views can also be used to save the values of any existing
+    variables, or to create new ones at the point at which the view is defined.
+    Unlike simple template metadata (<span class="Li">&quot;META&quot;</span>)
+    which can only contain static string values, the view initialisation block
+    can contain any template directives and generate any kind of dynamic output
+    and/or data items.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW my_web_site %]
+       [% view.title   = title or 'My Cool Web Site' %]
+       [% view.author  = &quot;$abw.name, $abw.email&quot; %]
+       [% view.sidebar = INCLUDE my/sidebar.tt2 %]
+    [% END %]
+</pre>
+<p class="Pp">Note that additional data items can be specified as arguments to
+    the <span class="Li">&quot;VIEW&quot;</span> directive. Anything that
+    doesn't look like a configuration parameter is assumed to be a data item.
+    This can be a little hazardous, of course, because you never know when a new
+    configuration item might get added which interferes with your data.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW my_web_site
+            # config options
+            prefix = 'my/'
+            # misc data
+            title   = title or 'My Cool Web Site'
+            author  = &quot;$abw.name, $abw.email&quot;
+            sidebar = INCLUDE my/sidebar.tt2 
+    %]
+       ...
+    [% END %]
+</pre>
+<p class="Pp">Outside of the view definition you can access the view variables
+    as, for example:</p>
+<p class="Pp"></p>
+<pre>    [% my_web_site.title %]
+</pre>
+<p class="Pp">One important feature is the equivalence of simple variables and
+    templates. You can implement the view item
+    '<span class="Li">&quot;title&quot;</span>' as a simple variable, a template
+    defined in an external file, possibly with a prefix/suffix automatically
+    appended, or as a local <span class="Li">&quot;BLOCK&quot;</span> definition
+    within the <span class="Li">&quot;[% VIEW %] ... [% END %]&quot;</span>
+    definition. If you use the syntax above then the view will Do The Right
+    Thing to return the appropriate output.</p>
+<p class="Pp">At the <span class="Li">&quot;END&quot;</span> of the
+    <span class="Li">&quot;VIEW&quot;</span> definition the view is
+    &quot;sealed&quot; to prevent you from accidentally updating any variable
+    values. If you attempt to change the value of a variable after the
+    <span class="Li">&quot;END&quot;</span> of the
+    <span class="Li">&quot;VIEW&quot;</span> definition block then a
+    <span class="Li">&quot;view&quot;</span> error will be thrown.</p>
+<p class="Pp"></p>
+<pre>    [% TRY; 
+         my_web_site.title = 'New Title';
+       CATCH;
+         error;
+       END
+    %]
+</pre>
+<p class="Pp">The error above will be reported as:</p>
+<p class="Pp"></p>
+<pre>    view error - cannot update item in sealed view: title
+</pre>
+<p class="Pp">The same is true if you pass a parameter to a view variable. This
+    is interpreted as an attempt to update the variable and will raise the same
+    warning.</p>
+<p class="Pp"></p>
+<pre>    [% my_web_site.title('New Title') %]    # view error!
+</pre>
+<p class="Pp">You can set the <span class="Li">&quot;silent&quot;</span>
+    parameter to have the view ignore these parameters and simply return the
+    variable value.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW my_web_site
+            silent = 1
+            title  = title or 'My Cool Web Site'
+            # ... ;
+       END
+    %]
+    
+    [% my_web_site.title('Blah Blah') %]   # My Cool Web Site
+</pre>
+<p class="Pp">Alternately, you can specify that a view is unsealed allowing
+    existing variables to be updated and new variables defined.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW my_web_site
+            sealed = 0
+            title  = title or 'My Cool Web Site'
+            # ... ;
+       END
+    %]
+    
+    [% my_web_site.title('Blah Blah') %]   # Blah Blah
+    [% my_web_site.title %]                # Blah Blah
+</pre>
+<section class="Ss">
+<h2 class="Ss" id="Inheritance,_Delegation_and_Reuse"><a class="permalink" href="#Inheritance,_Delegation_and_Reuse">Inheritance,
+  Delegation and Reuse</a></h2>
+<p class="Pp">Views can be inherited from previously defined views by use of the
+    <span class="Li">&quot;base&quot;</span> parameter. This example shows how a
+    base class view is defined which applies a
+    <span class="Li">&quot;view/default/&quot;</span> prefix to all template
+    names.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW my.view.default
+            prefix = 'view/default/';
+       END
+    %]
+</pre>
+<p class="Pp">Thus the directive:</p>
+<p class="Pp"></p>
+<pre>    [% my.view.default.header(title='Hello World') %]
+</pre>
+<p class="Pp">is now equivalent to:</p>
+<p class="Pp"></p>
+<pre>    [% INCLUDE view/default/header title='Hello World' %]
+</pre>
+<p class="Pp">A second view can be defined which specifies the default view as a
+    base.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW my.view.fancy
+            base   = my.view.default
+            prefix = 'view/fancy/';
+       END
+    %]
+</pre>
+<p class="Pp">Now the directive:</p>
+<p class="Pp"></p>
+<pre>    [% my.view.fancy.header(title='Hello World') %]
+</pre>
+<p class="Pp">will resolve to:</p>
+<p class="Pp"></p>
+<pre>    [% INCLUDE view/fancy/header title='Hello World' %]
+</pre>
+<p class="Pp">or if that doesn't exist, it will be handled by the base view
+  as:</p>
+<p class="Pp"></p>
+<pre>    [% INCLUDE view/default/header title='Hello World' %]
+</pre>
+<p class="Pp">When a parent view is specified via the
+    <span class="Li">&quot;base&quot;</span> parameter, the delegation of a view
+    to its parent for fetching templates and accessing user defined variables is
+    automatic. You can also implement your own inheritance, delegation or other
+    reuse patterns by explicitly delegating to other views.</p>
+<p class="Pp"></p>
+<pre>    [% BLOCK foo %]
+       public foo block
+    [% END %]
+    
+    [% VIEW plain %]
+       [% BLOCK foo %]
+       &lt;plain&gt;[% PROCESS foo %]&lt;/plain&gt;
+       [% END %]
+    [% END %]
+    
+    [% VIEW fancy %]
+       [% BLOCK foo %]
+       [% plain.foo | replace('plain', 'fancy') %]
+       [% END %]
+    [% END %]
+    [% plain.foo %]     # &lt;plain&gt;public foo block&lt;/plain&gt;
+    [% fancy.foo %]     # &lt;fancy&gt;public foo block&lt;/fancy&gt;
+</pre>
+<p class="Pp">Note that the regular
+    <span class="Li">&quot;INCLUDE/PROCESS/WRAPPER&quot;</span> directives work
+    entirely independently of views and will always get the original, unaltered
+    template name rather than any local per-view definition.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Self-Reference"><a class="permalink" href="#Self-Reference">Self-Reference</a></h2>
+<p class="Pp">A reference to the view object under definition is available with
+    the <span class="Li">&quot;VIEW ... END&quot;</span> block by its specified
+    name and also by the special name '<span class="Li">&quot;view&quot;</span>'
+    (similar to the <span class="Li">&quot;my $self = shift;&quot;</span> in a
+    Perl method or the '<span class="Li">&quot;this&quot;</span>' pointer in
+    C++, etc). The view is initially unsealed allowing any data items to be
+    defined and updated within the <span class="Li">&quot;VIEW ...
+    END&quot;</span> block. The view is automatically sealed at the end of the
+    definition block, preventing any view data from being subsequently
+  changed.</p>
+<p class="Pp">(NOTE: sealing should be optional. As well as sealing a view to
+    prevent updates (<span class="Li">&quot;SEALED&quot;</span>), it should be
+    possible to set an option in the view to allow external contexts to update
+    existing variables (<span class="Li">&quot;UPDATE&quot;</span>) or even
+    create totally new view variables
+    (<span class="Li">&quot;CREATE&quot;</span>)).</p>
+<p class="Pp"></p>
+<pre>    [% VIEW fancy %]
+       [% fancy.title  = 'My Fancy Title' %]
+       [% fancy.author = 'Frank Open' %]
+       [% fancy.col    = { bg =&gt; '#ffffff', bar =&gt; '#a0a0ff' } %]
+    [% END %]
+</pre>
+<p class="Pp">or</p>
+<p class="Pp"></p>
+<pre>    [% VIEW fancy %]
+       [% view.title  = 'My Fancy Title' %]
+       [% view.author = 'Frank Open' %]
+       [% view.col    = { bg =&gt; '#ffffff', bar =&gt; '#a0a0ff' } %]
+    [% END %]
+</pre>
+<p class="Pp">It makes no real difference in this case if you refer to the view
+    by its name, '<span class="Li">&quot;fancy&quot;</span>', or by the general
+    name, '<span class="Li">&quot;view&quot;</span>'. Outside of the view block,
+    however, you should always use the given name,
+    '<span class="Li">&quot;fancy&quot;</span>':</p>
+<p class="Pp"></p>
+<pre>    [% fancy.title  %]
+    [% fancy.author %]
+    [% fancy.col.bg %]
+</pre>
+<p class="Pp">The choice of given name or
+    '<span class="Li">&quot;view&quot;</span>' is much more important when it
+    comes to <span class="Li">&quot;BLOCK&quot;</span> definitions within a
+    <span class="Li">&quot;VIEW&quot;</span>. It is generally recommended that
+    you use '<span class="Li">&quot;view&quot;</span>' inside a
+    <span class="Li">&quot;VIEW&quot;</span> definition because this is
+    guaranteed to be correctly defined at any point in the future when the block
+    gets called. The original name of the view might have long since been
+    changed or reused but the self-reference via
+    '<span class="Li">&quot;view&quot;</span>' should always be intact and
+    valid.</p>
+<p class="Pp">Take the following VIEW as an example:</p>
+<p class="Pp"></p>
+<pre>    [% VIEW foo %]
+       [% view.title = 'Hello World' %]
+       [% BLOCK header %]
+       Title: [% view.title %]
+       [% END %]
+    [% END %]
+</pre>
+<p class="Pp">Even if we rename the view, or create a new
+    <span class="Li">&quot;foo&quot;</span> variable, the header block still
+    correctly accesses the <span class="Li">&quot;title&quot;</span> attribute
+    of the view to which it belongs. Whenever a view
+    <span class="Li">&quot;BLOCK&quot;</span> is processed, the
+    <span class="Li">&quot;view&quot;</span> variable is always updated to
+    contain the correct reference to the view object to which it belongs.</p>
+<p class="Pp"></p>
+<pre>    [% bar = foo %]
+    [% foo = { title =&gt; &quot;New Foo&quot; } %]  # no problem
+    [% bar.header %]                    # =&gt; Title: Hello World
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Saving_References_to_External_Views"><a class="permalink" href="#Saving_References_to_External_Views">Saving
+  References to External Views</a></h2>
+<p class="Pp">When it comes to view inheritance, it's always a good idea to take
+    a local copy of a parent or delegate view and store it as an attribute
+    within the view for later use. This ensures that the correct view reference
+    is always available, even if the external name of a view has been
+  changed.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW plain %]
+       ...
+    [% END %]
+    
+    [% VIEW fancy %]
+       [% view.plain = plain %]
+       [% BLOCK foo %]
+       [% view.plain.foo | replace('plain', 'fancy') %]
+       [% END %]
+    [% END %]
+    
+    [% plain.foo %]         # =&gt; &lt;plain&gt;public foo block&lt;/plain&gt;
+    [% plain = 'blah' %]    # no problem
+    [% fancy.foo %]         # =&gt; &lt;fancy&gt;public foo block&lt;/fancy&gt;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Views_as_Data_Presenters"><a class="permalink" href="#Views_as_Data_Presenters">Views
+  as Data Presenters</a></h2>
+<p class="Pp">Another key role of a view is to act as a dispatcher to
+    automatically apply the correct template to present a particular object or
+    data item. This is handled via the <span class="Li">print()</span>
+  method.</p>
+<p class="Pp">Here's an example:</p>
+<p class="Pp"></p>
+<pre>    [% VIEW foo %]
+    
+       [% BLOCK text %]
+          Some text: [% item %]
+       [% END %]
+       
+       [% BLOCK hash %]
+          a hash:
+          [% FOREACH key = item.keys.sort -%]
+             [% key %] =&gt; [% item.$key %]
+          [% END -%]
+       [% END %]
+       
+       [% BLOCK list %]
+          a list: [% item.sort.join(', ') %]
+       [% END %]
+       
+    [% END %]
+</pre>
+<p class="Pp">We can now use the view to print text, hashes or lists. The
+    <span class="Li">print()</span> method includes the right template depending
+    on the typing of the argument (or arguments) passed.</p>
+<p class="Pp"></p>
+<pre>    [% some_text = 'I read the news today, oh boy.' %]
+    [% a_hash    = { house =&gt; 'Lords', hall =&gt; 'Albert' } %]
+    [% a_list    = [ 'sure', 'Nobody', 'really' ] %]
+    
+    [% view.print(some_text) %]
+                        # Some text: I read the news today, oh boy.
+                        
+    [% view.print(a_hash) %]
+                        # a hash:
+                             hall =&gt; Albert
+                             house =&gt; Lords
+    [% view.print(a_list) %]
+                        # a list: Nobody, really, sure
+</pre>
+<p class="Pp">You can also provide templates to print objects of any other
+    class. The class name is mapped to a template name with all non-word
+    character sequences such as '<span class="Li">&quot;::&quot;</span>'
+    converted to a single '<span class="Li">&quot;_&quot;</span>'.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW foo %]
+       [% BLOCK Foo_Bar %]
+          a Foo::Bar object: 
+              thingies: [% view.print(item.thingies) %]
+               doodahs: [% view.print(item.doodahs)  %]
+       [% END %]
+    [% END %]
+    
+    [% USE fubar = Foo::Bar(...) %]
+    
+    [% foo.print(fubar) %]
+</pre>
+<p class="Pp">Note how we use the view object to display various items within
+    the objects ('<span class="Li">&quot;thingies&quot;</span>' and
+    '<span class="Li">&quot;doodahs&quot;</span>'). We don't need to worry what
+    kind of data these represent (text, list, hash, etc) because we can let the
+    view worry about it, automatically mapping the data type to the correct
+    template.</p>
+<p class="Pp">Views may define their own type =&gt; template map.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW foo 
+         map = { TEXT  =&gt; 'plain_text',
+                 ARRAY =&gt; 'show_list', 
+                 HASH  =&gt; 'show_hash',
+                 My::Module =&gt; 'template_name'
+                 default    =&gt; 'any_old_data'
+               }
+    %]
+        [% BLOCK plain_text %]
+           ...
+        [% END %]
+       
+        ...
+    [% END %]
+</pre>
+<p class="Pp">They can also provide a
+    <span class="Li">&quot;default&quot;</span> map entry, specified as part of
+    the <span class="Li">&quot;map&quot;</span> hash or as a parameter by
+    itself.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW foo 
+         map     = { ... },
+         default = 'whatever'
+    %]
+       ...
+    [% END %]
+</pre>
+<p class="Pp">or</p>
+<p class="Pp"></p>
+<pre>    [% VIEW foo %]
+       [% view.map     = { ... }
+          view.default = 'whatever'
+       %]
+       ...
+    [% END %]
+</pre>
+<p class="Pp">The <span class="Li">print()</span> method provides one more piece
+    of magic. If you pass it a reference to an object which provides a
+    <span class="Li">present()</span> method, then the method will be called
+    passing the view as an argument. This then gives any object a chance to
+    determine how it should be presented via the view.</p>
+<p class="Pp"></p>
+<pre>    package Foo::Bar;
+    ...
+    sub present {
+        my ($self, $view) = @_;
+        return &quot;a Foo::Bar object:\n&quot;
+             . &quot;thingies: &quot; . $view-&gt;print($self-&gt;{ _THINGIES }) . &quot;\n&quot;
+             . &quot;doodahs: &quot; . $view-&gt;print($self-&gt;{ _DOODAHS }) . &quot;\n&quot;;
+    }
+</pre>
+<p class="Pp">The object is free to delve deeply into its innards and mess
+    around with its own private data, before presenting the relevant data via
+    the view. In a more complex example, a <span class="Li">present()</span>
+    method might walk part of a tree making calls back against the view to
+    present different nodes within the tree. We may not want to expose the
+    internal structure of the tree (because that would break encapsulation and
+    make our presentation code dependant on it) but we want to have some way of
+    walking the tree and presenting items found in a particular manner.</p>
+<p class="Pp">This is known as <i>Structure Shy Traversal</i>. Our view object
+    doesn't require prior knowledge about the internal structure of any data set
+    to be able to traverse it and present the data contained therein. The data
+    items themselves, via the <span class="Li">present()</span> method, can
+    implement the internal iterators to guide the view along the right path to
+    presentation happiness.</p>
+<p class="Pp">The upshot is that you can use views to greatly simplify the
+    display of data structures like <span class="Li">&quot;XML::DOM&quot;</span>
+    trees. The documentation for the
+    <span class="Li">&quot;Template::Plugin::XML::DOM&quot;</span> module
+    contains an example of this. In essence, it looks something like this:</p>
+<p class="Pp">XML source:</p>
+<p class="Pp"></p>
+<pre>    &lt;user name=&quot;Andy Wardley&quot;&gt;
+        &lt;project id=&quot;iCan&quot; title=&quot;iCan, but theyCan't&quot;/&gt;
+        &lt;project id=&quot;p45&quot;  title=&quot;iDid, but theyDidn't&quot;/&gt;
+    &lt;/user&gt;
+</pre>
+<p class="Pp">TT View:</p>
+<p class="Pp"></p>
+<pre>    [% VIEW fancy %]
+       [% BLOCK user %]
+          User: [% item.name %]
+                [% item.content(myview) %]
+       [% END %]
+       
+       [% BLOCK project %]
+            Project: [% project.id %] - [% project.name %]
+       [% END %]
+    [% END %]
+</pre>
+<p class="Pp">Generate view:</p>
+<p class="Pp"></p>
+<pre>    [% USE dom = XML.DOM %]
+    [% fancy.print(dom.parse(xml_source)) %]
+</pre>
+<p class="Pp">Output:</p>
+<p class="Pp"></p>
+<pre>          User: Andy Wardley
+            Project: iCan - iCan, but theyCan't
+            Project: p45 - iDid, but theyDidn't
+</pre>
+<p class="Pp">The same approach can be applied to many other areas. Here's an
+    example from the
+    <span class="Li">&quot;File&quot;</span>/<span class="Li">&quot;Directory&quot;</span>
+    plugins.</p>
+<p class="Pp"></p>
+<pre>    [% VIEW myview %]
+       [% BLOCK file %]
+          - [% item.name %]
+       [% END %]
+        
+       [% BLOCK directory %]
+          * [% item.name %]
+            [% item.content(myview) FILTER indent %]
+       [% END %]
+    [% END %]
+    
+    [% USE dir = Directory(dirpath) %]
+    [% myview.print(dir) %]
+</pre>
+<p class="Pp">And here's the same approach use to convert POD documentation to
+    any other format via template.</p>
+<p class="Pp"></p>
+<pre>    [%  # load Pod plugin and parse source file into Pod Object Model
+        USE Pod;
+        pom = Pod.parse_file(my_pod_file);
+        
+        # define view to map all Pod elements to &quot;pod/html/xxx&quot; templates
+        VIEW pod2html
+            prefix='pod/html';
+        END;
+        
+        # now print document via view (i.e. as HTML)
+        pod2html.print(pom) 
+    %]
+</pre>
+<p class="Pp">Here we simply define a template prefix for the view which causes
+    the view to look for <span class="Li">&quot;pod/html/head1&quot;</span>,
+    <span class="Li">&quot;pod/html/head2&quot;</span>,
+    <span class="Li">&quot;pod/html/over&quot;</span> as templates to present
+    the different sections of the parsed Pod document.</p>
+<p class="Pp">There are some examples in the Template Toolkit test suite:
+    <i>t/pod.t</i> and <i>t/view.t</i> which may shed some more light on this.
+    See the distribution sub-directory <i>examples/pod/html</i> for examples of
+    Pod -&gt; HTML templates.</p>
+</section>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2026-05-30</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

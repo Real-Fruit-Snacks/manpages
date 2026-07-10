@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Attach, detach or inspect portable service images">
+<title>portablectl(1) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">portablectl(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#COMMANDS">COMMANDS</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#FILES_AND_DIRECTORIES">FILES
+  AND DIRECTORIES</a></li><li><a href="#PROFILES">PROFILES</a></li><li><a href="#EXIT_STATUS">EXIT
+  STATUS</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#NOTES">NOTES</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PORTABLECTL(1)</td>
+    <td class="head-vol">portablectl</td>
+    <td class="head-rtitle">PORTABLECTL(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">portablectl - Attach, detach or inspect portable service
+  images</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp HP"><b>portablectl</b> [OPTIONS...] {COMMAND} [NAME...]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>portablectl</b> may be used to attach, detach or inspect
+    portable service images. It's primarily a command interfacing with
+    <a class="Xr" href="../8/systemd-portabled.service.html"><b>systemd-portabled.service</b>(8)</a>.</p>
+<p class="Pp">Portable service images contain an OS file system tree along with
+    <a class="Xr" href="../1/systemd.html"><b>systemd</b>(1)</a> unit file information. A service image may be
+    &quot;attached&quot; to the local system. If attached, a set of unit files
+    are copied from the image to the host, and extended with
+    <i>RootDirectory=</i> or <i>RootImage=</i> assignments (in case of service
+    units) pointing to the image file or directory, ensuring the services will
+    run within the file system context of the image.</p>
+<p class="Pp">Portable service images are an efficient way to bundle multiple
+    related services and other units together, and transfer them as a whole
+    between systems. When these images are attached the local system the
+    contained units may run in most ways like regular system-provided units,
+    either with full privileges or inside strict sandboxing, depending on the
+    selected configuration. For more details, see <b>Portable Services
+    Documentation</b>[1].</p>
+<p class="Pp">Specifically portable service images may be of the following
+  kind:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Directory trees containing an OS, including the
+  top-level directories /usr/, /etc/, and so on.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;btrfs subvolumes containing OS trees, similar to
+  normal directory trees.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Binary &quot;raw&quot; disk images containing MBR
+  or GPT partition tables and Linux file system partitions. (These must be
+  regular files, with the .raw suffix.)</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMANDS"><a class="permalink" href="#COMMANDS">COMMANDS</a></h1>
+<p class="Pp">The following commands are understood:</p>
+<p class="Pp"><b>list</b></p>
+<div class="Bd-indent">List available portable service images. This will list
+  all portable service images discovered in the portable image search paths (see
+  below), along with brief metadata and state information. Note that many of the
+  commands below may both operate on images inside and outside of the search
+  paths. This command is hence mostly a convenience option, the commands are
+  generally not restricted to what this list shows.
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>attach</b> <i>IMAGE</i> [<i>PREFIX...</i>]</p>
+<div class="Bd-indent">Attach a portable service image to the host system.
+  Expects a file system path to a portable service image file or directory as
+  first argument. If the specified path contains no slash character
+  (&quot;/&quot;) it is understood as image filename that is searched for in the
+  portable service image search paths (see below). To reference a file in the
+  current working directory prefix the filename with &quot;./&quot; to avoid
+  this search path logic.
+<p class="Pp">When a portable service is attached four operations are
+  executed:</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.All unit files of types .service, .socket, .target,
+  .timer and .path which match the indicated unit file name prefix are copied
+  from the image to the host's /etc/systemd/system.attached/ directory (or
+  /run/systemd/system.attached/ &#x2014; depending whether <b>--runtime</b> is
+  specified, see below), which is included in the built-in unit search path of
+  the system service manager.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.For unit files of type .service a drop-in is added to
+  these copies that adds <i>RootDirectory=</i> or <i>RootImage=</i> settings
+  (see <a class="Xr" href="../5/systemd.unit.html"><b>systemd.unit</b>(5)</a> for details), that ensures these services are run
+  within the file system of the originating portable service image.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 3.A second drop-in is created: the &quot;profile&quot;
+  drop-in, that may contain additional security settings (and other settings). A
+  number of profiles are available by default but administrators may define
+  their own ones. See below.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 4.If the portable service image file is not already in
+  the search path (see below), a symbolic link to it is created in
+  /etc/portables/ or /run/portables/, to make sure it is included in it.</div>
+<p class="Pp">By default all unit files whose names start with a prefix
+    generated from the image's file name are copied out. Specifically, the
+    prefix is determined from the image file name with any suffix such as .raw
+    removed, truncated at the first occurrence of an underscore character
+    (&quot;_&quot;), if there is one. The underscore logic is supposed to be
+    used to versioning so that the an image file foobar_47.11.raw will result in
+    a unit file matching prefix of foobar. This prefix is then compared with all
+    unit files names contained in the image in the usual directories, but only
+    unit file names where the prefix is followed by &quot;-&quot;, &quot;.&quot;
+    or &quot;@&quot; are considered. Example: if a portable service image file
+    is named foobar_47.11.raw then by default all its unit files with names such
+    as foobar-quux-waldi.service, foobar.service or foobar@.service will be
+    considered. It's possible to override the matching prefix: all strings
+    listed on the command line after the image file name are considered
+    prefixes, overriding the implicit logic where the prefix is derived from the
+    image file name.</p>
+<p class="Pp">By default, after the unit files are attached the service
+    manager's configuration is reloaded, except when <b>--no-reload</b> is
+    specified (see below). This ensures that the new units made available to the
+    service manager are seen by it.</p>
+<p class="Pp">If <b>--now</b> and/or <b>--enable</b> are passed, the portable
+    services are immediately started (blocking operation unless
+    <b>--no-block</b> is passed) and/or enabled after attaching the image.</p>
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>detach</b> <i>IMAGE</i> [<i>PREFIX...</i>]</p>
+<div class="Bd-indent">Detaches a portable service image from the host. This
+  undoes the operations executed by the <b>attach</b> command above, and removes
+  the unit file copies, drop-ins and image symlink again. This command expects
+  an image name or path as parameter. Note that if a path is specified only the
+  last component of it (i.e. the file or directory name itself, not the path to
+  it) is used for finding matching unit files. This is a convenience feature to
+  allow all arguments passed as <b>attach</b> also to <b>detach</b>.
+<p class="Pp">Added in version 239.</p>
+<p class="Pp">If <b>--now</b> and/or <b>--enable</b> are passed, the portable
+    services are immediately stopped (blocking operation) and/or disabled before
+    detaching the image. Prefix(es) are also accepted, to be used in case the
+    unit names do not match the image name as described in the
+  <b>attach</b>.</p>
+</div>
+<p class="Pp"><b>reattach</b> <i>IMAGE</i> [<i>PREFIX...</i>]</p>
+<div class="Bd-indent">Detaches an existing portable service image from the
+  host, and immediately attaches it again. This is useful in case the image was
+  replaced. Running units are not stopped during the process. Partial matching,
+  to allow for different versions in the image name, is allowed: only the part
+  before the first &quot;_&quot; character has to match. If the new image
+  doesn't exist, the existing one will not be detached. The parameters follow
+  the same syntax as the <b>attach</b> command.
+<p class="Pp">Added in version 248.</p>
+<p class="Pp">If <b>--now</b> and/or <b>--enable</b> are passed, the portable
+    services are immediately stopped if removed, started and/or enabled if
+    added, or restarted if updated. Prefixes are also accepted, in the same way
+    as described in the <b>attach</b> case.</p>
+</div>
+<p class="Pp"><b>inspect</b> <i>IMAGE</i> [<i>PREFIX...</i>]</p>
+<div class="Bd-indent">Extracts various metadata from a portable service image
+  and presents it to the caller. Specifically, the <a class="Xr" href="../5/os-release.html"><b>os-release</b>(5)</a> file of
+  the image is retrieved as well as all matching unit files. By default a short
+  summary showing the most relevant metadata in combination with a list of
+  matching unit files is shown (that is the unit files <b>attach</b> would
+  install to the host system). If combined with <b>--cat</b> (see above), the
+  os-release data and the units files' contents is displayed unprocessed. This
+  command is useful to determine whether an image qualifies as portable service
+  image, and which unit files are included. This command expects the path to the
+  image as parameter, optionally followed by a list of unit file prefixes to
+  consider, similar to the <b>attach</b> command described above.
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>is-attached</b> <i>IMAGE</i></p>
+<div class="Bd-indent">Determines whether the specified image is currently
+  attached or not. Unless combined with the <b>--quiet</b> switch this will show
+  a short state identifier for the image. Specifically:
+<p class="Pp"><b>Table&#x00A0;1.&#x00A0;Image attachment states</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td><b>State</b></td>
+    <td><b>Description</b></td>
+  </tr>
+  <tr>
+    <td><b>detached</b></td>
+    <td>The image is currently not attached.</td>
+  </tr>
+  <tr>
+    <td><b>attached</b></td>
+    <td>The image is currently attached, i.e. its unit files have been made
+      available to the host system.</td>
+  </tr>
+  <tr>
+    <td><b>attached-runtime</b></td>
+    <td>Like <b>attached</b>, but the unit files have been made available
+      transiently only, i.e. the <b>attach</b> command has been invoked with the
+      <b>--runtime</b> option.</td>
+  </tr>
+  <tr>
+    <td><b>enabled</b></td>
+    <td>The image is currently attached, and at least one unit file associated
+      with it has been enabled.</td>
+  </tr>
+  <tr>
+    <td><b>enabled-runtime</b></td>
+    <td>Like <b>enabled</b>, but the unit files have been made available
+      transiently only, i.e. the <b>attach</b> command has been invoked with the
+      <b>--runtime</b> option.</td>
+  </tr>
+  <tr>
+    <td><b>running</b></td>
+    <td>The image is currently attached, and at least one unit file associated
+      with it is running.</td>
+  </tr>
+  <tr>
+    <td><b>running-runtime</b></td>
+    <td>The image is currently attached transiently, and at least one unit file
+      associated with it is running.</td>
+  </tr>
+</table>
+<p class="Pp">Added in version 239.
+  <br/>
+</p>
+</div>
+<p class="Pp"><b>read-only</b> <i>IMAGE</i> [<i>BOOL</i>]</p>
+<div class="Bd-indent">Marks or (unmarks) a portable service image read-only.
+  Takes an image name, followed by a boolean as arguments. If the boolean is
+  omitted, positive is implied, i.e. the image is marked read-only.
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>remove</b> <i>IMAGE</i>...</p>
+<div class="Bd-indent">Removes one or more portable service images. Note that
+  this command will only remove the specified image path itself &#x2014; it
+  refers to a symbolic link then the symbolic link is removed and not the image
+  it points to.
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>set-limit</b> [<i>IMAGE</i>] <i>BYTES</i></p>
+<div class="Bd-indent">Sets the maximum size in bytes that a specific portable
+  service image, or all images, may grow up to on disk (disk quota). Takes
+  either one or two parameters. The first, optional parameter refers to a
+  portable service image name. If specified, the size limit of the specified
+  image is changed. If omitted, the overall size limit of the sum of all images
+  stored locally is changed. The final argument specifies the size limit in
+  bytes, possibly suffixed by the usual K, M, G, T units. If the size limit
+  shall be disabled, specify &quot;-&quot; as size.
+<p class="Pp">Note that per-image size limits are only supported on btrfs file
+    systems. Also, depending on <i>BindPaths=</i> settings in the portable
+    service's unit files directories from the host might be visible in the image
+    environment during runtime which are not affected by this setting, as only
+    the image itself is counted against this limit.</p>
+<p class="Pp">Added in version 239.</p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">The following options are understood:</p>
+<p class="Pp"><b>-q</b>, <b>--quiet</b></p>
+<div class="Bd-indent">Suppresses additional informational output while running.
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>-p</b> <i>PROFILE</i>, <b>--profile=</b><i>PROFILE</i></p>
+<div class="Bd-indent">When attaching an image, select the profile to use. By
+  default the &quot;default&quot; profile is used. For details about profiles,
+  see below.
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>--copy=</b></p>
+<div class="Bd-indent">When attaching an image, select whether to prefer copying
+  or symlinking of files installed into the host system. Takes one of
+  &quot;copy&quot; (to prefer copying of files), &quot;symlink&quot; (to prefer
+  creation of symbolic links) or &quot;auto&quot; for an intermediary mode where
+  security profile drop-ins are symlinked while unit files are copied. Note that
+  this option expresses a preference only, in cases where symbolic links cannot
+  be created &#x2014; for example when the image operated on is a raw disk
+  image, and hence not directly referentiable from the host file system &#x2014;
+  copying of files is used unconditionally.
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>--runtime</b></p>
+<div class="Bd-indent">When specified the unit and drop-in files are placed in
+  /run/systemd/system.attached/ instead of /etc/systemd/system.attached/. Images
+  attached with this option set hence remain attached only until the next
+  reboot, while they are normally attached persistently.
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>--no-reload</b></p>
+<div class="Bd-indent">Don't reload the service manager after attaching or
+  detaching a portable service image. Normally the service manager is reloaded
+  to ensure it is aware of added or removed unit files.
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>--cat</b></p>
+<div class="Bd-indent">When inspecting portable service images, show the
+  (unprocessed) contents of the metadata files pulled from the image, instead of
+  brief summaries. Specifically, this will show the <a class="Xr" href="../5/os-release.html"><b>os-release</b>(5)</a> and
+  unit file contents of the image.
+<p class="Pp">Added in version 239.</p>
+</div>
+<p class="Pp"><b>--enable</b></p>
+<div class="Bd-indent">Immediately enable/disable the portable service after
+  attaching/detaching.
+<p class="Pp">Added in version 245.</p>
+</div>
+<p class="Pp"><b>--now</b></p>
+<div class="Bd-indent">Immediately start/stop/restart the portable service after
+  attaching/before detaching/after upgrading.
+<p class="Pp">Added in version 245.</p>
+</div>
+<p class="Pp"><b>--no-block</b></p>
+<div class="Bd-indent">Don't block waiting for attach --now to complete.
+<p class="Pp">Added in version 245.</p>
+</div>
+<p class="Pp"><b>--extension=</b><i>PATH</i></p>
+<div class="Bd-indent">Add an additional image <i>PATH</i> as an overlay on top
+  of <i>IMAGE</i> when attaching/detaching. This argument can be specified
+  multiple times, in which case the order in which images are laid down follows
+  the rules specified in <a class="Xr" href="../5/systemd.exec.html"><b>systemd.exec</b>(5)</a> for the <i>ExtensionImages=</i>
+  directive and for the <a class="Xr" href="../8/systemd-sysext.html"><b>systemd-sysext</b>(8)</a> and. <a class="Xr" href="../8/systemd-sysext.html"><b>systemd-confext</b>(8)</a>
+  tools. The images must contain an extension-release file with metadata that
+  matches what is defined in the os-release of <i>IMAGE</i>. See:
+  <a class="Xr" href="../5/os-release.html"><b>os-release</b>(5)</a>. Images can be block images, btrfs subvolumes or
+  directories. For more information on portable services with extensions, see
+  the &quot;Extension Images&quot; paragraph on <b>Portable Services
+  Documentation</b>[1].
+<p class="Pp">Note that the same extensions have to be specified, in the same
+    order, when attaching and detaching.</p>
+<p class="Pp">Added in version 249.</p>
+</div>
+<p class="Pp"><b>--force</b></p>
+<div class="Bd-indent">Skip safety checks and attach or detach images (with
+  extensions) without first ensuring that the units are not running, and do not
+  insist that the extension-release.<i>NAME</i> file in the extension image has
+  to match the image filename.
+<p class="Pp">Added in version 252.</p>
+</div>
+<p class="Pp"><b>-H</b>, <b>--host=</b></p>
+<div class="Bd-indent">Execute the operation remotely. Specify a hostname, or a
+  username and hostname separated by &quot;@&quot;, to connect to. The hostname
+  may optionally be suffixed by a port ssh is listening on, separated by
+  &quot;:&quot;, and then a container name, separated by &quot;/&quot;, which
+  connects directly to a specific container on the specified host. This will use
+  SSH to talk to the remote machine manager instance. Container names may be
+  enumerated with <b>machinectl -H </b><b></b><i>HOST</i>. Put IPv6 addresses in
+  brackets.</div>
+<p class="Pp"><b>-M</b>, <b>--machine=</b></p>
+<div class="Bd-indent">Execute operation on a local container. Specify a
+  container name to connect to, optionally prefixed by a user name to connect as
+  and a separating &quot;@&quot; character. If the special string
+  &quot;.host&quot; is used in place of the container name, a connection to the
+  local system is made (which is useful to connect to a specific user's user
+  bus: &quot;--user --machine=lennart@.host&quot;). If the &quot;@&quot; syntax
+  is not used, the connection is made as root user. If the &quot;@&quot; syntax
+  is used either the left hand side or the right hand side may be omitted (but
+  not both) in which case the local user name and &quot;.host&quot; are
+  implied.</div>
+<p class="Pp"><b>--no-pager</b></p>
+<div class="Bd-indent">Do not pipe output into a pager.</div>
+<p class="Pp"><b>--no-legend</b></p>
+<div class="Bd-indent">Do not print the legend, i.e. column headers and the
+  footer with hints.</div>
+<p class="Pp"><b>--no-ask-password</b></p>
+<div class="Bd-indent">Do not query the user for authentication for privileged
+  operations.</div>
+<p class="Pp"><b>-h</b>, <b>--help</b></p>
+<div class="Bd-indent">Print a short help text and exit.</div>
+<p class="Pp"><b>--version</b></p>
+<div class="Bd-indent">Print a short version string and exit.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES_AND_DIRECTORIES"><a class="permalink" href="#FILES_AND_DIRECTORIES">FILES
+  AND DIRECTORIES</a></h1>
+<p class="Pp">Portable service images are preferably stored in
+    /var/lib/portables/, but are also searched for in /etc/portables/,
+    /run/systemd/portables/, /usr/local/lib/portables/ and /usr/lib/portables/.
+    It's recommended not to place image files directly in /etc/portables/ or
+    /run/systemd/portables/ (as these are generally not suitable for storing
+    large or non-textual data), but use these directories only for linking
+    images located elsewhere into the image search path.</p>
+<p class="Pp">When a portable service image is attached, matching unit files are
+    copied onto the host into the /etc/systemd/system.attached/ and
+    /run/systemd/system.attached/ directories. When an image is detached, the
+    unit files are removed again from these directories.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROFILES"><a class="permalink" href="#PROFILES">PROFILES</a></h1>
+<p class="Pp">When portable service images are attached a &quot;profile&quot;
+    drop-in is linked in, which may be used to enforce additional security (and
+    other) restrictions locally. Four profile drop-ins are defined by default,
+    and shipped in /usr/lib/systemd/portable/profile/. Additional, local
+    profiles may be defined by placing them in /etc/systemd/portable/profile/.
+    The default profiles are:</p>
+<p class="Pp"><b>Table&#x00A0;2.&#x00A0;Profiles</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td><b>Name</b></td>
+    <td><b>Description</b></td>
+  </tr>
+  <tr>
+    <td>default</td>
+    <td>This is the default profile if no other profile name is set via the
+      <b>--profile=</b> (see above). It's fairly restrictive, but should be
+      useful for common, unprivileged system workloads. This includes write
+      access to the logging framework, as well as IPC access to the D-Bus
+      system.</td>
+  </tr>
+  <tr>
+    <td>nonetwork</td>
+    <td>Very similar to default, but networking is turned off for any services
+      of the portable service image.</td>
+  </tr>
+  <tr>
+    <td>strict</td>
+    <td>A profile with very strict settings. This profile excludes IPC (D-Bus)
+      and network access.</td>
+  </tr>
+  <tr>
+    <td>trusted</td>
+    <td>A profile with very relaxed settings. In this profile the services run
+      with full privileges.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">For details on these profiles and their effects see their precise
+    definitions, e.g.
+  <br/>
+  /usr/lib/systemd/portable/profile/default/service.conf and similar.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<p class="Pp">On success, 0 is returned, a non-zero failure code otherwise.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<p class="Pp"><i>$SYSTEMD_LOG_LEVEL</i></p>
+<div class="Bd-indent">The maximum log level of emitted messages (messages with
+  a higher log level, i.e. less important ones, will be suppressed). Either one
+  of (in order of decreasing importance) <b>emerg</b>, <b>alert</b>,
+  <b>crit</b>, <b>err</b>, <b>warning</b>, <b>notice</b>, <b>info</b>,
+  <b>debug</b>, or an integer in the range 0...7. See <a class="Xr" href="../3/syslog.html"><b>syslog</b>(3)</a> for more
+  information.</div>
+<p class="Pp"><i>$SYSTEMD_LOG_COLOR</i></p>
+<div class="Bd-indent">A boolean. If true, messages written to the tty will be
+  colored according to priority.
+<p class="Pp">This setting is only useful when messages are written directly to
+    the terminal, because <a class="Xr" href="../1/journalctl.html"><b>journalctl</b>(1)</a> and other tools that display logs
+    will color messages based on the log level on their own.</p>
+</div>
+<p class="Pp"><i>$SYSTEMD_LOG_TIME</i></p>
+<div class="Bd-indent">A boolean. If true, console log messages will be prefixed
+  with a timestamp.
+<p class="Pp">This setting is only useful when messages are written directly to
+    the terminal or a file, because <a class="Xr" href="../1/journalctl.html"><b>journalctl</b>(1)</a> and other tools that
+    display logs will attach timestamps based on the entry metadata on their
+    own.</p>
+</div>
+<p class="Pp"><i>$SYSTEMD_LOG_LOCATION</i></p>
+<div class="Bd-indent">A boolean. If true, messages will be prefixed with a
+  filename and line number in the source code where the message originates.
+<p class="Pp">Note that the log location is often attached as metadata to
+    journal entries anyway. Including it directly in the message text can
+    nevertheless be convenient when debugging programs.</p>
+</div>
+<p class="Pp"><i>$SYSTEMD_LOG_TID</i></p>
+<div class="Bd-indent">A boolean. If true, messages will be prefixed with the
+  current numerical thread ID (TID).
+<p class="Pp">Note that the this information is attached as metadata to journal
+    entries anyway. Including it directly in the message text can nevertheless
+    be convenient when debugging programs.</p>
+</div>
+<p class="Pp"><i>$SYSTEMD_LOG_TARGET</i></p>
+<div class="Bd-indent">The destination for log messages. One of <b>console</b>
+  (log to the attached tty), <b>console-prefixed</b> (log to the attached tty
+  but with prefixes encoding the log level and &quot;facility&quot;, see
+  <a class="Xr" href="../3/syslog.html"><b>syslog</b>(3)</a>, <b>kmsg</b> (log to the kernel circular log buffer),
+  <b>journal</b> (log to the journal), <b>journal-or-kmsg</b> (log to the
+  journal if available, and to kmsg otherwise), <b>auto</b> (determine the
+  appropriate log target automatically, the default), <b>null</b> (disable log
+  output).</div>
+<p class="Pp"><i>$SYSTEMD_LOG_RATELIMIT_KMSG</i></p>
+<div class="Bd-indent">Whether to ratelimit kmsg or not. Takes a boolean.
+  Defaults to &quot;true&quot;. If disabled, systemd will not ratelimit messages
+  written to kmsg.</div>
+<p class="Pp"><i>$SYSTEMD_PAGER</i></p>
+<div class="Bd-indent">Pager to use when <b>--no-pager</b> is not given;
+  overrides <i>$PAGER</i>. If neither <i>$SYSTEMD_PAGER</i> nor <i>$PAGER</i>
+  are set, a set of well-known pager implementations are tried in turn,
+  including <a class="Xr" href="../1/less.html"><b>less</b>(1)</a> and <a class="Xr" href="../1/more.html"><b>more</b>(1)</a>, until one is found. If no pager
+  implementation is discovered no pager is invoked. Setting this environment
+  variable to an empty string or the value &quot;cat&quot; is equivalent to
+  passing <b>--no-pager</b>.
+<p class="Pp">Note: if <i>$SYSTEMD_PAGERSECURE</i> is not set,
+    <i>$SYSTEMD_PAGER</i> (as well as <i>$PAGER</i>) will be silently
+  ignored.</p>
+</div>
+<p class="Pp"><i>$SYSTEMD_LESS</i></p>
+<div class="Bd-indent">Override the options passed to <b>less</b> (by default
+  &quot;FRSXMK&quot;).
+<p class="Pp">Users might want to change two options in particular:</p>
+<p class="Pp"><b>K</b></p>
+<div class="Bd-indent">This option instructs the pager to exit immediately when
+  Ctrl+C is pressed. To allow <b>less</b> to handle Ctrl+C itself to switch back
+  to the pager command prompt, unset this option.
+<p class="Pp">If the value of <i>$SYSTEMD_LESS</i> does not include
+    &quot;K&quot;, and the pager that is invoked is <b>less</b>, Ctrl+C will be
+    ignored by the executable, and needs to be handled by the pager.</p>
+</div>
+<p class="Pp"><b>X</b></p>
+<div class="Bd-indent">This option instructs the pager to not send termcap
+  initialization and deinitialization strings to the terminal. It is set by
+  default to allow command output to remain visible in the terminal even after
+  the pager exits. Nevertheless, this prevents some pager functionality from
+  working, in particular paged output cannot be scrolled with the mouse.</div>
+<p class="Pp">See <a class="Xr" href="../1/less.html"><b>less</b>(1)</a> for more discussion.</p>
+</div>
+<p class="Pp"><i>$SYSTEMD_LESSCHARSET</i></p>
+<div class="Bd-indent">Override the charset passed to <b>less</b> (by default
+  &quot;utf-8&quot;, if the invoking terminal is determined to be UTF-8
+  compatible).</div>
+<p class="Pp"><i>$SYSTEMD_PAGERSECURE</i></p>
+<div class="Bd-indent">Takes a boolean argument. When true, the
+  &quot;secure&quot; mode of the pager is enabled; if false, disabled. If
+  <i>$SYSTEMD_PAGERSECURE</i> is not set at all, secure mode is enabled if the
+  effective UID is not the same as the owner of the login session, see
+  <a class="Xr" href="../2/getuid.html"><b>geteuid</b>(2)</a> and <a class="Xr" href="../3/sd_pid_get_owner_uid.html"><b>sd_pid_get_owner_uid</b>(3)</a>. In secure mode,
+  <b>LESSSECURE=1</b> will be set when invoking the pager, and the pager shall
+  disable commands that open or create new files or start new subprocesses. When
+  <i>$SYSTEMD_PAGERSECURE</i> is not set at all, pagers which are not known to
+  implement secure mode will not be used. (Currently only <a class="Xr" href="../1/less.html"><b>less</b>(1)</a>
+  implements secure mode.)
+<p class="Pp">Note: when commands are invoked with elevated privileges, for
+    example under <a class="Xr" href="../8/sudo.html"><b>sudo</b>(8)</a> or <a class="Xr" href="../1/pkexec.html"><b>pkexec</b>(1)</a>, care must be taken to
+    ensure that unintended interactive features are not enabled.
+    &quot;Secure&quot; mode for the pager may be enabled automatically as
+    describe above. Setting <i>SYSTEMD_PAGERSECURE=0</i> or not removing it from
+    the inherited environment allows the user to invoke arbitrary commands. Note
+    that if the <i>$SYSTEMD_PAGER</i> or <i>$PAGER</i> variables are to be
+    honoured, <i>$SYSTEMD_PAGERSECURE</i> must be set too. It might be
+    reasonable to completely disable the pager using <b>--no-pager</b>
+  instead.</p>
+</div>
+<p class="Pp"><i>$SYSTEMD_COLORS</i></p>
+<div class="Bd-indent">Takes a boolean argument. When true, <b>systemd</b> and
+  related utilities will use colors in their output, otherwise the output will
+  be monochrome. Additionally, the variable can take one of the following
+  special values: &quot;16&quot;, &quot;256&quot; to restrict the use of colors
+  to the base 16 or 256 ANSI colors, respectively. This can be specified to
+  override the automatic decision based on <i>$TERM</i> and what the console is
+  connected to.</div>
+<p class="Pp"><i>$SYSTEMD_URLIFY</i></p>
+<div class="Bd-indent">The value must be a boolean. Controls whether clickable
+  links should be generated in the output for terminal emulators supporting
+  this. This can be specified to override the decision that <b>systemd</b> makes
+  based on <i>$TERM</i> and other conditions.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/systemd.html"><b>systemd</b>(1)</a>, <a class="Xr" href="../8/systemd-sysext.html"><b>systemd-sysext</b>(8)</a>,
+    <a class="Xr" href="../5/org.freedesktop.portable1.html"><b>org.freedesktop.portable1</b>(5)</a>, <a class="Xr" href="../8/systemd-portabled.service.html"><b>systemd-portabled.service</b>(8)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>Portable Services Documentation</dd>
+</dl>
+<div class="Bd-indent">https://systemd.io/PORTABLE_SERVICES</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os">systemd 255</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

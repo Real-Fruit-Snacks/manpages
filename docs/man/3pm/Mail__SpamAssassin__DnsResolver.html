@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="DNS resolution engine">
+<title>Mail::SpamAssassin::DnsResolver(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">Mail::SpamAssassin::DnsResolver(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#METHODS">METHODS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">Mail::SpamAssassin::DnsResolver(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">Mail::SpamAssassin::DnsResolver(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">Mail::SpamAssassin::DnsResolver - DNS resolution engine</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This is a DNS resolution engine for SpamAssassin, implemented in
+    order to reduce file descriptor usage by Net::DNS and avoid a response
+    collision bug in that module.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="METHODS"><a class="permalink" href="#METHODS">METHODS</a></h1>
+<dl class="Bl-tag">
+  <dt>$res-&gt;<b>load_resolver()</b></dt>
+  <dd>Load the <span class="Li">&quot;Net::DNS::Resolver&quot;</span> object.
+      Returns 0 if Net::DNS cannot be used, 1 if it is available.</dd>
+  <dt>$resolver = $res-&gt;<b>get_resolver()</b></dt>
+  <dd>Return the <span class="Li">&quot;Net::DNS::Resolver&quot;</span>
+    object.</dd>
+  <dt>$res-&gt;<b>configured_nameservers()</b></dt>
+  <dd>Get a list of nameservers as configured by dns_server directives or as
+      provided by Net::DNS, typically from /etc/resolv.conf</dd>
+  <dt>$res-&gt;<b>available_nameservers()</b></dt>
+  <dd>Get or set a list of currently available nameservers, which is typically a
+      known-to-be-good subset of configured nameservers</dd>
+  <dt>$res-&gt;<b>connect_sock()</b></dt>
+  <dd>Re-connect to the first nameserver listed in
+      <span class="Li">&quot;/etc/resolv.conf&quot;</span> or similar
+      platform-dependent source, as provided by
+      <span class="Li">&quot;Net::DNS&quot;</span>.</dd>
+  <dt>$res-&gt;<b>get_sock()</b></dt>
+  <dd>Return the <span class="Li">&quot;IO::Socket::INET&quot;</span> object
+      used to communicate with the nameserver.</dd>
+  <dt>$packet = new_dns_packet ($domain, $type, $class)</dt>
+  <dd>A wrapper for <span class="Li">Net::DNS::Packet::new()</span> which traps
+      a die thrown by it.
+    <p class="Pp">To use this, change calls to
+        <span class="Li">&quot;Net::DNS::Resolver::bgsend&quot;</span> from:</p>
+    <p class="Pp"></p>
+    <pre>    $res-&gt;bgsend($domain, $type);
+    </pre>
+    <p class="Pp">to:</p>
+    <p class="Pp"></p>
+    <pre>    $res-&gt;bgsend(Mail::SpamAssassin::DnsResolver::new_dns_packet($domain, $type, $class));
+    </pre>
+  </dd>
+  <dt>$id = $res-&gt;bgsend($domain, $type, $class, $cb)</dt>
+  <dd>DIRECT USE DISCOURAGED, please use bgsend_and_start_lookup in plugins.
+    <p class="Pp">Quite similar to
+        <span class="Li">&quot;Net::DNS::Resolver::bgsend&quot;</span>, except
+        that when a reply packet eventually arrives, and
+        <span class="Li">&quot;poll_responses&quot;</span> is called, the
+        callback sub reference <span class="Li">$cb</span> will be called.</p>
+    <p class="Pp">Note that <span class="Li">$type</span> and
+        <span class="Li">$class</span> may be
+        <span class="Li">&quot;undef&quot;</span>, in which case they will
+        default to <span class="Li">&quot;A&quot;</span> and
+        <span class="Li">&quot;IN&quot;</span>, respectively.</p>
+    <p class="Pp">The callback sub will be called with three arguments -- the
+        packet that was delivered, and an id string that fingerprints the query
+        packet and the expected reply. The third argument is a timestamp (Unix
+        time, floating point), captured at the time the packet was collected. It
+        is expected that a closure callback be used, like so:</p>
+    <p class="Pp"></p>
+    <pre>  my $id = $self-&gt;{resolver}-&gt;bgsend($domain, $type, undef, sub {
+        my ($reply, $reply_id, $timestamp) = @_;
+        $self-&gt;got_a_reply($reply, $reply_id);
+      });
+    </pre>
+    <p class="Pp">The callback can ignore the reply as an invalid packet sent to
+        the listening port if the reply id does not match the return value from
+        bgsend.</p>
+  </dd>
+  <dt>$id = $res-&gt;<b>bgread()</b></dt>
+  <dd>Similar to <span class="Li">&quot;Net::DNS::Resolver::bgread&quot;</span>.
+      Reads a DNS packet from a supplied socket, decodes it, and returns a
+      Net::DNS::Packet object if successful. Dies on error.</dd>
+  <dt>$nfound = $res-&gt;<b>poll_responses()</b></dt>
+  <dd>See if there are any <span class="Li">&quot;bgsend&quot;</span> reply
+      packets ready, and return the number of such packets delivered to their
+      callbacks.</dd>
+  <dt>$res-&gt;<b>bgabort()</b></dt>
+  <dd>Call this to release pending requests from memory, when aborting
+      backgrounded requests, or when the scan is complete.
+      <span class="Li">&quot;Mail::SpamAssassin::PerMsgStatus::check&quot;</span>
+      calls this before returning.</dd>
+  <dt>$packet = $res-&gt;send($name, $type, $class)</dt>
+  <dd>Emulates <span class="Li">Net::DNS::Resolver::send()</span>.
+    <p class="Pp">This subroutine is a simple synchronous leftover from
+        SpamAssassin version 3.3 and does not participate in packet query
+        caching and callback grouping as implemented by
+        <b>AsyncLoop::bgsend_and_start_lookup()</b>. As such it should be
+        avoided for mainstream usage. Currently used through Mail::SPF::Server
+        by the SPF plugin.</p>
+  </dd>
+  <dt>$res-&gt;<b>errorstring()</b></dt>
+  <dd>Little more than a stub for callers expecting this from
+      <span class="Li">&quot;Net::DNS::Resolver&quot;</span>.
+    <p class="Pp">If called immediately after a call to
+        <span class="Li">$res</span>-&gt;send this will return
+        <span class="Li">&quot;query timed out&quot;</span> if the
+        <span class="Li">$res</span>-&gt;send DNS query timed out. Otherwise
+        <span class="Li">&quot;unknown error or no error&quot;</span> will be
+        returned.</p>
+    <p class="Pp">No other errors are reported.</p>
+  </dd>
+  <dt>$res-&gt;<b>finish_socket()</b></dt>
+  <dd>Reset socket when done with it.</dd>
+  <dt>$res-&gt;<b>finish()</b></dt>
+  <dd>Clean up for destruction.</dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-04-12</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

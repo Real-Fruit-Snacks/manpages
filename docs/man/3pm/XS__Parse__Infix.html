@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="XS functions to assist in parsing infix operators">
+<title>XS::Parse::Infix(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">XS::Parse::Infix(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#CONSTANTS">CONSTANTS</a></li><li><a href="#HAVE_PL_INFIX_PLUGIN">HAVE_PL_INFIX_PLUGIN</a></li><li><a href="#XS_FUNCTIONS">XS
+  FUNCTIONS</a></li><li><a href="#boot_xs_parse_infix">boot_xs_parse_infix</a></li><li><a href="#parse_infix">parse_infix</a></li><li><a href="#xs_parse_infix_new_op">xs_parse_infix_new_op</a></li><li><a href="#register_xs_parse_infix">register_xs_parse_infix</a></li><li><a href="#PARSE_HOOKS">PARSE
+  HOOKS</a></li><li><a href="#Flags">Flags</a></li><li><a href="#The_Selection_Stage">The
+  Selection Stage</a></li><li><a href="#The__permit__Stage">The
+  &amp;quot;permit&amp;quot; Stage</a></li><li><a href="#The__parse__Stage">The
+  &amp;quot;parse&amp;quot; Stage</a></li><li><a href="#The_Op_Generation_Stage">The
+  Op Generation Stage</a></li><li><a href="#The_Wrapper_Function">The
+  Wrapper Function</a></li><li><a href="#DEPARSE">DEPARSE</a></li><li><a href="#TODO">TODO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">XS::Parse::Infix(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">XS::Parse::Infix(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">&quot;XS::Parse::Infix&quot; - XS functions to assist in parsing
+    infix operators</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This module provides some XS functions to assist in writing syntax
+    modules that provide new infix operators as perl syntax, primarily for
+    authors of syntax plugins. It is unlikely to be of much use to anyone else;
+    and highly unlikely to be of any use when writing perl code using these.
+    Unless you are writing a syntax plugin using XS, this module is not for
+  you.</p>
+<p class="Pp">This module is also currently experimental, and the design is
+    still evolving and subject to change. Later versions may break ABI
+    compatibility, requiring changes or at least a rebuild of any module that
+    depends on it.</p>
+<p class="Pp">In addition, the places this functionality can be used are
+    relatively small. Support for custom infix operators as added in Perl
+    development release <span class="Li">&quot;v5.37.7&quot;</span>, and is
+    therefore present in Perl <span class="Li">&quot;v5.38.0&quot;</span>.</p>
+<p class="Pp">In addition, the various
+    <span class="Li">&quot;XPK_INFIX_*&quot;</span> token types of
+    XS::Parse::Keyword support querying on this module, so some syntax provided
+    by other modules may be able to make use of these new infix operators.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONSTANTS"><a class="permalink" href="#CONSTANTS">CONSTANTS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="HAVE_PL_INFIX_PLUGIN"><a class="permalink" href="#HAVE_PL_INFIX_PLUGIN">HAVE_PL_INFIX_PLUGIN</a></h2>
+<pre>   if( XS::Parse::Infix::HAVE_PL_INFIX_PLUGIN ) { ... }
+</pre>
+<p class="Pp">This constant is true if built on a perl that supports the
+    <span class="Li">&quot;PL_infix_plugin&quot;</span> extension mechanism,
+    meaning that custom infix operators registered with this module will
+    actually be recognised by the perl parser.</p>
+<p class="Pp">No actual production releases of perl yet support this feature,
+    but see above for details of development versions which do.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="XS_FUNCTIONS"><a class="permalink" href="#XS_FUNCTIONS">XS
+  FUNCTIONS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="boot_xs_parse_infix"><a class="permalink" href="#boot_xs_parse_infix">boot_xs_parse_infix</a></h2>
+<pre>  void boot_xs_parse_infix(double ver);
+</pre>
+<p class="Pp">Call this function from your
+    <span class="Li">&quot;BOOT&quot;</span> section in order to initialise the
+    module and parsing hooks.</p>
+<p class="Pp"><i>ver</i> should either be 0 or a decimal number for the module
+    version requirement; e.g.</p>
+<p class="Pp"></p>
+<pre>   boot_xs_parse_infix(0.14);
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="parse_infix"><a class="permalink" href="#parse_infix">parse_infix</a></h2>
+<pre>   bool parse_infix(enum XSParseInfixSelection select, struct XSParseInfixInfo **infop);
+</pre>
+<p class="Pp"><i>Since version 0.27.</i></p>
+<p class="Pp">This function attempts to parse syntax for an infix operator from
+    the current parser position. If it is successful, it fills in the variable
+    pointed to by <i>infop</i> with a pointer to the actual information
+    structure and returns <span class="Li">&quot;true&quot;</span>. If no
+    suitable operator is found, returns
+    <span class="Li">&quot;false&quot;</span>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="xs_parse_infix_new_op"><a class="permalink" href="#xs_parse_infix_new_op">xs_parse_infix_new_op</a></h2>
+<pre>   OP *xs_parse_infix_new_op(const struct XSParseInfixInfo *info, U32 flags,
+      OP *lhs, OP *rhs);
+</pre>
+<p class="Pp">This function constructs a new optree fragment to represent
+    invoking the infix operator with the given operands. It should be used much
+    the same as core perl's <span class="Li">&quot;newBINOP&quot;</span>
+    function.</p>
+<p class="Pp">The <span class="Li">&quot;info&quot;</span> structure pointer
+    would be obtained from the <span class="Li">&quot;infix&quot;</span> field
+    of the result of invoking the various
+    <span class="Li">&quot;XPK_INFIX_*&quot;</span> token types from
+    <span class="Li">&quot;XS::Parse::Keyword&quot;</span>, or by calling
+    &quot;parse_infix&quot; directly.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="register_xs_parse_infix"><a class="permalink" href="#register_xs_parse_infix">register_xs_parse_infix</a></h2>
+<pre>   void register_xs_parse_infix(const char *opname,
+      const struct XSParseInfixHooks *hooks, void *hookdata);
+</pre>
+<p class="Pp">This function installs a set of parsing hooks to be associated
+    with the given operator name. This new operator will then be available via
+    XS::Parse::Keyword by the various
+    <span class="Li">&quot;XPK_INFIX_*&quot;</span> token types,
+    &quot;parse_infix&quot;, or to core perl's
+    <span class="Li">&quot;PL_infix_plugin&quot;</span> if available.</p>
+<p class="Pp">These tokens will all yield an info structure, with the following
+    fields:</p>
+<p class="Pp"></p>
+<pre>   struct XSParseInfixInfo {
+      const char *opname;
+      OPCODE opcode;  /* for built-in operators, or OP_CUSTOM for 
+                         custom-registered ones */
+      struct XSParseInfixHooks *hooks;
+      void                     *hookdata;
+      enum XSParseInfixClassification cls;  /* since version 0.28 */
+   };
+</pre>
+<p class="Pp">If the operator name contains any non-ASCII characters they are
+    presumed to be in UTF-8 encoding. This will matter for deparse purposes.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARSE_HOOKS"><a class="permalink" href="#PARSE_HOOKS">PARSE
+  HOOKS</a></h1>
+<p class="Pp">The <span class="Li">&quot;XSParseInfixHooks&quot;</span>
+    structure provides the following fields which are used at various stages of
+    parsing.</p>
+<p class="Pp"></p>
+<pre>   struct XSParseInfixHooks {
+      U16 flags; /* currently ignored */
+      U8 lhs_flags;
+      U8 rhs_flags;
+      enum XSParseInfixClassification cls;
+      const char *wrapper_func_name;
+      const char *permit_hintkey;
+      bool (*permit)(pTHX_ void *hookdata);
+      OP *(*new_op)(pTHX_ U32 flags, OP *lhs, OP *rhs, SV **parsedata, void *hookdata);
+      OP *(*ppaddr)(pTHX);
+      /* optional */
+      void (*parse)(pTHX_ U32 flags, SV **parsedata, void *hookdata);
+   };
+</pre>
+<section class="Ss">
+<h2 class="Ss" id="Flags"><a class="permalink" href="#Flags">Flags</a></h2>
+<p class="Pp">The <span class="Li">&quot;flags&quot;</span> field is currently
+    ignored. It is defined simply to reserve the space in case used in a later
+    version. It should be set to zero.</p>
+<p class="Pp">The <span class="Li">&quot;lhs_flags&quot;</span> and
+    <span class="Li">&quot;rhs_flags&quot;</span> fields give details on how to
+    handle the left- and right-hand side operands, respectively.</p>
+<p class="Pp">It should be set to one of the following constants, or left as
+    zero:</p>
+<dl class="Bl-tag">
+  <dt id="XPI_OPERAND_TERM_LIST"><a class="permalink" href="#XPI_OPERAND_TERM_LIST">XPI_OPERAND_TERM_LIST</a></dt>
+  <dd>The operand will be foced into list context, preserving the
+      <span class="Li">&quot;OP_PUSHMARK&quot;</span> at the beginning. This
+      means that the ppfunc for this infix operator will have to
+      <span class="Li">&quot;POPMARK&quot;</span> to find that.</dd>
+  <dt id="XPI_OPERAND_LIST"><a class="permalink" href="#XPI_OPERAND_LIST">XPI_OPERAND_LIST</a></dt>
+  <dd>The same as above.</dd>
+</dl>
+<p class="Pp">Older versions used to provide constants named
+    <span class="Li">&quot;XPI_OPERAND_ARITH&quot;</span> and
+    <span class="Li">&quot;XPI_OPERAND_TERM&quot;</span> but they related to an
+    older version of the core perl branch. These names are now aliases for zero,
+    and can be removed from new code.</p>
+<p class="Pp">In addition the following extra bitflags are defined:</p>
+<dl class="Bl-tag">
+  <dt id="XPI_OPERAND_ONLY_LOOK"><a class="permalink" href="#XPI_OPERAND_ONLY_LOOK">XPI_OPERAND_ONLY_LOOK</a></dt>
+  <dd>If set, the operator function promises that it will not mutate any of its
+      passed values, nor allow leaking of direct alias pointers to them via
+      return value or other locations.
+    <p class="Pp">This flag is optional; omitting it when applicable will not
+        change any observed behaviour. Setting it may enable certain
+        optimisations to be performed.</p>
+    <p class="Pp">Currently, this flag simply enables an optimisation in the
+        call-checker for infix operator wrapper functions that take list-shaped
+        operands. This optimisation discards an
+        <span class="Li">&quot;OP_ANONLIST&quot;</span> operation which would
+        create a temporary anonymous array reference for its operand values,
+        allowing a slight saving of memory use and CPU time. This optimisation
+        is only safe to perform if the operator does not mutate or retain
+        aliases of any of the arguments, as otherwise the caller might see
+        unexpected modifications or value references to the values passed.</p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_Selection_Stage"><a class="permalink" href="#The_Selection_Stage">The
+  Selection Stage</a></h2>
+<p class="Pp">The <span class="Li">&quot;cls&quot;</span> field gives a
+    &quot;classification&quot; of the operator, suggesting what sort of
+    operation it provides. This is used as a filter by the various
+    <span class="Li">&quot;XS::Parse::Keyword&quot;</span> selection macros.</p>
+<p class="Pp">The classification should be one of the
+    <span class="Li">&quot;XPI_CLS_*&quot;</span> constants found and described
+    further in the main <i>XSParseInfix.h</i> file.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The__permit__Stage"><a class="permalink" href="#The__permit__Stage">The
+  &quot;permit&quot; Stage</a></h2>
+<p class="Pp">As a shortcut for the common case, the
+    <span class="Li">&quot;permit_hintkey&quot;</span> may point to a string to
+    look up from the hints hash. If the given key name is not found in the hints
+    hash then the keyword is not permitted. If the key is present then the
+    <span class="Li">&quot;permit&quot;</span> function is invoked as
+  normal.</p>
+<p class="Pp">If not rejected by a hint key that was not found in the hints
+    hash, the function part of the stage is called next and should inspect
+    whether the keyword is permitted at this time perhaps by inspecting other
+    lexical clues, and return true only if the keyword is permitted.</p>
+<p class="Pp">Both the string and the function are optional. Either or both may
+    be present. If neither is present then the keyword is always permitted -
+    which is likely not what you wanted to do.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The__parse__Stage"><a class="permalink" href="#The__parse__Stage">The
+  &quot;parse&quot; Stage</a></h2>
+<p class="Pp">If the optional <span class="Li">&quot;parse&quot;</span> hook
+    function is present, it is called immediately after the parser has
+    recognised the presence of the named operator itself but before it attempts
+    to consume the right-hand side term. This hook function can attempt further
+    parsing, in order to implement more complex syntax such as
+  hyper-operators.</p>
+<p class="Pp">When invoked, it is passed a pointer to an
+    <span class="Li">&quot;SV *&quot;</span>-typed storage variable. It is free
+    to use this variable it desires to store a result, which will then later be
+    made available to the <span class="Li">&quot;new_op&quot;</span>
+  function.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_Op_Generation_Stage"><a class="permalink" href="#The_Op_Generation_Stage">The
+  Op Generation Stage</a></h2>
+<p class="Pp">If the infix operator is going to be used, then one of the
+    <span class="Li">&quot;new_op&quot;</span> or the
+    <span class="Li">&quot;ppaddr&quot;</span> fields explain how to create a
+    new optree fragment.</p>
+<p class="Pp">If <span class="Li">&quot;new_op&quot;</span> is defined then it
+    will be used, and is expected to return an optree fragment that consumes the
+    LHS and RHS arguments to implement the semantics of the operator. If the
+    optional <span class="Li">&quot;parse&quot;</span> stage had been present
+    earlier, the <span class="Li">&quot;SV **&quot;</span> pointer passed here
+    will point to the same storage that
+    <span class="Li">&quot;parse&quot;</span> had previously had access to, so
+    it can retrieve the results.</p>
+<p class="Pp">If <span class="Li">&quot;new_op&quot;</span> is not present, then
+    the <span class="Li">&quot;ppaddr&quot;</span> will be used instead to
+    construct a new BINOP of the <span class="Li">&quot;OP_CUSTOM&quot;</span>
+    type. If an earlier <span class="Li">&quot;parse&quot;</span> stage had
+    stored additional results into the <span class="Li">&quot;SV *&quot;</span>
+    variable these will be lost here.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_Wrapper_Function"><a class="permalink" href="#The_Wrapper_Function">The
+  Wrapper Function</a></h2>
+<p class="Pp">Additionally, if the
+    <span class="Li">&quot;wrapper_func_name&quot;</span> field is set to a
+    string, this gives the (fully-qualified) name for a function to be generated
+    as part of registering the operator. This newly-generated function will act
+    as a wrapper for the operator.</p>
+<p class="Pp">For operators whose RHS is a scalar, the wrapper function is
+    assumed to take two simple scalar arguments. The result of invoking the
+    function on those arguments will be determined by using the operator
+  code.</p>
+<p class="Pp"></p>
+<pre>   $result = $lhs OP $rhs;
+   $result = WRAPPERFUNC( $lhs, $rhs );
+</pre>
+<p class="Pp">For operators whose RHS is a list, the wrapper function takes at
+    least one argument, possibly more. The first argument is the scalar on the
+    LHS, and the remaining arguments, however many there are, form the RHS:</p>
+<p class="Pp"></p>
+<pre>   $result = $lhs OP @rhs;
+   $result = WRAPPERFUNC( $lhs, @rhs );
+</pre>
+<p class="Pp">For operators whose LHS and RHS is a list, the wrapper function
+    takes two arguments which must be array references containing the lists.</p>
+<p class="Pp"></p>
+<pre>   $result = @lhs OP @rhs;
+   $result = WRAPPERFUNC( \@lhs, \@rhs );
+</pre>
+<p class="Pp">This creates a convenience for accessing the operator from perls
+    that do not support <span class="Li">&quot;PL_infix_plugin&quot;</span>.</p>
+<p class="Pp">In the case of scalar infix operators, the wrapper function also
+    includes a call-checker which attempts to inline the operator directly into
+    the callsite. Thus, in simple cases where the function is called directly on
+    exactly two scalar arguments (such as in the following), no
+    <span class="Li">&quot;ENTERSUB&quot;</span> overhead will be incurred and
+    the generated optree will be identical to that which would have been
+    generated by using infix operator syntax directly:</p>
+<p class="Pp"></p>
+<pre>   WRAPPERFUNC( $lhs, $rhs );
+   WRAPPERFUNC( $lhs, CONSTANT );
+   WRAPPERFUNC( $args[0], $args[1] );
+   WRAPPERFUNC( $lhs, scalar otherfunc() );
+</pre>
+<p class="Pp">The checker is very pessimistic and will only rewrite callsites
+    where it determines this can be done safely. It will not rewrite any of the
+    following forms:</p>
+<p class="Pp"></p>
+<pre>   WRAPPERFUNC( $onearg );            # not enough args
+   WRAPPERFUNC( $x, $y, $z );         # too many args
+   WRAPPERFUNC( @args[0,1] );         # not a scalar
+   WRAPPERFUNC( $lhs, otherfunc() );  # not a scalar
+</pre>
+<p class="Pp">The wrapper function for infix operators which take lists on both
+    sides also has a call-checker which will attempt to inline the operator in
+    similar circumstances. In addition to the optimisations described above for
+    scalar operators, this checker will also inline an array-reference operator
+    and omit the resulting dereference behaviour. Thus, the two following lines
+    emit the same optree, without an
+    <span class="Li">&quot;OP_SREFGEN&quot;</span> or
+    <span class="Li">&quot;OP_RV2AV&quot;</span>:</p>
+<p class="Pp"></p>
+<pre>   @lhs OP @rhs;
+   WRAPPERFUNC( \@lhs, \@rhs );
+</pre>
+<p class="Pp"><b>Note</b> that technically, this optimisation isn't strictly
+    transparent in the odd cornercase that one of the referenced arrays is also
+    the backing store for a blessed object reference, and that object class has
+    a <span class="Li">&quot;@{}&quot;</span> overload.</p>
+<p class="Pp"></p>
+<pre>   my @arr;
+   package SomeClass {
+      use overload '@{}' =&gt; sub { return [&quot;values&quot;, &quot;go&quot;, &quot;here&quot;]; };
+   }
+   bless \@arr, &quot;SomeClass&quot;;
+   # this will not actually invoke the overload operator
+   WRAPPERFUNC( \@arr, [4, 5, 6] );
+</pre>
+<p class="Pp">As this cornercase relates to taking duplicate references to the
+    same blessed object's backing store variable, it should not matter to any
+    real code; regular objects that are passed by reference into the wrapper
+    function will run their overload methods as normal.</p>
+<p class="Pp">The callchecker for list operands can optionally also discard an
+    op of the <span class="Li">&quot;OP_ANONLIST&quot;</span> type, which is
+    used by anonymous array-ref construction:</p>
+<p class="Pp"></p>
+<pre>   ($u, $v, $w) OP ($x, $y, $z);
+   WRAPPERFUNC( [$u, $v, $w], [$x, $y, $z] );
+</pre>
+<p class="Pp">This optimisation is only performed if the operator declared it
+    safe to do so, via the
+    <span class="Li">&quot;XPI_OPERAND_ONLY_LOOK&quot;</span> flag.</p>
+<p class="Pp">If a function of the given name already exists at registration
+    time it will be left undisturbed and no new wrapper will be created. This
+    permits the same infix operator to have multiple spellings of its name; for
+    example to allow both a real Unicode and a fallback ASCII transliteration of
+    the same operator. The first registration will create the wrapper function;
+    the subsequent one will skip it because it would otherwise be identical.</p>
+<p class="Pp">Note that when generating an optree for a wrapper function call,
+    the <span class="Li">&quot;new_op&quot;</span> hook function will be invoked
+    with a <span class="Li">&quot;NULL&quot;</span> pointer for the
+    <span class="Li">&quot;SV *&quot;</span>-typed parse data storage, as there
+    won't be an opporunity for the <span class="Li">&quot;parse&quot;</span>
+    hook to run in this case.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEPARSE"><a class="permalink" href="#DEPARSE">DEPARSE</a></h1>
+<p class="Pp">This module operates with B::Deparse in order to automatically
+    provide deparse support for infix operators. Every infix operator that is
+    implemented as a custom op (and thus has the
+    <span class="Li">&quot;ppaddr&quot;</span> hook field set) will have deparse
+    logic added. This will allow it to deparse to either the named wrapper
+    function, or to the infix operator syntax if on a
+    <span class="Li">&quot;PL_infix_plugin&quot;</span>-enabled perl and the
+    appropriate lexical hint is enabled at the callsite.</p>
+<p class="Pp">In order for this to work, it is important that your custom
+    operator is <i>not</i> registered as a custom op using the
+    <span class="Li">Perl_register_custom_op()</span> function. This
+    registration will be performed by
+    <span class="Li">&quot;XS::Parse::Infix&quot;</span> itself at the time the
+    infix operator is registered.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TODO"><a class="permalink" href="#TODO">TODO</a></h1>
+<ul class="Bl-bullet">
+  <li>Have the entersub checker for list/list operators unwrap arrayref or
+      anon-array argument forms (<span class="Li">&quot;WRAPPERFUNC( \@lhs,
+      \@rhs )&quot;</span> or <span class="Li">&quot;WRAPPERFUNC( [LHS], [RHS]
+      )&quot;</span>).</li>
+  <li>Further thoughts about how infix operators with
+      <span class="Li">&quot;parse&quot;</span> hooks will work with automatic
+      deparse, and also how to integrate them with XS::Parse::Keyword's grammar
+      piece.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Paul Evans &lt;leonerd@leonerd.org.uk&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

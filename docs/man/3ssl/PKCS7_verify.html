@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="verify a PKCS#7 signedData structure">
+<title>PKCS7_verify(3ssl) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">PKCS7_verify(3ssl)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#VERIFY_PROCESS">VERIFY
+  PROCESS</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#RETURN_VALUES">RETURN
+  VALUES</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PKCS7_VERIFY(3SSL)</td>
+    <td class="head-vol">OpenSSL</td>
+    <td class="head-rtitle">PKCS7_VERIFY(3SSL)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">PKCS7_verify, PKCS7_get0_signers - verify a PKCS#7 signedData
+    structure</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre> #include &lt;openssl/pkcs7.h&gt;
+ int PKCS7_verify(PKCS7 *p7, STACK_OF(X509) *certs, X509_STORE *store,
+                  BIO *indata, BIO *out, int flags);
+ STACK_OF(X509) *PKCS7_get0_signers(PKCS7 *p7, STACK_OF(X509) *certs, int flags);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>PKCS7_verify()</b> is very similar to <a class="Xr" href="../3ssl/CMS_verify.html"><b>CMS_verify</b>(3)</a>. It
+    verifies a PKCS#7 signedData structure given in <i>p7</i>. The optional
+    <i>certs</i> parameter refers to a set of certificates in which to search
+    for signer's certificates. <i>p7</i> may contain extra untrusted CA
+    certificates that may be used for chain building as well as CRLs that may be
+    used for certificate validation. <i>store</i> may be NULL or point to the
+    trusted certificate store to use for chain verification. <i>indata</i>
+    refers to the signed data if the content is detached from <i>p7</i>.
+    Otherwise <i>indata</i> should be NULL, and then the signed data must be in
+    <i>p7</i>. The content is written to the BIO <i>out</i> unless it is NULL.
+    <i>flags</i> is an optional set of flags, which can be used to modify the
+    operation.</p>
+<p class="Pp"><b>PKCS7_get0_signers()</b> retrieves the signer's certificates
+    from <i>p7</i>, it does <b>not</b> check their validity or whether any
+    signatures are valid. The <i>certs</i> and <i>flags</i> parameters have the
+    same meanings as in <b>PKCS7_verify()</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERIFY_PROCESS"><a class="permalink" href="#VERIFY_PROCESS">VERIFY
+  PROCESS</a></h1>
+<p class="Pp">Normally the verify process proceeds as follows.</p>
+<p class="Pp">Initially some sanity checks are performed on <i>p7</i>. The type
+    of <i>p7</i> must be SignedData. There must be at least one signature on the
+    data and if the content is detached <i>indata</i> cannot be NULL. If the
+    content is not detached and <i>indata</i> is not NULL then the structure has
+    both embedded and external content. To treat this as an error, use the flag
+    <b>PKCS7_NO_DUAL_CONTENT</b>. The default behavior allows this, for
+    compatibility with older versions of OpenSSL.</p>
+<p class="Pp">An attempt is made to locate all the signer's certificates, first
+    looking in the <i>certs</i> parameter (if it is not NULL). Then they are
+    looked up in any certificates contained in the <i>p7</i> structure unless
+    <b>PKCS7_NOINTERN</b> is set. If any signer's certificates cannot be located
+    the operation fails.</p>
+<p class="Pp">Each signer's certificate is chain verified using the
+    <b>smimesign</b> purpose and using the trusted certificate store
+    <i>store</i> if supplied. Any internal certificates in the message, which
+    may have been added using <b>PKCS7_add_certificate</b>(3), are used as
+    untrusted CAs unless <b>PKCS7_NOCHAIN</b> is set. If CRL checking is enabled
+    in <i>store</i> and <b>PKCS7_NOCRL</b> is not set, any internal CRLs, which
+    may have been added using <b>PKCS7_add_crl</b>(3), are used in addition to
+    attempting to look them up in <i>store</i>. If <i>store</i> is not NULL and
+    any chain verify fails an error code is returned.</p>
+<p class="Pp">Finally the signed content is read (and written to <i>out</i>
+    unless it is NULL) and the signature is checked.</p>
+<p class="Pp">If all signatures verify correctly then the function is
+    successful.</p>
+<p class="Pp">Any of the following flags (ored together) can be passed in the
+    <i>flags</i> parameter to change the default verify behaviour. Only the flag
+    <b>PKCS7_NOINTERN</b> is meaningful to <b>PKCS7_get0_signers()</b>.</p>
+<p class="Pp">If <b>PKCS7_NOINTERN</b> is set the certificates in the message
+    itself are not searched when locating the signer's certificates. This means
+    that all the signer's certificates must be in the <i>certs</i>
+  parameter.</p>
+<p class="Pp">If <b>PKCS7_NOCRL</b> is set and CRL checking is enabled in
+    <i>store</i> then any CRLs in the message itself are ignored.</p>
+<p class="Pp">If the <b>PKCS7_TEXT</b> flag is set MIME headers for type
+    <span class="Li">&quot;text/plain&quot;</span> are deleted from the content.
+    If the content is not of type <span class="Li">&quot;text/plain&quot;</span>
+    then an error is returned.</p>
+<p class="Pp">If <b>PKCS7_NOVERIFY</b> is set the signer's certificates are not
+    chain verified.</p>
+<p class="Pp">If <b>PKCS7_NOCHAIN</b> is set then the certificates contained in
+    the message are not used as untrusted CAs. This means that the whole verify
+    chain (apart from the signer's certificates) must be contained in the
+    trusted store.</p>
+<p class="Pp">If <b>PKCS7_NOSIGS</b> is set then the signatures on the data are
+    not checked.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">One application of <b>PKCS7_NOINTERN</b> is to only accept
+    messages signed by a small number of certificates. The acceptable
+    certificates would be passed in the <i>certs</i> parameter. In this case if
+    the signer's certificate is not one of the certificates supplied in
+    <i>certs</i> then the verify will fail because the signer cannot be
+  found.</p>
+<p class="Pp">Care should be taken when modifying the default verify behaviour,
+    for example setting
+    <span class="Li">&quot;PKCS7_NOVERIFY|PKCS7_NOSIGS&quot;</span> will totally
+    disable all verification and any signed message will be considered valid.
+    This combination is however useful if one merely wishes to write the content
+    to <i>out</i> and its validity is not considered important.</p>
+<p class="Pp">Chain verification should arguably be performed using the signing
+    time rather than the current time. However, since the signing time is
+    supplied by the signer it cannot be trusted without additional evidence
+    (such as a trusted timestamp).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><b>PKCS7_verify()</b> returns 1 for a successful verification and
+    0 if an error occurs.</p>
+<p class="Pp"><b>PKCS7_get0_signers()</b> returns all signers or NULL if an
+    error occurred.</p>
+<p class="Pp">The error can be obtained from <a class="Xr" href="../3ssl/ERR_get_error.html"><b>ERR_get_error</b>(3)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">The trusted certificate store is not searched for the signer's
+    certificates. This is primarily due to the inadequacies of the current
+    <b>X509_STORE</b> functionality.</p>
+<p class="Pp">The lack of single pass processing means that the signed content
+    must all be held in memory if it is not detached.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3ssl/CMS_verify.html"><b>CMS_verify</b>(3)</a>, <b>PKCS7_add_certificate</b>(3),
+    <b>PKCS7_add_crl</b>(3), <a class="Xr" href="../3ssl/ERR_get_error.html"><b>ERR_get_error</b>(3)</a>, <a class="Xr" href="../3ssl/PKCS7_sign.html"><b>PKCS7_sign</b>(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright 2002-2022 The OpenSSL Project Authors. All Rights
+    Reserved.</p>
+<p class="Pp">Licensed under the Apache License 2.0 (the &quot;License&quot;).
+    You may not use this file except in compliance with the License. You can
+    obtain a copy in the file LICENSE in the source distribution or at
+    &lt;https://www.openssl.org/source/license.html&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2026-06-02</td>
+    <td class="foot-os">3.0.13</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

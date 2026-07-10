@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="design notes for mawk&#x27;s array implementation">
+<title>mawk-arrays(7) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">mawk-arrays(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DATA_STRUCTURES">DATA
+  STRUCTURES</a></li><li><a href="#Array_Structure">Array
+  Structure</a></li><li><a href="#Hash_Tables">Hash
+  Tables</a></li><li><a href="#ARRAY_OPERATIONS">ARRAY
+  OPERATIONS</a></li><li><a href="#Array_Find">Array
+  Find</a></li><li><a href="#Array_Delete">Array
+  Delete</a></li><li><a href="#Building_an_Array_with_Split">Building
+  an Array with Split</a></li><li><a href="#Array_Clear">Array
+  Clear</a></li><li><a href="#Constructor_and_Conversions">Constructor
+  and Conversions</a></li><li><a href="#Doubling_the_Size_of_a_Hash_Table">Doubling
+  the Size of a Hash Table</a></li><li><a href="#Array_Loops">Array
+  Loops</a></li><li><a href="#Concatenating_Array_Indices">Concatenating
+  Array Indices</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MAWK-ARRAYS(7)</td>
+    <td class="head-vol">Miscellaneous</td>
+    <td class="head-rtitle">MAWK-ARRAYS(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">mawk-arrays - design notes for mawk's array implementation</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">This is the documentation for the <b>mawk</b> implementation of
+    awk arrays. Arrays in awk are associations of strings to awk scalar values.
+    The <b>mawk</b> implementation stores the associations in hash tables. The
+    hash table scheme was influenced by and is similar to the design presented
+    in Griswold and Townsend, <i>The Design and Implementation of Dynamic
+    Hashing Sets and Tables in Icon</i>, <b>Software Practice and
+    Experience</b>, 23, 351-367, 1993.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DATA_STRUCTURES"><a class="permalink" href="#DATA_STRUCTURES">DATA
+  STRUCTURES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Array_Structure"><a class="permalink" href="#Array_Structure">Array
+  Structure</a></h2>
+<p class="Pp">The type <b>ARRAY</b> is a pointer to a <b>struct array</b>. The
+    <i>size</i> field is the number of elements in the table. The meaning of the
+    other fields depends on the <i>type</i> field.</p>
+<p class="Pp">There are three types of arrays and these are distinguished by the
+    <i>type</i> field in the structure. The types are:</p>
+<dl class="Bl-tag">
+  <dt id="AY_NULL"><a class="permalink" href="#AY_NULL"><b>AY_NULL</b></a></dt>
+  <dd>The array is empty and the <i>size</i> field is always zero. The other
+      fields have no meaning.</dd>
+  <dt id="AY_SPLIT"><a class="permalink" href="#AY_SPLIT"><b>AY_SPLIT</b></a></dt>
+  <dd>The array was created by the <i>AWK</i> built-in <i>split</i>. The return
+      value from <i>split</i> is stored in the <i>size</i> field. The <i>ptr</i>
+      field points at a vector of <b>CELL</b>s. The number of <b>CELL</b>s is
+      the <i>limit</i> field. It is always true that
+      <i>size</i>&#x00A0;&#x2264;&#x00A0;<i>limit</i>. The address of
+      <i>A[i</i>] is <i>(CELL*)A-&gt;ptr+i-1</i> for
+      1&#x2264;&#x00A0;<i>i</i>&#x00A0;&#x2264; <i>size</i>. The <i>hmask</i>
+      field has no meaning.</dd>
+  <dt id="Hash"><a class="permalink" href="#Hash"><i>Hash Table</i></a></dt>
+  <dd>The array is a hash table. If the <b>AY_STR</b> bit in the <i>type</i>
+      field is set, then the table is keyed on strings. If the <b>AY_INT</b> bit
+      in the <i>type</i> field is set, then the table is keyed on integers. Both
+      bits can be set, and then the two keys are consistent, i.e., look up of
+      <i>A[-14</i>] and <i>A[&quot;-14&quot;</i>] will return identical
+      <i>CELL</i> pointers although the look up methods will be different. In
+      this case, the <i>size</i> field is the number of hash nodes in the table.
+      When insertion of a new element would cause <i>size</i> to exceed
+      <i>limit</i>, the table grows by doubling the number of hash chains. The
+      invariant, (<i>hmask</i>+1)<i>max_ave_list_length</i>=<i>limit</i> is
+      always true. <i>Max_ave_list_length</i> is a tunable constant.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Hash_Tables"><a class="permalink" href="#Hash_Tables">Hash
+  Tables</a></h2>
+<p class="Pp">The hash tables are linked lists of nodes, called <b>ANODE</b>s.
+    The number of lists is <i>hmask+1</i> which is always a power of two. The
+    <i>ptr</i> field points at a vector of list heads. Since there are
+    potentially two types of lists, integer lists and strings lists, each list
+    head is a structure, <i>DUAL_LINK</i>.</p>
+<p class="Pp">The string lists are chains connected by <i>slinks</i> and the
+    integer lists are chains connected by <i>ilinks</i>. We sometimes refer to
+    these lists as slists and ilists, respectively. The elements on the lists
+    are <b>ANODE</b>s. The fields of an <b>ANODE</b> are:</p>
+<p class="Pp"><i>slink</i> The link field for slists. <i>ilink</i> The link
+    field for ilists. <i>sval</i> If non-null, then <i>sval</i> is a pointer to
+    a string key. For a given table, if the <b>AY_STR</b> bit is set then every
+    <b>ANODE</b> has a non-null <i>sval</i> field and conversely, if
+    <b>AY_STR</b> is not set, then every <i>sval</i> field is null.</p>
+<p class="Pp"><i>hval</i> The hash value of <i>sval</i>. This field has no
+    meaning if <i>sval</i> is null.</p>
+<p class="Pp"><i>ival</i> The integer key. The field has no meaning if set to
+    the constant, <i>NOT_AN_IVALUE</i>. If the <b>AY_STR</b> bit is off, then
+    every <b>ANODE</b> will have a valid <i>ival</i> field. If the <b>AY_STR</b>
+    bit is on, then the <i>ival</i> field may or may not be valid.</p>
+<p class="Pp"><i>cell</i> The data field in the hash table. \ndhitems</p>
+<p class="Pp">So the value of <i>A</i>[<i>expr</i> is stored in the <i>cell</i>
+    field, and if <i>expr</i> is an integer, then <i>expr</i> is stored in
+    <i>ival</i>, else it is stored in <i>sval</i>.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ARRAY_OPERATIONS"><a class="permalink" href="#ARRAY_OPERATIONS">ARRAY
+  OPERATIONS</a></h1>
+<p class="Pp">The functions that operate on arrays are,</p>
+<dl class="Bl-tag">
+  <dt id="CELL*"><a class="permalink" href="#CELL*"><i>CELL* array_find(ARRAY A,
+    CELL *cp, int create_flag)</i></a></dt>
+  <dd>returns a pointer to <i>A</i>[<i>expr</i>] where <i>cp</i> is a pointer to
+      the <i>CELL</i> holding <i>expr</i>. If the <i>create_flag</i> is on and
+      <i>expr</i> is not an element of <i>A</i>, then the element is created
+      with value <i>null</i>.</dd>
+  <dt id="void"><a class="permalink" href="#void"><i>void array_delete(ARRAY A,
+    CELL *cp)</i></a></dt>
+  <dd>removes an element <i>A</i>[<i>expr</i> from the array <i>A</i>. <i>cp</i>
+      points at the <i>CELL</i> holding <i>expr</i>.</dd>
+  <dt id="void~2"><a class="permalink" href="#void~2"><i>void array_load(ARRAY
+    A, size_t cnt)</i></a></dt>
+  <dd>builds a split array. The values <i>A[1..cnt</i>] are moved into <i>A</i>
+      from an anonymous buffer with <i>transfer_to_array()</i> which is declared
+      in <i>split.h</i>.</dd>
+  <dt id="void~3"><a class="permalink" href="#void~3"><i>void array_clear(ARRAY
+    A)</i> removes all elements of <i>A</i>.</a></dt>
+  <dd>The type of <i>A</i> is then <b>AY_NULL</b>.</dd>
+  <dt id="STRING**"><a class="permalink" href="#STRING**"><i>STRING**
+    array_loop_vector(ARRAY A, size_t *sizep)</i></a></dt>
+  <dd>returns a pointer to a linear vector that holds all the strings that are
+      indices of <i>A</i>. The size of the the vector is returned indirectly in
+      <i>*sizep</i>. If <i>A-&gt;size</i>&#x2261;<b>0</b>, a <i>null</i> pointer
+      is returned.</dd>
+  <dt id="CELL*~2"><a class="permalink" href="#CELL*~2"><i>CELL* array_cat(CELL
+    *sp, int cnt)</i></a></dt>
+  <dd>concatenates the elements of <i>sp[1-cnt..0]</i>, with each element
+      separated by <i>SUBSEP</i>, to compute an array index. For example, on a
+      reference to <i>A</i>[i,j], <i>array_cat</i> computes <i>i</i> &#x25CB;
+      <i>SUBSEP &#x25CB; </i><i>j</i><i> where</i> <i>&#x25CB; denotes
+      concatenation.</i></dd>
+</dl>
+<section class="Ss">
+<h2 class="Ss" id="Array_Find"><a class="permalink" href="#Array_Find">Array
+  Find</a></h2>
+<p class="Pp">Any reference to A[<i>expr</i>] creates a call to
+    <i>array_find(A,cp,CREATE)</i> where <i>cp</i> points at the cell holding
+    <i>expr</i>. The test, <i>expr</i> <b>in</b> <i>A</i>, creates a call to
+    <i>array_find(A,cp,NO_CREATE)</i>.</p>
+<p class="Pp"><i>Array_find</i> is a hash-table lookup function that handles two
+    cases:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>If <i>*cp</i> is numeric and integer valued, then lookup by integer value
+      using <i>find_by_ival</i>. If <i>*cp</i> is numeric, but not integer
+      valued, then convert to string with <i>sprintf(CONVFMT,...)</i> and go to
+      case~2.</dd>
+  <dt>2.</dt>
+  <dd>If <i>*cp</i> is string valued, then lookup by string value using
+      <i>find_by_sval</i>. \ndlist</dd>
+</dl>
+<p class="Pp">To test whether <i>cp-&gt;dval</i> is integer, we convert to the
+    nearest integer by rounding towards zero (done by <i>do_to_I</i>) and then
+    cast back to double. If we get the same number we started with, then
+    <i>cp-&gt;dval</i> is integer valued.</p>
+<p class="Pp">When we get to the function <i>find_by_ival</i>, the search has
+    been reduced to lookup in a hash table by integer value.</p>
+<p class="Pp">When a search by integer value fails, we have to check by string
+    value to correctly handle the case insertion by <i>A[&quot;123&quot;</i>]
+    and later search as <i>A[123</i>]. This string search is necessary if and
+    only if the <b>AY_STR</b> bit is set. An important point is that all
+    <b>ANODE</b>s get created with a valid <i>sval</i> if <b>AY_STR</b> is set,
+    because then creation of new nodes always occurs in a call to
+    <i>find_by_sval</i>.</p>
+<p class="Pp">Searching by string value is easier because <i>AWK</i> arrays are
+    really string associations. If the array does not have the <b>AY_STR</b> bit
+    set, then we have to convert the array to a dual hash table with strings
+    which is done by the function <i>add_string_associations</i>.</p>
+<p class="Pp">One <i>Int</i> value is reserved to show that the <i>ival</i>
+    field is invalid. This works because <i>d_to_I</i> returns a value in
+    <i>[-Max_Int, Max_Int</i>].</p>
+<p class="Pp">On entry to <i>add_string_associations</i>, we know that the
+    <b>AY_STR</b> bit is not set. We convert to a dual hash table, then walk all
+    the integer lists and put each <b>ANODE</b> on a string list.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Array_Delete"><a class="permalink" href="#Array_Delete">Array
+  Delete</a></h2>
+<p class="Pp">The execution of the statement, <b>delete</b>
+    <i>A</i>[<i>expr</i>], creates a call to <i>array_delete(ARRAY A, CELL
+    *cp)</i>. Depending on the type of <i>*cp</i>, the call is routed to
+    <i>find_by_sval</i> or <i>find_by_ival</i>. Each of these functions leaves
+    its return value on the front of an <i>slist</i> or <i>ilist</i>,
+    respectively, and then it is deleted from the front of the list. The case
+    where <i>A</i>[<i>expr</i> is on two lists, e.g., <i>A[12</i>] and
+    <i>A[&quot;12&quot;</i>] is checked by examining the <i>sval</i> and
+    <i>ival</i> fields of the returned <b>ANODE*</b>.</p>
+<p class="Pp">Even though we found a node by searching an <i>ilist</i> it might
+    also be on an <i>slist</i> and vice-versa.</p>
+<p class="Pp">When the size of a hash table drops below a certain value, it
+    might be profitable to shrink the hash table. Currently we don't do this,
+    because our guess is that it would be a waste of time for most <i>AWK</i>
+    applications. However, we do convert an array to <b>AY_NULL</b> when the
+    size goes to zero which would resize a large hash table that had been
+    completely cleared by successive deletions.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Building_an_Array_with_Split"><a class="permalink" href="#Building_an_Array_with_Split">Building
+  an Array with Split</a></h2>
+<p class="Pp">A simple operation is to create an array with the <i>AWK</i>
+    primitive <i>split</i>. The code that performs <i>split</i> puts the pieces
+    in an anonymous buffer. <i>array_load(A, cnt)</i> moves the <i>cnt</i>
+    elements from the anonymous buffer into <i>A</i>. This is the only way an
+    array of type <b>AY_SPLIT</b> is created.</p>
+<p class="Pp">If the array <i>A</i> is a split array and big enough then we
+    reuse it, otherwise we need to allocate a new split array. When we allocate
+    a block of <b>CELL</b>s for a split array, we round up to a multiple of
+  4.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Array_Clear"><a class="permalink" href="#Array_Clear">Array
+  Clear</a></h2>
+<p class="Pp">The function <i>array_clear(ARRAY A)</i> converts <i>A</i> to type
+    <b>AY_NULL</b> and frees all storage used by <i>A</i> except for the
+    <i>struct array</i> itself. This function gets called in three contexts:</p>
+<dl class="Bl-tag">
+  <dt>(1)</dt>
+  <dd>when an array local to a user function goes out of scope,</dd>
+  <dt>(2)</dt>
+  <dd>execution of the <i>AWK</i> statement, <i>delete A</i> and</dd>
+  <dt>(3)</dt>
+  <dd>when an existing changes type or size from <i>split()</i>.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Constructor_and_Conversions"><a class="permalink" href="#Constructor_and_Conversions">Constructor
+  and Conversions</a></h2>
+<p class="Pp">Arrays are always created as empty arrays of type <b>AY_NULL</b>.
+    Global arrays are never destroyed although they can go empty or have their
+    type change by conversion. The only constructor function is a macro.</p>
+<p class="Pp">Hash tables only get constructed by conversion. This happens in
+    two ways. The function <i>make_empty_table</i> converts an empty array of
+    type <b>AY_NULL</b> to an empty hash table. The number of lists in the table
+    is a power of 2 determined by the constant <i>STARTING_HMASK</i>. The limit
+    size of the table is determined by the constant <i>MAX_AVE_LIST_LENGTH</i>
+    which is the largest average size of the hash lists that we are willing to
+    tolerate before enlarging the table. When <i>A-&gt;size</i> exceeds
+    <i>A-&gt;limit</i>, the hash table grows in size by doubling the number of
+    lists. <i>A-&gt;limit</i> is then reset to <i>MAX_AVE_LIST_LENGTH</i> times
+    <i>A-&gt;hmask+1</i>.</p>
+<p class="Pp">The other way a hash table gets constructed is when a split array
+    is converted to a hash table of type <b>AY_INT</b>.</p>
+<p class="Pp">To determine the size of the table, we set the initial size to
+    <i>STARTING_HMASK+1</i> and then double the size until
+    <i>A-&gt;size</i>&#x00A0;&#x2264;&#x00A0;<i>A-&gt;limit</i>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Doubling_the_Size_of_a_Hash_Table"><a class="permalink" href="#Doubling_the_Size_of_a_Hash_Table">Doubling
+  the Size of a Hash Table</a></h2>
+<p class="Pp">The whole point of making the table size a power of two is to
+    facilitate resizing the table. If the table size is 2**(n) and <i>h</i> is
+    the hash key, then <i>h</i>&#x00A0;<b>mod</b> 2**(n) is the hash chain index
+    which can be calculated with bit-wise and, <i>h</i> &amp; (2**(n-1)). When
+    the table size doubles, the new bit-mask has one more bit turned on.
+    Elements of an old hash chain whose hash value have this bit turned on get
+    moved to a new chain. Elements with this bit turned off stay on the same
+    chain. On average only half the old chain moves to the new chain. If the old
+    chain is at <i>table</i>[i],&#x00A0;0&#x00A0;&#x2264;&#x00A0;<i>i</i> &lt;
+    2**(n), then the elements that move, all move to the new chain at
+    <i>table</i>[i + 2**(n)].</p>
+<p class="Pp">As we walk an old string list with pointer <i>p</i>, the
+    expression <i>p-&gt;hval &amp; new_hmask</i> takes one of two values. If it
+    is equal to <i>p-&gt;hval &amp; old_hmask</i> (which equals <i>i</i>), then
+    the node stays otherwise it gets moved to a new string list at <i>j</i>. The
+    new string list preserves order so that the positions of the
+    move-to-the-front heuristic are preserved. Nodes moving to the new list are
+    appended at pointer <i>tail</i>. The <b>ANODE</b>s, <i>dummy0</i>~and
+    <i>dummy1</i>, are sentinels that remove special handling of boundary
+    conditions.</p>
+<p class="Pp">The doubling of the integer lists is exactly the same except that
+    <i>slink</i> is replaced by <i>ilink</i> and <i>hval</i> is replaced by
+    <i>ival</i>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Array_Loops"><a class="permalink" href="#Array_Loops">Array
+  Loops</a></h2>
+<p class="Pp">Our mechanism for dealing with execution of the statement,</p>
+<div class="Bd-indent">
+<p class="Pp"><b>for </b>(<i>i</i> in <i>A</i>) { <i>statements</i> }</p>
+</div>
+<p class="Pp">is simple. We allocate a vector of <i>STRING*</i> of size,
+    <i>A-&gt;size</i>. Each element of the vector is a string key for~<i>A</i>.
+    Note that if the <b>AY_STR</b> bit of <i>A</i> is not set, then <i>A</i> has
+    to be converted to a string hash table, because the index <i>i</i> walks
+    string indices.</p>
+<p class="Pp">To execute the loop, the only state that needs to be saved is the
+    address of <i>i</i> and an index into the vector of string keys. Since
+    nothing about <i>A</i> is saved as state, the user program can do anything
+    to <i>A</i> inside the body of the loop, even <i>delete A</i>, and the loop
+    still works. Essentially, we have traded data space (the string vector) in
+    exchange for implementation simplicity. On a 32-bit system, each
+    <b>ANODE</b> is 36 bytes, so the extra memory needed for the array loop is
+    11 more than the memory consumed by the <b>ANODE</b>s of the array. Note
+    that the large size of the <b>ANODE</b>s is indicative of our whole design
+    which pays data space for integer lookup speed and algorithm simplicity.</p>
+<p class="Pp">The only aspect of array loops that occurs in <i>array.c</i> is
+    construction of the string vector. The rest of the implementation is in the
+    file <i>execute.c</i>.</p>
+<p class="Pp">As we walk over the hash table <b>ANODE</b>s, putting each
+    <i>sval</i> in <i>ret</i>, we need to increment each reference count. The
+    user of the return value is responsible for these new reference counts.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Concatenating_Array_Indices"><a class="permalink" href="#Concatenating_Array_Indices">Concatenating
+  Array Indices</a></h2>
+<p class="Pp">In <i>AWK</i>, an array expression <i>A[i,j</i>] is equivalent to
+    the expression <i>A[i SUBSEP j</i>], i.e., the index is the concatenation of
+    the three elements <i>i</i>, <i>SUBSEP</i> and <i>j</i>. This is performed
+    by the function <i>array_cat</i>. On entry, <i>sp</i> points at the top of a
+    stack of <b>CELL</b>s. <i>Cnt</i> cells are popped off the stack and
+    concatenated together separated by <i>SUBSEP</i> and the result is pushed
+    back on the stack. On entry, the first multi-index is in <i>sp[1-cnt</i>]
+    and the last is in <i>sp[0</i>]. The return value is the new stack top. (The
+    stack is the run-time evaluation stack. This operation really has nothing to
+    do with array structure, so logically this code belongs in <i>execute.c</i>,
+    but remains here for historical reasons.)</p>
+<p class="Pp">We make a copy of <i>SUBSEP</i> which we can cast to string in the
+    unlikely event the user has assigned a number to <i>SUBSEP</i>.</p>
+<p class="Pp">Set <i>sp</i> and <i>top</i> so the cells to concatenate are
+    inclusively between <i>sp</i> and <i>top</i>.</p>
+<p class="Pp">The <i>total_len</i> is the sum of the lengths of the <i>cnt</i>
+    strings and the <i>cnt-1</i> copies of <i>subsep</i>.</p>
+<p class="Pp">The return value is <i>sp</i> and it is already set correctly. We
+    just need to free the strings and set the contents of <i>sp</i>.</p>
+</section>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-01-23</td>
+    <td class="foot-os">Version 1.3.4</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

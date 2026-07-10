@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="asynchronous metadirectory backend to slapd">
+<title>slapd-asyncmeta(5) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">slapd-asyncmeta(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#CONFIGURATION">CONFIGURATION</a></li><li><a href="#SPECIAL_CONFIGURATION_DIRECTIVES">SPECIAL
+  CONFIGURATION DIRECTIVES</a></li><li><a href="#TARGET_SPECIFICATION">TARGET
+  SPECIFICATION</a></li><li><a href="#SCENARIOS">SCENARIOS</a></li><li><a href="#ACLs">ACLs</a></li><li><a href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SLAPD-ASYNCMETA(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">SLAPD-ASYNCMETA(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">slapd-asyncmeta - asynchronous metadirectory backend to slapd</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">/etc/ldap/slapd.conf</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <b>asyncmeta</b> backend to <a class="Xr" href="../8/slapd.html"><b>slapd</b>(8)</a> performs basic
+    LDAP proxying with respect to a set of remote LDAP servers, called
+    &quot;targets&quot;. The information contained in these servers can be
+    presented as belonging to a single Directory Information Tree (DIT).</p>
+<p class="Pp"></p>
+<p class="Pp">A good knowledge of the functionality of the <b>slapd-meta(5)</b>
+    backend is recommended. This backend has been designed as an asynchronous
+    version of the <b>meta</b> backend. Unlike <b>meta</b> , the operation
+    handling threads are no longer pending on the response from the remote
+    server, thus decreasing the number of threads necessary to handle the same
+    load. While <b>asyncmeta</b> maintains the functionality of <b>meta</b> and
+    has a largely similar codebase, some changes in operation and some new
+    configuration directives have been added. Some configuration options, such
+    as <b>conn-pool-max ,</b> <b>conn-ttl ,</b> <b>single-conn ,</b> and
+    <b>use-temporary-conn</b> have been removed, as they are no longer
+  relevant.</p>
+<p class="Pp"><b>New connection handling:</b></p>
+<p class="Pp">Unlike <b>meta,</b> which caches bound connections, the
+    <b>asyncmeta</b> works with a configured maximum number of connections per
+    target. For each request redirected to a target, a different connection is
+    selected. Each connection has a queue, to which the request is added before
+    it is sent to the remote server, and is removed after the last response for
+    that request is received.
+  <br/>
+   For each new request, a new connection is chosen using round-robin
+    scheduling.</p>
+<p class="Pp"><b>Overlays:</b></p>
+<p class="Pp">Due to implementation specifics, there is no guarantee that any of
+    the existing OpenLDAP overlays will work with <b>asyncmeta</b> backend.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Refer to <b>slapd-meta(5)</b> for configuration examples.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+<p class="Pp">These <b>slapd.conf</b> options apply to the ASYNCMETA backend
+    database. That is, they must follow a &quot;database asyncmeta&quot; line
+    and come before any subsequent &quot;backend&quot; or &quot;database&quot;
+    lines. Other database options are described in the <a class="Xr" href="../5/slapd.conf.html"><b>slapd.conf</b>(5)</a>
+    manual page.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SPECIAL_CONFIGURATION_DIRECTIVES"><a class="permalink" href="#SPECIAL_CONFIGURATION_DIRECTIVES">SPECIAL
+  CONFIGURATION DIRECTIVES</a></h1>
+<p class="Pp">Target configuration starts with the &quot;uri&quot; directive.
+    All the configuration directives that are not specific to targets should be
+    defined first for clarity, including those that are common to all backends.
+    They are:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="default"><a class="permalink" href="#default"><b>default-target
+    none</b></a></dt>
+  <dd>This directive forces the backend to reject all those operations that must
+      resolve to a single target in case none or multiple targets are selected.
+      They include: add, delete, modify, modrdn; compare is not included, as
+      well as bind since, as they don't alter entries, in case of multiple
+      matches an attempt is made to perform the operation on any candidate
+      target, with the constraint that at most one must succeed. This directive
+      can also be used when processing targets to mark a specific target as
+      default.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="dncache"><a class="permalink" href="#dncache"><b>dncache-ttl
+    {DISABLED|forever|&lt;ttl&gt;}</b></a></dt>
+  <dd>This directive sets the time-to-live of the DN cache. This caches the
+      target that holds a given DN to speed up target selection in case multiple
+      targets would result from an uncached search; forever means cache never
+      expires; disabled means no DN caching; otherwise a valid ( &gt; 0 ) ttl is
+      required, in the format illustrated for the <b>idle-timeout</b> directive.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="onerr"><a class="permalink" href="#onerr"><b>onerr
+    {CONTINUE|report|stop}</b></a></dt>
+  <dd>This directive allows one to select the behavior in case an error is
+      returned by one target during a search. The default, <b>continue</b>,
+      consists in continuing the operation, trying to return as much data as
+      possible. If the value is set to <b>stop</b>, the search is terminated as
+      soon as an error is returned by one target, and the error is immediately
+      propagated to the client. If the value is set to <b>report</b>, the search
+      is continued to the end but, in case at least one target returned an error
+      code, the first non-success error code is returned.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="max"><a class="permalink" href="#max"><b>max-timeout-ops
+    &lt;number&gt;</b></a></dt>
+  <dd>Specify the number of consecutive timed out requests, after which the
+      connection will be considered faulty and dropped.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="max~2"><a class="permalink" href="#max~2"><b>max-pending-ops
+    &lt;number&gt;</b></a></dt>
+  <dd>The maximum number of pending requests stored in a connection's queue. The
+      default is 128. When this number is exceeded, <b>LDAP_BUSY</b> will be
+      returned to the client.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="max~3"><a class="permalink" href="#max~3"><b>max-target-conns
+    &lt;number&gt;</b></a></dt>
+  <dd>The maximum number of connections per target. Unlike <b>slapd-meta(5),</b>
+      no new connections will be created once this number is reached. The
+      default value is 255.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="norefs"><a class="permalink" href="#norefs"><b>norefs
+    &lt;NO|yes&gt;</b></a></dt>
+  <dd>If <b>yes</b>, do not return search reference responses. By default, they
+      are returned unless request is LDAPv2. If set before any target
+      specification, it affects all targets, unless overridden by any per-target
+      directive.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="noundeffilter"><a class="permalink" href="#noundeffilter"><b>noundeffilter
+    &lt;NO|yes&gt;</b></a></dt>
+  <dd>If <b>yes</b>, return success instead of searching if a filter is
+      undefined or contains undefined portions. By default, the search is
+      propagated after replacing undefined portions with
+      <b>(!(objectClass=*))</b>, which corresponds to the empty result set. If
+      set before any target specification, it affects all targets, unless
+      overridden by any per-target directive.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="protocol"><a class="permalink" href="#protocol"><b>protocol-version
+    {0,2,3}</b></a></dt>
+  <dd>This directive indicates what protocol version must be used to contact the
+      remote server. If set to 0 (the default), the proxy uses the same protocol
+      version used by the client, otherwise the requested protocol is used. The
+      proxy returns <i>unwillingToPerform</i> if an operation that is
+      incompatible with the requested protocol is attempted. If set before any
+      target specification, it affects all targets, unless overridden by any
+      per-target directive.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="pseudoroot"><a class="permalink" href="#pseudoroot"><b>pseudoroot-bind-defer
+    {YES|no}</b></a></dt>
+  <dd>This directive, when set to <b>yes</b>, causes the authentication to the
+      remote servers with the pseudo-root identity (the identity defined in each
+      <b>idassert-bind</b> directive) to be deferred until actually needed by
+      subsequent operations. Otherwise, all binds as the rootdn are propagated
+      to the targets.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="quarantine"><a class="permalink" href="#quarantine"><b>quarantine
+    &lt;interval&gt;,&lt;num&gt;[;&lt;interval&gt;,&lt;num&gt;[...]]</b></a></dt>
+  <dd>Turns on quarantine of URIs that returned <i>LDAP_UNAVAILABLE</i>, so that
+      an attempt to reconnect only occurs at given intervals instead of any time
+      a client requests an operation. The pattern is: retry only after at least
+      <i>interval</i> seconds elapsed since last attempt, for exactly <i>num</i>
+      times; then use the next pattern. If <i>num</i> for the last pattern is
+      &quot;<b>+</b>&quot;, it retries forever; otherwise, no more retries
+      occur. This directive must appear before any target specification; it
+      affects all targets with the same pattern.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="rebind"><a class="permalink" href="#rebind"><b>rebind-as-user
+    {NO|yes}</b></a></dt>
+  <dd>If this option is given, the client's bind credentials are remembered for
+      rebinds, when trying to re-establish a broken connection, or when chasing
+      a referral, if <b>chase-referrals</b> is set to <i>yes</i>.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="session"><a class="permalink" href="#session"><b>session-tracking-request
+    {NO|yes}</b></a></dt>
+  <dd>Adds session tracking control for all requests. The client's IP and
+      hostname, and the identity associated to each request, if known, are sent
+      to the remote server for informational purposes. This directive is
+      incompatible with setting <i>protocol-version</i> to 2. If set before any
+      target specification, it affects all targets, unless overridden by any
+      per-target directive.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TARGET_SPECIFICATION"><a class="permalink" href="#TARGET_SPECIFICATION">TARGET
+  SPECIFICATION</a></h1>
+<p class="Pp">Target specification starts with a &quot;uri&quot; directive:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="uri"><a class="permalink" href="#uri"><b>uri
+    &lt;protocol&gt;://[&lt;host&gt;]/&lt;naming context&gt; [...]</b></a></dt>
+  <dd>Identical to <b>meta.</b> See <b>slapd-meta(5)</b> for details.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="acl"><a class="permalink" href="#acl"><b>acl-authcDN
+    &lt;administrative DN for access control purposes&gt;</b></a></dt>
+  <dd>DN which is used to query the target server for acl checking, as in the
+      LDAP backend; it is supposed to have read access on the target server to
+      attributes used on the proxy for acl checking. There is no risk of giving
+      away such values; they are only used to check permissions. <b>The
+      acl-authcDN identity is by no means implicitly used by the proxy</b>
+      <b>when the client connects anonymously.</b>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="acl~2"><a class="permalink" href="#acl~2"><b>acl-passwd
+    &lt;password&gt;</b></a></dt>
+  <dd>Password used with the <b>acl-authcDN</b> above.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="bind"><a class="permalink" href="#bind"><b>bind-timeout
+    &lt;microseconds&gt;</b></a></dt>
+  <dd>This directive defines the timeout, in microseconds, used when polling for
+      response after an asynchronous bind connection. See <b>slapd-meta(5)</b>
+      for details.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="chase"><a class="permalink" href="#chase"><b>chase-referrals
+    {YES|no}</b></a></dt>
+  <dd>enable/disable automatic referral chasing, which is delegated to the
+      underlying libldap, with rebinding eventually performed if the
+      <b>rebind-as-user</b> directive is used. The default is to chase
+      referrals. If set before any target specification, it affects all targets,
+      unless overridden by any per-target directive.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="client"><a class="permalink" href="#client"><b>client-pr
+    {accept-unsolicited|DISABLE|&lt;size&gt;}</b></a></dt>
+  <dd>This feature allows one to use RFC 2696 Paged Results control when
+      performing search operations with a specific target, irrespective of the
+      client's request. See <b>slapd-meta(5)</b> for details.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="default~2"><a class="permalink" href="#default~2"><b>default-target
+    [&lt;target&gt;]</b></a></dt>
+  <dd>The &quot;default-target&quot; directive can also be used during target
+      specification. With no arguments it marks the current target as the
+      default. The optional number marks target &lt;target&gt; as the default
+      one, starting from 1. Target &lt;target&gt; must be defined.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="filter"><a class="permalink" href="#filter"><b>filter
+    &lt;pattern&gt;</b></a></dt>
+  <dd>This directive allows specifying a <b>regex</b>(5) pattern to indicate
+      what search filter terms are actually served by a target.
+    <p class="Pp">In a search request, if the search filter matches the
+        <i>pattern</i> the target is considered while fulfilling the request;
+        otherwise the target is ignored. There may be multiple occurrences of
+        the <b>filter</b> directive for each target.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="idassert"><a class="permalink" href="#idassert"><b>idassert-authzFrom
+    &lt;authz-regexp&gt;</b></a></dt>
+  <dd>if defined, selects what <i>local</i> identities are authorized to exploit
+      the identity assertion feature. The string <b>&lt;authz-regexp&gt;</b>
+      follows the rules defined for the <i>authzFrom</i> attribute. See
+      <a class="Xr" href="../5/slapd.conf.html"><b>slapd.conf</b>(5)</a>, section related to <b>authz-policy</b>, for details
+      on the syntax of this field.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp HP"><b>idassert-bind</b> <b>bindmethod=none|simple|sasl
+    [binddn=&lt;simple DN&gt;] [credentials=&lt;simple password&gt;]</b>
+    <b>[saslmech=&lt;SASL mech&gt;] [secprops=&lt;properties&gt;]
+    [realm=&lt;realm&gt;]</b> <b>[authcId=&lt;authentication ID&gt;]
+    [authzId=&lt;authorization ID&gt;]</b> <b>[authz={native|proxyauthz}]
+    [mode=&lt;mode&gt;] [flags=&lt;flags&gt;]</b>
+    <b>[starttls=no|yes|critical]</b> <b>[tls_cert=&lt;file&gt;]</b>
+    <b>[tls_key=&lt;file&gt;]</b> <b>[tls_cacert=&lt;file&gt;]</b>
+    <b>[tls_cacertdir=&lt;path&gt;]</b>
+    <b>[tls_reqcert=never|allow|try|demand]</b>
+    <b>[tls_reqsan=never|allow|try|demand]</b>
+    <b>[tls_cipher_suite=&lt;ciphers&gt;]</b> <b>[tls_ecname=&lt;names&gt;]</b>
+    <b>[tls_protocol_min=&lt;major&gt;[.&lt;minor&gt;]]</b>
+    <b>[tls_crlcheck=none|peer|all]</b> Allows one to define the parameters of
+    the authentication method that is internally used by the proxy to authorize
+    connections that are authenticated by other databases. See
+    <b>slapd-meta(5)</b> for details.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="idle"><a class="permalink" href="#idle"><b>idle-timeout
+    &lt;time&gt;</b></a></dt>
+  <dd>This directive causes a a persistent connection to be dropped after it has
+      been idle for the specified time. The connection will be re-created the
+      next time it is selected for use. A connection is considered idle if no
+      attempts have been made by the backend to use it to send a request to the
+      backend server. If there are still pending requests in its queue, the
+      connection will be dropped after the last request one has either received
+      a result or has timed out.
+    <p class="Pp">[&lt;d&gt;d][&lt;h&gt;h][&lt;m&gt;m][&lt;s&gt;[s]]</p>
+    <p class="Pp">where &lt;d&gt;, &lt;h&gt;, &lt;m&gt; and &lt;s&gt; are
+        respectively treated as days, hours, minutes and seconds. If set before
+        any target specification, it affects all targets, unless overridden by
+        any per-target directive.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="keepalive"><a class="permalink" href="#keepalive"><b>keepalive
+    &lt;idle&gt;:&lt;probes&gt;:&lt;interval&gt;</b></a></dt>
+  <dd>The <b>keepalive</b> parameter sets the values of <i>idle</i>,
+      <i>probes</i>, and <i>interval</i> used to check whether a socket is
+      alive; <i>idle</i> is the number of seconds a connection needs to remain
+      idle before TCP starts sending keepalive probes; <i>probes</i> is the
+      maximum number of keepalive probes TCP should send before dropping the
+      connection; <i>interval</i> is interval in seconds between individual
+      keepalive probes. Only some systems support the customization of these
+      values; the <b>keepalive</b> parameter is ignored otherwise, and
+      system-wide settings are used.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="tcp"><a class="permalink" href="#tcp"><b>tcp-user-timeout
+    &lt;milliseconds&gt;</b></a></dt>
+  <dd>If non-zero, corresponds to the <b>TCP_USER_TIMEOUT</b> set on the target
+      connections, overriding the operating system setting. Only some systems
+      support the customization of this parameter, it is ignored otherwise and
+      system-wide settings are used.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="map"><a class="permalink" href="#map"><b>map {attribute|objectclass}
+    [&lt;local name&gt;|*] {&lt;foreign name&gt;|*}</b></a></dt>
+  <dd>This maps object classes and attributes as in the LDAP backend. See
+      <a class="Xr" href="../5/slapd-ldap.html"><b>slapd-ldap</b>(5)</a>.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="network"><a class="permalink" href="#network"><b>network-timeout
+    &lt;time&gt;</b></a></dt>
+  <dd>Sets the network timeout value after which <a class="Xr" href="../2/poll.html"><b>poll</b>(2)</a>/<a class="Xr" href="../2/select.html"><b>select</b>(2)</a>
+      following a <a class="Xr" href="../2/connect.html"><b>connect</b>(2)</a> returns in case of no activity while sending
+      an operation to the remote target. The value is in milliseconds, and it
+      can be specified as for <b>idle-timeout</b>. If set before any target
+      specification, it affects all targets, unless overridden by any per-target
+      directive.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="nretries"><a class="permalink" href="#nretries"><b>nretries
+    {forever|never|&lt;nretries&gt;}</b></a></dt>
+  <dd>This directive defines how many times forwarding an operation should be
+      retried in case of temporary failure in contacting a target. The number of
+      retries is per operation, so if a bind to the target is necessary first,
+      the remaining number is decremented. If defined before any target
+      specification, it applies to all targets (by default, <b>3</b> times); the
+      global value can be overridden by redefinitions inside each target
+      specification.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="subtree"><a class="permalink" href="#subtree"><b>subtree-{exclude|include}
+    &lt;rule&gt;</b></a></dt>
+  <dd>This directive allows one to indicate what subtrees are actually served by
+      a target. See <b>slapd-meta(5)</b> for details.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="suffixmassage"><a class="permalink" href="#suffixmassage"><b>suffixmassage
+    &lt;local suffix&gt; &lt;remote suffix&gt;</b></a></dt>
+  <dd><b>slapd-asyncmeta</b> does not support the rewrite engine used by the
+      LDAP and META backends. <b>suffixmassage</b> can be used to perform DN
+      suffix rewriting, the same way as the obsoleted suffixmassage directive
+      previously used by the LDAP backend.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="t"><a class="permalink" href="#t"><b>t-f-support
+    {NO|yes|discover}</b></a></dt>
+  <dd>enable if the remote server supports absolute filters (see <i>RFC 4526</i>
+      for details). If set to <b>discover</b>, support is detected by reading
+      the remote server's root DSE. If set before any target specification, it
+      affects all targets, unless overridden by any per-target directive.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="timeout"><a class="permalink" href="#timeout"><b>timeout
+    [&lt;op&gt;=]&lt;val&gt; [...]</b></a></dt>
+  <dd>This directive allows one to set per-operation timeouts. Operations can be
+    <p class="Pp"><b>&lt;op&gt; ::= bind, add, delete, modrdn, modify, compare,
+        search</b></p>
+    <p class="Pp">By default, the timeout for all operations is 2 seconds.</p>
+    <p class="Pp">See <b>slapd-meta(5)</b> for details.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="tls"><a class="permalink" href="#tls"><b>tls
+    {none|[try-]start|[try-]propagate|ldaps}</b></a></dt>
+  <dd>B [starttls=no] <b>[tls_cert=&lt;file&gt;]</b>
+      <b>[tls_key=&lt;file&gt;]</b> <b>[tls_cacert=&lt;file&gt;]</b>
+      <b>[tls_cacertdir=&lt;path&gt;]</b>
+      <b>[tls_reqcert=never|allow|try|demand]</b>
+      <b>[tls_reqsan=never|allow|try|demand]</b>
+      <b>[tls_cipher_suite=&lt;ciphers&gt;]</b>
+      <b>[tls_ecname=&lt;names&gt;]</b> <b>[tls_crlcheck=none|peer|all]</b></dd>
+</dl>
+<div class="Bd-indent">Specify TLS settings regular connections.
+<p class="Pp">If the first parameter is not &quot;none&quot; then this
+    configures the TLS settings to be used for regular connections. The StartTLS
+    extended operation will be used when establishing the connection unless the
+    URI directive protocol scheme is <b>ldaps://</b>. In that case this keyword
+    may only be set to &quot;ldaps&quot; and the StartTLS operation will not be
+    used.</p>
+<p class="Pp">With <b>propagate</b>, the proxy issues the StartTLS operation
+    only if the original connection has a TLS layer set up. The <b>try-</b>
+    prefix instructs the proxy to continue operations if the StartTLS operation
+    failed; its use is <b>not</b> recommended.</p>
+<p class="Pp">The TLS settings default to the same as the main slapd TLS
+    settings, except for <b>tls_reqcert</b> which defaults to
+    &quot;demand&quot;, <b>tls_reqsan</b> which defaults to &quot;allow&quot;,
+    and <b>starttls</b> which is overshadowed by the first keyword and thus
+    ignored.</p>
+<p class="Pp">If set before any target specification, it affects all targets,
+    unless overridden by any per-target directive.</p>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SCENARIOS"><a class="permalink" href="#SCENARIOS">SCENARIOS</a></h1>
+<p class="Pp">See <b>slapd-meta(5)</b> for configuration scenarios.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACLs"><a class="permalink" href="#ACLs">ACLs</a></h1>
+<p class="Pp">ACL behavior is identical to meta. See <b>slapd-meta(5).</b></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACCESS_CONTROL"><a class="permalink" href="#ACCESS_CONTROL">ACCESS
+  CONTROL</a></h1>
+<p class="Pp">The <b>asyncmeta</b> backend does not honor all ACL semantics as
+    described in <a class="Xr" href="../5/slapd.access.html"><b>slapd.access</b>(5)</a>. In general, access checking is
+    delegated to the remote server(s). Only <b>read (=r)</b> access to the
+    <b>entry</b> pseudo-attribute and to the other attribute values of the
+    entries returned by the <b>search</b> operation is honored, which is
+    performed by the frontend.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt>/etc/ldap/slapd.conf</dt>
+  <dd>default slapd configuration file</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../5/slapd.conf.html"><b>slapd.conf</b>(5)</a>, <a class="Xr" href="../5/slapd-ldap.html"><b>slapd-ldap</b>(5)</a>, <a class="Xr" href="../5/slapd-meta.html"><b>slapd-meta</b>(5)</a>,
+    <a class="Xr" href="../5/slapo-pcache.html"><b>slapo-pcache</b>(5)</a>, <a class="Xr" href="../8/slapd.html"><b>slapd</b>(8)</a>, <a class="Xr" href="../7/regex.html"><b>regex</b>(7)</a>,
+    <a class="Xr" href="../7/regex.html"><b>re_format</b>(7)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Nadezhda Ivanova, based on back-meta by Pierangelo Masarati.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2025/05/22</td>
+    <td class="foot-os">OpenLDAP 2.6.10+dfsg-0ubuntu0.24.04.1</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

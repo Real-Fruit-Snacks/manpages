@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="LVM caching">
+<title>lvmcache(7) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">lvmcache(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#USAGE">USAGE</a></li><li><a href="#1._Identify_main_LV_that_needs_caching">1.
+  Identify main LV that needs caching</a></li><li><a href="#2._Identify_fast_LV_to_use_as_the_cache">2.
+  Identify fast LV to use as the cache</a></li><li><a href="#3._Start_caching_the_main_LV">3.
+  Start caching the main LV</a></li><li><a href="#4._Display_LVs">4.
+  Display LVs</a></li><li><a href="#5._Use_the_main_LV">5.
+  Use the main LV</a></li><li><a href="#6._Stop_caching">6.
+  Stop caching</a></li><li><a href="#7._Create_a_new_LV_with_caching">7.
+  Create a new LV with caching</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#option_args">option
+  args</a></li><li><a href="#dm-cache_block_size">dm-cache
+  block size</a></li><li><a href="#dm-writecache_block_size">dm-writecache
+  block size</a></li><li><a href="#dm-writecache_memory_usage">dm-writecache
+  memory usage</a></li><li><a href="#dm-writecache_settings">dm-writecache
+  settings</a></li><li><a href="#dm-writecache_using_metadata_profiles">dm-writecache
+  using metadata profiles</a></li><li><a href="#dm-cache_with_separate_data_and_metadata_LVs">dm-cache
+  with separate data and metadata LVs</a></li><li><a href="#dm-cache_cache_modes">dm-cache
+  cache modes</a></li><li><a href="#dm-cache_chunk_size">dm-cache
+  chunk size</a></li><li><a href="#dm-cache_migration_threshold">dm-cache
+  migration threshold</a></li><li><a href="#dm-cache_cache_policy">dm-cache
+  cache policy</a></li><li><a href="#dm-cache_using_metadata_profiles">dm-cache
+  using metadata profiles</a></li><li><a href="#dm-cache_spare_metadata_LV">dm-cache
+  spare metadata LV</a></li><li><a href="#dm-cache_metadata_formats">dm-cache
+  metadata formats</a></li><li><a href="#RAID1_cache_device">RAID1
+  cache device</a></li><li><a href="#dm-cache_command_shortcut">dm-cache
+  command shortcut</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">LVMCACHE(7)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">LVMCACHE(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">lvmcache &#x2014; LVM caching</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><a class="Xr" href="../8/lvm.html"><b>lvm</b>(8)</a> includes two kinds of caching that can be used to
+    improve the performance of a Logical Volume (LV). When caching, varying
+    subsets of an LV's data are temporarily stored on a smaller, faster device
+    (e.g. an SSD) to improve the performance of the LV.</p>
+<p class="Pp">To do this with lvm, a new special LV is first created from the
+    faster device. This LV will hold the cache. Then, the new fast LV is
+    attached to the main LV by way of an lvconvert command. lvconvert inserts
+    one of the device mapper caching targets into the main LV's i/o path. The
+    device mapper target combines the main LV and fast LV into a hybrid device
+    that looks like the main LV, but has better performance. While the main LV
+    is being used, portions of its data will be temporarily and transparently
+    stored on the special fast LV.</p>
+<p class="Pp">The two kinds of caching are:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>A read and write hot-spot cache, using the dm-cache kernel module. This
+      cache tracks access patterns and adjusts its content deliberately so that
+      commonly used parts of the main LV are likely to be found on the fast
+      storage. LVM refers to this using the LV type <b>cache</b>.</dd>
+  <dt>&#x2022;</dt>
+  <dd>A write cache, using the dm-writecache kernel module. This cache can be
+      used with SSD or PMEM devices to speed up all writes to the main LV. Data
+      read from the main LV is not stored in the cache, only newly written data.
+      LVM refers to this using the LV type <b>writecache</b>.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USAGE"><a class="permalink" href="#USAGE">USAGE</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="1._Identify_main_LV_that_needs_caching"><a class="permalink" href="#1._Identify_main_LV_that_needs_caching">1.
+  Identify main LV that needs caching</a></h2>
+<p class="Pp">The main LV may already exist, and is located on larger, slower
+    devices. A main LV would be created with a command like:</p>
+<p class="Pp"># lvcreate -n main -L Size vg /dev/slow_hhd</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="2._Identify_fast_LV_to_use_as_the_cache"><a class="permalink" href="#2._Identify_fast_LV_to_use_as_the_cache">2.
+  Identify fast LV to use as the cache</a></h2>
+<p class="Pp">A fast LV is created using one or more fast devices, like an SSD.
+    This special LV will be used to hold the cache:</p>
+<p class="Pp"># lvcreate -n fast -L Size vg /dev/fast_ssd</p>
+<p class="Pp"># lvs -a
+  <br/>
+   LV Attr Type Devices
+  <br/>
+   fast -wi------- linear /dev/fast_ssd
+  <br/>
+   main -wi------- linear /dev/slow_hhd
+  <br/>
+</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="3._Start_caching_the_main_LV"><a class="permalink" href="#3._Start_caching_the_main_LV">3.
+  Start caching the main LV</a></h2>
+<p class="Pp">To start caching the main LV, convert the main LV to the desired
+    caching type, and specify the fast LV to use as the cache:</p>
+<p class="Pp">using dm-cache (with cachepool):</p>
+<p class="Pp"># lvconvert --type cache --cachepool fast vg/main</p>
+<p class="Pp">using dm-cache (with cachevol):</p>
+<p class="Pp"># lvconvert --type cache --cachevol fast vg/main</p>
+<p class="Pp">using dm-writecache (with cachevol):</p>
+<p class="Pp"># lvconvert --type writecache --cachevol fast vg/main</p>
+<p class="Pp">For more alteratives see:
+  <br/>
+  dm-cache command shortcut
+  <br/>
+  dm-cache with separate data and metadata LVs</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="4._Display_LVs"><a class="permalink" href="#4._Display_LVs">4.
+  Display LVs</a></h2>
+<p class="Pp">Once the fast LV has been attached to the main LV, lvm reports the
+    main LV type as either <b>cache</b> or <b>writecache</b> depending on the
+    type used. While attached, the fast LV is hidden, and renamed with a _cvol
+    or _cpool suffix. It is displayed by lvs -a. The _corig or _wcorig LV
+    represents the original LV without the cache.</p>
+<p class="Pp">using dm-cache (with cachepool):</p>
+<p class="Pp"># lvs -ao+devices</p>
+<pre>
+<br/>
+  LV                 Pool         Type       Devices
+<br/>
+  main               [fast_cpool] cache      main_corig(0)
+<br/>
+  [fast_cpool]                    cache-pool fast_pool_cdata(0)
+<br/>
+  [fast_cpool_cdata]              linear     /dev/fast_ssd
+<br/>
+  [fast_cpool_cmeta]              linear     /dev/fast_ssd
+<br/>
+  [main_corig]                    linear     /dev/slow_hhd</pre>
+<p class="Pp">using dm-cache (with cachevol):</p>
+<p class="Pp"># lvs -ao+devices</p>
+<p class="Pp"></p>
+<pre>
+<br/>
+  LV           Pool        Type   Devices
+<br/>
+  main         [fast_cvol] cache  main_corig(0)
+<br/>
+  [fast_cvol]              linear /dev/fast_ssd
+<br/>
+  [main_corig]             linear /dev/slow_hhd</pre>
+<p class="Pp">using dm-writecache (with cachevol):</p>
+<p class="Pp"># lvs -ao+devices</p>
+<p class="Pp"></p>
+<pre>
+<br/>
+  LV            Pool        Type       Devices
+<br/>
+  main          [fast_cvol] writecache main_wcorig(0)
+<br/>
+  [fast_cvol]               linear     /dev/fast_ssd
+<br/>
+  [main_wcorig]             linear     /dev/slow_hhd</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="5._Use_the_main_LV"><a class="permalink" href="#5._Use_the_main_LV">5.
+  Use the main LV</a></h2>
+<p class="Pp">Use the LV until the cache is no longer wanted, or needs to be
+    changed.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="6._Stop_caching"><a class="permalink" href="#6._Stop_caching">6.
+  Stop caching</a></h2>
+<p class="Pp">To stop caching the main LV and also remove unneeded cache pool,
+    use the --uncache:</p>
+<p class="Pp"># lvconvert --uncache vg/main</p>
+<p class="Pp"># lvs -a</p>
+<pre>
+<br/>
+  LV   VG Attr       Type   Devices
+<br/>
+  main vg -wi------- linear /dev/slow_hhd</pre>
+<p class="Pp">To stop caching the main LV, separate the fast LV from the main
+    LV. This changes the type of the main LV back to what it was before the
+    cache was attached.</p>
+<p class="Pp"># lvconvert --splitcache vg/main</p>
+<p class="Pp"># lvs -a</p>
+<pre>
+<br/>
+  LV   VG Attr       Type   Devices
+<br/>
+  fast vg -wi------- linear /dev/fast_ssd
+<br/>
+  main vg -wi------- linear /dev/slow_hhd</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="7._Create_a_new_LV_with_caching"><a class="permalink" href="#7._Create_a_new_LV_with_caching">7.
+  Create a new LV with caching</a></h2>
+<p class="Pp">A new LV can be created with caching attached at the time of
+    creation using the following command:</p>
+<p class="Pp"></p>
+<pre># lvcreate --type cache|writecache -n Name -L Size
+	--cachedevice /dev/fast_ssd vg /dev/slow_hhd</pre>
+<p class="Pp">The main LV is created with the specified Name and Size from the
+    slow_hhd. A hidden fast LV is created on the fast_ssd and is then attached
+    to the new main LV. If the fast_ssd is unused, the entire disk will be used
+    as the cache unless the --cachesize option is used to specify a size for the
+    fast LV. The --cachedevice option can be repeated to use multiple disks for
+    the fast LV.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="option_args"><a class="permalink" href="#option_args">option
+  args</a></h2>
+<p class="Pp"><b>--cachepool</b> <i>CachePoolLV</i>|<i>LV</i></p>
+<p class="Pp">Pass this option a cachepool LV or a standard LV. When using a
+    cache pool, lvm places cache data and cache metadata on different LVs. The
+    two LVs together are called a cache pool. This has a bit better performance
+    for dm-cache and permits specific placement and segment type selection for
+    data and metadata volumes. A cache pool is represented as a special type of
+    LV that cannot be used directly. If a standard LV is passed with this
+    option, lvm will first convert it to a cache pool by combining it with
+    another LV to use for metadata. This option can be used with dm-cache.</p>
+<p class="Pp"><b>--cachevol</b> <i>LV</i></p>
+<p class="Pp">Pass this option a fast LV that should be used to hold the cache.
+    With a cachevol, cache data and metadata are stored in different parts of
+    the same fast LV. This option can be used with dm-writecache or
+  dm-cache.</p>
+<p class="Pp"><b>--cachedevice</b> <i>PV</i></p>
+<p class="Pp">This option can be used in place of --cachevol, in which case a
+    cachevol LV will be created using the specified device. This option can be
+    repeated to create a cachevol using multiple devices, or a tag name can be
+    specified in which case the cachevol will be created using any of the
+    devices with the given tag. If a named cache device is unused, the entire
+    device will be used to create the cachevol. To create a cachevol of a
+    specific size from the cache devices, include the --cachesize option.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-cache_block_size"><a class="permalink" href="#dm-cache_block_size">dm-cache
+  block size</a></h2>
+<p class="Pp">A cache pool will have a logical block size of 4096 bytes if it is
+    created on a device with a logical block size of 4096 bytes.</p>
+<p class="Pp">If a main LV has logical block size 512 (with an existing xfs file
+    system using that size), then it cannot use a cache pool with a 4096 logical
+    block size. If the cache pool is attached, the main LV will likely fail to
+    mount.</p>
+<p class="Pp">To avoid this problem, use a mkfs option to specify a 4096 block
+    size for the file system, or attach the cache pool before running mkfs.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-writecache_block_size"><a class="permalink" href="#dm-writecache_block_size">dm-writecache
+  block size</a></h2>
+<p class="Pp">The dm-writecache block size can be 4096 bytes (the default), or
+    512 bytes. The default 4096 has better performance and should be used except
+    when 512 is necessary for compatibility. The dm-writecache block size is
+    specified with --cachesettings block_size=4096|512 when caching is
+  started.</p>
+<p class="Pp">When a file system like xfs already exists on the main LV prior to
+    caching, and the file system is using a block size of 512, then the
+    writecache block size should be set to 512. (The file system will likely
+    fail to mount if writecache block size of 4096 is used in this case.)</p>
+<p class="Pp">Check the xfs sector size while the fs is mounted:</p>
+<p class="Pp"># xfs_info /dev/vg/main</p>
+<pre>Look for sectsz=512 or sectsz=4096</pre>
+<p class="Pp">The writecache block size should be chosen to match the xfs sectsz
+    value.</p>
+<p class="Pp">It is also possible to specify a sector size of 4096 to mkfs.xfs
+    when creating the file system. In this case the writecache block size of
+    4096 can be used.</p>
+<p class="Pp">The writecache block size is displayed by the command:
+  <br/>
+  lvs -o writecacheblocksize VG/LV</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-writecache_memory_usage"><a class="permalink" href="#dm-writecache_memory_usage">dm-writecache
+  memory usage</a></h2>
+<p class="Pp">The amount of main system memory used by dm-writecache can be a
+    factor when selecting the writecache cachevol size and the writecache block
+    size.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>writecache block size 4096: each 100 GiB of writecache cachevol uses
+      slighly over 2 GiB of system memory.</dd>
+  <dt>&#x2022;</dt>
+  <dd>writecache block size 512: each 100 GiB of writecache cachevol uses a
+      little over 16 GiB of system memory.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-writecache_settings"><a class="permalink" href="#dm-writecache_settings">dm-writecache
+  settings</a></h2>
+<p class="Pp">To specify dm-writecache tunable settings on the command line,
+    use:
+  <br/>
+  --cachesettings 'option=N' or
+  <br/>
+  --cachesettings 'option1=N option2=N ...'</p>
+<p class="Pp">For example, --cachesettings 'high_watermark=90
+  writeback_jobs=4'.</p>
+<p class="Pp">To include settings when caching is started, run:</p>
+<p class="Pp"></p>
+<pre># lvconvert --type writecache --cachevol fast \
+	--cachesettings 'option=N' vg/main</pre>
+<p class="Pp">To change settings for an existing writecache, run:</p>
+<p class="Pp"></p>
+<pre># lvchange --cachesettings 'option=N' vg/main</pre>
+<p class="Pp">To clear all settings that have been applied, run:</p>
+<p class="Pp"></p>
+<pre># lvchange --cachesettings '' vg/main</pre>
+<p class="Pp">To view the settings that are applied to a writecache LV, run:</p>
+<p class="Pp"></p>
+<pre># lvs -o cachesettings vg/main</pre>
+<p class="Pp">Tunable settings are:</p>
+<dl class="Bl-tag">
+  <dt id="high_watermark"><a class="permalink" href="#high_watermark">high_watermark
+    = &lt;percent&gt;</a></dt>
+  <dd>Start writeback when the writecache usage reaches this percent
+    (0-100).</dd>
+  <dt id="low_watermark"><a class="permalink" href="#low_watermark">low_watermark
+    = &lt;percent&gt;</a></dt>
+  <dd>Stop writeback when the writecache usage reaches this percent
+    (0-100).</dd>
+  <dt id="writeback_jobs"><a class="permalink" href="#writeback_jobs">writeback_jobs
+    = &lt;count&gt;</a></dt>
+  <dd>Limit the number of blocks that are in flight during writeback. Setting
+      this value reduces writeback throughput, but it may improve latency of
+      read requests.</dd>
+  <dt id="autocommit_blocks"><a class="permalink" href="#autocommit_blocks">autocommit_blocks
+    = &lt;count&gt;</a></dt>
+  <dd>When the application writes this amount of blocks without issuing the
+      FLUSH request, the blocks are automatically commited.</dd>
+  <dt id="autocommit_time"><a class="permalink" href="#autocommit_time">autocommit_time
+    = &lt;milliseconds&gt;</a></dt>
+  <dd>The data is automatically commited if this time passes and no FLUSH
+      request is received.</dd>
+  <dt id="fua"><a class="permalink" href="#fua">fua = 0|1</a></dt>
+  <dd>Use the FUA flag when writing data from persistent memory back to the
+      underlying device. Applicable only to persistent memory.</dd>
+  <dt id="nofua"><a class="permalink" href="#nofua">nofua = 0|1</a></dt>
+  <dd>Don't use the FUA flag when writing back data and send the FLUSH request
+      afterwards. Some underlying devices perform better with fua, some with
+      nofua. Testing is necessary to determine which. Applicable only to
+      persistent memory.</dd>
+  <dt id="cleaner"><a class="permalink" href="#cleaner">cleaner = 0|1</a></dt>
+  <dd>Setting cleaner=1 enables the writecache cleaner mode in which data is
+      gradually flushed from the cache. If this is done prior to detaching the
+      writecache, then the splitcache command will have little or no flushing to
+      perform. If not done beforehand, the splitcache command enables the
+      cleaner mode and waits for flushing to complete before detaching the
+      writecache. Adding cleaner=0 to the splitcache command will skip the
+      cleaner mode, and any required flushing is performed in device suspend.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-writecache_using_metadata_profiles"><a class="permalink" href="#dm-writecache_using_metadata_profiles">dm-writecache
+  using metadata profiles</a></h2>
+<p class="Pp">In addition to specifying writecache settings on the command line,
+    they can also be set in lvm.conf, or in a profile file, using the
+    allocation/cache_settings/writecache config structure shown below.</p>
+<p class="Pp">It's possible to prepare a number of different profile files in
+    the <i>/etc/lvm/profile</i> directory and specify the file name of the
+    profile when starting writecache.</p>
+<p class="Pp"><i>Example</i></p>
+<pre># cat &lt;&lt;EOF &gt; /etc/lvm/profile/cache_writecache.profile
+allocation {</pre>
+<div class="Bd-indent">
+<pre>cache_settings {</pre>
+<div class="Bd-indent">
+<pre>writecache {</pre>
+<div class="Bd-indent">
+<pre>high_watermark=60
+writeback_jobs=1024</pre>
+</div>
+<pre>}</pre>
+</div>
+<pre>}</pre>
+</div>
+<pre>}
+EOF</pre>
+<pre>
+# lvcreate -an -L10G --name fast vg /dev/fast_ssd
+# lvcreate --type writecache -L10G --name main  --cachevol fast \
+<br/>
+   --metadataprofile cache_writecache vg /dev/slow_hdd</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-cache_with_separate_data_and_metadata_LVs"><a class="permalink" href="#dm-cache_with_separate_data_and_metadata_LVs">dm-cache
+  with separate data and metadata LVs</a></h2>
+<p class="Pp">Preferred way of using dm-cache is to place the cache metadata and
+    cache data on separate LVs. To do this, a &quot;cache pool&quot; is created,
+    which is a special LV that references two sub LVs, one for data and one for
+    metadata.</p>
+<p class="Pp">To create a cache pool of given data size and let lvm2 calculate
+    appropriate metadata size:</p>
+<p class="Pp"># lvcreate --type cache-pool -L DataSize -n fast vg
+  /dev/fast_ssd1</p>
+<p class="Pp">To create a cache pool from separate LV and let lvm2 calculate
+    appropriate cache metadata size:</p>
+<p class="Pp"># lvcreate -n fast -L DataSize vg /dev/fast_ssd1
+  <br/>
+  # lvconvert --type cache-pool vg/fast /dev/fast_ssd1
+  <br/>
+</p>
+<p class="Pp">To create a cache pool from two separate LVs:</p>
+<p class="Pp"># lvcreate -n fast -L DataSize vg /dev/fast_ssd1
+  <br/>
+  # lvcreate -n fastmeta -L MetadataSize vg /dev/fast_ssd2
+  <br/>
+  # lvconvert --type cache-pool --poolmetadata fastmeta vg/fast</p>
+<p class="Pp">Then use the cache pool LV to start caching the main LV:</p>
+<p class="Pp"># lvconvert --type cache --cachepool fast vg/main</p>
+<p class="Pp">A variation of the same procedure automatically creates a cache
+    pool when caching is started. To do this, use a standard LV as the
+    --cachepool (this will hold cache data), and use another standard LV as the
+    --poolmetadata (this will hold cache metadata). LVM will create a cache pool
+    LV from the two specified LVs, and use the cache pool to start caching the
+    main LV.</p>
+<p class="Pp"></p>
+<pre># lvcreate -n fast -L DataSize vg /dev/fast_ssd1
+# lvcreate -n fastmeta -L MetadataSize vg /dev/fast_ssd2
+# lvconvert --type cache --cachepool fast \
+<br/>
+        --poolmetadata fastmeta vg/main</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-cache_cache_modes"><a class="permalink" href="#dm-cache_cache_modes">dm-cache
+  cache modes</a></h2>
+<p class="Pp">The default dm-cache cache mode is &quot;writethrough&quot;.
+    Writethrough ensures that any data written will be stored both in the cache
+    and on the origin LV. The loss of a device associated with the cache in this
+    case would not mean the loss of any data.</p>
+<p class="Pp">A second cache mode is &quot;writeback&quot;. Writeback delays
+    writing data blocks from the cache back to the origin LV. This mode will
+    increase performance, but the loss of a cache device can result in lost
+    data.</p>
+<p class="Pp">With the --cachemode option, the cache mode can be set when
+    caching is started, or changed on an LV that is already cached. The current
+    cache mode can be displayed with the cache_mode reporting option:</p>
+<p class="Pp"><b>lvs -o+cache_mode VG/LV</b></p>
+<p class="Pp"><a class="Xr" href="../5/lvm.conf.html"><b>lvm.conf</b>(5)</a> <b>allocation/cache_mode</b>
+  <br/>
+  defines the default cache mode.</p>
+<p class="Pp"></p>
+<pre># lvconvert --type cache --cachemode writethrough \
+<br/>
+        --cachepool fast vg/main</pre>
+<pre># lvconvert --type cache --cachemode writethrough \
+<br/>
+        --cachevol fast  vg/main
+<br/>
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-cache_chunk_size"><a class="permalink" href="#dm-cache_chunk_size">dm-cache
+  chunk size</a></h2>
+<p class="Pp">The size of data blocks managed by dm-cache can be specified with
+    the --chunksize option when caching is started. The default unit is KiB. The
+    value must be a multiple of 32KiB between 32KiB and 1GiB. Cache chunks
+    bigger then 512KiB shall be only used when necessary.</p>
+<p class="Pp">Using a chunk size that is too large can result in wasteful use of
+    the cache, in which small reads and writes cause large sections of an LV to
+    be stored in the cache. It can also require increasing migration threshold
+    which defaults to 2048 sectors (1 MiB). Lvm2 ensures migration threshold is
+    at least 8 chunks in size. This may in some cases result in very high
+    bandwidth load of transfering data between the cache LV and its cache origin
+    LV. However, choosing a chunk size that is too small can result in more
+    overhead trying to manage the numerous chunks that become mapped into the
+    cache. Overhead can include both excessive CPU time searching for chunks,
+    and excessive memory tracking chunks.</p>
+<p class="Pp">Command to display the chunk size:</p>
+<p class="Pp"><b>lvs -o+chunksize VG/LV</b></p>
+<p class="Pp"><a class="Xr" href="../5/lvm.conf.html"><b>lvm.conf</b>(5)</a> <b>allocation/cache_pool_chunk_size</b></p>
+<p class="Pp">controls the default chunk size.</p>
+<p class="Pp">The default value is shown by:</p>
+<p class="Pp"><b>lvmconfig --type default
+  allocation/cache_pool_chunk_size</b></p>
+<p class="Pp">Checking migration threshold (in sectors) of running cached LV:
+  <br/>
+  <b>lvs -o+kernel_cache_settings VG/LV</b></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-cache_migration_threshold"><a class="permalink" href="#dm-cache_migration_threshold">dm-cache
+  migration threshold</a></h2>
+<p class="Pp">Migrating data between the origin and cache LV uses bandwidth. The
+    user can set a throttle to prevent more than a certain amount of migration
+    occurring at any one time. Currently dm-cache is not taking any account of
+    normal io traffic going to the devices.</p>
+<p class="Pp">User can set migration threshold via cache policy settings as
+    &quot;migration_threshold=&lt;#sectors&gt;&quot; to set the maximum number
+    of sectors being migrated, the default being 2048 sectors (1MiB).</p>
+<p class="Pp">Command to set migration threshold to 2MiB (4096 sectors):</p>
+<p class="Pp"><b>lvcreate --cachepolicy 'migration_threshold=4096' VG/LV</b></p>
+<p class="Pp">Command to display the migration threshold:</p>
+<p class="Pp"><b>lvs -o+kernel_cache_settings,cache_settings VG/LV</b>
+  <br/>
+  <b>lvs -o+chunksize VG/LV</b></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-cache_cache_policy"><a class="permalink" href="#dm-cache_cache_policy">dm-cache
+  cache policy</a></h2>
+<p class="Pp">The dm-cache subsystem has additional per-LV parameters: the cache
+    policy to use, and possibly tunable parameters for the cache policy. Three
+    policies are currently available: &quot;smq&quot; is the default policy,
+    &quot;mq&quot; is an older implementation, and &quot;cleaner&quot; is used
+    to force the cache to write back (flush) all cached writes to the origin
+  LV.</p>
+<p class="Pp">The older &quot;mq&quot; policy has a number of tunable
+    parameters. The defaults are chosen to be suitable for the majority of
+    systems, but in special circumstances, changing the settings can improve
+    performance.</p>
+<p class="Pp">With the --cachepolicy and --cachesettings options, the cache
+    policy and settings can be set when caching is started, or changed on an
+    existing cached LV (both options can be used together). The current cache
+    policy and settings can be displayed with the cache_policy and
+    cache_settings reporting options:</p>
+<p class="Pp"><b>lvs -o+cache_policy,cache_settings VG/LV</b></p>
+<p class="Pp">Change the cache policy and settings of an existing LV.</p>
+<pre># lvchange --cachepolicy mq --cachesettings \
+	'migration_threshold=2048 random_threshold=4' vg/main</pre>
+<p class="Pp"><a class="Xr" href="../5/lvm.conf.html"><b>lvm.conf</b>(5)</a> <b>allocation/cache_policy</b>
+  <br/>
+  defines the default cache policy.</p>
+<p class="Pp"><a class="Xr" href="../5/lvm.conf.html"><b>lvm.conf</b>(5)</a> <b>allocation/cache_settings</b>
+  <br/>
+  defines the default cache settings.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-cache_using_metadata_profiles"><a class="permalink" href="#dm-cache_using_metadata_profiles">dm-cache
+  using metadata profiles</a></h2>
+<p class="Pp">Cache pools allows to set a variety of options. Lots of these
+    settings can be specified in lvm.conf or profile settings. You can prepare a
+    number of different profiles in the <i>/etc/lvm/profile</i> directory and
+    just specify the metadata profile file name when caching LV or creating
+    cache-pool. Check the output of <b>lvmconfig --type default
+    --withcomments</b> for a detailed description of all individual cache
+    settings.</p>
+<p class="Pp"><i>Example</i></p>
+<pre># cat &lt;&lt;EOF &gt; /etc/lvm/profile/cache_big_chunk.profile
+allocation {</pre>
+<div class="Bd-indent">
+<pre>cache_pool_metadata_require_separate_pvs=0
+cache_pool_chunk_size=512
+cache_metadata_format=2
+cache_mode=&quot;writethrough&quot;
+cache_policy=&quot;smq&quot;
+cache_settings {</pre>
+<div class="Bd-indent">
+<pre>smq {</pre>
+<div class="Bd-indent">
+<pre>migration_threshold=8192
+random_threshold=4096</pre>
+</div>
+<pre>}</pre>
+</div>
+<pre>}</pre>
+</div>
+<pre>}
+EOF</pre>
+<pre>
+# lvcreate --cache -L10G --metadataprofile cache_big_chunk vg/main \
+<br/>
+        /dev/fast_ssd
+# lvcreate --cache -L10G vg/main --config \
+<br/>
+        'allocation/cache_pool_chunk_size=512' /dev/fast_ssd</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-cache_spare_metadata_LV"><a class="permalink" href="#dm-cache_spare_metadata_LV">dm-cache
+  spare metadata LV</a></h2>
+<p class="Pp">See <a class="Xr" href="../7/lvmthin.html"><b>lvmthin</b>(7)</a> for a description of the &quot;pool metadata
+    spare&quot; LV. The same concept is used for cache pools.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-cache_metadata_formats"><a class="permalink" href="#dm-cache_metadata_formats">dm-cache
+  metadata formats</a></h2>
+<p class="Pp">There are two disk formats for dm-cache metadata. The metadata
+    format can be specified with --cachemetadataformat when caching is started,
+    and cannot be changed. Format <b>2</b> has better performance; it is more
+    compact, and stores dirty bits in a separate btree, which improves the speed
+    of shutting down the cache. With <b>auto</b>, lvm selects the best option
+    provided by the current dm-cache kernel module.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="RAID1_cache_device"><a class="permalink" href="#RAID1_cache_device">RAID1
+  cache device</a></h2>
+<p class="Pp">RAID1 can be used to create the fast LV holding the cache so that
+    it can tolerate a device failure. (When using dm-cache with separate data
+    and metadata LVs, each of the sub-LVs can use RAID1.)</p>
+<p class="Pp"></p>
+<pre># lvcreate -n main -L Size vg /dev/slow
+# lvcreate --type raid1 -m 1 -n fast -L Size vg /dev/ssd1 /dev/ssd2
+# lvconvert --type cache --cachevol fast vg/main</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dm-cache_command_shortcut"><a class="permalink" href="#dm-cache_command_shortcut">dm-cache
+  command shortcut</a></h2>
+<p class="Pp">A single command can be used to cache main LV with automatic
+    creation of a cache-pool:</p>
+<p class="Pp"></p>
+<pre># lvcreate --cache --size CacheDataSize VG/LV [FastPVs]</pre>
+<p class="Pp">or the longer variant</p>
+<p class="Pp"></p>
+<pre># lvcreate --type cache --size CacheDataSize \
+<br/>
+        --name NameCachePool VG/LV [FastPVs]</pre>
+<p class="Pp">In this command, the specified LV already exists, and is the main
+    LV to be cached. The command creates a new cache pool with size and given
+    name or the name is automatically selected from a sequence lvolX_cpool,
+    using the optionally specified fast PV(s) (typically an ssd). Then it
+    attaches the new cache pool to the existing main LV to begin caching.</p>
+<p class="Pp">(Note: ensure that the specified main LV is a standard LV. If a
+    cache pool LV is mistakenly specified, then the command does something
+    different.)</p>
+<p class="Pp">(Note: the type option is interpreted differently by this command
+    than by normal lvcreate commands in which --type specifies the type of the
+    newly created LV. In this case, an LV with type cache-pool is being created,
+    and the existing main LV is being converted to type cache.)</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../5/lvm.conf.html"><b>lvm.conf</b>(5)</a>, <a class="Xr" href="../8/lvchange.html"><b>lvchange</b>(8)</a>, <a class="Xr" href="../8/lvcreate.html"><b>lvcreate</b>(8)</a>,
+    <a class="Xr" href="../8/lvdisplay.html"><b>lvdisplay</b>(8)</a>, <a class="Xr" href="../8/lvextend.html"><b>lvextend</b>(8)</a>, <a class="Xr" href="../8/lvremove.html"><b>lvremove</b>(8)</a>,
+    <a class="Xr" href="../8/lvrename.html"><b>lvrename</b>(8)</a>, <a class="Xr" href="../8/lvresize.html"><b>lvresize</b>(8)</a>, <a class="Xr" href="../8/lvs.html"><b>lvs</b>(8)</a>,
+  <br/>
+  <a class="Xr" href="../8/vgchange.html"><b>vgchange</b>(8)</a>, <a class="Xr" href="../8/vgmerge.html"><b>vgmerge</b>(8)</a>, <a class="Xr" href="../8/vgreduce.html"><b>vgreduce</b>(8)</a>,
+  <a class="Xr" href="../8/vgsplit.html"><b>vgsplit</b>(8)</a>,</p>
+<p class="Pp"><a class="Xr" href="../8/cache_check.html"><b>cache_check</b>(8)</a>, <a class="Xr" href="../8/cache_dump.html"><b>cache_dump</b>(8)</a>,
+    <a class="Xr" href="../8/cache_repair.html"><b>cache_repair</b>(8)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">LVM TOOLS 2.03.16(2) (2022-05-18)</td>
+    <td class="foot-os">Red Hat, Inc</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

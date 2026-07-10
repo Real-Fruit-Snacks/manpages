@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="shut down a TLS/SSL connection">
+<title>SSL_shutdown(3ssl) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">SSL_shutdown(3ssl)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#First_to_close_the_connection">First
+  to close the connection</a></li><li><a href="#Peer_closes_the_connection">Peer
+  closes the connection</a></li><li><a href="#RETURN_VALUES">RETURN
+  VALUES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SSL_SHUTDOWN(3SSL)</td>
+    <td class="head-vol">OpenSSL</td>
+    <td class="head-rtitle">SSL_SHUTDOWN(3SSL)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">SSL_shutdown - shut down a TLS/SSL connection</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre> #include &lt;openssl/ssl.h&gt;
+ int SSL_shutdown(SSL *ssl);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>SSL_shutdown()</b> shuts down an active TLS/SSL connection. It
+    sends the close_notify shutdown alert to the peer.</p>
+<p class="Pp"><b>SSL_shutdown()</b> tries to send the close_notify shutdown
+    alert to the peer. Whether the operation succeeds or not, the
+    SSL_SENT_SHUTDOWN flag is set and a currently open session is considered
+    closed and good and will be kept in the session cache for further reuse.</p>
+<p class="Pp">Note that <b>SSL_shutdown()</b> must not be called if a previous
+    fatal error has occurred on a connection i.e. if <b>SSL_get_error()</b> has
+    returned SSL_ERROR_SYSCALL or SSL_ERROR_SSL.</p>
+<p class="Pp">The shutdown procedure consists of two steps: sending of the
+    close_notify shutdown alert, and reception of the peer's close_notify
+    shutdown alert. The order of those two steps depends on the application.</p>
+<p class="Pp">It is acceptable for an application to only send its shutdown
+    alert and then close the underlying connection without waiting for the
+    peer's response. This way resources can be saved, as the process can already
+    terminate or serve another connection. This should only be done when it is
+    known that the other side will not send more data, otherwise there is a risk
+    of a truncation attack.</p>
+<p class="Pp">When a client only writes and never reads from the connection, and
+    the server has sent a session ticket to establish a session, the client
+    might not be able to resume the session because it did not received and
+    process the session ticket from the server. In case the application wants to
+    be able to resume the session, it is recommended to do a complete shutdown
+    procedure (bidirectional close_notify alerts).</p>
+<p class="Pp">When the underlying connection shall be used for more
+    communications, the complete shutdown procedure must be performed, so that
+    the peers stay synchronized.</p>
+<p class="Pp"><b>SSL_shutdown()</b> only closes the write direction. It is not
+    possible to call <b>SSL_write()</b> after calling <b>SSL_shutdown()</b>. The
+    read direction is closed by the peer.</p>
+<p class="Pp">The behaviour of <b>SSL_shutdown()</b> additionally depends on the
+    underlying BIO. If the underlying BIO is <b>blocking</b>,
+    <b>SSL_shutdown()</b> will only return once the handshake step has been
+    finished or an error occurred.</p>
+<p class="Pp">If the underlying BIO is <b>nonblocking</b>, <b>SSL_shutdown()</b>
+    will also return when the underlying BIO could not satisfy the needs of
+    <b>SSL_shutdown()</b> to continue the handshake. In this case a call to
+    <b>SSL_get_error()</b> with the return value of <b>SSL_shutdown()</b> will
+    yield <b>SSL_ERROR_WANT_READ</b> or <b>SSL_ERROR_WANT_WRITE</b>. The calling
+    process then must repeat the call after taking appropriate action to satisfy
+    the needs of <b>SSL_shutdown()</b>. The action depends on the underlying
+    BIO. When using a nonblocking socket, nothing is to be done, but
+    <b>select()</b> can be used to check for the required condition. When using
+    a buffering BIO, like a BIO pair, data must be written into or retrieved out
+    of the BIO before being able to continue.</p>
+<p class="Pp">After <b>SSL_shutdown()</b> returned 0, it is possible to call
+    <b>SSL_shutdown()</b> again to wait for the peer's close_notify alert.
+    <b>SSL_shutdown()</b> will return 1 in that case. However, it is recommended
+    to wait for it using <b>SSL_read()</b> instead.</p>
+<p class="Pp"><b>SSL_shutdown()</b> can be modified to only set the connection
+    to &quot;shutdown&quot; state but not actually send the close_notify alert
+    messages, see <a class="Xr" href="../3ssl/SSL_CTX_set_quiet_shutdown.html"><b>SSL_CTX_set_quiet_shutdown</b>(3)</a>. When &quot;quiet
+    shutdown&quot; is enabled, <b>SSL_shutdown()</b> will always succeed and
+    return 1. Note that this is not standard compliant behaviour. It should only
+    be done when the peer has a way to make sure all data has been received and
+    doesn't wait for the close_notify alert message, otherwise an unexpected EOF
+    will be reported.</p>
+<p class="Pp">There are implementations that do not send the required
+    close_notify alert. If there is a need to communicate with such an
+    implementation, and it's clear that all data has been received, do not wait
+    for the peer's close_notify alert. Waiting for the close_notify alert when
+    the peer just closes the connection will result in an error being generated.
+    The error can be ignored using the <b>SSL_OP_IGNORE_UNEXPECTED_EOF</b>. For
+    more information see <a class="Xr" href="../3ssl/SSL_CTX_set_options.html"><b>SSL_CTX_set_options</b>(3)</a>.</p>
+<section class="Ss">
+<h2 class="Ss" id="First_to_close_the_connection"><a class="permalink" href="#First_to_close_the_connection">First
+  to close the connection</a></h2>
+<p class="Pp">When the application is the first party to send the close_notify
+    alert, <b>SSL_shutdown()</b> will only send the alert and then set the
+    SSL_SENT_SHUTDOWN flag (so that the session is considered good and will be
+    kept in the cache). If successful, <b>SSL_shutdown()</b> will return 0.</p>
+<p class="Pp">If a unidirectional shutdown is enough (the underlying connection
+    shall be closed anyway), this first successful call to <b>SSL_shutdown()</b>
+    is sufficient.</p>
+<p class="Pp">In order to complete the bidirectional shutdown handshake, the
+    peer needs to send back a close_notify alert. The SSL_RECEIVED_SHUTDOWN flag
+    will be set after receiving and processing it.</p>
+<p class="Pp">The peer is still allowed to send data after receiving the
+    close_notify event. When it is done sending data, it will send the
+    close_notify alert. <b>SSL_read()</b> should be called until all data is
+    received. <b>SSL_read()</b> will indicate the end of the peer data by
+    returning &lt;= 0 and <b>SSL_get_error()</b> returning
+    SSL_ERROR_ZERO_RETURN.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Peer_closes_the_connection"><a class="permalink" href="#Peer_closes_the_connection">Peer
+  closes the connection</a></h2>
+<p class="Pp">If the peer already sent the close_notify alert <b>and</b> it was
+    already processed implicitly inside another function (<a class="Xr" href="../3ssl/SSL_read.html"><b>SSL_read</b>(3)</a>),
+    the SSL_RECEIVED_SHUTDOWN flag is set. <b>SSL_read()</b> will return &lt;= 0
+    in that case, and <b>SSL_get_error()</b> will return SSL_ERROR_ZERO_RETURN.
+    <b>SSL_shutdown()</b> will send the close_notify alert, set the
+    SSL_SENT_SHUTDOWN flag. If successful, <b>SSL_shutdown()</b> will return
+  1.</p>
+<p class="Pp">Whether SSL_RECEIVED_SHUTDOWN is already set can be checked using
+    the <b>SSL_get_shutdown()</b> (see also <a class="Xr" href="../3ssl/SSL_set_shutdown.html"><b>SSL_set_shutdown</b>(3)</a> call.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp">The following return values can occur:</p>
+<dl class="Bl-tag">
+  <dt>0</dt>
+  <dd>The shutdown is not yet finished: the close_notify was sent but the peer
+      did not send it back yet. Call <b>SSL_read()</b> to do a bidirectional
+      shutdown.
+    <p class="Pp">Unlike most other function, returning 0 does not indicate an
+        error. <a class="Xr" href="../3ssl/SSL_get_error.html"><b>SSL_get_error</b>(3)</a> should not get called, it may
+        misleadingly indicate an error even though no error occurred.</p>
+  </dd>
+  <dt>1</dt>
+  <dd>The shutdown was successfully completed. The close_notify alert was sent
+      and the peer's close_notify alert was received.</dd>
+  <dt>&lt;0</dt>
+  <dd>The shutdown was not successful. Call <a class="Xr" href="../3ssl/SSL_get_error.html"><b>SSL_get_error</b>(3)</a> with the
+      return value <b>ret</b> to find out the reason. It can occur if an action
+      is needed to continue the operation for nonblocking BIOs.
+    <p class="Pp">It can also occur when not all data was read using
+        <b>SSL_read()</b>.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3ssl/SSL_get_error.html"><b>SSL_get_error</b>(3)</a>, <a class="Xr" href="../3ssl/SSL_connect.html"><b>SSL_connect</b>(3)</a>,
+    <a class="Xr" href="../3ssl/SSL_accept.html"><b>SSL_accept</b>(3)</a>, <a class="Xr" href="../3ssl/SSL_set_shutdown.html"><b>SSL_set_shutdown</b>(3)</a>,
+    <a class="Xr" href="../3ssl/SSL_CTX_set_quiet_shutdown.html"><b>SSL_CTX_set_quiet_shutdown</b>(3)</a>, <a class="Xr" href="../3ssl/SSL_CTX_set_options.html"><b>SSL_CTX_set_options</b>(3)</a>
+    <a class="Xr" href="../3ssl/SSL_clear.html"><b>SSL_clear</b>(3)</a>, <a class="Xr" href="../3ssl/SSL_free.html"><b>SSL_free</b>(3)</a>, <a class="Xr" href="../7ssl/ssl.html"><b>ssl</b>(7)</a>, <a class="Xr" href="../7ssl/bio.html"><b>bio</b>(7)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright 2000-2020 The OpenSSL Project Authors. All Rights
+    Reserved.</p>
+<p class="Pp">Licensed under the Apache License 2.0 (the &quot;License&quot;).
+    You may not use this file except in compliance with the License. You can
+    obtain a copy in the file LICENSE in the source distribution or at
+    &lt;https://www.openssl.org/source/license.html&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2026-06-02</td>
+    <td class="foot-os">3.0.13</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

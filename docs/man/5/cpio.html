@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="format of cpio archive files">
+<title>cpio(5) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">cpio(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#General_Format">General
+  Format</a></li><li><a href="#PWB_format">PWB
+  format</a></li><li><a href="#New_Binary_Format">New
+  Binary Format</a></li><li><a href="#Portable_ASCII_Format">Portable
+  ASCII Format</a></li><li><a href="#New_ASCII_Format">New
+  ASCII Format</a></li><li><a href="#New_CRC_Format">New
+  CRC Format</a></li><li><a href="#HP_variants">HP
+  variants</a></li><li><a href="#Other_Extensions_and_Variants">Other
+  Extensions and Variants</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#STANDARDS">STANDARDS</a></li><li><a href="#HISTORY">HISTORY</a></li><li><a href="#BUGS">BUGS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CPIO(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">CPIO(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">cpio</code> &#x2014; <span class="Nd">format of
+    cpio archive files</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <code class="Nm">cpio</code> archive format collects any
+    number of files, directories, and other file system objects (symbolic links,
+    device nodes, etc.) into a single stream of bytes.</p>
+<section class="Ss">
+<h2 class="Ss" id="General_Format"><a class="permalink" href="#General_Format">General
+  Format</a></h2>
+<p class="Pp">Each file system object in a <code class="Nm">cpio</code> archive
+    comprises a header record with basic numeric metadata followed by the full
+    pathname of the entry and the file data. The header record stores a series
+    of integer values that generally follow the fields in <var class="Va">struct
+    stat</var>. (See <a class="Xr" href="../2/stat.html">stat(2)</a> for
+    details.) The variants differ primarily in how they store those integers
+    (binary, octal, or hexadecimal). The header is followed by the pathname of
+    the entry (the length of the pathname is stored in the header) and any file
+    data. The end of the archive is indicated by a special record with the
+    pathname &#x201C;TRAILER!!!&#x201D;.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="PWB_format"><a class="permalink" href="#PWB_format">PWB
+  format</a></h2>
+<p class="Pp">The PWB binary <code class="Nm">cpio</code> format is the original
+    format, when cpio was introduced as part of the Programmer's Work Bench
+    system, a variant of 6th Edition UNIX. It stores numbers as 2-byte and
+    4-byte binary values. Each entry begins with a header in the following
+    format:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>struct header_pwb_cpio {
+        short   h_magic;
+        short   h_dev;
+        short   h_ino;
+        short   h_mode;
+        short   h_uid;
+        short   h_gid;
+        short   h_nlink;
+        short   h_majmin;
+        long    h_mtime;
+        short   h_namesize;
+        long    h_filesize;
+};</pre>
+</div>
+<p class="Pp">The <var class="Va">short</var> fields here are 16-bit integer
+    values, while the <var class="Va">long</var> fields are 32 bit integers.
+    Since PWB UNIX, like the 6th Edition UNIX it was based on, only ran on
+    PDP-11 computers, they are in PDP-endian format, which has little-endian
+    shorts, and big-endian longs. That is, the long integer whose hexadecimal
+    representation is 0x12345678 would be stored in four successive bytes as
+    0x34, 0x12, 0x78, 0x56. The fields are as follows:</p>
+<dl class="Bl-tag">
+  <dt id="h_magic"><var class="Va">h_magic</var></dt>
+  <dd>The integer value octal 070707.</dd>
+  <dt id="h_dev"><var class="Va">h_dev</var>, <var class="Va">h_ino</var></dt>
+  <dd>The device and inode numbers from the disk. These are used by programs
+      that read <code class="Nm">cpio</code> archives to determine when two
+      entries refer to the same file. Programs that synthesize
+      <code class="Nm">cpio</code> archives should be careful to set these to
+      distinct values for each entry.</dd>
+  <dt id="h_mode"><var class="Va">h_mode</var></dt>
+  <dd>The mode specifies both the regular permissions and the file type, and it
+      also holds a couple of bits that are irrelevant to the cpio format,
+      because the field is actually a raw copy of the mode field in the inode
+      representing the file. These are the IALLOC flag, which shows that the
+      inode entry is in use, and the ILARG flag, which shows that the file it
+      represents is large enough to have indirect blocks pointers in the inode.
+      The mode is decoded as follows:
+    <p class="Pp"></p>
+    <dl class="Bl-tag Bl-compact">
+      <dt>0100000</dt>
+      <dd>IALLOC flag - irrelevant to cpio.</dd>
+      <dt>0060000</dt>
+      <dd>This masks the file type bits.</dd>
+      <dt>0040000</dt>
+      <dd>File type value for directories.</dd>
+      <dt>0020000</dt>
+      <dd>File type value for character special devices.</dd>
+      <dt>0060000</dt>
+      <dd>File type value for block special devices.</dd>
+      <dt>0010000</dt>
+      <dd>ILARG flag - irrelevant to cpio.</dd>
+      <dt>0004000</dt>
+      <dd>SUID bit.</dd>
+      <dt>0002000</dt>
+      <dd>SGID bit.</dd>
+      <dt>0001000</dt>
+      <dd>Sticky bit.</dd>
+      <dt>0000777</dt>
+      <dd>The lower 9 bits specify read/write/execute permissions for world,
+          group, and user following standard POSIX conventions.</dd>
+    </dl>
+  </dd>
+  <dt id="h_uid"><var class="Va">h_uid</var>, <var class="Va">h_gid</var></dt>
+  <dd>The numeric user id and group id of the owner.</dd>
+  <dt id="h_nlink"><var class="Va">h_nlink</var></dt>
+  <dd>The number of links to this file. Directories always have a value of at
+      least two here. Note that hardlinked files include file data with every
+      copy in the archive.</dd>
+  <dt id="h_majmin"><var class="Va">h_majmin</var></dt>
+  <dd>For block special and character special entries, this field contains the
+      associated device number, with the major number in the high byte, and the
+      minor number in the low byte. For all other entry types, it should be set
+      to zero by writers and ignored by readers.</dd>
+  <dt id="h_mtime"><var class="Va">h_mtime</var></dt>
+  <dd>Modification time of the file, indicated as the number of seconds since
+      the start of the epoch, 00:00:00 UTC January 1, 1970.</dd>
+  <dt id="h_namesize"><var class="Va">h_namesize</var></dt>
+  <dd>The number of bytes in the pathname that follows the header. This count
+      includes the trailing NUL byte.</dd>
+  <dt id="h_filesize"><var class="Va">h_filesize</var></dt>
+  <dd>The size of the file. Note that this archive format is limited to 16
+      megabyte file sizes, because PWB UNIX, like 6th Edition, only used an
+      unsigned 24 bit integer for the file size internally.</dd>
+</dl>
+<p class="Pp">The pathname immediately follows the fixed header. If
+    <code class="Cm">h_namesize</code> is odd, an additional NUL byte is added
+    after the pathname. The file data is then appended, again with an additional
+    NUL appended if needed to get the next header at an even offset.</p>
+<p class="Pp">Hardlinked files are not given special treatment; the full file
+    contents are included with each copy of the file.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="New_Binary_Format"><a class="permalink" href="#New_Binary_Format">New
+  Binary Format</a></h2>
+<p class="Pp">The new binary <code class="Nm">cpio</code> format showed up when
+    cpio was adopted into late 7th Edition UNIX. It is exactly like the PWB
+    binary format, described above, except for three changes:</p>
+<p class="Pp">First, UNIX now ran on more than one hardware type, so the
+    endianness of 16 bit integers must be determined by observing the magic
+    number at the start of the header. The 32 bit integers are still always
+    stored with the most significant word first, though, so each of those two,
+    in the struct shown above, was stored as an array of two 16 bit integers, in
+    the traditional order. Those 16 bit integers, like all the others in the
+    struct, were accessed using a macro that byte swapped them if necessary.</p>
+<p class="Pp">Next, 7th Edition had more file types to store, and the IALLOC and
+    ILARG flag bits were re-purposed to accommodate these. The revised use of
+    the various bits is as follows:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt>0170000</dt>
+  <dd>This masks the file type bits.</dd>
+  <dt>0140000</dt>
+  <dd>File type value for sockets.</dd>
+  <dt>0120000</dt>
+  <dd>File type value for symbolic links. For symbolic links, the link body is
+      stored as file data.</dd>
+  <dt>0100000</dt>
+  <dd>File type value for regular files.</dd>
+  <dt>0060000</dt>
+  <dd>File type value for block special devices.</dd>
+  <dt>0040000</dt>
+  <dd>File type value for directories.</dd>
+  <dt>0020000</dt>
+  <dd>File type value for character special devices.</dd>
+  <dt>0010000</dt>
+  <dd>File type value for named pipes or FIFOs.</dd>
+  <dt>0004000</dt>
+  <dd>SUID bit.</dd>
+  <dt>0002000</dt>
+  <dd>SGID bit.</dd>
+  <dt>0001000</dt>
+  <dd>Sticky bit.</dd>
+  <dt>0000777</dt>
+  <dd>The lower 9 bits specify read/write/execute permissions for world, group,
+      and user following standard POSIX conventions.</dd>
+</dl>
+<p class="Pp">Finally, the file size field now represents a signed 32 bit
+    integer in the underlying file system, so the maximum file size has
+    increased to 2 gigabytes.</p>
+<p class="Pp">Note that there is no obvious way to tell which of the two binary
+    formats an archive uses, other than to see which one makes more sense. The
+    typical error scenario is that a PWB format archive unpacked as if it were
+    in the new format will create named sockets instead of directories, and then
+    fail to unpack files that should go in those directories. Running
+    <var class="Va">bsdcpio -itv</var> on an unknown archive will make it
+    obvious which it is: if it's PWB format, directories will be listed with an
+    's' instead of a 'd' as the first character of the mode string, and the
+    larger files will have a '?' in that position.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Portable_ASCII_Format"><a class="permalink" href="#Portable_ASCII_Format">Portable
+  ASCII Format</a></h2>
+<p class="Pp"><span class="St">Version&#x00A0;2 of the Single UNIX Specification
+    (&#x201C;SUSv2&#x201D;)</span> standardized an ASCII variant that is
+    portable across all platforms. It is commonly known as the &#x201C;old
+    character&#x201D; format or as the &#x201C;odc&#x201D; format. It stores the
+    same numeric fields as the old binary format, but represents them as
+    6-character or 11-character octal values.</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>struct cpio_odc_header {
+        char    c_magic[6];
+        char    c_dev[6];
+        char    c_ino[6];
+        char    c_mode[6];
+        char    c_uid[6];
+        char    c_gid[6];
+        char    c_nlink[6];
+        char    c_rdev[6];
+        char    c_mtime[11];
+        char    c_namesize[6];
+        char    c_filesize[11];
+};</pre>
+</div>
+<p class="Pp">The fields are identical to those in the new binary format. The
+    name and file body follow the fixed header. Unlike the binary formats, there
+    is no additional padding after the pathname or file contents. If the files
+    being archived are themselves entirely ASCII, then the resulting archive
+    will be entirely ASCII, except for the NUL byte that terminates the name
+    field.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="New_ASCII_Format"><a class="permalink" href="#New_ASCII_Format">New
+  ASCII Format</a></h2>
+<p class="Pp">The &quot;new&quot; ASCII format uses 8-byte hexadecimal fields
+    for all numbers and separates device numbers into separate fields for major
+    and minor numbers.</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>struct cpio_newc_header {
+        char    c_magic[6];
+        char    c_ino[8];
+        char    c_mode[8];
+        char    c_uid[8];
+        char    c_gid[8];
+        char    c_nlink[8];
+        char    c_mtime[8];
+        char    c_filesize[8];
+        char    c_devmajor[8];
+        char    c_devminor[8];
+        char    c_rdevmajor[8];
+        char    c_rdevminor[8];
+        char    c_namesize[8];
+        char    c_check[8];
+};</pre>
+</div>
+<p class="Pp">Except as specified below, the fields here match those specified
+    for the new binary format above.</p>
+<dl class="Bl-tag">
+  <dt id="magic"><var class="Va">magic</var></dt>
+  <dd>The string &#x201C;070701&#x201D;.</dd>
+  <dt id="check"><var class="Va">check</var></dt>
+  <dd>This field is always set to zero by writers and ignored by readers. See
+      the next section for more details.</dd>
+</dl>
+<p class="Pp">The pathname is followed by NUL bytes so that the total size of
+    the fixed header plus pathname is a multiple of four. Likewise, the file
+    data is padded to a multiple of four bytes. Note that this format supports
+    only 4 gigabyte files (unlike the older ASCII format, which supports 8
+    gigabyte files).</p>
+<p class="Pp">In this format, hardlinked files are handled by setting the
+    filesize to zero for each entry except the first one that appears in the
+    archive.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="New_CRC_Format"><a class="permalink" href="#New_CRC_Format">New
+  CRC Format</a></h2>
+<p class="Pp">The CRC format is identical to the new ASCII format described in
+    the previous section except that the magic field is set to
+    &#x201C;070702&#x201D; and the <var class="Va">check</var> field is set to
+    the sum of all bytes in the file data. This sum is computed treating all
+    bytes as unsigned values and using unsigned arithmetic. Only the
+    least-significant 32 bits of the sum are stored.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="HP_variants"><a class="permalink" href="#HP_variants">HP
+  variants</a></h2>
+<p class="Pp">The <code class="Nm">cpio</code> implementation distributed with
+    HPUX used XXXX but stored device numbers differently XXX.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Other_Extensions_and_Variants"><a class="permalink" href="#Other_Extensions_and_Variants">Other
+  Extensions and Variants</a></h2>
+<p class="Pp">Sun Solaris uses additional file types to store extended file
+    data, including ACLs and extended attributes, as special entries in cpio
+    archives.</p>
+<p class="Pp">XXX Others? XXX</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/cpio.html">cpio(1)</a>,
+    <a class="Xr" href="../5/tar.html">tar(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STANDARDS"><a class="permalink" href="#STANDARDS">STANDARDS</a></h1>
+<p class="Pp">The <code class="Nm">cpio</code> utility is no longer a part of
+    POSIX or the Single Unix Standard. It last appeared in
+    <span class="St">Version&#x00A0;2 of the Single UNIX Specification
+    (&#x201C;SUSv2&#x201D;)</span>. It has been supplanted in subsequent
+    standards by <a class="Xr" href="../1/pax.html">pax(1)</a>. The portable
+    ASCII format is currently part of the specification for the
+    <a class="Xr" href="../1/pax.html">pax(1)</a> utility.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp">The original cpio utility was written by Dick Haight while working
+    in AT&amp;T's Unix Support Group. It appeared in 1977 as part of PWB/UNIX
+    1.0, the &#x201C;Programmer's Work Bench&#x201D; derived from
+    <span class="Ux">Version&#x00A0;6 AT&amp;T UNIX</span> that was used
+    internally at AT&amp;T. Both the new binary and old character formats were
+    in use by 1980, according to the System III source released by SCO under
+    their &#x201C;Ancient Unix&#x201D; license. The character format was adopted
+    as part of <span class="St">IEEE Std 1003.1-1988
+    (&#x201C;POSIX.1&#x201D;)</span>. XXX when did &quot;newc&quot; appear? Who
+    invented it? When did HP come out with their variant? When did Sun introduce
+    ACLs and extended attributes? XXX</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">The &#x201C;CRC&#x201D; format is mis-named, as it uses a simple
+    checksum and not a cyclic redundancy check.</p>
+<p class="Pp">The binary formats are limited to 16 bits for user id, group id,
+    device, and inode numbers. They are limited to 16 megabyte and 2 gigabyte
+    file sizes for the older and newer variants, respectively.</p>
+<p class="Pp">The old ASCII format is limited to 18 bits for the user id, group
+    id, device, and inode numbers. It is limited to 8 gigabyte file sizes.</p>
+<p class="Pp">The new ASCII format is limited to 4 gigabyte file sizes.</p>
+<p class="Pp">None of the cpio formats store user or group names, which are
+    essential when moving files between systems with dissimilar user or group
+    numbering.</p>
+<p class="Pp">Especially when writing older cpio variants, it may be necessary
+    to map actual device/inode values to synthesized values that fit the
+    available fields. With very large filesystems, this may be necessary even
+    for the newer formats.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">December 23, 2011</td>
+    <td class="foot-os">Debian</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

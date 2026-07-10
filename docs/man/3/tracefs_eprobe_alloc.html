@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Allocate new event probe (eprobe)">
+<title>tracefs_eprobe_alloc(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">tracefs_eprobe_alloc(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#REPORTING_BUGS">REPORTING
+  BUGS</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#RESOURCES">RESOURCES</a></li><li><a href="#COPYING">COPYING</a></li><li><a href="#NOTES">NOTES</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">LIBTRACEFS(3)</td>
+    <td class="head-vol">libtracefs Manual</td>
+    <td class="head-rtitle">LIBTRACEFS(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">tracefs_eprobe_alloc - Allocate new event probe (eprobe)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;tracefs.h&gt;</b>
+struct tracefs_dynevent *
+<b>tracefs_eprobe_alloc</b>(const char *<i>system</i>, const char *<i>event</i>,
+<br/>
+                       const char *<i>target_system</i>, const char *<i>target_event</i>,
+<br/>
+                       const char *<i>fetchargs</i>);</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>tracefs_eprobe_alloc</b>() allocates a new eprobe context. The
+    ebrobe is not configured in the system. The new eprobe will be in the
+    <i>system</i> group (or eprobes if <i>system</i> is NULL) and have the name
+    of <i>event</i>. The eprobe will be attached to <i>target_event</i>, located
+    in <i>target_system</i>. The list of arguments, described in
+    <i>fetchargs</i>, will be fetched from <i>target_event</i>. The returned
+    pointer to the event probe must be freed with
+    <b>tracefs_dynevent_free</b>().</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">The <b>tracefs_eprobe_alloc</b>() API returns a pointer to an
+    allocated tracefs_dynevent structure, describing the event probe. This
+    pointer must be freed by <a class="Xr" href="../3/tracefs_dynevent_create.html"><b>tracefs_dynevent_free</b>(3)</a>. Note, this only
+    allocates a descriptor representing the eprobe. It does not modify the
+    running system. On error NULL is returned.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<div class="Bd-indent">
+<pre>#include &lt;stdlib.h&gt;
+#include &lt;unistd.h&gt;
+#include &lt;sys/wait.h&gt;
+#include &lt;tracefs.h&gt;
+static struct tep_event *open_event;
+static struct tep_format_field *file_field;
+static int callback(struct tep_event *event, struct tep_record *record,
+<br/>
+                    int cpu, void *data)
+{
+<br/>
+        struct trace_seq seq;
+<br/>
+        trace_seq_init(&amp;seq);
+<br/>
+        tep_print_event(event-&gt;tep, &amp;seq, record, &quot;%d-%s: &quot;, TEP_PRINT_PID, TEP_PRINT_COMM);
+<br/>
+        if (event-&gt;id == open_event-&gt;id) {
+<br/>
+                trace_seq_puts(&amp;seq, &quot;open file='&quot;);
+<br/>
+                tep_print_field(&amp;seq, record-&gt;data, file_field);
+<br/>
+                trace_seq_puts(&amp;seq, &quot;'\n&quot;);
+<br/>
+        }
+<br/>
+        trace_seq_terminate(&amp;seq);
+<br/>
+        trace_seq_do_printf(&amp;seq);
+<br/>
+        trace_seq_destroy(&amp;seq);
+<br/>
+        return 0;
+}
+static pid_t run_exec(char **argv, char **env)
+{
+<br/>
+        pid_t pid;
+<br/>
+        pid = fork();
+<br/>
+        if (pid)
+<br/>
+                return pid;
+<br/>
+        execve(argv[0], argv, env);
+<br/>
+        perror(&quot;exec&quot;);
+<br/>
+        exit(-1);
+}
+const char *myprobe = &quot;my_eprobes&quot;;
+int main (int argc, char **argv, char **env)
+{
+<br/>
+        struct tracefs_dynevent *eprobe;
+<br/>
+        struct tracefs_instance *instance;
+<br/>
+        struct tep_handle *tep;
+<br/>
+        const char *sysnames[] = { myprobe, NULL };
+<br/>
+        pid_t pid;
+<br/>
+        if (argc &lt; 2) {
+<br/>
+                printf(&quot;usage: %s command\n&quot;, argv[0]);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        instance = tracefs_instance_create(&quot;exec_open&quot;);
+<br/>
+        if (!instance) {
+<br/>
+                perror(&quot;creating instance&quot;);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        tracefs_dynevent_destroy_all(TRACEFS_DYNEVENT_EPROBE, true);
+<br/>
+        eprobe = tracefs_eprobe_alloc(myprobe, &quot;sopen&quot;, &quot;syscalls&quot;, &quot;sys_enter_openat2&quot;,
+<br/>
+                                      &quot;file=+0($filename):ustring&quot;);
+<br/>
+        if (!eprobe) {
+<br/>
+                perror(&quot;allocating event probe&quot;);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        if (tracefs_dynevent_create(eprobe)) {
+<br/>
+                perror(&quot;creating event probe&quot;);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        tep = tracefs_local_events_system(NULL, sysnames);
+<br/>
+        if (!tep) {
+<br/>
+                perror(&quot;reading events&quot;);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        open_event = tep_find_event_by_name(tep, myprobe, &quot;sopen&quot;);
+<br/>
+        file_field = tep_find_field(open_event, &quot;file&quot;);
+<br/>
+        tracefs_event_enable(instance, myprobe, &quot;sopen&quot;);
+<br/>
+        pid = run_exec(&amp;argv[1], env);
+<br/>
+        /* Let the child start to run */
+<br/>
+        sched_yield();
+<br/>
+        do {
+<br/>
+                tracefs_load_cmdlines(NULL, tep);
+<br/>
+                tracefs_iterate_raw_events(tep, instance, NULL, 0, callback, NULL);
+<br/>
+        } while (waitpid(pid, NULL, WNOHANG) != pid);
+<br/>
+        /* Will disable the events */
+<br/>
+        tracefs_dynevent_destroy(eprobe, true);
+<br/>
+        tracefs_dynevent_free(eprobe);
+<br/>
+        tracefs_instance_destroy(instance);
+<br/>
+        tep_free(tep);
+<br/>
+        return 0;
+}</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<div class="Bd-indent">
+<pre><b>tracefs.h</b>
+<br/>
+        Header file to include in order to have access to the library APIs.
+<b>-ltracefs</b>
+<br/>
+        Linker switch to add when building a program that uses the library.</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/libtracefs.html"><b>libtracefs</b>(3)</a>, <a class="Xr" href="../3/libtraceevent.html"><b>libtraceevent</b>(3)</a>,
+  <a class="Xr" href="../1/trace-cmd.html"><b>trace-cmd</b>(1)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<div class="Bd-indent">
+<pre><b>Steven Rostedt</b> &lt;<b>rostedt@goodmis.org</b>[1]&gt;
+<b>Tzvetomir Stoyanov</b> &lt;<b>tz.stoyanov@gmail.com</b>[2]&gt;</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPORTING_BUGS"><a class="permalink" href="#REPORTING_BUGS">REPORTING
+  BUGS</a></h1>
+<p class="Pp">Report bugs to
+  &lt;<b>linux-trace-devel@vger.kernel.org</b>[3]&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">libtracefs is Free Software licensed under the GNU LGPL 2.1</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCES"><a class="permalink" href="#RESOURCES">RESOURCES</a></h1>
+<p class="Pp"><b>https://git.kernel.org/pub/scm/libs/libtrace/libtracefs.git/</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYING"><a class="permalink" href="#COPYING">COPYING</a></h1>
+<p class="Pp">Copyright (C) 2021 VMware, Inc. Free use of this software is
+    granted under the terms of the GNU Public License (GPL).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>rostedt@goodmis.org</dd>
+</dl>
+<div class="Bd-indent">mailto:rostedt@goodmis.org</div>
+<dl class="Bl-tag">
+  <dt> 2.</dt>
+  <dd>tz.stoyanov@gmail.com</dd>
+</dl>
+<div class="Bd-indent">mailto:tz.stoyanov@gmail.com</div>
+<dl class="Bl-tag">
+  <dt> 3.</dt>
+  <dd>linux-trace-devel@vger.kernel.org</dd>
+</dl>
+<div class="Bd-indent">mailto:linux-trace-devel@vger.kernel.org</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">04/16/2024</td>
+    <td class="foot-os">libtracefs 1.8.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

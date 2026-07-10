@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="check persistency, create and delete mappings">
+<title>pmem_is_pmem(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pmem_is_pmem(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#CAVEATS">CAVEATS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">()</td>
+    <td class="head-vol">PMDK Programmer's Manual</td>
+    <td class="head-rtitle">()</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>pmem_is_pmem</b>(), <b>pmem_map_file</b>(), <b>pmem_unmap</b>()
+    - check persistency, create and delete mappings</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+#include &lt;libpmem.h&gt;
+int pmem_is_pmem(const void *addr, size_t len);
+void *pmem_map_file(const char *path, size_t len, int flags,
+<br/>
+    mode_t mode, size_t *mapped_lenp, int *is_pmemp);
+int pmem_unmap(void *addr, size_t len);
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Most pmem-aware applications will take advantage of higher level
+    libraries that alleviate the need for the application to call into
+    <b>libpmem</b> directly. Application developers that wish to access raw
+    memory mapped persistence directly (via <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a>) and that wish to
+    take on the responsibility for flushing stores to persistence will find the
+    functions described in this section to be the most commonly used.</p>
+<p class="Pp">The <b>pmem_is_pmem</b>() function detects if the entire range
+    [<i>addr</i>, <i>addr</i>+<i>len</i>) consists of persistent memory. Calling
+    this function with a memory range that originates from a source different
+    than <b>pmem_map_file()</b> is undefined. The implementation of
+    <b>pmem_is_pmem</b>() requires a non-trivial amount of work to determine if
+    the given range is entirely persistent memory. For this reason, it is better
+    to call <b>pmem_is_pmem</b>() once when a range of memory is first
+    encountered, save the result, and use the saved result to determine whether
+    <a class="Xr" href="../3/pmem_flush.html"><b>pmem_persist</b>(3)</a> or <a class="Xr" href="../2/msync.html"><b>msync</b>(2)</a> is appropriate for flushing
+    changes to persistence. Calling <b>pmem_is_pmem</b>() each time changes are
+    flushed to persistence will not perform well.</p>
+<p class="Pp">The <b>pmem_map_file</b>() function creates a new read/write
+    mapping for a file. If <b>PMEM_FILE_CREATE</b> is not specified in
+    <i>flags</i>, the entire existing file <i>path</i> is mapped, <i>len</i>
+    must be zero, and <i>mode</i> is ignored. Otherwise, <i>path</i> is opened
+    or created as specified by <i>flags</i> and <i>mode</i>, and <i>len</i> must
+    be non-zero. <b>pmem_map_file</b>() maps the file using <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a>, but
+    it also takes extra steps to make large page mappings more likely.</p>
+<p class="Pp">On success, <b>pmem_map_file</b>() returns a pointer to the mapped
+    area. If <i>mapped_lenp</i> is not NULL, the length of the mapping is stored
+    into *<i>mapped_lenp</i>. If <i>is_pmemp</i> is not NULL, a flag indicating
+    whether the mapped file is actual pmem, or if <b>msync</b>() must be used to
+    flush writes for the mapped range, is stored into *<i>is_pmemp</i>.</p>
+<p class="Pp">The <i>flags</i> argument is 0 or the bitwise OR of one or more of
+    the following file creation flags:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>PMEM_FILE_CREATE</b> - Create the file named <i>path</i> if it does not
+      exist. <i>len</i> must be non-zero and specifies the size of the file to
+      be created. If the file already exists, it will be extended or truncated
+      to <i>len.</i> The new or existing file is then fully allocated to size
+      <i>len</i> using <a class="Xr" href="../3/posix_fallocate.html"><b>posix_fallocate</b>(3)</a>. <i>mode</i> specifies the mode
+      to use in case a new file is created (see <a class="Xr" href="../2/open.html"><b>creat</b>(2)</a>).</dd>
+</dl>
+<p class="Pp">The remaining flags modify the behavior of <b>pmem_map_file</b>()
+    when <b>PMEM_FILE_CREATE</b> is specified.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>PMEM_FILE_EXCL</b> - If specified in conjunction with
+      <b>PMEM_FILE_CREATE</b>, and <i>path</i> already exists, then
+      <b>pmem_map_file</b>() will fail with <b>EEXIST</b>. Otherwise, has the
+      same meaning as <b>O_EXCL</b> on <a class="Xr" href="../2/open.html"><b>open</b>(2)</a>, which is generally
+      undefined.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>PMEM_FILE_SPARSE</b> - When specified in conjunction with
+      <b>PMEM_FILE_CREATE</b>, create a sparse (holey) file using
+      <a class="Xr" href="../2/truncate.html"><b>ftruncate</b>(2)</a> rather than allocating it using
+      <a class="Xr" href="../3/posix_fallocate.html"><b>posix_fallocate</b>(3)</a>. Otherwise ignored.</dd>
+  <dt>&#x2022;</dt>
+  <dd><b>PMEM_FILE_TMPFILE</b> - Create a mapping for an unnamed temporary file.
+      Must be specified with <b>PMEM_FILE_CREATE</b>. <i>len</i> must be
+      non-zero, <i>mode</i> is ignored (the temporary file is always created
+      with mode 0600), and <i>path</i> must specify an existing directory name.
+      If the underlying file system supports <b>O_TMPFILE</b>, the unnamed
+      temporary file is created in the filesystem containing the directory
+      <i>path</i>; if <b>PMEM_FILE_EXCL</b> is also specified, the temporary
+      file may not subsequently be linked into the filesystem (see
+      <a class="Xr" href="../2/open.html"><b>open</b>(2)</a>). Otherwise, the file is created in <i>path</i> and
+      immediately unlinked.</dd>
+</dl>
+<p class="Pp">The <i>path</i> can point to a Device DAX. In this case only the
+    <b>PMEM_FILE_CREATE</b> and <b>PMEM_FILE_SPARSE</b> flags are valid, but
+    they are both ignored. For Device DAX mappings, <i>len</i> must be equal to
+    either 0 or the exact size of the device.</p>
+<p class="Pp">To delete mappings created with <b>pmem_map_file</b>(), use
+    <b>pmem_unmap</b>().</p>
+<p class="Pp">The <b>pmem_unmap</b>() function deletes all the mappings for the
+    specified address range, and causes further references to addresses within
+    the range to generate invalid memory references. It will use the address
+    specified by the parameter <i>addr</i>, where <i>addr</i> must be a
+    previously mapped region. <b>pmem_unmap</b>() will delete the mappings using
+    <a class="Xr" href="../2/mmap.html"><b>munmap</b>(2)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">The <b>pmem_is_pmem</b>() function returns true only if the entire
+    range [<i>addr</i>, <i>addr</i>+<i>len</i>) consists of persistent memory. A
+    true return from <b>pmem_is_pmem</b>() means it is safe to use
+    <a class="Xr" href="../3/pmem_flush.html"><b>pmem_persist</b>(3)</a> and the related functions to make changes durable for
+    that memory range. See also <b>CAVEATS</b>.</p>
+<p class="Pp">On success, <b>pmem_map_file</b>() returns a pointer to the
+    memory-mapped region and sets *<i>mapped_lenp</i> and *<i>is_pmemp</i> if
+    they are not NULL. On error, it returns NULL, sets <i>errno</i>
+    appropriately, and does not modify *<i>mapped_lenp</i> or
+  *<i>is_pmemp</i>.</p>
+<p class="Pp">On success, <b>pmem_unmap</b>() returns 0. On error, it returns -1
+    and sets <i>errno</i> appropriately.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">On Linux, <b>pmem_is_pmem</b>() returns true if the entire range
+    was mapped directly from Device DAX (/dev/daxX.Y) without an intervening
+    file system, or <b>MAP_SYNC</b> flag of <b>mmap(2)</b> is supported by the
+    file system on Filesystem DAX.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<p class="Pp">The result of <b>pmem_is_pmem</b>() query is only valid for the
+    mappings created using <b>pmem_map_file</b>(). For other memory regions, in
+    particular those created by a direct call to <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a>,
+    <b>pmem_is_pmem</b>() always returns false, even if the queried range is
+    entirely persistent memory.</p>
+<p class="Pp">Not all file systems support <a class="Xr" href="../3/posix_fallocate.html"><b>posix_fallocate</b>(3)</a>.
+    <b>pmem_map_file</b>() will fail if <b>PMEM_FILE_CREATE</b> is specified
+    without <b>PMEM_FILE_SPARSE</b> and the underlying file system does not
+    support <a class="Xr" href="../3/posix_fallocate.html"><b>posix_fallocate</b>(3)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../2/open.html"><b>creat</b>(2)</a>, <a class="Xr" href="../2/truncate.html"><b>ftruncate</b>(2)</a>, <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a>,
+    <a class="Xr" href="../2/msync.html"><b>msync</b>(2)</a>, <a class="Xr" href="../2/mmap.html"><b>munmap</b>(2)</a>, <a class="Xr" href="../2/open.html"><b>open</b>(2)</a>, <a class="Xr" href="../3/pmem_flush.html"><b>pmem_persist</b>(3)</a>,
+    <a class="Xr" href="../3/posix_fallocate.html"><b>posix_fallocate</b>(3)</a>, <a class="Xr" href="../7/libpmem.html"><b>libpmem</b>(7)</a> and
+    <b>&lt;https://pmem.io&gt;</b></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-05-31</td>
+    <td class="foot-os">PMDK - </td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

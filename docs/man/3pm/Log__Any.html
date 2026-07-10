@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Bringing loggers and listeners together">
+<title>Log::Any(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">Log::Any(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#VERSION">VERSION</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#LOG_LEVELS">LOG
+  LEVELS</a></li><li><a href="#CATEGORIES">CATEGORIES</a></li><li><a href="#PRODUCING_LOGS_(FOR_MODULES)">PRODUCING
+  LOGS (FOR MODULES)</a></li><li><a href="#Getting_a_logger">Getting
+  a logger</a></li><li><a href="#Logging">Logging</a></li><li><a href="#Log_level_detection">Log
+  level detection</a></li><li><a href="#Log_context_data">Log
+  context data</a></li><li><a href="#Setting_an_alternate_default_logger">Setting
+  an alternate default logger</a></li><li><a href="#Configuring_the_proxy">Configuring
+  the proxy</a></li><li><a href="#Testing">Testing</a></li><li><a href="#CONSUMING_LOGS_(FOR_APPLICATIONS)">CONSUMING
+  LOGS (FOR APPLICATIONS)</a></li><li><a href="#Q_&amp;amp;_A">Q &amp;amp;
+  A</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#CONTRIBUTORS">CONTRIBUTORS</a></li><li><a href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">Log::Any(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">Log::Any(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">Log::Any - Bringing loggers and listeners together</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
+<p class="Pp">version 1.717</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">In a CPAN or other module:</p>
+<p class="Pp"></p>
+<pre>    package Foo;
+    use Log::Any qw($log);
+    # log a string
+    $log-&gt;error(&quot;an error occurred&quot;);
+    # log a string and some data
+    $log-&gt;info(&quot;program started&quot;,
+        {progname =&gt; $0, pid =&gt; $$, perl_version =&gt; $]});
+    # log a string and data using a format string
+    $log-&gt;debugf(&quot;arguments are: %s&quot;, \@_);
+    # log an error and throw an exception
+    die $log-&gt;fatal(&quot;a fatal error occurred&quot;);
+</pre>
+<p class="Pp">In a Moo/Moose-based module:</p>
+<p class="Pp"></p>
+<pre>    package Foo;
+    use Log::Any ();
+    use Moo;
+    has log =&gt; (
+        is =&gt; 'ro',
+        default =&gt; sub { Log::Any-&gt;get_logger },
+    );
+</pre>
+<p class="Pp">In your application:</p>
+<p class="Pp"></p>
+<pre>    use Foo;
+    use Log::Any::Adapter;
+    # Send all logs to Log::Log4perl
+    Log::Any::Adapter-&gt;set('Log4perl');
+    # Send all logs to Log::Dispatch
+    my $log = Log::Dispatch-&gt;new(outputs =&gt; [[ ... ]]);
+    Log::Any::Adapter-&gt;set( 'Dispatch', dispatcher =&gt; $log );
+    # See Log::Any::Adapter documentation for more options
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><span class="Li">&quot;Log::Any&quot;</span> provides a standard
+    log production API for modules. Log::Any::Adapter allows applications to
+    choose the mechanism for log consumption, whether screen, file or another
+    logging mechanism like Log::Dispatch or Log::Log4perl.</p>
+<p class="Pp">Many modules have something interesting to say. Unfortunately
+    there is no standard way for them to say it - some output to STDERR, others
+    to <span class="Li">&quot;warn&quot;</span>, others to custom file logs. And
+    there is no standard way to get a module to start talking - sometimes you
+    must call a uniquely named method, other times set a package variable.</p>
+<p class="Pp">This being Perl, there are many logging mechanisms available on
+    CPAN. Each has their pros and cons. Unfortunately, the existence of so many
+    mechanisms makes it difficult for a CPAN author to commit his/her users to
+    one of them. This may be why many CPAN modules invent their own logging or
+    choose not to log at all.</p>
+<p class="Pp">To untangle this situation, we must separate the two parts of a
+    logging API. The first, <i>log production</i>, includes methods to output
+    logs (like <span class="Li">&quot;$log-&gt;debug&quot;</span>) and methods
+    to inspect whether a log level is activated (like
+    <span class="Li">&quot;$log-&gt;is_debug&quot;</span>). This is generally
+    all that CPAN modules care about. The second, <i>log consumption</i>,
+    includes a way to configure where logging goes (a file, the screen, etc.)
+    and the code to send it there. This choice generally belongs to the
+    application.</p>
+<p class="Pp">A CPAN module uses <span class="Li">&quot;Log::Any&quot;</span> to
+    get a log producer object. An application, in turn, may choose one or more
+    logging mechanisms via Log::Any::Adapter, or none at all.</p>
+<p class="Pp"><span class="Li">&quot;Log::Any&quot;</span> has a very tiny
+    footprint and no dependencies beyond Perl 5.8.1, which makes it appropriate
+    for even small CPAN modules to use. It defaults to 'null' logging activity,
+    so a module can safely log without worrying about whether the application
+    has chosen (or will ever choose) a logging mechanism.</p>
+<p class="Pp">See
+    &lt;http://www.openswartz.com/2007/09/06/standard-logging-api/&gt; for the
+    original post proposing this module.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOG_LEVELS"><a class="permalink" href="#LOG_LEVELS">LOG
+  LEVELS</a></h1>
+<p class="Pp"><span class="Li">&quot;Log::Any&quot;</span> supports the
+    following log levels and aliases, which is meant to be inclusive of the
+    major logging packages:</p>
+<p class="Pp"></p>
+<pre>     trace
+     debug
+     info (inform)
+     notice
+     warning (warn)
+     error (err)
+     critical (crit, fatal)
+     alert
+     emergency
+</pre>
+<p class="Pp">Levels are translated as appropriate to the underlying logging
+    mechanism. For example, log4perl only has six levels, so we translate
+    'notice' to 'info' and the top three levels to 'fatal'. See the
+    documentation of an adapter class for specifics.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CATEGORIES"><a class="permalink" href="#CATEGORIES">CATEGORIES</a></h1>
+<p class="Pp">Every logger has a category, generally the name of the class that
+    asked for the logger. Some logging mechanisms, like log4perl, can direct
+    logs to different places depending on category.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PRODUCING_LOGS_(FOR_MODULES)"><a class="permalink" href="#PRODUCING_LOGS_(FOR_MODULES)">PRODUCING
+  LOGS (FOR MODULES)</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Getting_a_logger"><a class="permalink" href="#Getting_a_logger">Getting
+  a logger</a></h2>
+<p class="Pp">The most convenient way to get a logger in your module is:</p>
+<p class="Pp"></p>
+<pre>    use Log::Any qw($log);
+</pre>
+<p class="Pp">This creates a package variable
+    <i></i><span class="Li"><i>$log</i></span><i></i> and assigns it to the
+    logger for the current package. It is equivalent to</p>
+<p class="Pp"></p>
+<pre>    our $log = Log::Any-&gt;get_logger;
+</pre>
+<p class="Pp">In general, to get a logger for a specified category:</p>
+<p class="Pp"></p>
+<pre>    my $log = Log::Any-&gt;get_logger(category =&gt; $category)
+</pre>
+<p class="Pp">If no category is specified, the calling package is used.</p>
+<p class="Pp">A logger object is an instance of Log::Any::Proxy, which passes on
+    messages to the Log::Any::Adapter handling its category.</p>
+<p class="Pp">If the <span class="Li">&quot;proxy_class&quot;</span> argument is
+    passed, an alternative to Log::Any::Proxy (such as a subclass) will be
+    instantiated and returned instead. The argument is automatically prepended
+    with &quot;Log::Any::Proxy::&quot;. If instead you want to pass the full
+    name of a proxy class, prefix it with a &quot;+&quot;. E.g.</p>
+<p class="Pp"></p>
+<pre>    # Log::Any::Proxy::Foo
+    my $log = Log::Any-&gt;get_logger(proxy_class =&gt; 'Foo');
+    # MyLog::Proxy
+    my $log = Log::Any-&gt;get_logger(proxy_class =&gt; '+MyLog::Proxy');
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Logging"><a class="permalink" href="#Logging">Logging</a></h2>
+<p class="Pp">To log a message, pass a single string to any of the log levels or
+    aliases. e.g.</p>
+<p class="Pp"></p>
+<pre>    $log-&gt;error(&quot;this is an error&quot;);
+    $log-&gt;warn(&quot;this is a warning&quot;);
+    $log-&gt;warning(&quot;this is also a warning&quot;);
+</pre>
+<p class="Pp">The log string will be returned so that it can be used further
+    (e.g. for a <span class="Li">&quot;die&quot;</span> or
+    <span class="Li">&quot;warn&quot;</span> call).</p>
+<p class="Pp">You should <b>not</b> include a newline in your message; that is
+    the responsibility of the logging mechanism, which may or may not want the
+    newline.</p>
+<p class="Pp">If you want to log additional structured data alongside with your
+    string, you can add a single hashref after your log string. e.g.</p>
+<p class="Pp"></p>
+<pre>    $log-&gt;info(&quot;program started&quot;,
+        {progname =&gt; $0, pid =&gt; $$, perl_version =&gt; $]});
+</pre>
+<p class="Pp">If the configured Log::Any::Adapter does not support logging
+    structured data, the hash will be converted to a string using
+  Data::Dumper.</p>
+<p class="Pp">There are also versions of each of the logging methods with an
+    additional &quot;f&quot; suffix (<span class="Li">&quot;infof&quot;</span>,
+    <span class="Li">&quot;errorf&quot;</span>,
+    <span class="Li">&quot;debugf&quot;</span>, etc.) that format a list of
+    arguments. The specific formatting mechanism and meaning of the arguments is
+    controlled by the Log::Any::Proxy object.</p>
+<p class="Pp"></p>
+<pre>    $log-&gt;errorf(&quot;an error occurred: %s&quot;, $@);
+    $log-&gt;debugf(&quot;called with %d params: %s&quot;, $param_count, \@params);
+</pre>
+<p class="Pp">By default it renders like
+    <span class="Li">&quot;sprintf&quot;</span>, with the following additional
+    features:</p>
+<ul class="Bl-bullet">
+  <li>Any complex references (like <span class="Li">&quot;\@params&quot;</span>
+      above) are automatically converted to single-line strings with
+      Data::Dumper.</li>
+  <li>Any undefined values are automatically converted to the string
+      &quot;&lt;undef&gt;&quot;.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Log_level_detection"><a class="permalink" href="#Log_level_detection">Log
+  level detection</a></h2>
+<p class="Pp">To detect whether a log level is on, use &quot;is_&quot; followed
+    by any of the log levels or aliases. e.g.</p>
+<p class="Pp"></p>
+<pre>    if ($log-&gt;is_info()) { ... }
+    $log-&gt;debug(&quot;arguments are: &quot; . Dumper(\@_))
+        if $log-&gt;is_debug();
+</pre>
+<p class="Pp">This is important for efficiency, as you can avoid the work of
+    putting together the logging message (in the above case, stringifying
+    <span class="Li">@_</span>) if the log level is not active.</p>
+<p class="Pp">The formatting methods (<span class="Li">&quot;infof&quot;</span>,
+    <span class="Li">&quot;errorf&quot;</span>, etc.) check the log level for
+    you.</p>
+<p class="Pp">Some logging mechanisms don't support detection of log levels. In
+    these cases the detection methods will always return 1.</p>
+<p class="Pp">In contrast, the default logging mechanism - Null - will return 0
+    for all detection methods.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Log_context_data"><a class="permalink" href="#Log_context_data">Log
+  context data</a></h2>
+<p class="Pp"><span class="Li">&quot;Log::Any&quot;</span> supports logging
+    context data by exposing the <span class="Li">&quot;context&quot;</span>
+    hashref. All the key/value pairs added to this hash will be printed with
+    every log message. You can localize the data so that it will be removed
+    again automatically at the end of the block:</p>
+<p class="Pp"></p>
+<pre>    $log-&gt;context-&gt;{directory} = $dir;
+    for my $file (glob &quot;$dir/*&quot;) {
+        local $log-&gt;context-&gt;{file} = basename($file);
+        $log-&gt;warn(&quot;Can't read file!&quot;) unless -r $file;
+    }
+</pre>
+<p class="Pp">This will produce the following line:</p>
+<p class="Pp"></p>
+<pre>    Can't read file! {directory =&gt; '/foo',file =&gt; 'bar'}
+</pre>
+<p class="Pp">If the configured Log::Any::Adapter does not support structured
+    data, the context hash will be converted to a string using Data::Dumper, and
+    will be appended to the log message.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Setting_an_alternate_default_logger"><a class="permalink" href="#Setting_an_alternate_default_logger">Setting
+  an alternate default logger</a></h2>
+<p class="Pp">When no other adapters are configured for your logger,
+    <span class="Li">&quot;Log::Any&quot;</span> uses the
+    <span class="Li">&quot;default_adapter&quot;</span>. To choose something
+    other than Null as the default, either set the
+    <span class="Li">&quot;LOG_ANY_DEFAULT_ADAPTER&quot;</span> environment
+    variable, or pass it as a parameter when loading
+    <span class="Li">&quot;Log::Any&quot;</span></p>
+<p class="Pp"></p>
+<pre>    use Log::Any '$log', default_adapter =&gt; 'Stderr';
+</pre>
+<p class="Pp">The name of the default class follows the same rules as used by
+    Log::Any::Adapter.</p>
+<p class="Pp">To pass arguments to the default adapter's constructor, use an
+    arrayref:</p>
+<p class="Pp"></p>
+<pre>    use Log::Any '$log', default_adapter =&gt; [ 'File' =&gt; '/var/log/mylog.log' ];
+</pre>
+<p class="Pp">When a consumer configures their own adapter, the default adapter
+    will be overridden. If they later remove their adapter, the default adapter
+    will be used again.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Configuring_the_proxy"><a class="permalink" href="#Configuring_the_proxy">Configuring
+  the proxy</a></h2>
+<p class="Pp">Any parameters passed on the import line or via the
+    <span class="Li">&quot;get_logger&quot;</span> method are passed on to the
+    Log::Any::Proxy constructor.</p>
+<p class="Pp"></p>
+<pre>    use Log::Any '$log', filter =&gt; \&amp;myfilter;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Testing"><a class="permalink" href="#Testing">Testing</a></h2>
+<p class="Pp">Log::Any::Test provides a mechanism to test code that uses
+    <span class="Li">&quot;Log::Any&quot;</span>.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONSUMING_LOGS_(FOR_APPLICATIONS)"><a class="permalink" href="#CONSUMING_LOGS_(FOR_APPLICATIONS)">CONSUMING
+  LOGS (FOR APPLICATIONS)</a></h1>
+<p class="Pp">Log::Any provides modules with a Log::Any::Proxy object, which is
+    the log producer. To consume its output and direct it where you want (a
+    file, the screen, syslog, etc.), you use Log::Any::Adapter along with a
+    destination-specific subclass.</p>
+<p class="Pp">For example, to send output to a file via Log::Any::Adapter::File,
+    your application could do this:</p>
+<p class="Pp"></p>
+<pre>    use Log::Any::Adapter ('File', '/path/to/file.log');
+</pre>
+<p class="Pp">See the Log::Any::Adapter documentation for more details.</p>
+<p class="Pp">To detect if a consumer exists, use
+    <span class="Li">&quot;Log::Any-&gt;has_consumer&quot;</span>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Q_&amp;_A"><a class="permalink" href="#Q_&amp;_A">Q &amp;
+  A</a></h1>
+<dl class="Bl-tag">
+  <dt id="Isn't"><a class="permalink" href="#Isn't">Isn't Log::Any just yet
+    another logging mechanism?</a></dt>
+  <dd>No. <span class="Li">&quot;Log::Any&quot;</span> does not include code
+      that knows how to log to a particular place (file, screen, etc.) It can
+      only forward logging requests to another logging mechanism.</dd>
+  <dt id="Why"><a class="permalink" href="#Why">Why don't you just pick the best
+    logging mechanism, and use and promote it?</a></dt>
+  <dd>Each of the logging mechanisms have their pros and cons, particularly in
+      terms of how they are configured. For example, log4perl offers a great
+      deal of power and flexibility but uses a global and potentially heavy
+      configuration, whereas Log::Dispatch is extremely configuration-light but
+      doesn't handle categories. There is also the unnamed future logger that
+      may have advantages over either of these two, and all the custom in-house
+      loggers people have created and cannot (for whatever reason) stop
+    using.</dd>
+  <dt id="Is"><a class="permalink" href="#Is">Is it safe for my critical module
+    to depend on Log::Any?</a></dt>
+  <dd>Our intent is to keep <span class="Li">&quot;Log::Any&quot;</span>
+      minimal, and change it only when absolutely necessary. Most of the
+      &quot;innovation&quot;, if any, is expected to occur in
+      <span class="Li">&quot;Log::Any::Adapter&quot;</span>, which your module
+      should not have to depend on (unless it wants to direct logs somewhere
+      specific). <span class="Li">&quot;Log::Any&quot;</span> has no non-core
+      dependencies.</dd>
+  <dt id="Why~2"><a class="permalink" href="#Why~2">Why doesn't Log::Any use
+    <i>insert modern Perl technique</i>?</a></dt>
+  <dd>To encourage CPAN module authors to adopt and use
+      <span class="Li">&quot;Log::Any&quot;</span>, we aim to have as few
+      dependencies and chances of breakage as possible. Thus, no
+      <span class="Li">&quot;Moose&quot;</span> or other niceties.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<ul class="Bl-bullet">
+  <li>Jonathan Swartz &lt;swartz@pobox.com&gt;</li>
+  <li>David Golden &lt;dagolden@cpan.org&gt;</li>
+  <li>Doug Bell &lt;preaction@cpan.org&gt;</li>
+  <li>Daniel Pittman &lt;daniel@rimspace.net&gt;</li>
+  <li>Stephen Thirlwall &lt;sdt@cpan.org&gt;</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONTRIBUTORS"><a class="permalink" href="#CONTRIBUTORS">CONTRIBUTORS</a></h1>
+<ul class="Bl-bullet">
+  <li>Andrew Grechkin &lt;andrew.grechkin@gmail.com&gt;</li>
+  <li>Andrew Hewus Fresh &lt;andrew+github@afresh1.com&gt;</li>
+  <li>bj5004 &lt;bartosz.jakubski@hurra.com&gt;</li>
+  <li>cm-perl &lt;cm-perl@users.noreply.github.com&gt;</li>
+  <li>Doug Bell &lt;preaction@users.noreply.github.com&gt;</li>
+  <li>Jonathan &lt;jjrs.pam+github@gmail.com&gt;</li>
+  <li>Jonathan Rubin &lt;jon.rubin@grantstreet.com&gt;</li>
+  <li>Karen Etheridge &lt;ether@cpan.org&gt;</li>
+  <li>Konstantin S. Uvarin &lt;khedin@gmail.com&gt;</li>
+  <li>Larry Leszczynski &lt;larryl@cpan.org&gt;</li>
+  <li>Lucas Kanashiro &lt;kanashiro.duarte@gmail.com&gt;</li>
+  <li>Maros Kollar &lt;maros.kollar@geizhals.at&gt;</li>
+  <li>Maxim Vuets &lt;maxim.vuets@booking.com&gt;</li>
+  <li>mephinet &lt;mephinet@gmx.net&gt;</li>
+  <li>Michael Conrad &lt;mconrad@intellitree.com&gt;</li>
+  <li>Nick Tonkin &lt;1nickt@users.noreply.github.com&gt;</li>
+  <li>Paul Durden &lt;alabamapaul@gmail.com&gt;</li>
+  <li>Philipp Gortan &lt;philipp.gortan@apa.at&gt;</li>
+  <li>Phill Legault &lt;saladdayllc@gmail.com&gt;</li>
+  <li>Samuel Ng &lt;samuel.ng@grantstreet.com&gt;</li>
+  <li>Samuel Ng &lt;sng@grantstreet.com&gt;</li>
+  <li>Shlomi Fish &lt;shlomif@shlomifish.org&gt;</li>
+  <li>Sven Willenbuecher &lt;sven.willenbuecher@kuehne-nagel.com&gt;</li>
+  <li>XSven &lt;XSven@users.noreply.github.com&gt;</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT_AND_LICENSE"><a class="permalink" href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></h1>
+<p class="Pp">This software is copyright (c) 2017 by Jonathan Swartz, David
+    Golden, and Doug Bell.</p>
+<p class="Pp">This is free software; you can redistribute it and/or modify it
+    under the same terms as the Perl 5 programming language system itself.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-09-03</td>
+    <td class="foot-os">perl v5.36.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

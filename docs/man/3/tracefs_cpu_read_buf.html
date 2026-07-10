@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Reading trace_pipe_raw data returning a kbuffer">
+<title>tracefs_cpu_read_buf(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">tracefs_cpu_read_buf(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#REPORTING_BUGS">REPORTING
+  BUGS</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#RESOURCES">RESOURCES</a></li><li><a href="#COPYING">COPYING</a></li><li><a href="#NOTES">NOTES</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">LIBTRACEFS(3)</td>
+    <td class="head-vol">libtracefs Manual</td>
+    <td class="head-rtitle">LIBTRACEFS(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">tracefs_cpu_read_buf, tracefs_cpu_buffered_read_buf,
+    tracefs_cpu_flush_buf - Reading trace_pipe_raw data returning a kbuffer</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;tracefs.h&gt;</b>
+struct kbuffer *<b>tracefs_cpu_read_buf</b>(struct tracefs_cpu *<i>tcpu</i>, bool <i>nonblock</i>);
+struct kbuffer *<b>tracefs_cpu_buffered_read_buf</b>(struct tracefs_cpu *<i>tcpu</i>, bool <i>nonblock</i>);
+struct kbuffer *<b>tracefs_cpu_flush_buf</b>(struct tracefs_cpu *<i>tcpu</i>);</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This set of APIs can be used to read the raw data from the
+    trace_pipe_raw files in the tracefs file system and return a kbuffer
+    structure to read it with.</p>
+<p class="Pp">The <b>tracefs_cpu_read_buf()</b> reads the trace_pipe_raw files
+    associated to <i>tcpu</i> and returns a kbuffer structure that can be used
+    to iterate the events. If <i>nonblock</i> is set, and there&#x2019;s no data
+    available, it will return immediately. Otherwise depending on how
+    <i>tcpu</i> was opened, it will block. If <i>tcpu</i> was opened with
+    nonblock set, then this <i>nonblock</i> will make no difference.</p>
+<p class="Pp">The <b>tracefs_cpu_buffered_read_buf()</b> is basically the same
+    as <b>tracefs_cpu_read_buf()</b> except that it uses a pipe through splice
+    to buffer reads. This will batch reads keeping the reading from the ring
+    buffer less intrusive to the system, as just reading all the time can cause
+    quite a disturbance. Note, one difference between this and
+    <b>tracefs_cpu_read()</b> is that it will read only in sub buffer pages. If
+    the ring buffer has not filled a page, then it will not return anything,
+    even with <i>nonblock</i> set. Calls to <b>tracefs_cpu_flush_buf()</b> or
+    <b>tracefs_cpu_flush()</b> should be done to read the rest of the file at
+    the end of the trace.</p>
+<p class="Pp">The <b>tracefs_cpu_flush_buf()</b> reads the trace_pipe_raw file
+    associated by the <i>tcpu</i> and puts it into <i>buffer</i>, which must be
+    the size of the sub buffer which is retrieved. This should be called at the
+    end of tracing to get the rest of the data. This call will convert the file
+    descriptor of trace_pipe_raw into non-blocking mode.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">The functions <b>tracefs_cpu_read_buf()</b>,
+    tracefs_cpu_buffered_read_buf()* and <b>tracefs_cpu_flush()</b> returns a
+    kbuffer descriptor that can be iterated over to find the events. Note, this
+    descriptor is part of the tracefs_cpu structure and should not be freed. It
+    will be freed. It returns NULL on error or if nonblock is set and there are
+    no events available. In the case of no events, errno will be set with
+    EAGAIN.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<div class="Bd-indent">
+<pre>#include &lt;stdlib.h&gt;
+#include &lt;ctype.h&gt;
+#include &lt;tracefs.h&gt;
+static void read_page(struct tep_handle *tep, struct kbuffer *kbuf)
+{
+<br/>
+        static struct trace_seq seq;
+<br/>
+        struct tep_record record;
+<br/>
+        if (seq.buffer)
+<br/>
+                trace_seq_reset(&amp;seq);
+<br/>
+        else
+<br/>
+                trace_seq_init(&amp;seq);
+<br/>
+        while ((record.data = kbuffer_read_event(kbuf, &amp;record.ts))) {
+<br/>
+                record.size = kbuffer_event_size(kbuf);
+<br/>
+                kbuffer_next_event(kbuf, NULL);
+<br/>
+                tep_print_event(tep, &amp;seq, &amp;record,
+<br/>
+                                &quot;%s-%d %9d\t%s: %s\n&quot;,
+<br/>
+                                TEP_PRINT_COMM,
+<br/>
+                                TEP_PRINT_PID,
+<br/>
+                                TEP_PRINT_TIME,
+<br/>
+                                TEP_PRINT_NAME,
+<br/>
+                                TEP_PRINT_INFO);
+<br/>
+                trace_seq_do_printf(&amp;seq);
+<br/>
+                trace_seq_reset(&amp;seq);
+<br/>
+        }
+}
+int main (int argc, char **argv)
+{
+<br/>
+        struct tracefs_cpu *tcpu;
+<br/>
+        struct tep_handle *tep;
+<br/>
+        struct kbuffer *kbuf;
+<br/>
+        int cpu;
+<br/>
+        if (argc &lt; 2 || !isdigit(argv[1][0])) {
+<br/>
+                printf(&quot;usage: %s cpu\n\n&quot;, argv[0]);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        cpu = atoi(argv[1]);
+<br/>
+        tep = tracefs_local_events(NULL);
+<br/>
+        if (!tep) {
+<br/>
+                perror(&quot;Reading trace event formats&quot;);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        tcpu = tracefs_cpu_open(NULL, cpu, 0);
+<br/>
+        if (!tcpu) {
+<br/>
+                perror(&quot;Open CPU 0 file&quot;);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        while ((kbuf = tracefs_cpu_buffered_read_buf(tcpu, true))) {
+<br/>
+                read_page(tep, kbuf);
+<br/>
+        }
+<br/>
+        kbuf = tracefs_cpu_flush_buf(tcpu);
+<br/>
+        if (kbuf)
+<br/>
+                read_page(tep, kbuf);
+<br/>
+        tracefs_cpu_close(tcpu);
+<br/>
+        tep_free(tep);
+<br/>
+        return 0;
+}</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<div class="Bd-indent">
+<pre><b>tracefs.h</b>
+<br/>
+        Header file to include in order to have access to the library APIs.
+<b>-ltracefs</b>
+<br/>
+        Linker switch to add when building a program that uses the library.</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/tracefs_cpu_open.html"><b>tracefs_cpu_open</b>(3)</a> <a class="Xr" href="../3/tracefs_cpu_open.html"><b>tracefs_cpu_close</b>(3)</a>
+    <a class="Xr" href="../3/tracefs_cpu_read_size.html"><b>tracefs_cpu_read</b>(3)</a> <a class="Xr" href="../3/tracefs_cpu_read_size.html"><b>tracefs_cpu_buffered_read</b>(3)</a>
+    <a class="Xr" href="../3/tracefs_cpu_read_size.html"><b>tracefs_cpu_flush</b>(3)</a> <a class="Xr" href="../3/libtracefs.html"><b>libtracefs</b>(3)</a>, <a class="Xr" href="../3/libtraceevent.html"><b>libtraceevent</b>(3)</a>,
+    <a class="Xr" href="../1/trace-cmd.html"><b>trace-cmd</b>(1)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<div class="Bd-indent">
+<pre><b>Steven Rostedt</b> &lt;<b>rostedt@goodmis.org</b>[1]&gt;</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPORTING_BUGS"><a class="permalink" href="#REPORTING_BUGS">REPORTING
+  BUGS</a></h1>
+<p class="Pp">Report bugs to
+  &lt;<b>linux-trace-devel@vger.kernel.org</b>[2]&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">libtracefs is Free Software licensed under the GNU LGPL 2.1</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCES"><a class="permalink" href="#RESOURCES">RESOURCES</a></h1>
+<p class="Pp"><b>https://git.kernel.org/pub/scm/libs/libtrace/libtracefs.git/</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYING"><a class="permalink" href="#COPYING">COPYING</a></h1>
+<p class="Pp">Copyright (C) 2022 Google, Inc. Free use of this software is
+    granted under the terms of the GNU Public License (GPL).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>rostedt@goodmis.org</dd>
+</dl>
+<div class="Bd-indent">mailto:rostedt@goodmis.org</div>
+<dl class="Bl-tag">
+  <dt> 2.</dt>
+  <dd>linux-trace-devel@vger.kernel.org</dd>
+</dl>
+<div class="Bd-indent">mailto:linux-trace-devel@vger.kernel.org</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">04/16/2024</td>
+    <td class="foot-os">libtracefs 1.8.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

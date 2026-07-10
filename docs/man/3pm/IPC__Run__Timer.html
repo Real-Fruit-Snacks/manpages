@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="- Timer channels for IPC::Run.">
+<title>IPC::Run::Timer(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">IPC::Run::Timer(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Time_values">Time
+  values</a></li><li><a href="#Interval_fudging">Interval
+  fudging</a></li><li><a href="#SUBCLASSING">SUBCLASSING</a></li><li><a href="#FUNCTIONS_&amp;amp;_METHODS">FUNCTIONS
+  &amp;amp; METHODS</a></li><li><a href="#TODO">TODO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">IPC::Run::Timer(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">IPC::Run::Timer(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">IPC::Run::Timer -- Timer channels for IPC::Run.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>   use IPC::Run qw( run  timer timeout );
+   ## or IPC::Run::Timer ( timer timeout );
+   ## or IPC::Run::Timer ( :all );
+   ## A non-fatal timer:
+   $t = timer( 5 ); # or...
+   $t = IO::Run::Timer-&gt;new( 5 );
+   run $t, ...;
+   ## A timeout (which is a timer that dies on expiry):
+   $t = timeout( 5 ); # or...
+   $t = IO::Run::Timer-&gt;new( 5, exception =&gt; &quot;harness timed out&quot; );
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This class and module allows timers and timeouts to be created for
+    use by IPC::Run. A timer simply expires when it's time is up. A timeout is a
+    timer that throws an exception when it expires.</p>
+<p class="Pp">Timeouts are usually a bit simpler to use than timers: they throw
+    an exception on expiration so you don't need to check them:</p>
+<p class="Pp"></p>
+<pre>   ## Give @cmd 10 seconds to get started, then 5 seconds to respond
+   my $t = timeout( 10 );
+   $h = start(
+      \@cmd, \$in, \$out,
+      $t,
+   );
+   pump $h until $out =~ /prompt/;
+   $in = &quot;some stimulus&quot;;
+   $out = '';
+   $t-&gt;time( 5 )
+   pump $h until $out =~ /expected response/;
+</pre>
+<p class="Pp">You do need to check timers:</p>
+<p class="Pp"></p>
+<pre>   ## Give @cmd 10 seconds to get started, then 5 seconds to respond
+   my $t = timer( 10 );
+   $h = start(
+      \@cmd, \$in, \$out,
+      $t,
+   );
+   pump $h until $t-&gt;is_expired || $out =~ /prompt/;
+   $in = &quot;some stimulus&quot;;
+   $out = '';
+   $t-&gt;time( 5 )
+   pump $h until $out =~ /expected response/ || $t-&gt;is_expired;
+</pre>
+<p class="Pp">Timers and timeouts that are reset get started by <b>start()</b>
+    and <b>pump()</b>. Timers change state only in <b>pump()</b>. Since
+    <b>run()</b> and <b>finish()</b> both call <b>pump()</b>, they act like
+    <b>pump()</b> with respect to timers.</p>
+<p class="Pp">Timers and timeouts have three states: reset, running, and
+    expired. Setting the timeout value resets the timer, as does calling the
+    <b>reset()</b> method. The <b>start()</b> method starts (or restarts) a
+    timer with the most recently set time value, no matter what state it's
+  in.</p>
+<section class="Ss">
+<h2 class="Ss" id="Time_values"><a class="permalink" href="#Time_values">Time
+  values</a></h2>
+<p class="Pp">All time values are in seconds. Times may be any kind of perl
+    number, e.g. as integer or floating point seconds, optionally preceded by
+    punctuation-separated days, hours, and minutes.</p>
+<p class="Pp">Examples:</p>
+<p class="Pp"></p>
+<pre>   1           1 second
+   1.1         1.1 seconds
+   60          60 seconds
+   1:0         1 minute
+   1:1         1 minute, 1 second
+   1:90        2 minutes, 30 seconds
+   1:2:3:4.5   1 day, 2 hours, 3 minutes, 4.5 seconds
+   'inf'       the infinity perl special number (the timer never finishes)
+</pre>
+<p class="Pp">Absolute date/time strings are *not* accepted: year, month and
+    day-of-month parsing is not available (patches welcome :-).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Interval_fudging"><a class="permalink" href="#Interval_fudging">Interval
+  fudging</a></h2>
+<p class="Pp">When calculating an end time from a start time and an interval,
+    IPC::Run::Timer instances add a little fudge factor. This is to ensure that
+    no time will expire before the interval is up.</p>
+<p class="Pp">First a little background. Time is sampled in discrete increments.
+    We'll call the exact moment that the reported time increments from one
+    interval to the next a tick, and the interval between ticks as the time
+    period. Here's a diagram of three ticks and the periods between them:</p>
+<p class="Pp"></p>
+<pre>    -0-0-0-0-0-0-0-0-0-0-1-1-1-1-1-1-1-1-1-1-2-...
+    ^                   ^                   ^
+    |&lt;--- period 0 ----&gt;|&lt;--- period 1 ----&gt;|
+    |                   |                   |
+  tick 0              tick 1              tick 2
+</pre>
+<p class="Pp">To see why the fudge factor is necessary, consider what would
+    happen when a timer with an interval of 1 second is started right at the end
+    of period 0:</p>
+<p class="Pp"></p>
+<pre>    -0-0-0-0-0-0-0-0-0-0-1-1-1-1-1-1-1-1-1-1-2-...
+    ^                ^  ^                   ^
+    |                |  |                   |
+    |                |  |                   |
+  tick 0             |tick 1              tick 2
+                     |
+                 start $t
+</pre>
+<p class="Pp">Assuming that <b>check()</b> is called many times per period, then
+    the timer is likely to expire just after tick 1, since the time reported
+    will have lept from the value '0' to the value '1':</p>
+<p class="Pp"></p>
+<pre>    -0-0-0-0-0-0-0-0-0-0-1-1-1-1-1-1-1-1-1-1-2-...
+    ^                ^  ^   ^               ^
+    |                |  |   |               |
+    |                |  |   |               |
+  tick 0             |tick 1|             tick 2
+                     |      |
+                 start $t   |
+                            |
+                        check $t
+</pre>
+<p class="Pp">Adding a fudge of '1' in this example means that the timer is
+    guaranteed not to expire before tick 2.</p>
+<p class="Pp">The fudge is not added to an interval of '0'.</p>
+<p class="Pp">This means that intervals guarantee a minimum interval. Given that
+    the process running perl may be suspended for some period of time, or that
+    it gets busy doing something time-consuming, there are no other guarantees
+    on how long it will take a timer to expire.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SUBCLASSING"><a class="permalink" href="#SUBCLASSING">SUBCLASSING</a></h1>
+<p class="Pp">INCOMPATIBLE CHANGE: Due to the awkwardness introduced by ripping
+    pseudohashes out of Perl, this class <i>no longer</i> uses the fields
+    pragma.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FUNCTIONS_&amp;_METHODS"><a class="permalink" href="#FUNCTIONS_&amp;_METHODS">FUNCTIONS
+  &amp; METHODS</a></h1>
+<dl class="Bl-tag">
+  <dt id="timer"><a class="permalink" href="#timer">timer</a></dt>
+  <dd>A constructor function (not method) of IPC::Run::Timer instances:
+    <p class="Pp"></p>
+    <pre>   $t = timer( 5 );
+   $t = timer( 5, name =&gt; 'stall timer', debug =&gt; 1 );
+   $t = timer;
+   $t-&gt;interval( 5 );
+   run ..., $t;
+   run ..., $t = timer( 5 );
+    </pre>
+    <p class="Pp">This convenience function is a shortened spelling of</p>
+    <p class="Pp"></p>
+    <pre>   IPC::Run::Timer-&gt;new( ... );
+    </pre>
+    <p class="Pp">. It returns a timer in the reset state with a given
+      interval.</p>
+    <p class="Pp">If an exception is provided, it will be thrown when the timer
+        notices that it has expired (in <b>check()</b>). The name is for
+        debugging usage, if you plan on having multiple timers around. If no
+        name is provided, a name like &quot;timer #1&quot; will be provided.</p>
+  </dd>
+  <dt id="timeout"><a class="permalink" href="#timeout">timeout</a></dt>
+  <dd>A constructor function (not method) of IPC::Run::Timer instances:
+    <p class="Pp"></p>
+    <pre>   $t = timeout( 5 );
+   $t = timeout( 5, exception =&gt; &quot;kablooey&quot; );
+   $t = timeout( 5, name =&gt; &quot;stall&quot;, exception =&gt; &quot;kablooey&quot; );
+   $t = timeout;
+   $t-&gt;interval( 5 );
+   run ..., $t;
+   run ..., $t = timeout( 5 );
+    </pre>
+    <p class="Pp">A This convenience function is a shortened spelling of</p>
+    <p class="Pp"></p>
+    <pre>   IPC::Run::Timer-&gt;new( exception =&gt; &quot;IPC::Run: timeout ...&quot;, ... );
+    </pre>
+    <p class="Pp">. It returns a timer in the reset state that will throw an
+        exception when it expires.</p>
+    <p class="Pp">Takes the same parameters as &quot;timer&quot;, any exception
+        passed in overrides the default exception.</p>
+  </dd>
+  <dt id="new"><a class="permalink" href="#new">new</a></dt>
+  <dd>
+    <pre>   IPC::Run::Timer-&gt;new()  ;
+   IPC::Run::Timer-&gt;new( 5 )  ;
+   IPC::Run::Timer-&gt;new( 5, exception =&gt; 'kablooey' )  ;
+    </pre>
+    <p class="Pp">Constructor. See &quot;timer&quot; for details.</p>
+  </dd>
+  <dt id="check"><a class="permalink" href="#check">check</a></dt>
+  <dd>
+    <pre>   check $t;
+   check $t, $now;
+   $t-&gt;check;
+    </pre>
+    <p class="Pp">Checks to see if a timer has expired since the last check. Has
+        no effect on non-running timers. This will throw an exception if one is
+        defined.</p>
+    <p class="Pp"><b>IPC::Run::pump()</b> calls this routine for any timers in
+        the harness.</p>
+    <p class="Pp">You may pass in a version of now, which is useful in case you
+        have it lying around or you want to check several timers with a
+        consistent concept of the current time.</p>
+    <p class="Pp">Returns the time left before end_time or 0 if end_time is no
+        longer in the future or the timer is not running (unless, of course,
+        <b>check()</b> <b>expire()</b>s the timer and this results in an
+        exception being thrown).</p>
+    <p class="Pp">Returns undef if the timer is not running on entry, 0 if
+        <b>check()</b> expires it, and the time left if it's left running.</p>
+  </dd>
+  <dt id="debug"><a class="permalink" href="#debug">debug</a></dt>
+  <dd>Sets/gets the current setting of the debugging flag for this timer. This
+      has no effect if debugging is not enabled for the current harness.</dd>
+  <dt id="end_time"><a class="permalink" href="#end_time">end_time</a></dt>
+  <dd>
+    <pre>   $et = $t-&gt;end_time;
+   $et = end_time $t;
+   $t-&gt;end_time( time + 10 );
+    </pre>
+    <p class="Pp">Returns the time when this timer will or did expire. Even if
+        this time is in the past, the timer may not be expired, since
+        <b>check()</b> may not have been called yet.</p>
+    <p class="Pp">Note that this end_time is not start_time($t) + interval($t),
+        since some small extra amount of time is added to make sure that the
+        timer does not expire before <b>interval()</b> elapses. If this were not
+        so, then</p>
+    <p class="Pp">Changing <b>end_time()</b> while a timer is running will set
+        the expiration time. Changing it while it is expired has no affect,
+        since <b>reset()</b>ing a timer always clears the <b>end_time()</b>.</p>
+  </dd>
+  <dt id="exception"><a class="permalink" href="#exception">exception</a></dt>
+  <dd>
+    <pre>   $x = $t-&gt;exception;
+   $t-&gt;exception( $x );
+   $t-&gt;exception( undef );
+    </pre>
+    <p class="Pp">Sets/gets the exception to throw, if any. 'undef' means that
+        no exception will be thrown. Exception does not need to be a scalar: you
+        may ask that references be thrown.</p>
+  </dd>
+  <dt id="interval"><a class="permalink" href="#interval">interval</a></dt>
+  <dd>
+    <pre>   $i = interval $t;
+   $i = $t-&gt;interval;
+   $t-&gt;interval( $i );
+    </pre>
+    <p class="Pp">Sets the interval. Sets the end time based on the
+        <b>start_time()</b> and the interval (and a little fudge) if the timer
+        is running.</p>
+  </dd>
+  <dt id="expire"><a class="permalink" href="#expire">expire</a></dt>
+  <dd>
+    <pre>   expire $t;
+   $t-&gt;expire;
+    </pre>
+    <p class="Pp">Sets the state to expired (undef). Will throw an exception if
+        one is defined and the timer was not already expired. You can expire a
+        reset timer without starting it.</p>
+  </dd>
+  <dt id="is_running"><a class="permalink" href="#is_running">is_running</a></dt>
+  <dd></dd>
+  <dt id="is_reset"><a class="permalink" href="#is_reset">is_reset</a></dt>
+  <dd></dd>
+  <dt id="is_expired"><a class="permalink" href="#is_expired">is_expired</a></dt>
+  <dd></dd>
+  <dt id="name"><a class="permalink" href="#name">name</a></dt>
+  <dd>Sets/gets this timer's name. The name is only used for debugging purposes
+      so you can tell which freakin' timer is doing what.</dd>
+  <dt id="reset"><a class="permalink" href="#reset">reset</a></dt>
+  <dd>
+    <pre>   reset $t;
+   $t-&gt;reset;
+    </pre>
+    <p class="Pp">Resets the timer to the non-running, non-expired state and
+        clears the <b>end_time()</b>.</p>
+  </dd>
+  <dt id="start"><a class="permalink" href="#start">start</a></dt>
+  <dd>
+    <pre>   start $t;
+   $t-&gt;start;
+   start $t, $interval;
+   start $t, $interval, $now;
+    </pre>
+    <p class="Pp">Starts or restarts a timer. This always sets the start_time.
+        It sets the end_time based on the interval if the timer is running or if
+        no end time has been set.</p>
+    <p class="Pp">You may pass an optional interval or current time value.</p>
+    <p class="Pp">Not passing a defined interval causes the previous interval
+        setting to be re-used unless the timer is reset and an end_time has been
+        set (an exception is thrown if no interval has been set).</p>
+    <p class="Pp">Not passing a defined current time value causes the current
+        time to be used.</p>
+    <p class="Pp">Passing a current time value is useful if you happen to have a
+        time value lying around or if you want to make sure that several timers
+        are started with the same concept of start time. You might even need to
+        lie to an IPC::Run::Timer, occasionally.</p>
+  </dd>
+  <dt id="start_time"><a class="permalink" href="#start_time">start_time</a></dt>
+  <dd>Sets/gets the start time, in seconds since the epoch. Setting this
+      manually is a bad idea, it's better to call &quot;start&quot;() at the
+      correct time.</dd>
+  <dt id="state"><a class="permalink" href="#state">state</a></dt>
+  <dd>
+    <pre>   $s = state $t;
+   $t-&gt;state( $s );
+    </pre>
+    <p class="Pp">Get/Set the current state. Only use this if you really need to
+        transfer the state to/from some variable. Use &quot;expire&quot;,
+        &quot;start&quot;, &quot;reset&quot;, &quot;is_expired&quot;,
+        &quot;is_running&quot;, &quot;is_reset&quot;.</p>
+    <p class="Pp">Note: Setting the state to 'undef' to expire a timer will not
+        throw an exception.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TODO"><a class="permalink" href="#TODO">TODO</a></h1>
+<p class="Pp">use Time::HiRes; if it's present.</p>
+<p class="Pp">Add detection and parsing of [[[HH:]MM:]SS formatted times and
+    intervals.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Barrie Slaymaker &lt;barries@slaysys.com&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-10-29</td>
+    <td class="foot-os">perl v5.36.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

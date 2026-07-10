@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="DRM Memory Management">
+<title>drm-memory(7) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">drm-memory(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Dumb">Dumb-Buffers</a></li><li><a href="#TTM">TTM</a></li><li><a href="#GEM">GEM</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#Dumb~2">Dumb-Buffers</a></li><li><a href="#REPORTING_BUGS">REPORTING
+  BUGS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">DRM-MEMORY(7)</td>
+    <td class="head-vol">Direct Rendering Manager</td>
+    <td class="head-rtitle">DRM-MEMORY(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">drm-memory - DRM Memory Management</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>#include &lt;xf86drm.h&gt;</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Many modern high-end GPUs come with their own memory managers.
+    They even include several different caches that need to be synchronized
+    during access. Textures, framebuffers, command buffers and more need to be
+    stored in memory that can be accessed quickly by the GPU. Therefore, memory
+    management on GPUs is highly driver- and hardware-dependent.</p>
+<p class="Pp">However, there are several frameworks in the kernel that are used
+    by more than one driver. These can be used for trivial mode-setting without
+    requiring driver-dependent code. But for hardware-accelerated rendering you
+    need to read the manual pages for the driver you want to work with.</p>
+<section class="Ss">
+<h2 class="Ss" id="Dumb"><a class="permalink" href="#Dumb">Dumb-Buffers</a></h2>
+<p class="Pp">Almost all in-kernel DRM hardware drivers support an API called
+    <i>Dumb-Buffers</i>. This API allows to create buffers of arbitrary size
+    that can be used for scanout. These buffers can be memory mapped via
+    <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a> so you can render into them on the CPU. However, GPU access
+    to these buffers is often not possible. Therefore, they are fine for simple
+    tasks but not suitable for complex compositions and renderings.</p>
+<p class="Pp">The <b>DRM_IOCTL_MODE_CREATE_DUMB</b> ioctl can be used to create
+    a dumb buffer. The kernel will return a 32-bit handle that can be used to
+    manage the buffer with the DRM API. You can create framebuffers with
+    <b>drmModeAddFB</b>(3) and use it for mode-setting and scanout. To access
+    the buffer, you first need to retrieve the offset of the buffer. The
+    <b>DRM_IOCTL_MODE_MAP_DUMB</b> ioctl requests the DRM subsystem to prepare
+    the buffer for memory-mapping and returns a fake-offset that can be used
+    with <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a>.</p>
+<p class="Pp">The <b>DRM_IOCTL_MODE_CREATE_DUMB</b> ioctl takes as argument a
+    structure of type <b>struct drm_mode_create_dumb</b>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>struct drm_mode_create_dumb {
+<br/>
+    __u32 height;
+<br/>
+    __u32 width;
+<br/>
+    __u32 bpp;
+<br/>
+    __u32 flags;
+<br/>
+    __u32 handle;
+<br/>
+    __u32 pitch;
+<br/>
+    __u64 size;
+};
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The fields <i>height</i>, <i>width</i>, <i>bpp</i> and
+    <i>flags</i> have to be provided by the caller. The other fields are filled
+    by the kernel with the return values. <i>height</i> and <i>width</i> are the
+    dimensions of the rectangular buffer that is created. <i>bpp</i> is the
+    number of bits-per-pixel and must be a multiple of 8. You most commonly want
+    to pass 32 here. The flags field is currently unused and must be zeroed.
+    Different flags to modify the behavior may be added in the future. After
+    calling the ioctl, the handle, pitch and size fields are filled by the
+    kernel. <i>handle</i> is a 32-bit gem handle that identifies the buffer.
+    This is used by several other calls that take a gem-handle or memory-buffer
+    as argument. The <i>pitch</i> field is the pitch (or stride) of the new
+    buffer. Most drivers use 32-bit or 64-bit aligned stride-values. The size
+    field contains the absolute size in bytes of the buffer. This can normally
+    also be computed with <b>(height * pitch + width) * bpp / 4</b>.</p>
+<p class="Pp">To prepare the buffer for <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a> you need to use the
+    <b>DRM_IOCTL_MODE_MAP_DUMB</b> ioctl. It takes as argument a structure of
+    type <b>struct drm_mode_map_dumb</b>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>struct drm_mode_map_dumb {
+<br/>
+    __u32 handle;
+<br/>
+    __u32 pad;
+<br/>
+    __u64 offset;
+};
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">You need to put the gem-handle that was previously retrieved via
+    <b>DRM_IOCTL_MODE_CREATE_DUMB</b> into the <i>handle</i> field. The
+    <i>pad</i> field is unused padding and must be zeroed. After completion, the
+    <i>offset</i> field will contain an offset that can be used with
+    <a class="Xr" href="../2/mmap.html"><b>mmap</b>(2)</a> on the DRM file-descriptor.</p>
+<p class="Pp">If you don't need your dumb-buffer, anymore, you have to destroy
+    it with <b>DRM_IOCTL_MODE_DESTROY_DUMB</b>. If you close the DRM
+    file-descriptor, all open dumb-buffers are automatically destroyed. This
+    ioctl takes as argument a structure of type <b>struct
+    drm_mode_destroy_dumb</b>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>struct drm_mode_destroy_dumb {
+<br/>
+    __u32 handle;
+};
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">You only need to put your handle into the <i>handle</i> field.
+    After this call, the handle is invalid and may be reused for new buffers by
+    the dumb-API.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="TTM"><a class="permalink" href="#TTM">TTM</a></h2>
+<p class="Pp"><i>TTM</i> stands for <i>Translation Table Manager</i> and is a
+    generic memory-manager provided by the kernel. It does not provide a common
+    user-space API so you need to look at each driver interface if you want to
+    use it. See for instance the radeon man pages for more information on
+    memory-management with radeon and TTM.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="GEM"><a class="permalink" href="#GEM">GEM</a></h2>
+<p class="Pp"><i>GEM</i> stands for <i>Graphics Execution Manager</i> and is a
+    generic DRM memory-management framework in the kernel, that is used by many
+    different drivers. GEM is designed to manage graphics memory, control access
+    to the graphics device execution context and handle essentially NUMA
+    environment unique to modern graphics hardware. GEM allows multiple
+    applications to share graphics device resources without the need to
+    constantly reload the entire graphics card. Data may be shared between
+    multiple applications with gem ensuring that the correct memory
+    synchronization occurs.</p>
+<p class="Pp">GEM provides simple mechanisms to manage graphics data and control
+    execution flow within the linux DRM subsystem. However, GEM is not a
+    complete framework that is fully driver independent. Instead, if provides
+    many functions that are shared between many drivers, but each driver has to
+    implement most of memory-management with driver-dependent ioctls. This
+    manpage tries to describe the semantics (and if it applies, the syntax) that
+    is shared between all drivers that use GEM.</p>
+<p class="Pp">All GEM APIs are defined as <a class="Xr" href="../2/ioctl.html"><b>ioctl</b>(2)</a> on the DRM file
+    descriptor. An application must be authorized via <b>drmAuthMagic</b>(3) to
+    the current DRM-Master to access the GEM subsystem. A driver that does not
+    support GEM will return <b>ENODEV</b> for all these ioctls. Invalid object
+    handles return <b>EINVAL</b> and invalid object names return
+  <b>ENOENT</b>.</p>
+<p class="Pp">Gem provides explicit memory management primitives. System pages
+    are allocated when the object is created, either as the fundamental storage
+    for hardware where system memory is used by the graphics processor directly,
+    or as backing store for graphics-processor resident memory.</p>
+<p class="Pp">Objects are referenced from user-space using handles. These are,
+    for all intents and purposes, equivalent to file descriptors but avoid the
+    overhead. Newer kernel drivers also support the <b>drm-prime</b> (7)
+    infrastructure which can return real file-descriptor for GEM-handles using
+    the linux DMA-BUF API. Objects may be published with a name so that other
+    applications and processes can access them. The name remains valid as long
+    as the object exists. GEM-objects are reference counted in the kernel. The
+    object is only destroyed when all handles from user-space were closed.</p>
+<p class="Pp">GEM-buffers cannot be created with a generic API. Each driver
+    provides its own API to create GEM-buffers. See for example
+    <b>DRM_I915_GEM_CREATE</b>, <b>DRM_NOUVEAU_GEM_NEW</b> or
+    <b>DRM_RADEON_GEM_CREATE</b>. Each of these ioctls returns a GEM-handle that
+    can be passed to different generic ioctls. The <i>libgbm</i> library from
+    the <i>mesa3D</i> distribution tries to provide a driver-independent API to
+    create GBM buffers and retrieve a GBM-handle to them. It allows to create
+    buffers for different use-cases including scanout, rendering, cursors and
+    CPU-access. See the libgbm library for more information or look at the
+    driver-dependent man-pages (for example <b>drm-intel</b>(7) or
+    <b>drm-radeon</b>(7)).</p>
+<p class="Pp">GEM-buffers can be closed with <b>drmCloseBufferHandle</b>(3). It
+    takes as argument the GEM-handle to be closed. After this call the GEM
+    handle cannot be used by this process anymore and may be reused for new GEM
+    objects by the GEM API.</p>
+<p class="Pp">If you want to share GEM-objects between different processes, you
+    can create a name for them and pass this name to other processes which can
+    then open this GEM-object. Names are currently 32-bit integer IDs and have
+    no special protection. That is, if you put a name on your GEM-object, every
+    other client that has access to the DRM device and is authenticated via
+    <b>drmAuthMagic</b>(3) to the current DRM-Master, can <i>guess</i> the name
+    and open or access the GEM-object. If you want more fine-grained access
+    control, you can use the new <b>drm-prime</b>(7) API to retrieve
+    file-descriptors for GEM-handles. To create a name for a GEM-handle, you use
+    the <b>DRM_IOCTL_GEM_FLINK</b> ioctl. It takes as argument a structure of
+    type <b>struct drm_gem_flink</b>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>struct drm_gem_flink {
+<br/>
+    __u32 handle;
+<br/>
+    __u32 name;
+};
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">You have to put your handle into the <i>handle</i> field. After
+    completion, the kernel has put the new unique name into the name field. You
+    can now pass this name to other processes which can then import the name
+    with the <b>DRM_IOCTL_GEM_OPEN</b> ioctl. It takes as argument a structure
+    of type <b>struct drm_gem_open</b>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>struct drm_gem_open {
+<br/>
+    __u32 name;
+<br/>
+    __u32 handle;
+<br/>
+    __u32 size;
+};
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">You have to fill in the <i>name</i> field with the name of the
+    GEM-object that you want to open. The kernel will fill in the <i>handle</i>
+    and <i>size</i> fields with the new handle and size of the GEM-object. You
+    can now access the GEM-object via the handle as if you created it with the
+    GEM API.</p>
+<p class="Pp">Besides generic buffer management, the GEM API does not provide
+    any generic access. Each driver implements its own functionality on top of
+    this API. This includes execution-buffers, GTT management, context creation,
+    CPU access, GPU I/O and more. The next higher-level API is <i>OpenGL</i>. So
+    if you want to use more GPU features, you should use the <i>mesa3D</i>
+    library to create OpenGL contexts on DRM devices. This does <i>not</i>
+    require any windowing-system like X11, but can also be done on raw DRM
+    devices. However, this is beyond the scope of this man-page. You may have a
+    look at other mesa3D man pages, including libgbm and libEGL. 2D
+    software-rendering (rendering with the CPU) can be achieved with the
+    dumb-buffer-API in a driver-independent fashion, however, for
+    hardware-accelerated 2D or 3D rendering you must use OpenGL. Any other API
+    that tries to abstract the driver-internals to access GEM-execution-buffers
+    and other GPU internals, would simply reinvent OpenGL so it is not provided.
+    But if you need more detailed information for a specific driver, you may
+    have a look into the driver-manpages, including <b>drm-intel</b>(7),
+    <b>drm-radeon</b>(7) and <b>drm-nouveau</b>(7). However, the
+    <b>drm-prime</b>(7) infrastructure and the generic GEM API as described here
+    allow display-managers to handle graphics-buffers and render-clients without
+    any deeper knowledge of the GPU that is used. Moreover, it allows to move
+    objects between GPUs and implement complex display-servers that don't do any
+    rendering on their own. See its man-page for more information.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">This section includes examples for basic memory-management
+  tasks.</p>
+<section class="Ss">
+<h2 class="Ss" id="Dumb~2"><a class="permalink" href="#Dumb~2">Dumb-Buffers</a></h2>
+<p class="Pp">This examples shows how to create a dumb-buffer via the generic
+    DRM API. This is driver-independent (as long as the driver supports
+    dumb-buffers) and provides memory-mapped buffers that can be used for
+    scanout. This example creates a full-HD 1920x1080 buffer with 32
+    bits-per-pixel and a color-depth of 24 bits. The buffer is then bound to a
+    framebuffer which can be used for scanout with the KMS API (see
+    <a class="Xr" href="../7/drm-kms.html"><b>drm-kms</b>(7)</a>).</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>struct drm_mode_create_dumb creq;
+struct drm_mode_destroy_dumb dreq;
+struct drm_mode_map_dumb mreq;
+uint32_t fb;
+int ret;
+void *map;
+/* create dumb buffer */
+memset(&amp;creq, 0, sizeof(creq));
+creq.width = 1920;
+creq.height = 1080;
+creq.bpp = 32;
+ret = drmIoctl(fd, DRM_IOCTL_MODE_CREATE_DUMB, &amp;creq);
+if (ret &lt; 0) {
+<br/>
+    /* buffer creation failed; see &quot;errno&quot; for more error codes */
+<br/>
+    ...
+}
+/* creq.pitch, creq.handle and creq.size are filled by this ioctl with
+<br/>
+ * the requested values and can be used now. */
+/* create framebuffer object for the dumb-buffer */
+ret = drmModeAddFB(fd, 1920, 1080, 24, 32, creq.pitch, creq.handle, &amp;fb);
+if (ret) {
+<br/>
+    /* frame buffer creation failed; see &quot;errno&quot; */
+<br/>
+    ...
+}
+/* the framebuffer &quot;fb&quot; can now used for scanout with KMS */
+/* prepare buffer for memory mapping */
+memset(&amp;mreq, 0, sizeof(mreq));
+mreq.handle = creq.handle;
+ret = drmIoctl(fd, DRM_IOCTL_MODE_MAP_DUMB, &amp;mreq);
+if (ret) {
+<br/>
+    /* DRM buffer preparation failed; see &quot;errno&quot; */
+<br/>
+    ...
+}
+/* mreq.offset now contains the new offset that can be used with mmap() */
+/* perform actual memory mapping */
+map = mmap(0, creq.size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, mreq.offset);
+if (map == MAP_FAILED) {
+<br/>
+    /* memory-mapping failed; see &quot;errno&quot; */
+<br/>
+    ...
+}
+/* clear the framebuffer to 0 */
+memset(map, 0, creq.size);
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPORTING_BUGS"><a class="permalink" href="#REPORTING_BUGS">REPORTING
+  BUGS</a></h1>
+<p class="Pp">Bugs in this manual should be reported to
+    <i>https://gitlab.freedesktop.org/mesa/libdrm/-/issues</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../7/drm.html"><b>drm</b>(7)</a>, <a class="Xr" href="../7/drm-kms.html"><b>drm-kms</b>(7)</a>, <b>drm-prime</b>(7),
+    <a class="Xr" href="../3/drmAvailable.html"><b>drmAvailable</b>(3)</a>, <b>drmOpen</b>(3), <b>drm-intel</b>(7),
+    <b>drm-radeon</b>(7), <b>drm-nouveau</b>(7)</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">September 2012</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

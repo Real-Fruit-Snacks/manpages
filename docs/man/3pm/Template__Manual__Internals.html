@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Template Toolkit internals">
+<title>Template::Manual::Internals(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">Template::Manual::Internals(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#Introduction">Introduction</a></li><li><a href="#Outside_Looking_In">Outside
+  Looking In</a></li><li><a href="#Inside_Looking_Out">Inside
+  Looking Out</a></li><li><a href="#Hacking_on_the_Template_Toolkit">Hacking
+  on the Template Toolkit</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">Template::Manual::Internals(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">Template::Manual::Internals(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">Template::Manual::Internals - Template Toolkit internals</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Introduction"><a class="permalink" href="#Introduction">Introduction</a></h1>
+<p class="Pp">This section of the documentation is aimed at developers wishing
+    to know more about how the Template Toolkit works on the inside in order to
+    extend or adapt it to their own needs.</p>
+<p class="Pp">If that doesn't sound like you then you probably don't need to
+    read this. There is no test afterwards.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Outside_Looking_In"><a class="permalink" href="#Outside_Looking_In">Outside
+  Looking In</a></h1>
+<p class="Pp">The Template module is simply a front end module which creates and
+    uses a Template::Service and pipes the output wherever you want it to go
+    (<span class="Li">&quot;STDOUT&quot;</span> by default, or maybe a file,
+    scalar, etc). The <span class="Li">&quot;Apache::Template&quot;</span>
+    module (available separately from CPAN) is another front end. That creates a
+    <span class="Li">&quot;Template::Service::Apache&quot;</span> object, calls
+    on it as required and sends the output back to the relevant
+    <span class="Li">&quot;Apache::Request&quot;</span> object.</p>
+<p class="Pp">These front-end modules are really only there to handle any
+    specifics of the environment in which they're being used. The
+    <span class="Li">&quot;Apache::Template&quot;</span> front end, for example,
+    handles <span class="Li">&quot;Apache::Request&quot;</span> specifics and
+    configuration via the <i>httpd.conf</i>. The regular Template front-end
+    deals with <span class="Li">&quot;STDOUT&quot;</span>, variable refs, etc.
+    Otherwise it is Template::Service (or subclass) which does all the work.</p>
+<p class="Pp">The Template::Service module provides a high-quality template
+    delivery service, with bells, whistles, signed up service level agreement
+    and a 30-day no quibble money back guarantee. &quot;Have a good time, all
+    the time&quot;, that's our motto.</p>
+<p class="Pp">Within the lower levels of the Template Toolkit, there are lots of
+    messy details that we generally don't want to have to worry about most of
+    the time. Things like templates not being found, or failing to parse
+    correctly, uncaught exceptions being thrown, missing plugin modules or
+    dependencies, and so on. Template::Service hides that all away and makes
+    everything look simple to the outsider. It provides extra features, like
+    <span class="Li">&quot;PRE_PROCESS&quot;</span>,
+    <span class="Li">&quot;PROCESS&quot;</span> and
+    <span class="Li">&quot;POST_PROCESS&quot;</span>, and also provides the
+    error recovery mechanism via <span class="Li">&quot;ERROR&quot;</span>. You
+    ask it to process a template and it takes care of everything for you. The
+    <span class="Li">&quot;Template::Service::Apache&quot;</span> module goes a
+    little bit further, adding some extra headers to the Apache::Request,
+    setting a few extra template variables, and so on.</p>
+<p class="Pp">For the most part, the job of a service is really just one of
+    scheduling and dispatching. It receives a request in the form of a call to
+    its <b>process()</b> method and schedules the named template specified as an
+    argument, and possibly several other templates
+    (<span class="Li">&quot;PRE_PROCESS&quot;</span>, etc) to be processed in
+    order. It doesn't actually process the templates itself, but instead makes a
+    <b>process()</b> call against a Template::Context object.</p>
+<p class="Pp">Template::Context is the runtime engine for the Template Toolkit -
+    the module that hangs everything together in the lower levels of the
+    Template Toolkit and that one that does most of the real work, albeit by
+    crafty delegation to various other friendly helper modules.</p>
+<p class="Pp">Given a template name (or perhaps a reference to a scalar or file
+    handle) the context <b>process()</b> method must load and compile, or fetch
+    a cached copy of a previously compiled template, corresponding to that name.
+    It does this by calling on a list of one or more Template::Provider objects
+    (the <span class="Li">&quot;LOAD_TEMPLATES&quot;</span> posse) who
+    themselves might get involved with a Template::Parser to help turn source
+    templates into executable Perl code (but more on that later).</p>
+<p class="Pp">Thankfully, all of this complexity is hidden away behind a simple
+    <b>template()</b> method. You call it passing a template name as an
+    argument, and it returns a compiled template in the form of a
+    Template::Document object, or otherwise raises an exception.</p>
+<p class="Pp">A Template::Document is a thin object wrapper around a compiled
+    template subroutine. The object implements a <b>process()</b> method which
+    performs a little bit of housekeeping and then calls the template
+    subroutine. The object also defines template metadata (defined in
+    <span class="Li">&quot;[% META</span> <span class="Li">... %]&quot;</span>
+    directives) and has a <b>block()</b> method which returns a hash of any
+    additional <span class="Li">&quot;[% BLOCK xxxx %]&quot;</span> definitions
+    found in the template source.</p>
+<p class="Pp">So the context fetches a compiled document via its own
+    <b>template()</b> method and then gets ready to process it. It first updates
+    the stash (the place where template variables get defined - more on that
+    shortly) to set any template variable definitions specified as the second
+    argument by reference to hash array. Then, it calls the document
+    <b>process()</b> method, passing a reference to itself, the context object,
+    as an argument. In doing this, it provides itself as an object against which
+    template code can make callbacks to access runtime resources and Template
+    Toolkit functionality.</p>
+<p class="Pp">What we're trying to say here is this: not only does the
+    Template::Context object receive calls from the <i>outside</i>, i.e. those
+    originating in user code calling the <b>process()</b> method on a Template
+    object, but it also receives calls from the <i>inside</i>, i.e. those
+    originating in template directives of the form <span class="Li">&quot;[%
+    PROCESS template %]&quot;</span>.</p>
+<p class="Pp">Before we move on to that, here's a simple structure diagram
+    showing the outer layers of the Template Toolkit heading inwards, with
+    pseudo code annotations showing a typical invocation sequence.</p>
+<p class="Pp"></p>
+<pre>     ,--------.
+     | Caller |     use Template;
+     `--------'     my $tt = Template-&gt;new( ... );
+          |         $tt-&gt;process($template, \%vars);
+          |                                                     Outside
+    - - - | - - - - - - - - - - - - - - - - - - - - - - - - - - - - T T 
+          |         package Template;                            Inside
+          V
+    +----------+    sub process($template, \%vars) {
+    | Template |        $out = $self-&gt;SERVICE-&gt;process($template, $vars);
+    +----------+        print $out or send it to $self-&gt;OUTPUT;
+          |         }
+          |
+          |         package Template::Service;
+          |
+          |         sub process($template, \%vars) {
+          |             try {
+    +----------+            foreach $p in @self-&gt;PRE_PROCESS
+    | Service  |                $self-&gt;CONTEXT-&gt;process($p, $vars);
+    +----------+
+          |                 $self-&gt;CONTEXT-&gt;process($template, $vars);
+          |
+          |                 foreach $p @self-&gt;POST_PROCESS
+          |                     $self-&gt;CONTEXT-&gt;process($p, $vars);
+          |             }
+          |             catch {
+          |                 $self-&gt;CONTEXT-&gt;process($self-&gt;ERROR);
+          |             }
+          |         }
+          |
+          V         package Template::Context;
+    +----------+    
+    | Context  |    sub process($template, \%vars) {
+    +----------+        # fetch compiled template
+          |             $template = $self-&gt;template($template)
+          |             # update stash
+          |             $self-&gt;STASH-&gt;update($vars);
+          |             # process template
+          |             $template-&gt;process($self)
+          |         }
+          V     
+    +----------+    package Template::Document;
+    | Document |    
+    +----------+    sub process($context) {
+                        $output = &amp;{ $self-&gt;BLOCK }($context);
+                    }
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Inside_Looking_Out"><a class="permalink" href="#Inside_Looking_Out">Inside
+  Looking Out</a></h1>
+<p class="Pp">To understand more about what's going on in these lower levels, we
+    need to look at what a compiled template looks like. In fact, a compiled
+    template is just a regular Perl sub-routine. Here's a very simple one.</p>
+<p class="Pp"></p>
+<pre>    sub my_compiled_template {
+        return &quot;This is a compiled template.\n&quot;;
+    }
+</pre>
+<p class="Pp">You're unlikely to see a compiled template this simple unless you
+    wrote it yourself but it is entirely valid. All a template subroutine is
+    obliged to do is return some output (which may be an empty of course). If it
+    can't for some reason, then it should raise an error via
+    <span class="Li">die()</span>.</p>
+<p class="Pp"></p>
+<pre>    sub my_todo_template {
+        die &quot;This template not yet implemented\n&quot;;
+    }
+</pre>
+<p class="Pp">If it wants to get fancy, it can raise an error as a
+    Template::Exception object. An exception object is really just a convenient
+    wrapper for the '<span class="Li">&quot;type&quot;</span>' and
+    '<span class="Li">&quot;info&quot;</span>' fields.</p>
+<p class="Pp"></p>
+<pre>    sub my_solilique_template {
+        die (Template::Exception-&gt;new('yorrick', 'Fellow of infinite jest'));
+    }
+</pre>
+<p class="Pp">Templates generally need to do a lot more than just generate
+    static output or raise errors. They may want to inspect variable values,
+    process another template, load a plugin, run a filter, and so on. Whenever a
+    template subroutine is called, it gets passed a reference to a
+    Template::Context object. It is through this context object that template
+    code can access the features of the Template Toolkit.</p>
+<p class="Pp">We described earlier how the Template::Service object calls on
+    Template::Context to handle a <b>process()</b> request from the
+    <i>outside</i>. We can make a similar request on a context to process a
+    template, but from within the code of another template. This is a call from
+    the <i>inside</i>.</p>
+<p class="Pp"></p>
+<pre>    sub my_process_template {
+        my $context = shift;
+        my $output = $context-&gt;process('header', { title =&gt; 'Hello World' })
+                   . &quot;\nsome content\n&quot;
+                   . $context-&gt;process('footer');
+    }
+</pre>
+<p class="Pp">This is then roughly equivalent to a source template something
+    like this:</p>
+<p class="Pp"></p>
+<pre>    [% PROCESS header
+        title = 'Hello World'
+    %]
+    some content
+    [% PROCESS footer %]
+</pre>
+<p class="Pp">Template variables are stored in, and managed by a Template::Stash
+    object. This is a blessed hash array in which template variables are
+    defined. The object wrapper provides <b>get()</b> and <b>set()</b> method
+    which implement all the <i>magical.variable.features</i> of the Template
+    Toolkit.</p>
+<p class="Pp">Each context object has its own stash, a reference to which can be
+    returned by the appropriately named <b>stash()</b> method. So to print the
+    value of some template variable, or for example, to represent the following
+    source template:</p>
+<p class="Pp"></p>
+<pre>    &lt;title&gt;[% title %]&lt;/title&gt;
+</pre>
+<p class="Pp">we might have a subroutine definition something like this:</p>
+<p class="Pp"></p>
+<pre>    sub {
+        my $context = shift;
+        my $stash = $context-&gt;stash();
+        return '&lt;title&gt;' . $stash-&gt;get('title') . '&lt;/title&gt;';
+    }
+</pre>
+<p class="Pp">The stash <b>get()</b> method hides the details of the underlying
+    variable types, automatically calling code references, checking return
+    values, and performing other such tricks. If
+    '<span class="Li">&quot;title&quot;</span>' happens to be bound to a
+    subroutine then we can specify additional parameters as a list reference
+    passed as the second argument to <b>get()</b>.</p>
+<p class="Pp"></p>
+<pre>    [% title('The Cat Sat on the Mat') %]
+</pre>
+<p class="Pp">This translates to the stash call:</p>
+<p class="Pp"></p>
+<pre>    $stash-&gt;get([ 'title', ['The Cat Sat on the Mat'] ]);
+</pre>
+<p class="Pp">Dotted compound variables can be requested by passing a single
+    list reference to the <span class="Li">get()</span> method in place of the
+    variable name. Each pair of elements in the list should correspond to the
+    variable name and reference to a list of arguments for each dot-delimited
+    element of the variable.</p>
+<p class="Pp"></p>
+<pre>    [% foo(1, 2).bar(3, 4).baz(5) %]
+</pre>
+<p class="Pp">is thus equivalent to</p>
+<p class="Pp"></p>
+<pre>    $stash-&gt;get([ foo =&gt; [1,2], bar =&gt; [3,4], baz =&gt; [5] ]);
+</pre>
+<p class="Pp">If there aren't any arguments for an element, you can specify an
+    empty, zero or null argument list.</p>
+<p class="Pp"></p>
+<pre>    [% foo.bar %]
+    $stash-&gt;get([ 'foo', 0, 'bar', 0 ]);
+</pre>
+<p class="Pp">The <b>set()</b> method works in a similar way. It takes a
+    variable name and a variable value which should be assigned to it.</p>
+<p class="Pp"></p>
+<pre>    [% x = 10 %]         
+    $stash-&gt;set('x', 10);
+    
+    [% x.y = 10 %]
+    $stash-&gt;set([ 'x', 0, 'y', 0 ], 10);
+</pre>
+<p class="Pp">So the stash gives us access to template variables and the context
+    provides the higher level functionality.</p>
+<p class="Pp">Alongside the <b>process()</b> method lies the <b>include()</b>
+    method. Just as with the <span class="Li">&quot;PROCESS&quot;</span> /
+    <span class="Li">&quot;INCLUDE&quot;</span> directives, the key difference
+    is in variable localisation. Before processing a template, the
+    <span class="Li">process()</span> method simply updates the stash to set any
+    new variable definitions, overwriting any existing values. In contrast, the
+    <span class="Li">include()</span> method creates a copy of the existing
+    stash, in a process known as <i>cloning</i> the stash, and then uses that as
+    a temporary variable store. Any previously existing variables are still
+    defined, but any changes made to variables, including setting the new
+    variable values passed aas arguments will affect only the local copy of the
+    stash (although note that it's only a shallow copy, so it's not foolproof).
+    When the template has been processed, the <span class="Li">include()</span>
+    method restores the previous variable state by <i>decloning</i> the
+  stash.</p>
+<p class="Pp">The context also provides an <b>insert()</b> method to implement
+    the <span class="Li">&quot;INSERT&quot;</span> directive, but no
+    <span class="Li">wrapper()</span> method. This functionality can be
+    implemented by rewriting the Perl code and calling
+    <span class="Li">include()</span>.</p>
+<p class="Pp"></p>
+<pre>    [% WRAPPER foo -%]
+       blah blah [% x %]
+    [%- END %]
+    
+    $context-&gt;include('foo', {
+        content =&gt; 'blah blah ' . $stash-&gt;get('x'),
+    });
+</pre>
+<p class="Pp">Other than the template processing methods
+    <span class="Li">process()</span>, <span class="Li">include()</span> and
+    <span class="Li">insert()</span>, the context defines methods for fetching
+    plugin objects, <b>plugin()</b>, and filters, <b>filter()</b>.</p>
+<p class="Pp"></p>
+<pre>    # TT USE directive
+    [% USE foo = Bar(10) %]
+    
+    # equivalent Perl
+    $stash-&gt;set('foo', $context-&gt;plugin('Bar', [10]));
+    # TT FILTER block
+    [% FILTER bar(20) %]
+       blah blah blah
+    [% END %]
+    
+    # equivalent Perl
+    my $filter = $context-&gt;filter('bar', [20]);
+    &amp;$filter('blah blah blah');
+</pre>
+<p class="Pp">Pretty much everything else you might want to do in a template can
+    be done in Perl code. Things like <span class="Li">&quot;IF&quot;</span>,
+    <span class="Li">&quot;UNLESS&quot;</span>,
+    <span class="Li">&quot;FOREACH&quot;</span> and so on all have direct
+    counterparts in Perl.</p>
+<p class="Pp"></p>
+<pre>    # TT IF directive
+    [% IF msg %]
+       Message: [% msg %]
+    [% END %];
+    # equivalent Perl
+    if ($stash-&gt;get('msg')) {
+        $output .=  'Message: ';
+        $output .= $stash-&gt;get('msg');
+    }
+</pre>
+<p class="Pp">The best way to get a better understanding of what's going on
+    underneath the hood is to set the
+    <span class="Li">$Template::Parser::DEBUG</span> flag to a true value and
+    start processing templates. This will cause the parser to print the
+    generated Perl code for each template it compiles to
+    <span class="Li">&quot;STDERR&quot;</span>. You'll probably also want to set
+    the <span class="Li">$Template::Directive::PRETTY</span> option to have the
+    Perl pretty-printed for human consumption.</p>
+<p class="Pp"></p>
+<pre>    use Template;
+    use Template::Parser;
+    use Template::Directive;
+    
+    $Template::Parser::DEBUG = 1;
+    $Template::Directive::PRETTY = 1;
+    
+    my $template = Template-&gt;new();
+    $template-&gt;process(\*DATA, { cat =&gt; 'dog', mat =&gt; 'log' });
+    
+    __DATA__
+    The [% cat %] sat on the [% mat %]
+</pre>
+<p class="Pp">The output sent to <span class="Li">&quot;STDOUT&quot;</span>
+    remains as you would expect:</p>
+<p class="Pp"></p>
+<pre>    The dog sat on the log
+</pre>
+<p class="Pp">The output sent to <span class="Li">&quot;STDERR&quot;</span>
+    would look something like this:</p>
+<p class="Pp"></p>
+<pre>    compiled main template document block:
+    sub {
+        my $context = shift || die &quot;template sub called without context\n&quot;;
+        my $stash   = $context-&gt;stash;
+        my $output  = '';
+        my $error;
+        
+        eval { BLOCK: {
+            $output .=  &quot;The &quot;;
+            $output .=  $stash-&gt;get('cat');
+            $output .=  &quot; sat on the &quot;;
+            $output .=  $stash-&gt;get('mat');
+            $output .=  &quot;\n&quot;;
+        } };
+        if ($@) {
+            $error = $context-&gt;catch($@, \$output);
+            die $error unless $error-&gt;type eq 'return';
+        }
+    
+        return $output;
+    }
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Hacking_on_the_Template_Toolkit"><a class="permalink" href="#Hacking_on_the_Template_Toolkit">Hacking
+  on the Template Toolkit</a></h1>
+<p class="Pp">Please feel free to hack on the Template Toolkit. If you find a
+    bug that needs fixing, if you have an idea for something that's missing, or
+    you feel inclined to tackle something on the TODO list, then by all means go
+    ahead and do it!</p>
+<p class="Pp">If you're contemplating something non-trivial then you'll probably
+    want to bring it up on the mailing list first to get an idea about the
+    current state of play, find out if anyone's already working on it, and so
+    on.</p>
+<p class="Pp">The source code repository for the Template Toolkit is hosted at
+    Github.</p>
+<p class="Pp"></p>
+<pre>    https://github.com/abw/Template2
+</pre>
+<p class="Pp">Clone the repository, make your changes, commit them, then send a
+    pull request.</p>
+<p class="Pp">Once you've made your changes, please remember to update the test
+    suite by adding extra tests to one of the existing test scripts in the
+    <span class="Li">&quot;t&quot;</span> sub-directory, or by adding a new test
+    script of your own. And of course, run <span class="Li">&quot;make
+    test&quot;</span> to ensure that all the tests pass with your new code.</p>
+<p class="Pp">Don't forget that any files you do add will need to be added to
+    the MANIFEST. Running <span class="Li">&quot;make manifest&quot;</span> will
+    do this for you, but you need to make sure you haven't got any other
+    temporary files lying around that might also get added to it.</p>
+<p class="Pp">Documentation is often something that gets overlooked but it's
+    just as important as the code. If you're adding a new module, a plugin
+    module, for example, then it's OK to include the POD documentation in with
+    the module, but <i>please</i> write it all in one piece at the end of the
+    file, <i>after</i> the code (just look at any other
+    <span class="Li">&quot;Template::*&quot;</span> module for an example). It's
+    a religious issue, I know, but I have a strong distaste for POD
+    documentation interspersed throughout the code. In my not-so-humble opinion,
+    it makes both the code and the documentation harder to read (same kinda
+    problem as embedding Perl in HTML).</p>
+<p class="Pp">Then add a line to the Changes file giving a very brief
+    description of what you've done. There's no need to go into detail here
+    (save that for the commit message, comments in code or docuemtation where
+    appropriate).</p>
+<p class="Pp">Please also make sure you add your name to the
+    lib/Template/Manual/Credits.pod file (if it isn't already there).</p>
+<p class="Pp">Then commit your changes and send a pull request.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2026-05-30</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

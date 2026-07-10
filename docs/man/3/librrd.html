@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="RRD library functions">
+<title>librrd(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">librrd(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#CORE_FUNCTIONS">CORE
+  FUNCTIONS</a></li><li><a href="#UTILITY_FUNCTIONS">UTILITY
+  FUNCTIONS</a></li><li><a href="#CLIENT_FUNCTIONS">CLIENT
+  FUNCTIONS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">librrd(3)</td>
+    <td class="head-vol">rrdtool</td>
+    <td class="head-rtitle">librrd(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">librrd - RRD library functions</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>librrd</b> contains most of the functionality in
+    <b>RRDtool</b>. The command line utilities and language bindings are often
+    just wrappers around the code contained in <b>librrd</b>.</p>
+<p class="Pp">This manual page documents the <b>librrd</b> API.</p>
+<p class="Pp"><b>NOTE:</b> This document is a work in progress, and should be
+    considered incomplete as long as this warning persists. For more information
+    about the <b>librrd</b> functions, always consult the source code.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CORE_FUNCTIONS"><a class="permalink" href="#CORE_FUNCTIONS">CORE
+  FUNCTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="rrd_dump_cb_r(char"><a class="permalink" href="#rrd_dump_cb_r(char"><b>rrd_dump_cb_r(char
+    *filename, int opt_header, rrd_output_callback_t cb, void
+    *user)</b></a></dt>
+  <dd>In some situations it is necessary to get the output of
+      <span class="Li">&quot;rrd_dump&quot;</span> without writing it to a file
+      or the standard output. In such cases an application can ask
+      <b>rrd_dump_cb_r</b> to call a user-defined function each time there is
+      output to be stored somewhere. This can be used, to e.g. directly feed an
+      XML parser with the dumped output or transfer the resulting string in
+      memory.
+    <p class="Pp">The arguments for <b>rrd_dump_cb_r</b> are the same as for
+        <b>rrd_dump_opt_r</b> except that the output filename parameter is
+        replaced by the user-defined callback function and an additional
+        parameter for the callback function that is passed untouched, i.e. to
+        store information about the callback state needed for the user-defined
+        callback to function properly.</p>
+    <p class="Pp">Recent versions of <b>rrd_dump_opt_r</b> internally use this
+        callback mechanism to write their output to the file provided by the
+        user.</p>
+    <p class="Pp"></p>
+    <pre>    size_t rrd_dump_opt_cb_fileout(
+        const void *data,
+        size_t len,
+        void *user)
+    {
+        return fwrite(data, 1, len, (FILE *)user);
+    }
+    </pre>
+    <p class="Pp">The associated call for <b>rrd_dump_cb_r</b> looks like</p>
+    <p class="Pp"></p>
+    <pre>    res = rrd_dump_cb_r(filename, opt_header,
+        rrd_dump_opt_cb_fileout, (void *)out_file);
+    </pre>
+    <p class="Pp">where the last parameter specifies the file handle
+        <b>rrd_dump_opt_cb_fileout</b> should write to. There's no specific
+        condition for the callback to detect when it is called for the first
+        time, nor for the last time. If you require this for initialization and
+        cleanup you should do those tasks before and after calling
+        <b>rrd_dump_cb_r</b> respectively.</p>
+  </dd>
+  <dt id="rrd_fetch_cb_register(rrd_fetch_cb_t"><a class="permalink" href="#rrd_fetch_cb_register(rrd_fetch_cb_t"><b>rrd_fetch_cb_register(rrd_fetch_cb_t
+    c)</b></a></dt>
+  <dd>If your data does not reside in rrd files, but you would like to draw
+      charts using the rrd_graph functionality, you can supply your own
+      rrd_fetch function and register it using the <b>rrd_fetch_cb_register</b>
+      function.
+    <p class="Pp">The argument signature and api must be the same of the
+        callback function and must be equivalent to the one of
+        <b>rrd_fetch_fn</b> in <i>rrd_fetch.c</i>.</p>
+    <p class="Pp">To activate the callback function you can use the pseudo
+        filename <i>cb//</i><i>free_form_text</i>.</p>
+    <p class="Pp">Note that rrdtool graph will not ask the same rrd for data
+        twice. It determines this by building a key out of the values supplied
+        to the fetch function. If the values are the same, the previous answer
+        will be used.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="UTILITY_FUNCTIONS"><a class="permalink" href="#UTILITY_FUNCTIONS">UTILITY
+  FUNCTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="rrd_random()"><a class="permalink" href="#rrd_random()"><b>rrd_random()</b></a></dt>
+  <dd>Generates random numbers just like <b>random()</b>. This further ensures
+      that the random number generator is seeded exactly once per process.</dd>
+  <dt id="rrd_strtodbl"><a class="permalink" href="#rrd_strtodbl"><b>rrd_strtodbl</b></a></dt>
+  <dd>an rrd aware string to double converter which sets rrd_error in if there
+      is a problem and uses the return code exclusively for conversion status
+      reporting.</dd>
+  <dt id="rrd_strtod"><a class="permalink" href="#rrd_strtod"><b>rrd_strtod</b></a></dt>
+  <dd>works like normal strtod, but it is locale independent (and thread
+    safe)</dd>
+  <dt id="rrd_snprintf"><a class="permalink" href="#rrd_snprintf"><b>rrd_snprintf</b></a></dt>
+  <dd>works like normal snprintf but it is locale independent (and thread
+    safe)</dd>
+  <dt id="rrd_add_ptr(void"><a class="permalink" href="#rrd_add_ptr(void"><b>rrd_add_ptr(void
+    ***dest, size_t *dest_size, void *src)</b></a></dt>
+  <dd>Dynamically resize the array pointed to by
+      <span class="Li">&quot;dest&quot;</span>.
+      <span class="Li">&quot;dest_size&quot;</span> is a pointer to the current
+      size of <span class="Li">&quot;dest&quot;</span>. Upon successful
+      <b>realloc()</b>, the <span class="Li">&quot;dest_size&quot;</span> is
+      incremented by 1 and the <span class="Li">&quot;src&quot;</span> pointer
+      is stored at the end of the new <span class="Li">&quot;dest&quot;</span>.
+      Returns 1 on success, 0 on failure.
+    <p class="Pp"></p>
+    <pre>    type **arr = NULL;
+    type *elem = &quot;whatever&quot;;
+    size_t arr_size = 0;
+    if (!rrd_add_ptr(&amp;arr, &amp;arr_size, elem))
+        handle_failure();
+    </pre>
+  </dd>
+  <dt id="rrd_add_ptr_chunk(void"><a class="permalink" href="#rrd_add_ptr_chunk(void"><b>rrd_add_ptr_chunk(void
+    ***dest, size_t *dest_size, void *src, size_t *alloc, size_t
+    chunk)</b></a></dt>
+  <dd>Like <span class="Li">&quot;rrd_add_ptr&quot;</span>, except the
+      destination is allocated in chunks of
+      <span class="Li">&quot;chunk&quot;</span>.
+      <span class="Li">&quot;alloc&quot;</span> points to the number of entries
+      allocated, whereas <span class="Li">&quot;dest_size&quot;</span> points to
+      the number of valid pointers. If more pointers are needed,
+      <span class="Li">&quot;chunk&quot;</span> pointers are allocated and
+      <span class="Li">&quot;alloc&quot;</span> is increased accordingly.
+      <span class="Li">&quot;alloc&quot;</span> must be &gt;=
+      <span class="Li">&quot;dest_size&quot;</span>.
+    <p class="Pp">This method improves performance on hosts with expensive
+        <span class="Li">realloc()</span>.</p>
+  </dd>
+  <dt id="rrd_add_strdup(char"><a class="permalink" href="#rrd_add_strdup(char"><b>rrd_add_strdup(char
+    ***dest, size_t *dest_size, char *src)</b></a></dt>
+  <dd>Like <span class="Li">&quot;rrd_add_ptr&quot;</span>, except adds a
+      <span class="Li">&quot;strdup&quot;</span> of the source string.
+    <p class="Pp"></p>
+    <pre>    char **arr = NULL;
+    size_t arr_size = NULL;
+    char *str  = &quot;example text&quot;;
+    if (!rrd_add_strdup(&amp;arr, &amp;arr_size, str))
+        handle_failure();
+    </pre>
+  </dd>
+  <dt id="rrd_add_strdup_chunk(char"><a class="permalink" href="#rrd_add_strdup_chunk(char"><b>rrd_add_strdup_chunk(char
+    ***dest, size_t *dest_size, char *src, size_t *alloc, size_t
+    chunk)</b></a></dt>
+  <dd>Like <span class="Li">&quot;rrd_add_strdup&quot;</span>, except the
+      destination is allocated in chunks of
+      <span class="Li">&quot;chunk&quot;</span>.
+      <span class="Li">&quot;alloc&quot;</span> points to the number of entries
+      allocated, whereas <span class="Li">&quot;dest_size&quot;</span> points to
+      the number of valid pointers. If more pointers are needed,
+      <span class="Li">&quot;chunk&quot;</span> pointers are allocated and
+      <span class="Li">&quot;alloc&quot;</span> is increased accordingly.
+      <span class="Li">&quot;alloc&quot;</span> must be &gt;=
+      <span class="Li">&quot;dest_size&quot;</span>.</dd>
+  <dt id="rrd_free_ptrs(void"><a class="permalink" href="#rrd_free_ptrs(void"><b>rrd_free_ptrs(void
+    ***src, size_t *cnt)</b></a></dt>
+  <dd>Free an array of pointers allocated by
+      <span class="Li">&quot;rrd_add_ptr&quot;</span> or
+      <span class="Li">&quot;rrd_add_strdup&quot;</span>. Also frees the array
+      pointer itself. On return, the source pointer will be NULL and the count
+      will be zero.
+    <p class="Pp"></p>
+    <pre>    /* created as above */
+    rrd_free_ptrs(&amp;arr, &amp;arr_size);
+    /* here, arr == NULL &amp;&amp; arr_size == 0 */
+    </pre>
+  </dd>
+  <dt id="rrd_mkdir_p(const"><a class="permalink" href="#rrd_mkdir_p(const"><b>rrd_mkdir_p(const
+    char *pathname, mode_t mode)</b></a></dt>
+  <dd>Create the directory named <span class="Li">&quot;pathname&quot;</span>
+      including all of its parent directories (similar to
+      <span class="Li">&quot;mkdir -p&quot;</span> on the command line - see
+      <a class="Xr" href="../1/mkdir.html"><b>mkdir</b>(1)</a> for more information). The argument
+      <span class="Li">&quot;mode&quot;</span> specifies the permissions to use.
+      It is modified by the process's <span class="Li">&quot;umask&quot;</span>.
+      See <a class="Xr" href="../2/mkdir.html"><b>mkdir</b>(2)</a> for more details.
+    <p class="Pp">The function returns 0 on success, a negative value else. In
+        case of an error, <span class="Li">&quot;errno&quot;</span> is set
+        accordingly. Aside from the errors documented in <a class="Xr" href="../2/mkdir.html"><b>mkdir</b>(2)</a>, the
+        function may fail with the following errors:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="EINVAL"><a class="permalink" href="#EINVAL"><b>EINVAL</b></a></dt>
+  <dd><span class="Li">&quot;pathname&quot;</span> is
+      <span class="Li">&quot;NULL&quot;</span> or the empty string.</dd>
+  <dt id="ENOMEM"><a class="permalink" href="#ENOMEM"><b>ENOMEM</b></a></dt>
+  <dd>Insufficient memory was available.</dd>
+  <dt id="any"><a class="permalink" href="#any"><b>any error returned by
+    stat(2)</b></a></dt>
+  <dd></dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">In contrast to <a class="Xr" href="../2/mkdir.html"><b>mkdir</b>(2)</a>, the function does <b>not</b> fail
+    if <span class="Li">&quot;pathname&quot;</span> already exists and is a
+    directory.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="rrd_scaled_duration"><a class="permalink" href="#rrd_scaled_duration"><b>rrd_scaled_duration
+    (const char * token, unsigned long divisor, unsigned long *
+    valuep)</b></a></dt>
+  <dd>Parse a token in a context where it contains a count (of seconds or PDP
+      instances), or a duration that can be converted to a count by representing
+      the duration in seconds and dividing by some scaling factor. For example,
+      if a user would natively express a 3 day archive of samples collected
+      every 2 minutes, the sample interval can be represented by
+      <span class="Li">&quot;2m&quot;</span> instead of
+      <span class="Li">120</span>, and the archive duration by
+      <span class="Li">&quot;3d&quot;</span> (to be divided by 120) instead of
+      <span class="Li">2160</span> (3*24*60*60 / 120). See more examples in
+      &quot;STEP, HEARTBEAT, and Rows As Durations&quot; in rrdcreate.
+    <p class="Pp"><span class="Li">&quot;token&quot;</span> must be a number
+        with an optional single-character suffix encoding the scaling
+      factor:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>&quot;s&quot;</dt>
+  <dd>indicates seconds</dd>
+  <dt>&quot;m&quot;</dt>
+  <dd>indicates minutes. The value is multiplied by 60.</dd>
+  <dt>&quot;h&quot;</dt>
+  <dd>indicates hours. The value is multiplied by 3600 (or
+      <span class="Li">&quot;60m&quot;</span>).</dd>
+  <dt>&quot;d&quot;</dt>
+  <dd>indicates days. The value is multiplied by 86400 (or
+      <span class="Li">&quot;24h&quot;</span>).</dd>
+  <dt>&quot;w&quot;</dt>
+  <dd>indicates weeks. The value is multiplied by 604800 (or
+      <span class="Li">&quot;7d&quot;</span>).</dd>
+  <dt>&quot;M&quot;</dt>
+  <dd>indicates months. The value is multiplied by 2678400 (or
+      <span class="Li">&quot;31d&quot;</span>). (Note this factor accommodates
+      the maximum number of days in a month.)</dd>
+  <dt>&quot;y&quot;</dt>
+  <dd>indicates years. The value is multiplied by 31622400 (or
+      <span class="Li">&quot;366d&quot;</span>). (Note this factor accommodates
+      leap years.)</dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp"><span class="Li">&quot;divisor&quot;</span> is a positive value
+    representing the duration in seconds of an interval that the desired result
+    counts.</p>
+<p class="Pp"><span class="Li">&quot;valuep&quot;</span> is a pointer to where
+    the decoded value will be stored if the conversion is successful.</p>
+<p class="Pp">The initial characters of
+    <span class="Li">&quot;token&quot;</span> must be the base-10 representation
+    of a positive integer, or the conversion fails.</p>
+<p class="Pp">If the remainder <span class="Li">&quot;token&quot;</span> is
+    empty (no suffix), it is a count and no scaling is performed.</p>
+<p class="Pp">If <span class="Li">&quot;token&quot;</span> has one of the
+    suffixes above, the count is multiplied to convert it to a duration in
+    seconds. The resulting number of seconds is divided by
+    <span class="Li">&quot;divisor&quot;</span> to produce a count of intervals
+    each of duration <span class="Li">&quot;divisor&quot;</span> seconds. If
+    division would produce a remainder (e.g.,
+    <span class="Li">&quot;5m&quot;</span> (300 seconds) divided by
+    <span class="Li">&quot;90s&quot;</span>), the conversion is invalid.</p>
+<p class="Pp">If <span class="Li">&quot;token&quot;</span> has unrecognized
+    trailing characters the conversion fails.</p>
+<p class="Pp">The function returns a null pointer if the conversion was
+    successful and <span class="Li">&quot;valuep&quot;</span> has been updated
+    to the scaled value. On failure, it returns a text diagnostic suitable for
+    use in user error messages.</p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CLIENT_FUNCTIONS"><a class="permalink" href="#CLIENT_FUNCTIONS">CLIENT
+  FUNCTIONS</a></h1>
+<p class="Pp">The following functions are used to connected to an rrdcached
+    instance, either via a unix or inet address, and create, update, or gather
+    statistics about a specified RRD database file.</p>
+<p class="Pp">There are two different interfaces: The <b>rrd_client_</b> family
+    of functions operate on a user-provided client object (<b>rrd_client_t</b>)
+    and support multiple concurrent connections to rrdcache instances. The
+    simpler <b>rrdc_</b> family of functions handles connections transparently
+    but can only be used for one connection at a time.</p>
+<p class="Pp">All of the following functions and data types are specified in the
+    <span class="Li">&quot;rrd_client.h&quot;</span> header file.</p>
+<dl class="Bl-tag">
+  <dt id="rrd_client_new(const"><a class="permalink" href="#rrd_client_new(const"><b>rrd_client_new(const
+    char *daemon_addr)</b></a></dt>
+  <dd>Create a new client connection object. If specified, connect to the daemon
+      at <span class="Li">&quot;daemon_addr&quot;</span>. The connection can
+      later be changed by calling <b>rrd_client_connect</b>.</dd>
+  <dt id="rrd_client_destroy(rrd_client_t"><a class="permalink" href="#rrd_client_destroy(rrd_client_t"><b>rrd_client_destroy(rrd_client_t
+    *client)</b></a></dt>
+  <dd>Close a client connection and destroy the object by freeing all
+      dynamically allocated memory. After calling this function,
+      <span class="Li">&quot;client&quot;</span> can no longer be used.</dd>
+  <dt id="rrd_client_connect(rrd_client_t"><a class="permalink" href="#rrd_client_connect(rrd_client_t"><b>rrd_client_connect(rrd_client_t
+    *client, const char *daemon_addr)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_connect(const"><a class="permalink" href="#rrdc_connect(const"><b>rrdc_connect(const
+    char *daemon_addr)</b></a></dt>
+  <dd>Connect to a running rrdcached instance, specified via
+      <span class="Li">&quot;daemon_addr&quot;</span>. Any previous connection
+      will be closed. If <span class="Li">&quot;daemon_addr&quot;</span> is
+      <span class="Li">&quot;NULL&quot;</span>, it defaults to the value of the
+      <span class="Li">&quot;ENV_RRDCACHED_ADDRESS&quot;</span> environment
+      address.</dd>
+  <dt id="rrd_client_is_connected(rrd_client_t"><a class="permalink" href="#rrd_client_is_connected(rrd_client_t"><b>rrd_client_is_connected(rrd_client_t
+    *client)</b></a></dt>
+  <dd>Return a boolean int if the client is connected to the server.</dd>
+  <dt id="rrd_client_address(rrd_client_t"><a class="permalink" href="#rrd_client_address(rrd_client_t"><b>rrd_client_address(rrd_client_t
+    *client)</b></a></dt>
+  <dd>Returns the server address belonging to the current connection.</dd>
+  <dt id="rrdc_is_connected(const"><a class="permalink" href="#rrdc_is_connected(const"><b>rrdc_is_connected(const
+    char *daemon_addr)</b></a></dt>
+  <dd>Return a boolean int to determine if the client is connected to the
+      rrdcache daemon specified by the
+      <span class="Li">&quot;daemon_addr&quot;</span> parameter.</dd>
+  <dt id="rrd_client_ping(rrd_client_t"><a class="permalink" href="#rrd_client_ping(rrd_client_t"><b>rrd_client_ping(rrd_client_t
+    *client)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_ping"><a class="permalink" href="#rrdc_ping"><b>rrdc_ping</b></a></dt>
+  <dd>Check the client connection by pinging the remote side.</dd>
+  <dt id="rrdc_is_any_connected"><a class="permalink" href="#rrdc_is_any_connected"><b>rrdc_is_any_connected</b></a></dt>
+  <dd>Return a boolean int if any daemon connections are connected.</dd>
+  <dt id="rrd_client_disconnect(rrd_client_t"><a class="permalink" href="#rrd_client_disconnect(rrd_client_t"><b>rrd_client_disconnect(rrd_client_t
+    *client)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_disconnect"><a class="permalink" href="#rrdc_disconnect"><b>rrdc_disconnect</b></a></dt>
+  <dd>Disconnect gracefully from the present daemon connection.</dd>
+  <dt id="rrd_client_update(rrd_client_t"><a class="permalink" href="#rrd_client_update(rrd_client_t"><b>rrd_client_update(rrd_client_t
+    *client, const char *filename, int values_num, const char * const
+    *values)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_update(const"><a class="permalink" href="#rrdc_update(const"><b>rrdc_update(const
+    char *filename, int values_num, const char * const *values)</b></a></dt>
+  <dd>Update the RRD <span class="Li">&quot;filename&quot;</span> via the
+      rrdcached. Where <span class="Li">&quot;values_num&quot;</span> is the
+      number of values to update and <span class="Li">&quot;values&quot;</span>
+      are the new values to add.</dd>
+  <dt id="rrd_client_info(rrd_client_t"><a class="permalink" href="#rrd_client_info(rrd_client_t"><b>rrd_client_info(rrd_client_t
+    *client, const char *filename)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_info(const"><a class="permalink" href="#rrdc_info(const"><b>rrdc_info(const
+    char *filename)</b></a></dt>
+  <dd>Grab rrd info of the RRD <span class="Li">&quot;filename&quot;</span> from
+      the connected cache daemon. This function returns an rrd_info_t structure
+      of the following format:
+    <p class="Pp"></p>
+    <pre>    typedef struct rrd_blob_t {
+        unsigned long size; /* size of the blob */
+        unsigned char *ptr; /* pointer */
+    } rrd_blob_t;
+    typedef enum rrd_info_type { RD_I_VAL = 0,
+        RD_I_CNT,
+        RD_I_STR,
+        RD_I_INT,
+        RD_I_BLO
+    } rrd_info_type_t;
+    typedef union rrd_infoval {
+        unsigned long u_cnt;
+        rrd_value_t u_val;
+        char     *u_str;
+        int       u_int;
+        rrd_blob_t u_blo;
+    } rrd_infoval_t;
+    typedef struct rrd_info_t {
+        char     *key;
+        rrd_info_type_t type;
+        rrd_infoval_t value;
+        struct rrd_info_t *next;
+    } rrd_info_t;
+    </pre>
+  </dd>
+  <dt id="rrd_client_last(rrd_client_t"><a class="permalink" href="#rrd_client_last(rrd_client_t"><b>rrd_client_last(rrd_client_t
+    *client, const char *filename)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_last(const"><a class="permalink" href="#rrdc_last(const"><b>rrdc_last(const
+    char *filename)</b></a></dt>
+  <dd>Grab the unix epoch of the last time RRD
+      <span class="Li">&quot;filename&quot;</span> was updated.</dd>
+  <dt id="rrd_client_first(rrd_client_t"><a class="permalink" href="#rrd_client_first(rrd_client_t"><b>rrd_client_first(rrd_client_t
+    *client, const char *filename, int rraindex)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_first(const"><a class="permalink" href="#rrdc_first(const"><b>rrdc_first(const
+    char *filename, int rraindex)</b></a></dt>
+  <dd>Get the first value of the first sample of the RRD
+      <span class="Li">&quot;filename&quot;</span>, of the
+      <span class="Li">&quot;rraindex&quot;</span> RRA (Round Robin Archive)
+      index number. The RRA index number can be determined by pulling the
+      rrd_info_t off the RRD.</dd>
+  <dt id="rrd_client_create(rrd_client_t"><a class="permalink" href="#rrd_client_create(rrd_client_t"><b>rrd_client_create(rrd_client_t
+    *client, const char *filename, unsigned long pdp_step, time_t last_up, int
+    no_overwrite, int argc, const char **argv)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_create(const"><a class="permalink" href="#rrdc_create(const"><b>rrdc_create(const
+    char *filename, unsigned long pdp_step, time_t last_up, int no_overwrite,
+    int argc, const char **argv)</b></a></dt>
+  <dd>Create RRD database of path <span class="Li">&quot;filename&quot;</span>.
+      The RRD will have a step size of
+      <span class="Li">&quot;pfp_step&quot;</span>, the unix epoch timestamp to
+      start collecting data from. The number of data sources and RRAs
+      <span class="Li">&quot;argc&quot;</span> and the definitions of the data
+      sources and RRAs <span class="Li">&quot;argv&quot;</span>. Lastly whether
+      or not to overwrite an existing RRD if one is found with the same
+      filename; <span class="Li">&quot;no_overwrite&quot;</span>.</dd>
+  <dt id="rrdc_create_r2(rrd_client_t"><a class="permalink" href="#rrdc_create_r2(rrd_client_t"><b>rrdc_create_r2(rrd_client_t
+    *client, const char *filename, unsigned long pdp_step, time_t last_up, int
+    no_overwrite, const char **sources, const char *template, int argc, const
+    char **argv)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_create_r2(const"><a class="permalink" href="#rrdc_create_r2(const"><b>rrdc_create_r2(const
+    char *filename, unsigned long pdp_step, time_t last_up, int no_overwrite,
+    const char **sources, const char *template, int argc, const char
+    **argv)</b></a></dt>
+  <dd>Create an RRD database in the daemon. <b>rrdc_create_r2</b> has the same
+      parameters as <b>rrdc_create</b> with two added parameters of;
+      <span class="Li">&quot;sources&quot;</span> and
+      <span class="Li">&quot;template&quot;</span>.
+    <p class="Pp">where <span class="Li">&quot;template&quot;</span> is the file
+        path to a RRD file template, with, the form defined in
+        <a class="Xr" href="../1/rrdcreate.html"><b>rrdcreate</b>(1)</a>,</p>
+    <p class="Pp">The <span class="Li">&quot;sources&quot;</span> parameter
+        defines series of file paths with data defined, to prefill the RRD with.
+        See <a class="Xr" href="../1/rrdcreate.html"><b>rrdcreate</b>(1)</a> for more details.</p>
+  </dd>
+  <dt id="rrd_client_flush(rrd_client_t"><a class="permalink" href="#rrd_client_flush(rrd_client_t"><b>rrd_client_flush(rrd_client_t
+    *client, const char *filename)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_flush(const"><a class="permalink" href="#rrdc_flush(const"><b>rrdc_flush(const
+    char *filename)</b></a></dt>
+  <dd>flush the currently RRD cached in the daemon specified via
+      <span class="Li">&quot;filename&quot;</span>.</dd>
+  <dt id="rrd_client_forget(rrd_client_t"><a class="permalink" href="#rrd_client_forget(rrd_client_t"><b>rrd_client_forget(rrd_client_t
+    *client, const char *filename)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_forget(const"><a class="permalink" href="#rrdc_forget(const"><b>rrdc_forget(const
+    char *filename)</b></a></dt>
+  <dd>Drop the cached data for the RRD file specified via
+      <span class="Li">&quot;filename&quot;</span>.</dd>
+  <dt id="rrdc_flush_if_daemon(const"><a class="permalink" href="#rrdc_flush_if_daemon(const"><b>rrdc_flush_if_daemon(const
+    char *daemon_addr, const char *filename)</b></a></dt>
+  <dd>Flush the specified RRD given by
+      <span class="Li">&quot;filename&quot;</span> only if the daemon
+      <span class="Li">&quot;daemon_addr&quot;</span> is up and connected.</dd>
+  <dt id="rrd_client_fetch(rrd_client_t"><a class="permalink" href="#rrd_client_fetch(rrd_client_t"><b>rrd_client_fetch(rrd_client_t
+    *client, const char *filename, const char *cf, time_t *ret_start, time_t
+    *ret_end, unsigned long *ret_step, unsigned long *ret_ds_num, char
+    ***ret_ds_names, rrd_value_t **ret_data)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_fetch(const"><a class="permalink" href="#rrdc_fetch(const"><b>rrdc_fetch(const
+    char *filename, const char *cf, time_t *ret_start, time_t *ret_end, unsigned
+    long *ret_step, unsigned long *ret_ds_num, char ***ret_ds_names, rrd_value_t
+    **ret_data)</b></a></dt>
+  <dd>Perform a fetch operation on the specified RRD Database given be
+      <span class="Li">&quot;filename&quot;</span>, where
+      <span class="Li">&quot;cf&quot;</span> is the consolidation function,
+      <span class="Li">&quot;ret_start&quot;</span> is the start time given by
+      unix epoch, <span class="Li">&quot;ret_end&quot;</span> is the endtime.
+      <span class="Li">&quot;ret_step&quot;</span> is the step size in seconds,
+      <span class="Li">&quot;ret_ds_num&quot;</span> the number of data sources
+      in the RRD, <span class="Li">&quot;ret_ds_names&quot;</span> the names of
+      the data sources, and a pointer to an rrd_value_t object to shlep the
+      data.</dd>
+  <dt id="rrdc_stats_get(rrd_client_t"><a class="permalink" href="#rrdc_stats_get(rrd_client_t"><b>rrdc_stats_get(rrd_client_t
+    *client, rrdc_stats_t **ret_stats)</b></a></dt>
+  <dd></dd>
+  <dt id="rrdc_stats_get(rrdc_stats_t"><a class="permalink" href="#rrdc_stats_get(rrdc_stats_t"><b>rrdc_stats_get(rrdc_stats_t
+    **ret_stats)</b></a></dt>
+  <dd>Get stats from the connected daemon, via a linked list of the following
+      structure:
+    <p class="Pp"></p>
+    <pre>    struct rrdc_stats_s {
+        const char *name;
+        uint16_t type;
+        #define RRDC_STATS_TYPE_GAUGE   0x0001
+        #define RRDC_STATS_TYPE_COUNTER 0x0002
+        uint16_t flags;
+        union {
+            uint64_t counter;
+            double   gauge;
+        } value;
+        struct rrdc_stats_s *next;
+    };
+    typedef struct rrdc_stats_s rrdc_stats_t;
+    </pre>
+  </dd>
+  <dt id="rrdc_stats_free(rrdc_stats_t"><a class="permalink" href="#rrdc_stats_free(rrdc_stats_t"><b>rrdc_stats_free(rrdc_stats_t
+    *ret_stats)</b></a></dt>
+  <dd>Free the stats struct allocated via <b>rrdc_stats_get</b>.</dd>
+</dl>
+<section class="Ss">
+<h2 class="Ss" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h2>
+<p class="Pp"><b>rrcached</b>(1) <a class="Xr" href="../1/rrdfetch.html"><b>rrdfetch</b>(1)</a> <a class="Xr" href="../1/rrdinfo.html"><b>rrdinfo</b>(1)</a>
+    <a class="Xr" href="../1/rrdlast.html"><b>rrdlast</b>(1)</a> <a class="Xr" href="../1/rrdcreate.html"><b>rrdcreate</b>(1)</a> <a class="Xr" href="../1/rrdupdate.html"><b>rrdupdate</b>(1)</a>
+  <a class="Xr" href="../1/rrdlast.html"><b>rrdlast</b>(1)</a></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">RRD Contributors &lt;rrd-developers@lists.oetiker.ch&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">1.7.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

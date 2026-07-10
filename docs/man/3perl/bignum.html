@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="transparent big number support for Perl">
+<title>bignum(3perl) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">bignum(3perl)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Literal_numeric_constants">Literal
+  numeric constants</a></li><li><a href="#Upgrading_and_downgrading">Upgrading
+  and downgrading</a></li><li><a href="#Overloading">Overloading</a></li><li><a href="#Options">Options</a></li><li><a href="#Math_Library">Math
+  Library</a></li><li><a href="#Method_calls">Method
+  calls</a></li><li><a href="#Methods">Methods</a></li><li><a href="#CAVEATS">CAVEATS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#SUPPORT">SUPPORT</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">bignum(3perl)</td>
+    <td class="head-vol">Perl Programmers Reference Guide</td>
+    <td class="head-rtitle">bignum(3perl)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">bignum - transparent big number support for Perl</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>    use bignum;
+    $x = 2 + 4.5;                       # Math::BigFloat 6.5
+    print 2 ** 512 * 0.1;               # Math::BigFloat 134...09.6
+    print 2 ** 512;                     # Math::BigInt 134...096
+    print inf + 42;                     # Math::BigInt inf
+    print NaN * 7;                      # Math::BigInt NaN
+    print hex(&quot;0x1234567890123490&quot;);    # Perl v5.10.0 or later
+    {
+        no bignum;
+        print 2 ** 256;                 # a normal Perl scalar now
+    }
+    # for older Perls, import into current package:
+    use bignum qw/hex oct/;
+    print hex(&quot;0x1234567890123490&quot;);
+    print oct(&quot;01234567890123490&quot;);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Literal_numeric_constants"><a class="permalink" href="#Literal_numeric_constants">Literal
+  numeric constants</a></h2>
+<p class="Pp">By default, every literal integer becomes a Math::BigInt object,
+    and literal non-integer becomes a Math::BigFloat object. Whether a numeric
+    literal is considered an integer or non-integers depends only on the value
+    of the constant, not on how it is represented. For instance, the constants
+    3.14e2 and 0x1.3ap8 become Math::BigInt objects, because they both represent
+    the integer value decimal 314.</p>
+<p class="Pp">The default <span class="Li">&quot;use bignum;&quot;</span> is
+    equivalent to</p>
+<p class="Pp"></p>
+<pre>    use bignum downgrade =&gt; &quot;Math::BigInt&quot;, upgrade =&gt; &quot;Math::BigFloat&quot;;
+</pre>
+<p class="Pp">The classes used for integers and non-integers can be set at
+    compile time with the <span class="Li">&quot;downgrade&quot;</span> and
+    <span class="Li">&quot;upgrade&quot;</span> options, for example</p>
+<p class="Pp"></p>
+<pre>    # use Math::BigInt for integers and Math::BigRat for non-integers
+    use bignum upgrade =&gt; &quot;Math::BigRat&quot;;
+</pre>
+<p class="Pp">Note that disabling downgrading and upgrading does not affect how
+    numeric literals are converted to objects</p>
+<p class="Pp"></p>
+<pre>    # disable both downgrading and upgrading
+    use bignum downgrade =&gt; undef, upgrade =&gt; undef;
+    $x = 2.4;       # becomes 2.4 as a Math::BigFloat
+    $y = 2;         # becomes 2 as a Math::BigInt
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Upgrading_and_downgrading"><a class="permalink" href="#Upgrading_and_downgrading">Upgrading
+  and downgrading</a></h2>
+<p class="Pp">By default, when the result of a computation is an integer, an
+    Inf, or a NaN, the result is downgraded even when all the operands are
+    instances of the upgrade class.</p>
+<p class="Pp"></p>
+<pre>    use bignum;
+    $x = 2.4;       # becomes 2.4 as a Math::BigFloat
+    $y = 1.2;       # becomes 1.2 as a Math::BigFloat
+    $z = $x / $y;   # becomes 2 as a Math::BigInt due to downgrading
+</pre>
+<p class="Pp">Equivalently, by default, when the result of a computation is a
+    finite non-integer, the result is upgraded even when all the operands are
+    instances of the downgrade class.</p>
+<p class="Pp"></p>
+<pre>    use bignum;
+    $x = 7;         # becomes 7 as a Math::BigInt
+    $y = 2;         # becomes 2 as a Math::BigInt
+    $z = $x / $y;   # becomes 3.5 as a Math::BigFloat due to upgrading
+</pre>
+<p class="Pp">The classes used for downgrading and upgrading can be set at
+    runtime with the &quot;<b>downgrade()</b>&quot; and
+    &quot;<b>upgrade()</b>&quot; methods, but see &quot;CAVEATS&quot; below.</p>
+<p class="Pp">The upgrade and downgrade classes don't have to be Math::BigInt
+    and Math::BigFloat. For example, to use Math::BigRat as the upgrade class,
+    use</p>
+<p class="Pp"></p>
+<pre>    use bignum upgrade =&gt; &quot;Math::BigRat&quot;;
+    $x = 2;         # becomes 2 as a Math::BigInt
+    $y = 3.6;       # becomes 18/5 as a Math::BigRat
+</pre>
+<p class="Pp">The upgrade and downgrade classes can be modified at runtime</p>
+<p class="Pp"></p>
+<pre>    use bignum;
+    $x = 3;         # becomes 3 as a Math::BigInt
+    $y = 2;         # becomes 2 as a Math::BigInt
+    $z = $x / $y;   # becomes 1.5 as a Math::BigFlaot
+    bignum -&gt; upgrade(&quot;Math::BigRat&quot;);
+    $w = $x / $y;   # becomes 3/2 as a Math::BigRat
+</pre>
+<p class="Pp">Disabling downgrading doesn't change the fact that literal
+    constant integers are converted to the downgrade class, it only prevents
+    downgrading as a result of a computation. E.g.,</p>
+<p class="Pp"></p>
+<pre>    use bignum downgrade =&gt; undef;
+    $x = 2;         # becomes 2 as a Math::BigInt
+    $y = 2.4;       # becomes 2.4 as a Math::BigFloat
+    $z = 1.2;       # becomes 1.2 as a Math::BigFloat
+    $w = $x / $y;   # becomes 2 as a Math::BigFloat due to no downgrading
+</pre>
+<p class="Pp">If you want all numeric literals, both integers and non-integers,
+    to become Math::BigFloat objects, use the bigfloat pragma.</p>
+<p class="Pp">Equivalently, disabling upgrading doesn't change the fact that
+    literal constant non-integers are converted to the upgrade class, it only
+    prevents upgrading as a result of a computation. E.g.,</p>
+<p class="Pp"></p>
+<pre>    use bignum upgrade =&gt; undef;
+    $x = 2.5;       # becomes 2.5 as a Math::BigFloat
+    $y = 7;         # becomes 7 as a Math::BigInt
+    $z = 2;         # becomes 2 as a Math::BigInt
+    $w = $x / $y;   # becomes 3 as a Math::BigInt due to no upgrading
+</pre>
+<p class="Pp">If you want all numeric literals, both integers and non-integers,
+    to become Math::BigInt objects, use the bigint pragma.</p>
+<p class="Pp">You can even do</p>
+<p class="Pp"></p>
+<pre>    use bignum upgrade =&gt; &quot;Math::BigRat&quot;, upgrade =&gt; undef;
+</pre>
+<p class="Pp">which converts all integer literals to Math::BigInt objects and
+    all non-integer literals to Math::BigRat objects. However, when the result
+    of a computation involving two Math::BigInt objects results in a non-integer
+    (e.g., 7/2), the result will be truncted to a Math::BigInt rather than being
+    upgraded to a Math::BigRat, since upgrading is disabled.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Overloading"><a class="permalink" href="#Overloading">Overloading</a></h2>
+<p class="Pp">Since all numeric literals become objects, you can call all the
+    usual methods from Math::BigInt and Math::BigFloat on them. This even works
+    to some extent on expressions:</p>
+<p class="Pp"></p>
+<pre>    perl -Mbignum -le '$x = 1234; print $x-&gt;bdec()'
+    perl -Mbignum -le 'print 1234-&gt;copy()-&gt;binc();'
+    perl -Mbignum -le 'print 1234-&gt;copy()-&gt;binc()-&gt;badd(6);'
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Options"><a class="permalink" href="#Options">Options</a></h2>
+<p class="Pp"><span class="Li">&quot;bignum&quot;</span> recognizes some options
+    that can be passed while loading it via via
+    <span class="Li">&quot;use&quot;</span>. The following options exist:</p>
+<dl class="Bl-tag">
+  <dt id="a"><a class="permalink" href="#a">a or accuracy</a></dt>
+  <dd>This sets the accuracy for all math operations. The argument must be
+      greater than or equal to zero. See Math::BigInt's <b>bround()</b> method
+      for details.
+    <p class="Pp"></p>
+    <pre>    perl -Mbignum=a,50 -le 'print sqrt(20)'
+    </pre>
+    <p class="Pp">Note that setting precision and accuracy at the same time is
+        not possible.</p>
+  </dd>
+  <dt id="p"><a class="permalink" href="#p">p or precision</a></dt>
+  <dd>This sets the precision for all math operations. The argument can be any
+      integer. Negative values mean a fixed number of digits after the dot,
+      while a positive value rounds to this digit left from the dot. 0 means
+      round to integer. See Math::BigInt's <b>bfround()</b> method for details.
+    <p class="Pp"></p>
+    <pre>    perl -Mbignum=p,-50 -le 'print sqrt(20)'
+    </pre>
+    <p class="Pp">Note that setting precision and accuracy at the same time is
+        not possible.</p>
+  </dd>
+  <dt id="l,"><a class="permalink" href="#l,">l, lib, try, or only</a></dt>
+  <dd>Load a different math lib, see &quot;Math Library&quot;.
+    <p class="Pp"></p>
+    <pre>    perl -Mbignum=l,GMP -e 'print 2 ** 512'
+    perl -Mbignum=lib,GMP -e 'print 2 ** 512'
+    perl -Mbignum=try,GMP -e 'print 2 ** 512'
+    perl -Mbignum=only,GMP -e 'print 2 ** 512'
+    </pre>
+  </dd>
+  <dt id="hex"><a class="permalink" href="#hex">hex</a></dt>
+  <dd>Override the built-in <b>hex()</b> method with a version that can handle
+      big numbers. This overrides it by exporting it to the current package.
+      Under Perl v5.10.0 and higher, this is not so necessary, as <b>hex()</b>
+      is lexically overridden in the current scope whenever the
+      <span class="Li">&quot;bignum&quot;</span> pragma is active.</dd>
+  <dt id="oct"><a class="permalink" href="#oct">oct</a></dt>
+  <dd>Override the built-in <b>oct()</b> method with a version that can handle
+      big numbers. This overrides it by exporting it to the current package.
+      Under Perl v5.10.0 and higher, this is not so necessary, as <b>oct()</b>
+      is lexically overridden in the current scope whenever the
+      <span class="Li">&quot;bignum&quot;</span> pragma is active.</dd>
+  <dt id="v"><a class="permalink" href="#v">v or version</a></dt>
+  <dd>this prints out the name and version of the modules and then exits.
+    <p class="Pp"></p>
+    <pre>    perl -Mbignum=v
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Math_Library"><a class="permalink" href="#Math_Library">Math
+  Library</a></h2>
+<p class="Pp">Math with the numbers is done (by default) by a backend library
+    module called Math::BigInt::Calc. The default is equivalent to saying:</p>
+<p class="Pp"></p>
+<pre>    use bignum lib =&gt; 'Calc';
+</pre>
+<p class="Pp">you can change this by using:</p>
+<p class="Pp"></p>
+<pre>    use bignum lib =&gt; 'GMP';
+</pre>
+<p class="Pp">The following would first try to find Math::BigInt::Foo, then
+    Math::BigInt::Bar, and if this also fails, revert to Math::BigInt::Calc:</p>
+<p class="Pp"></p>
+<pre>    use bignum lib =&gt; 'Foo,Math::BigInt::Bar';
+</pre>
+<p class="Pp">Using c&lt;lib&gt; warns if none of the specified libraries can be
+    found and Math::BigInt and Math::BigFloat fell back to one of the default
+    libraries. To suppress this warning, use
+    <span class="Li">&quot;try&quot;</span> instead:</p>
+<p class="Pp"></p>
+<pre>    use bignum try =&gt; 'GMP';
+</pre>
+<p class="Pp">If you want the code to die instead of falling back, use
+    <span class="Li">&quot;only&quot;</span> instead:</p>
+<p class="Pp"></p>
+<pre>    use bignum only =&gt; 'GMP';
+</pre>
+<p class="Pp">Please see respective module documentation for further
+  details.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Method_calls"><a class="permalink" href="#Method_calls">Method
+  calls</a></h2>
+<p class="Pp">Since all numbers are now objects, you can use the methods that
+    are part of the Math::BigInt and Math::BigFloat API.</p>
+<p class="Pp">But a warning is in order. When using the following to make a copy
+    of a number, only a shallow copy will be made.</p>
+<p class="Pp"></p>
+<pre>    $x = 9; $y = $x;
+    $x = $y = 7;
+</pre>
+<p class="Pp">Using the copy or the original with overloaded math is okay, e.g.,
+    the following work:</p>
+<p class="Pp"></p>
+<pre>    $x = 9; $y = $x;
+    print $x + 1, &quot; &quot;, $y,&quot;\n&quot;;     # prints 10 9
+</pre>
+<p class="Pp">but calling any method that modifies the number directly will
+    result in <b>both</b> the original and the copy being destroyed:</p>
+<p class="Pp"></p>
+<pre>    $x = 9; $y = $x;
+    print $x-&gt;badd(1), &quot; &quot;, $y,&quot;\n&quot;;        # prints 10 10
+    $x = 9; $y = $x;
+    print $x-&gt;binc(1), &quot; &quot;, $y,&quot;\n&quot;;        # prints 10 10
+    $x = 9; $y = $x;
+    print $x-&gt;bmul(2), &quot; &quot;, $y,&quot;\n&quot;;        # prints 18 18
+</pre>
+<p class="Pp">Using methods that do not modify, but test that the contents
+    works:</p>
+<p class="Pp"></p>
+<pre>    $x = 9; $y = $x;
+    $z = 9 if $x-&gt;is_zero();                # works fine
+</pre>
+<p class="Pp">See the documentation about the copy constructor and
+    <span class="Li">&quot;=&quot;</span> in overload, as well as the
+    documentation in Math::BigFloat for further details.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Methods"><a class="permalink" href="#Methods">Methods</a></h2>
+<dl class="Bl-tag">
+  <dt id="inf()"><a class="permalink" href="#inf()"><b>inf()</b></a></dt>
+  <dd>A shortcut to return <span class="Li">&quot;inf&quot;</span> as an object.
+      Useful because Perl does not always handle bareword
+      <span class="Li">&quot;inf&quot;</span> properly.</dd>
+  <dt id="NaN()"><a class="permalink" href="#NaN()"><b>NaN()</b></a></dt>
+  <dd>A shortcut to return <span class="Li">&quot;NaN&quot;</span> as an object.
+      Useful because Perl does not always handle bareword
+      <span class="Li">&quot;NaN&quot;</span> properly.</dd>
+  <dt id="e"><a class="permalink" href="#e">e</a></dt>
+  <dd>
+    <pre>    # perl -Mbignum=e -wle 'print e'
+    </pre>
+    <p class="Pp">Returns Euler's number <span class="Li">&quot;e&quot;</span>,
+        aka <b>exp</b>(1) (= 2.7182818284...).</p>
+  </dd>
+  <dt id="PI"><a class="permalink" href="#PI">PI</a></dt>
+  <dd>
+    <pre>    # perl -Mbignum=PI -wle 'print PI'
+    </pre>
+    <p class="Pp">Returns PI (= 3.1415926532..).</p>
+  </dd>
+  <dt id="bexp()"><a class="permalink" href="#bexp()"><b>bexp()</b></a></dt>
+  <dd>
+    <pre>    bexp($power, $accuracy);
+    </pre>
+    <p class="Pp">Returns Euler's number <span class="Li">&quot;e&quot;</span>
+        raised to the appropriate power, to the wanted accuracy.</p>
+    <p class="Pp">Example:</p>
+    <p class="Pp"></p>
+    <pre>    # perl -Mbignum=bexp -wle 'print bexp(1,80)'
+    </pre>
+  </dd>
+  <dt id="bpi()"><a class="permalink" href="#bpi()"><b>bpi()</b></a></dt>
+  <dd>
+    <pre>    bpi($accuracy);
+    </pre>
+    <p class="Pp">Returns PI to the wanted accuracy.</p>
+    <p class="Pp">Example:</p>
+    <p class="Pp"></p>
+    <pre>    # perl -Mbignum=bpi -wle 'print bpi(80)'
+    </pre>
+  </dd>
+  <dt id="accuracy()"><a class="permalink" href="#accuracy()"><b>accuracy()</b></a></dt>
+  <dd>Set or get the accuracy.</dd>
+  <dt id="precision()"><a class="permalink" href="#precision()"><b>precision()</b></a></dt>
+  <dd>Set or get the precision.</dd>
+  <dt id="round_mode()"><a class="permalink" href="#round_mode()"><b>round_mode()</b></a></dt>
+  <dd>Set or get the rounding mode.</dd>
+  <dt id="div_scale()"><a class="permalink" href="#div_scale()"><b>div_scale()</b></a></dt>
+  <dd>Set or get the division scale.</dd>
+  <dt id="upgrade()"><a class="permalink" href="#upgrade()"><b>upgrade()</b></a></dt>
+  <dd>Set or get the class that the downgrade class upgrades to, if any. Set the
+      upgrade class to <span class="Li">&quot;undef&quot;</span> to disable
+      upgrading. See <span class="Li">&quot;/CAVEATS&quot;</span> below.</dd>
+  <dt id="downgrade()"><a class="permalink" href="#downgrade()"><b>downgrade()</b></a></dt>
+  <dd>Set or get the class that the upgrade class downgrades to, if any. Set the
+      downgrade class to <span class="Li">&quot;undef&quot;</span> to disable
+      upgrading. See &quot;CAVEATS&quot; below.</dd>
+  <dt id="in_effect()"><a class="permalink" href="#in_effect()"><b>in_effect()</b></a></dt>
+  <dd>
+    <pre>    use bignum;
+    print &quot;in effect\n&quot; if bignum::in_effect;       # true
+    {
+        no bignum;
+        print &quot;in effect\n&quot; if bignum::in_effect;   # false
+    }
+    </pre>
+    <p class="Pp">Returns true or false if
+        <span class="Li">&quot;bignum&quot;</span> is in effect in the current
+        scope.</p>
+    <p class="Pp">This method only works on Perl v5.9.4 or later.</p>
+  </dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<dl class="Bl-tag">
+  <dt id="The"><a class="permalink" href="#The">The <b>upgrade()</b> and
+    <b>downgrade()</b> methods</a></dt>
+  <dd>Note that setting both the upgrade and downgrade classes at runtime with
+      the &quot;<b>upgrade()</b>&quot; and &quot;<b>downgrade()</b>&quot;
+      methods, might not do what you expect:
+    <p class="Pp"></p>
+    <pre>    # Assuming that downgrading and upgrading hasn't been modified so far, so
+    # the downgrade and upgrade classes are Math::BigInt and Math::BigFloat,
+    # respectively, the following sets the upgrade class to Math::BigRat, i.e.,
+    # makes Math::BigInt upgrade to Math::BigRat:
+    bignum -&gt; upgrade(&quot;Math::BigRat&quot;);
+    # The following sets the downgrade class to Math::BigInt::Lite, i.e., makes
+    # the new upgrade class Math::BigRat downgrade to Math::BigInt::Lite
+    bignum -&gt; downgrade(&quot;Math::BigInt::Lite&quot;);
+    # Note that at this point, it is still Math::BigInt, not Math::BigInt::Lite,
+    # that upgrades to Math::BigRat, so to get Math::BigInt::Lite to upgrade to
+    # Math::BigRat, we need to do the following (again):
+    bignum -&gt; upgrade(&quot;Math::BigRat&quot;);
+    </pre>
+    <p class="Pp">A simpler way to do this at runtime is to use
+      <b>import()</b>,</p>
+    <p class="Pp"></p>
+    <pre>    bignum -&gt; import(upgrade =&gt; &quot;Math::BigRat&quot;,
+                     downgrade =&gt; &quot;Math::BigInt::Lite&quot;);
+    </pre>
+  </dd>
+  <dt id="Hexadecimal,"><a class="permalink" href="#Hexadecimal,">Hexadecimal,
+    octal, and binary floating point literals</a></dt>
+  <dd>Perl (and this module) accepts hexadecimal, octal, and binary floating
+      point literals, but use them with care with Perl versions before v5.32.0,
+      because some versions of Perl silently give the wrong result.</dd>
+  <dt id="Operator"><a class="permalink" href="#Operator">Operator vs literal
+    overloading</a></dt>
+  <dd><span class="Li">&quot;bigrat&quot;</span> works by overloading handling
+      of integer and floating point literals, converting them to Math::BigRat
+      objects.
+    <p class="Pp">This means that arithmetic involving only string values or
+        string literals are performed using Perl's built-in operators.</p>
+    <p class="Pp">For example:</p>
+    <p class="Pp"></p>
+    <pre>    use bigrat;
+    my $x = &quot;900000000000000009&quot;;
+    my $y = &quot;900000000000000007&quot;;
+    print $x - $y;
+    </pre>
+    <p class="Pp">outputs <span class="Li">0</span> on default 32-bit builds,
+        since <span class="Li">&quot;bignum&quot;</span> never sees the string
+        literals. To ensure the expression is all treated as
+        <span class="Li">&quot;Math::BigFloat&quot;</span> objects, use a
+        literal number in the expression:</p>
+    <p class="Pp"></p>
+    <pre>    print +(0+$x) - $y;
+    </pre>
+  </dd>
+  <dt id="Ranges"><a class="permalink" href="#Ranges">Ranges</a></dt>
+  <dd>Perl does not allow overloading of ranges, so you can neither safely use
+      ranges with <span class="Li">&quot;bignum&quot;</span> endpoints, nor is
+      the iterator variable a
+      <span class="Li">&quot;Math::BigFloat&quot;</span>.
+    <p class="Pp"></p>
+    <pre>    use 5.010;
+    for my $i (12..13) {
+      for my $j (20..21) {
+        say $i ** $j;  # produces a floating-point number,
+                       # not an object
+      }
+    }
+    </pre>
+  </dd>
+  <dt id="in_effect()~2"><a class="permalink" href="#in_effect()~2"><b>in_effect()</b></a></dt>
+  <dd>This method only works on Perl v5.9.4 or later.</dd>
+  <dt id="hex()"><a class="permalink" href="#hex()"><b>hex()</b>/<b>oct()</b></a></dt>
+  <dd><span class="Li">&quot;bignum&quot;</span> overrides these routines with
+      versions that can also handle big integer values. Under Perl prior to
+      version v5.9.4, however, this will not happen unless you specifically ask
+      for it with the two import tags &quot;hex&quot; and &quot;oct&quot; - and
+      then it will be global and cannot be disabled inside a scope with
+      <span class="Li">&quot;no bignum&quot;</span>:
+    <p class="Pp"></p>
+    <pre>    use bignum qw/hex oct/;
+    print hex(&quot;0x1234567890123456&quot;);
+    {
+        no bignum;
+        print hex(&quot;0x1234567890123456&quot;);
+    }
+    </pre>
+    <p class="Pp">The second call to <b>hex()</b> will warn about a non-portable
+        constant.</p>
+    <p class="Pp">Compare this to:</p>
+    <p class="Pp"></p>
+    <pre>    use bignum;
+    # will warn only under Perl older than v5.9.4
+    print hex(&quot;0x1234567890123456&quot;);
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Some cool command line examples to impress the Python crowd ;)</p>
+<p class="Pp"></p>
+<pre>    perl -Mbignum -le 'print sqrt(33)'
+    perl -Mbignum -le 'print 2**255'
+    perl -Mbignum -le 'print 4.5+2**255'
+    perl -Mbignum -le 'print 3/7 + 5/7 + 8/3'
+    perl -Mbignum -le 'print 123-&gt;is_odd()'
+    perl -Mbignum -le 'print log(2)'
+    perl -Mbignum -le 'print exp(1)'
+    perl -Mbignum -le 'print 2 ** 0.5'
+    perl -Mbignum=a,65 -le 'print 2 ** 0.2'
+    perl -Mbignum=l,GMP -le 'print 7 ** 7777'
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Please report any bugs or feature requests to
+    <span class="Li">&quot;bug-bignum at rt.cpan.org&quot;</span>, or through
+    the web interface at
+    &lt;https://rt.cpan.org/Ticket/Create.html?Queue=bignum&gt; (requires
+    login). We will be notified, and then you'll automatically be notified of
+    progress on your bug as I make changes.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SUPPORT"><a class="permalink" href="#SUPPORT">SUPPORT</a></h1>
+<p class="Pp">You can find documentation for this module with the perldoc
+    command.</p>
+<p class="Pp"></p>
+<pre>    perldoc bignum
+</pre>
+<p class="Pp">You can also look for information at:</p>
+<ul class="Bl-bullet">
+  <li>GitHub
+    <p class="Pp">&lt;https://github.com/pjacklam/p5-bignum&gt;</p>
+  </li>
+  <li>RT: CPAN's request tracker
+    <p class="Pp">&lt;https://rt.cpan.org/Dist/Display.html?Name=bignum&gt;</p>
+  </li>
+  <li>MetaCPAN
+    <p class="Pp">&lt;https://metacpan.org/release/bignum&gt;</p>
+  </li>
+  <li>CPAN Testers Matrix
+    <p class="Pp">&lt;http://matrix.cpantesters.org/?dist=bignum&gt;</p>
+  </li>
+  <li>CPAN Ratings
+    <p class="Pp">&lt;https://cpanratings.perl.org/dist/bignum&gt;</p>
+  </li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">This program is free software; you may redistribute it and/or
+    modify it under the same terms as Perl itself.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">bigint and bigrat.</p>
+<p class="Pp">Math::BigInt, Math::BigFloat, Math::BigRat and Math::Big as well
+    as Math::BigInt::FastCalc, Math::BigInt::Pari and Math::BigInt::GMP.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<ul class="Bl-bullet">
+  <li>(C) by Tels &lt;http://bloodgate.com/&gt; in early 2002 - 2007.</li>
+  <li>Maintained by Peter John Acklam &lt;pjacklam@gmail.com&gt;, 2014-.</li>
+</ul>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2026-06-12</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

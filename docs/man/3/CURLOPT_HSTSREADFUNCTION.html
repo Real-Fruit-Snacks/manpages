@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="read callback for HSTS hosts">
+<title>CURLOPT_HSTSREADFUNCTION(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">CURLOPT_HSTSREADFUNCTION(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#DEFAULT">DEFAULT</a></li><li><a href="#PROTOCOLS">PROTOCOLS</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#AVAILABILITY">AVAILABILITY</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CURLOPT_HSTSREADFUNCTION(3)</td>
+    <td class="head-vol">libcurl</td>
+    <td class="head-rtitle">CURLOPT_HSTSREADFUNCTION(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">CURLOPT_HSTSREADFUNCTION - read callback for HSTS hosts</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>#include &lt;curl/curl.h&gt;
+struct curl_hstsentry {
+<br/>
+  char *name;
+<br/>
+  size_t namelen;
+<br/>
+  unsigned int includeSubDomains:1;
+<br/>
+  char expire[18]; /* YYYYMMDD HH:MM:SS [null-terminated] */
+};
+CURLSTScode hstsread(CURL *easy, struct curl_hstsentry *sts, void *clientp);
+CURLcode curl_easy_setopt(CURL *handle, CURLOPT_HSTSREADFUNCTION, hstsread);</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Pass a pointer to your callback function, as the prototype shows
+    above.</p>
+<p class="Pp">This callback function gets called by libcurl repeatedly when it
+    populates the in-memory HSTS cache.</p>
+<p class="Pp">Set the <i>clientp</i> argument with the
+    <i>CURLOPT_HSTSREADDATA(3)</i> option or it is NULL.</p>
+<p class="Pp">When this callback is invoked, the <i>sts</i> pointer points to a
+    populated struct: Copy the host name to <i>name</i> (no longer than
+    <i>namelen</i> bytes). Make it null-terminated. Set <i>includeSubDomains</i>
+    to TRUE or FALSE. Set <i>expire</i> to a date stamp or a zero length string
+    for *forever* (wrong date stamp format might cause the name to not get
+    accepted)</p>
+<p class="Pp">The callback should return <i>CURLSTS_OK</i> if it returns a name
+    and is prepared to be called again (for another host) or <i>CURLSTS_DONE</i>
+    if it has no entry to return. It can also return <i>CURLSTS_FAIL</i> to
+    signal error. Returning <i>CURLSTS_FAIL</i> stops the transfer from being
+    performed and make <i>CURLE_ABORTED_BY_CALLBACK</i> get returned.</p>
+<p class="Pp">This option does not enable HSTS, you need to use
+    <i>CURLOPT_HSTS_CTRL(3)</i> to do that.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEFAULT"><a class="permalink" href="#DEFAULT">DEFAULT</a></h1>
+<p class="Pp">NULL - no callback.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOLS"><a class="permalink" href="#PROTOCOLS">PROTOCOLS</a></h1>
+<p class="Pp">This feature is only used for HTTP(S) transfer.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>struct priv {
+<br/>
+  void *custom;
+};
+static CURLSTScode hsts_cb(CURL *easy, struct curl_hstsentry *sts,
+<br/>
+                           void *clientp)
+{
+<br/>
+  /* populate the struct as documented */
+<br/>
+  return CURLSTS_OK;
+}
+int main(void)
+{
+<br/>
+  CURL *curl = curl_easy_init();
+<br/>
+  if(curl) {
+<br/>
+    struct priv my_stuff;
+<br/>
+    CURLcode res;
+<br/>
+    /* set HSTS read callback */
+<br/>
+    curl_easy_setopt(curl, CURLOPT_HSTSREADFUNCTION, hsts_cb);
+<br/>
+    /* pass in suitable argument to the callback */
+<br/>
+    curl_easy_setopt(curl, CURLOPT_HSTSREADDATA, &amp;my_stuff);
+<br/>
+    res = curl_easy_perform(curl);
+<br/>
+  }
+}</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+<p class="Pp">Added in 7.74.0</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">This returns CURLE_OK.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/CURLOPT_HSTS.html"><b>CURLOPT_HSTS</b>(3)</a>, <a class="Xr" href="../3/CURLOPT_HSTS_CTRL.html"><b>CURLOPT_HSTS_CTRL</b>(3)</a>,
+    <a class="Xr" href="../3/CURLOPT_HSTSREADDATA.html"><b>CURLOPT_HSTSREADDATA</b>(3)</a>, <a class="Xr" href="../3/CURLOPT_HSTSWRITEFUNCTION.html"><b>CURLOPT_HSTSWRITEFUNCTION</b>(3)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">December 4, 2023</td>
+    <td class="foot-os">ibcurl 8.5.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

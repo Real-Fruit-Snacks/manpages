@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="persistent memory pool configuration file format">
+<title>poolset(5) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">poolset(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#REPLICAS">REPLICAS</a></li><li><a href="#POOL_SET_OPTIONS">POOL
+  SET OPTIONS</a></li><li><a href="#DIRECTORIES">DIRECTORIES</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">()</td>
+    <td class="head-vol">PMDK Programmer's Manual</td>
+    <td class="head-rtitle">()</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">poolset - persistent memory pool configuration file format</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+mypool.set
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Depending on the configuration of the system, the available
+    non-volatile memory space may be divided into multiple memory devices. In
+    such case, the maximum size of the transactional object store could be
+    limited by the capacity of a single memory device. Therefore,
+    <b>libpmemobj</b>(7), <b>libpmemblk</b>(7) and <b>libpmemlog</b>(7) allow
+    building object stores spanning multiple memory devices by creation of
+    persistent memory pools consisting of multiple files, where each part of
+    such a <i>pool set</i> may be stored on a different pmem-aware
+  filesystem.</p>
+<p class="Pp">To improve reliability and eliminate single point of failure,
+    <b>libpmemobj</b>(7) also allows all the data written to a persistent memory
+    pool to be copied to local pool <i>replicas</i>, thereby providing backup
+    for the persistent memory pool by producing a <i>mirrored pool set</i>. In
+    practice, the pool replicas may be considered as binary copies of the
+    &#x201C;master&#x201D; pool set. Data replication is not supported in
+    <b>libpmemblk</b>(7) and <b>libpmemlog</b>(7).</p>
+<p class="Pp">The <i>set</i> file for each type of pool is a plain text file.
+    Lines in the file are formatted as follows:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>The first line of the file must be the literal string
+      &#x201C;PMEMPOOLSET&#x201D;</dd>
+  <dt>&#x2022;</dt>
+  <dd>The pool parts are specified, one per line, in the format:</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"><i>size</i> <i>pathname</i></p>
+</div>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><i>Replica</i> sections, if any, start with the literal string
+      &#x201C;REPLICA&#x201D;. See <b>REPLICAS</b>, below, for further
+    details.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Pool set options, if any, start with literal string <i>OPTION</i>. See
+      <b>POOL SET OPTIONS</b> below for details.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Lines starting with &#x201C;#&#x201D; are considered comments and are
+      ignored.</dd>
+</dl>
+<p class="Pp">The <i>size</i> must be compliant with the format specified in IEC
+    80000-13, IEEE 1541 or the Metric Interchange Format. These standards accept
+    SI units with obligatory B - kB, MB, GB, ... (multiplier by 1000) suffixes,
+    and IEC units with optional &#x201C;iB&#x201D; - KiB, MiB, GiB, ..., K, M,
+    G, ... - (multiplier by 1024) suffixes.</p>
+<p class="Pp"><i>pathname</i> must be an absolute pathname.</p>
+<p class="Pp">The <i>pathname</i> of a part can point to a Device DAX. Device
+    DAX is the device-centric analogue of Filesystem DAX. It allows memory
+    ranges to be allocated and mapped without need of an intervening file
+    system.</p>
+<p class="Pp">Pools created on Device DAX have additional options and
+    restrictions:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>The <i>size</i> may be set to &#x201C;AUTO&#x201D;, in which case the size
+      of the device will be automatically resolved at pool creation time.</dd>
+  <dt>&#x2022;</dt>
+  <dd>To concatenate more than one Device DAX device into a single pool set, the
+      configured internal alignment of the devices must be 4KiB, unless the
+      <i>SINGLEHDR</i> or <i>NOHDRS</i> option is used in the pool set file. See
+      <b>POOL SET OPTIONS</b> below for details.</dd>
+</dl>
+<p class="Pp">Please see <a class="Xr" href="../1/ndctl-create-namespace.html"><b>ndctl-create-namespace</b>(1)</a> for more information
+    on Device DAX, including how to configure desired alignment.</p>
+<p class="Pp">The minimum file size of each part of the pool set is defined as
+    follows:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>For block pools, as <b>PMEMBLK_MIN_PART</b> in
+    <b>&lt;libpmemblk.h&gt;</b></dd>
+  <dt>&#x2022;</dt>
+  <dd>For object pools, as <b>PMEMOBJ_MIN_PART</b> in
+      <b>&lt;libpmemobj.h&gt;</b></dd>
+  <dt>&#x2022;</dt>
+  <dd>For log pools, as <b>PMEMLOG_MIN_PART</b> in
+    <b>&lt;libpmemlog.h&gt;</b></dd>
+</dl>
+<p class="Pp">The net pool size of the pool set is equal to:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+net_pool_size = sum_over_all_parts(page_aligned_part_size - 4KiB) + 4KiB
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">where</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+page_aligned_part_size = part_size &amp; ~(page_size - 1)
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">Note that page size is OS specific. For more information please
+    see <a class="Xr" href="../3/sysconf.html"><b>sysconf</b>(3)</a>.</p>
+<p class="Pp">The minimum net pool size of a pool set is defined as follows:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>For block pools, as <b>PMEMBLK_MIN_POOL</b> in
+    <b>&lt;libpmemblk.h&gt;</b></dd>
+  <dt>&#x2022;</dt>
+  <dd>For object pools, as <b>PMEMOBJ_MIN_POOL</b> in
+      <b>&lt;libpmemobj.h&gt;</b></dd>
+  <dt>&#x2022;</dt>
+  <dd>For log pools, as <b>PMEMLOG_MIN_POOL</b> in
+    <b>&lt;libpmemlog.h&gt;</b></dd>
+</dl>
+<p class="Pp">Here is an example &#x201C;mypool.set&#x201D; file:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+PMEMPOOLSET
+OPTION NOHDRS
+100G /mountpoint0/myfile.part0
+200G /mountpoint1/myfile.part1
+400G /mountpoint2/myfile.part2
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">The files in the set may be created by running one of the
+    following commands. To create a block pool:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+$ pmempool create blk &lt;bsize&gt; mypool.set
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">To create a log pool:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+$ pmempool create log mypool.set
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPLICAS"><a class="permalink" href="#REPLICAS">REPLICAS</a></h1>
+<p class="Pp">Sections defining replica sets are optional. There may be multiple
+    replica sections.</p>
+<p class="Pp">Replica sections begin with a line containing only the literal
+    string &#x201C;REPLICA&#x201D;, followed by one or more pool part lines as
+    described above.</p>
+<p class="Pp">Here is an example &#x201C;myobjpool.set&#x201D; file with
+    replicas:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+PMEMPOOLSET
+100G /mountpoint0/myfile.part0
+200G /mountpoint1/myfile.part1
+400G /mountpoint2/myfile.part2
+# local replica
+REPLICA
+500G /mountpoint3/mymirror.part0
+200G /mountpoint4/mymirror.part1
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">The files in the object pool set may be created by running the
+    following command:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+$ pmempool create --layout=&quot;mylayout&quot; obj myobjpool.set
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="POOL_SET_OPTIONS"><a class="permalink" href="#POOL_SET_OPTIONS">POOL
+  SET OPTIONS</a></h1>
+<p class="Pp">Pool set options can appear anywhere after the line with
+    <i>PMEMPOOLSET</i> string. Pool set file can contain several pool set
+    options. The following options are supported:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><i>SINGLEHDR</i></dd>
+</dl>
+<p class="Pp">If the <i>SINGLEHDR</i> option is used, only the first part in
+    each replica contains the pool part internal metadata. In that case the
+    effective size of a replica is the sum of sizes of all its part files
+    decreased once by 4096 bytes.</p>
+<p class="Pp">When using the <i>SINGLEHDR</i> option, one can concatenate more
+    than one Device DAX devices with any internal alignments in one replica.</p>
+<p class="Pp">Using the <i>SINGLEHDR</i> option has important implications for
+    data integrity checking and recoverability in case of a pool set damage. See
+    <b>pmempool_sync</b>() API for more information about pool set recovery.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIRECTORIES"><a class="permalink" href="#DIRECTORIES">DIRECTORIES</a></h1>
+<p class="Pp">Providing a directory as a part&#x2019;s <i>pathname</i> allows
+    the pool to dynamically create files and consequently removes the
+    user-imposed limit on the size of the pool.</p>
+<p class="Pp">The <i>size</i> argument of a part in a directory poolset becomes
+    the size of the address space reservation required for the pool. In other
+    words, the size argument is the maximum theoretical size of the mapping.
+    This value can be freely increased between instances of the application, but
+    decreasing it below the real required space will result in an error when
+    attempting to open the pool.</p>
+<p class="Pp">The directory must NOT contain user created files with extension
+    <i>.pmem</i>, otherwise the behavior is undefined. If a file created by the
+    library within the directory is in any way altered (resized, renamed) the
+    behavior is undefined.</p>
+<p class="Pp">A directory poolset must exclusively use directories to specify
+    paths - combining files and directories will result in an error. A single
+    replica can consist of one or more directories. If there are multiple
+    directories, the address space reservation is equal to the sum of the
+  sizes.</p>
+<p class="Pp">The order in which the files are created is unspecified, but the
+    library will try to maintain equal usage of the directories.</p>
+<p class="Pp">By default pools grow in 128 megabyte increments.</p>
+<p class="Pp">Only poolsets with the <i>SINGLEHDR</i> option can safely use
+    directories.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">Creation of all the parts of the pool set and the associated
+    replica sets can be done with the <b>pmemobj_create</b>(3),
+    <b>pmemblk_create</b>(3) or <b>pmemlog_create</b>(3) function, or by using
+    the <b>pmempool</b>(1) utility.</p>
+<p class="Pp">Restoring data from a replica can be done by using the
+    <b>pmempool-sync</b>(1) command or the <b>pmempool_sync</b>() API from the
+    <b>libpmempool</b>(7) library.</p>
+<p class="Pp">Modifications of a pool set file configuration can be done by
+    using the <b>pmempool-transform</b>(1) command or the
+    <b>pmempool_transform</b>() API from the <b>libpmempool</b>(7) library.</p>
+<p class="Pp">When creating a pool set consisting of multiple files, or when
+    creating a replicated pool set, the <i>path</i> argument passed to
+    <b>pmemobj_create</b>(3), <b>pmemblk_create</b>(3) or
+    <b>pmemlog_create</b>(3) must point to the special <i>set</i> file that
+    defines the pool layout and the location of all the parts of the pool
+  set.</p>
+<p class="Pp">When opening a pool set consisting of multiple files, or when
+    opening a replicated pool set, the <i>path</i> argument passed to
+    <b>pmemobj_open</b>(3), <b>pmemblk_open</b>(3) or <b>pmemlog_open</b>(3)
+    must point to the same <i>set</i> file that was used for pool set
+  creation.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/ndctl-create-namespace.html"><b>ndctl-create-namespace</b>(1)</a>, <b>pmemblk_create</b>(3),
+    <b>pmemlog_create</b>(3), <b>pmemobj_create</b>(3), <a class="Xr" href="../3/sysconf.html"><b>sysconf</b>(3)</a>,
+    <b>libpmemblk</b>(7), <b>libpmemlog</b>(7), <b>libpmemobj</b>(7) and
+    <b>&lt;https://pmem.io&gt;</b></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-05-31</td>
+    <td class="foot-os">PMDK - </td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

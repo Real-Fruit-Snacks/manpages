@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Add function name for instruction pointer of kvm plugin">
+<title>tep_plugin_kvm_get_func(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">tep_plugin_kvm_get_func(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#REPORTING_BUGS">REPORTING
+  BUGS</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#RESOURCES">RESOURCES</a></li><li><a href="#NOTES">NOTES</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">LIBTRACEEVENT(3)</td>
+    <td class="head-vol">libtraceevent Manual</td>
+    <td class="head-rtitle">LIBTRACEEVENT(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">tep_plugin_kvm_get_func, tep_plugin_kvm_put_func - Add function
+    name for instruction pointer of kvm plugin</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;event-parse.h&gt;</b>
+const char *<b>tep_plugin_kvm_get_func</b>(struct tep_event *event,
+<br/>
+                                    struct tep_record *record,
+<br/>
+                                    unsigned long long *paddr);
+void <b>tep_plugin_kvm_put_func</b>(const char *func);</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The functions <b>tep_plugin_kvm_get_func()</b> and
+    <b>tep_plugin_kvm_put_func()</b> are not to be called by an application, but
+    instead are to be defined by an application.</p>
+<p class="Pp">Certain events (like kvm_exit and kvm_entry) have the instruction
+    pointer of where in the guest the context changed from guest to host. As the
+    host only knows the instruction pointer and does not have information about
+    what function in the guest that instruction pointer belongs to, it can only
+    print the address.</p>
+<p class="Pp">But the application may have more information about the guest, and
+    know where the guest was when the exit occurred, and also even know the
+    function name of that address.</p>
+<p class="Pp">The KVM plugin for libtraceevent is called on these events, and
+    then calls <b>tep_plugin_kvm_get_func()</b> to see if that function can
+    resolve the instruction pointer address to a real function name. If the
+    return is non NULL, it will print the function in the output for that
+  event.</p>
+<p class="Pp">These functions are currently defined as weak functions within the
+    plugin, as to not require them to be defined elsewhere. For an application
+    to override the weak function, it will need to define the function in a file
+    that gets compiled with <b>-rdynamic</b>. That will tell the dynamic linker
+    to examine that object file and use function names to resolve weak functions
+    in other shared objects (in this case the KVM plugin shared object).</p>
+<p class="Pp">If the application defines <b>tep_plugin_kvm_get_func()</b>, it
+    must use the above prototype. The <i>event</i> will hold the KVM event that
+    has the instruction pointer field. The <i>record</i> will be the instance of
+    that event. The application&#x2019;s function does not need to use these
+    parameters, but they may be useful for finding the function name for the
+    address. The <i>paddr</i> is a pointer to a 64 bit value (where only 32 bits
+    may be used on 32 bit machines). This value is the instruction pointer to
+    look up. If the application knows the start address of the function as well,
+    it can set <i>paddr</i> to that address, and the KVM plugin will also append
+    a &quot;+offset&quot; to the function name where the offset is the original
+    value in <i>paddr</i> minus the value in <i>paddr</i> when it is called.
+    Finally, the application should return the function name as a nul terminated
+    string if one is found.</p>
+<p class="Pp">If the returned string of <b>tep_plugin_kvm_get_func()</b> was
+    allocated, the KVM plugin will call <b>tep_plugin_kvm_put_func()</b> when it
+    is through with it, passing the value returned by
+    <b>tep_plugin_kvm_get_func()</b> as <i>func</i>. This allows the application
+    to free it if necessary.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">The <b>tep_plugin_kvm_get_func()</b> is not to be called by the
+    application but instead is to be defined by the application. It should
+    return a nul terminated string representing the function for the given
+    instruction pointer passed to it by reference in <i>paddr</i>. It can then
+    optionally update the <i>paddr</i> to a value that holds the start of the
+    function. The string returned may be freed by the
+    <b>tep_plugin_kvm_put_func()</b> that the application should define to clean
+    up the string.</p>
+<p class="Pp">The below example needs to be compiled with the <b>-rdynamic</b>
+    flag so that the dynamic linker can resolve the
+    <b>tep_plugin_kvm_get_func()</b> and <b>tep_plugin_kvm_put_func()</b>
+    functions.</p>
+<p class="Pp">When run against a trace.dat file produced by <b>trace-cmd(1)</b>
+    recording the kvm_exit and kvm_entry events on a guest, and then the
+    guest&#x2019;s /proc/kallsyms file is passed as the second parameter, the
+    output produced will look something like:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>CPU 0/KVM-20407 83156.177626 [000] kvm_exit     reason APIC_ACCESS rip 0xffffffffb0056ee2 exit native_apic_mem_write+0x2 info 10b0 0
+CPU 0/KVM-20407 83156.177632 [000] kvm_entry     vcpu 0 rip 0xffffffffb0056ee8 enter native_apic_mem_write+0x8</pre>
+</div>
+<p class="Pp">But without those callbacks, it would look like:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>CPU 0/KVM-20407 83156.177626 [000] kvm_exit     reason APIC_ACCESS rip 0xffffffffb0056ee2 info 10b0 0
+CPU 0/KVM-20407 83156.177632 [000] kvm_entry     vcpu 0 rip 0xffffffffb0056ee8</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<div class="Bd-indent">
+<pre>#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;event-parse.h&gt;
+#include &lt;trace-cmd.h&gt;
+#include &lt;sys/stat.h&gt;
+static struct tep_handle *tep;
+const char *tep_plugin_kvm_get_func(struct tep_event *event, struct tep_record *record,
+<br/>
+                                    unsigned long long *paddr)
+{
+<br/>
+        const char *func;
+<br/>
+        char *event_func;
+<br/>
+        char *ename;
+<br/>
+        func = tep_find_function(tep, *paddr);
+<br/>
+        if (!func)
+<br/>
+                return NULL;
+<br/>
+        if (strcmp(event-&gt;name, &quot;kvm_exit&quot;) == 0)
+<br/>
+                ename = &quot;exit&quot;;
+<br/>
+        else
+<br/>
+                ename = &quot;enter&quot;;
+<br/>
+        /*
+<br/>
+         * Normally, passing back func directly is sufficient and then
+<br/>
+         * tep_plugin_kvm_put_func() would not be required. But this example
+<br/>
+         * is showing how to handle allocation of the returned string.
+<br/>
+         */
+<br/>
+        event_func = malloc(strlen(ename) + strlen(func) + 2);
+<br/>
+        if (!event_func)
+<br/>
+                return NULL;
+<br/>
+        sprintf(event_func, &quot;%s %s&quot;, ename, func);
+<br/>
+        *paddr = tep_find_function_address(tep, *paddr);
+<br/>
+        return event_func;
+}
+void tep_plugin_kvm_put_func(const char *func)
+{
+<br/>
+        char *f = (char *)func;
+<br/>
+        free(f);
+}
+static int show_event(struct tracecmd_input *handle, struct tep_event *event,
+<br/>
+                      struct tep_record *record, int cpu, void *data)
+{
+<br/>
+        static struct trace_seq seq;
+<br/>
+        tep = data;
+<br/>
+        if (!seq.buffer)
+<br/>
+                trace_seq_init(&amp;seq);
+<br/>
+        trace_seq_reset(&amp;seq);
+<br/>
+        tep_print_event(tracecmd_get_tep(handle), &amp;seq, record,
+<br/>
+                        &quot;%s-%d\t%6.1000d [%03d] %s\t%s\n&quot;,
+<br/>
+                        TEP_PRINT_COMM, TEP_PRINT_PID,
+<br/>
+                        TEP_PRINT_TIME, TEP_PRINT_CPU,
+<br/>
+                        TEP_PRINT_NAME, TEP_PRINT_INFO);
+<br/>
+        trace_seq_terminate(&amp;seq);
+<br/>
+        trace_seq_do_printf(&amp;seq);
+<br/>
+        return 0;
+}
+int main(int argc, char **argv)
+{
+<br/>
+        struct tracecmd_input *handle;
+<br/>
+        struct tep_handle *guest_tep;
+<br/>
+        struct stat st;
+<br/>
+        FILE *fp;
+<br/>
+        char *buf;
+<br/>
+        if (argc &lt; 3) {
+<br/>
+                printf(&quot;usage: trace.dat guest_kallsyms_file\n&quot;);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        handle = tracecmd_open(argv[1], 0);
+<br/>
+        if (!handle) {
+<br/>
+                perror(argv[1]);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        /* Just for kallsyms parsing */
+<br/>
+        guest_tep = tep_alloc();
+<br/>
+        if (!guest_tep)
+<br/>
+                exit(-1);
+<br/>
+        if (stat(argv[2], &amp;st) &lt; 0) {
+<br/>
+                perror(argv[2]);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        buf = malloc(st.st_size + 1);
+<br/>
+        if (!buf)
+<br/>
+                exit(-1);
+<br/>
+        fp = fopen(argv[2], &quot;r&quot;);
+<br/>
+        if (!fp) {
+<br/>
+                perror(argv[2]);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        if (fread(buf, st.st_size, 1, fp) &lt; 0) {
+<br/>
+                perror(argv[2]);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        buf[st.st_size] = '\0';
+<br/>
+        if (tep_parse_kallsyms(guest_tep, buf) &lt; 0) {
+<br/>
+                printf(&quot;Failed to parse %s\n&quot;, argv[2]);
+<br/>
+                exit(-1);
+<br/>
+        }
+<br/>
+        free(buf);
+<br/>
+        tracecmd_follow_event(handle, &quot;kvm&quot;, &quot;kvm_exit&quot;, show_event, guest_tep);
+<br/>
+        tracecmd_follow_event(handle, &quot;kvm&quot;, &quot;kvm_entry&quot;, show_event, guest_tep);
+<br/>
+        tracecmd_iterate_events(handle, NULL, 0, NULL, NULL);
+<br/>
+        tep_free(guest_tep);
+<br/>
+        tracecmd_close(handle);
+}</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<div class="Bd-indent">
+<pre><b>event-parse.h</b>
+<br/>
+        Header file to include in order to have access to the library APIs.
+<b>-ltraceevent</b>
+<br/>
+        Linker switch to add when building a program that uses the library.</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3/libtraceevent.html"><b>libtraceevent</b>(3)</a>, <a class="Xr" href="../1/trace-cmd.html"><b>trace-cmd</b>(1)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPORTING_BUGS"><a class="permalink" href="#REPORTING_BUGS">REPORTING
+  BUGS</a></h1>
+<p class="Pp">Report bugs to
+  &lt;<b>linux-trace-devel@vger.kernel.org</b>[1]&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">libtraceevent is Free Software licensed under the GNU LGPL 2.1</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCES"><a class="permalink" href="#RESOURCES">RESOURCES</a></h1>
+<p class="Pp"><b>https://git.kernel.org/pub/scm/libs/libtrace/libtraceevent.git/</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>linux-trace-devel@vger.kernel.org</dd>
+</dl>
+<div class="Bd-indent">mailto:linux-trace-devel@vger.kernel.org</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">03/07/2025</td>
+    <td class="foot-os">libtraceevent 1.8.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

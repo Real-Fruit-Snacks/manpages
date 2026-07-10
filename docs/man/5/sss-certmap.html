@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="SSSD Certificate Matching and Mapping Rules">
+<title>sss-certmap(5) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">sss-certmap(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RULE_COMPONENTS">RULE
+  COMPONENTS</a></li><li><a href="#PRIORITY">PRIORITY</a></li><li><a href="#MATCHING_RULE">MATCHING
+  RULE</a></li><li><a href="#MAPPING_RULE">MAPPING
+  RULE</a></li><li><a href="#DOMAIN_LIST">DOMAIN
+  LIST</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SSS-CERTMAP(5)</td>
+    <td class="head-vol">File Formats and Conventions</td>
+    <td class="head-rtitle">SSS-CERTMAP(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">sss-certmap - SSSD Certificate Matching and Mapping Rules</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The manual page describes the rules which can be used by SSSD and
+    other components to match X.509 certificates and map them to accounts.</p>
+<p class="Pp">Each rule has four components, a &#x201C;priority&#x201D;, a
+    &#x201C;matching rule&#x201D;, a &#x201C;mapping rule&#x201D; and a
+    &#x201C;domain list&#x201D;. All components are optional. A missing
+    &#x201C;priority&#x201D; will add the rule with the lowest priority. The
+    default &#x201C;matching rule&#x201D; will match certificates with the
+    digitalSignature key usage and clientAuth extended key usage. If the
+    &#x201C;mapping rule&#x201D; is empty the certificates will be searched in
+    the userCertificate attribute as DER encoded binary. If no domains are given
+    only the local domain will be searched.</p>
+<p class="Pp">To allow extensions or completely different style of rule the
+    &#x201C;mapping&#x201D; and &#x201C;matching rules&#x201D; can contain a
+    prefix separated with a ':' from the main part of the rule. The prefix may
+    only contain upper-case ASCII letters and numbers. If the prefix is omitted
+    the default type will be used which is 'KRB5' for the matching rules and
+    'LDAP' for the mapping rules.</p>
+<p class="Pp">The 'sssctl' utility provides the 'cert-eval-rule' command to
+    check if a given certificate matches a matching rules and how the output of
+    a mapping rule would look like.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RULE_COMPONENTS"><a class="permalink" href="#RULE_COMPONENTS">RULE
+  COMPONENTS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="PRIORITY"><a class="permalink" href="#PRIORITY">PRIORITY</a></h2>
+<p class="Pp">The rules are processed by priority while the number '0' (zero)
+    indicates the highest priority. The higher the number the lower is the
+    priority. A missing value indicates the lowest priority. The rules
+    processing is stopped when a matched rule is found and no further rules are
+    checked.</p>
+<p class="Pp">Internally the priority is treated as unsigned 32bit integer,
+    using a priority value larger than 4294967295 will cause an error.</p>
+<p class="Pp">If multiple rules have the same priority and only one of the
+    related matching rules applies, this rule will be chosen. If there are
+    multiple rules with the same priority which matches, one is chosen but which
+    one is undefined. To avoid this undefined behavior either use different
+    priorities or make the matching rules more specific e.g. by using distinct
+    &lt;ISSUER&gt; patterns.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="MATCHING_RULE"><a class="permalink" href="#MATCHING_RULE">MATCHING
+  RULE</a></h2>
+<p class="Pp">The matching rule is used to select a certificate to which the
+    mapping rule should be applied. It uses a system similar to the one used by
+    &#x201C;pkinit_cert_match&#x201D; option of MIT Kerberos. It consists of a
+    keyword enclosed by '&lt;' and '&gt;' which identified a certain part of the
+    certificate and a pattern which should be found for the rule to match.
+    Multiple keyword pattern pairs can be either joined with '&amp;&amp;' (and)
+    or '||' (or).</p>
+<p class="Pp">Given the similarity to MIT Kerberos the type prefix for this rule
+    is 'KRB5'. But 'KRB5' will also be the default for &#x201C;matching
+    rules&#x201D; so that &quot;&lt;SUBJECT&gt;.*,DC=MY,DC=DOMAIN&quot; and
+    &quot;KRB5:&lt;SUBJECT&gt;.*,DC=MY,DC=DOMAIN&quot; are equivalent.</p>
+<p class="Pp">The available options are:</p>
+<p class="Pp">&lt;SUBJECT&gt;regular-expression</p>
+<div class="Bd-indent">With this a part or the whole subject name of the
+  certificate can be matched. For the matching POSIX Extended Regular Expression
+  syntax is used, see regex(7) for details.
+<p class="Pp">For the matching the subject name stored in the certificate in DER
+    encoded ASN.1 is converted into a string according to RFC 4514. This means
+    the most specific name component comes first. Please note that not all
+    possible attribute names are covered by RFC 4514. The names included are
+    'CN', 'L', 'ST', 'O', 'OU', 'C', 'STREET', 'DC' and 'UID'. Other attribute
+    names might be shown differently on different platform and by different
+    tools. To avoid confusion those attribute names are best not used or covered
+    by a suitable regular-expression.</p>
+<p class="Pp">Example: &lt;SUBJECT&gt;.*,DC=MY,DC=DOMAIN</p>
+<p class="Pp">Please note that the characters &quot;^.[$()|*+?{\&quot; have a
+    special meaning in regular expressions and must be escaped with the help of
+    the '\' character so that they are matched as ordinary characters.</p>
+<p class="Pp">Example: &lt;SUBJECT&gt;^CN=.* \(Admin\),DC=MY,DC=DOMAIN$</p>
+</div>
+<p class="Pp">&lt;ISSUER&gt;regular-expression</p>
+<div class="Bd-indent">With this a part or the whole issuer name of the
+  certificate can be matched. All comments for &lt;SUBJECT&gt; apply her as
+  well.
+<p class="Pp">Example: &lt;ISSUER&gt;^CN=My-CA,DC=MY,DC=DOMAIN$</p>
+</div>
+<p class="Pp">&lt;KU&gt;key-usage</p>
+<div class="Bd-indent">This option can be used to specify which key usage values
+  the certificate should have. The following values can be used in a comma
+  separated list:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;digitalSignature</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;nonRepudiation</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;keyEncipherment</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;dataEncipherment</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;keyAgreement</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;keyCertSign</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;cRLSign</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;encipherOnly</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;decipherOnly</div>
+<p class="Pp">A numerical value in the range of a 32bit unsigned integer can be
+    used as well to cover special use cases.</p>
+<p class="Pp">Example: &lt;KU&gt;digitalSignature,keyEncipherment</p>
+</div>
+<p class="Pp">&lt;EKU&gt;extended-key-usage</p>
+<div class="Bd-indent">This option can be used to specify which extended key
+  usage the certificate should have. The following value can be used in a comma
+  separated list:
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;serverAuth</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;clientAuth</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;codeSigning</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;emailProtection</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;timeStamping</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;OCSPSigning</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;KPClientAuth</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;pkinit</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;msScLogin</div>
+<p class="Pp">Extended key usages which are not listed above can be specified
+    with their OID in dotted-decimal notation.</p>
+<p class="Pp">Example: &lt;EKU&gt;clientAuth,1.3.6.1.5.2.3.4</p>
+</div>
+<p class="Pp">&lt;SAN&gt;regular-expression</p>
+<div class="Bd-indent">To be compatible with the usage of MIT Kerberos this
+  option will match the Kerberos principals in the PKINIT or AD NT Principal SAN
+  as &lt;SAN:Principal&gt; does.
+<p class="Pp">Example: &lt;SAN&gt;.*@MY\.REALM</p>
+</div>
+<p class="Pp">&lt;SAN:Principal&gt;regular-expression</p>
+<div class="Bd-indent">Match the Kerberos principals in the PKINIT or AD NT
+  Principal SAN.
+<p class="Pp">Example: &lt;SAN:Principal&gt;.*@MY\.REALM</p>
+</div>
+<p class="Pp">&lt;SAN:ntPrincipalName&gt;regular-expression</p>
+<div class="Bd-indent">Match the Kerberos principals from the AD NT Principal
+  SAN.
+<p class="Pp">Example: &lt;SAN:ntPrincipalName&gt;.*@MY.AD.REALM</p>
+</div>
+<p class="Pp">&lt;SAN:pkinit&gt;regular-expression</p>
+<div class="Bd-indent">Match the Kerberos principals from the PKINIT SAN.
+<p class="Pp">Example: &lt;SAN:ntPrincipalName&gt;.*@MY\.PKINIT\.REALM</p>
+</div>
+<p class="Pp">&lt;SAN:dotted-decimal-oid&gt;regular-expression</p>
+<div class="Bd-indent">Take the value of the otherName SAN component given by
+  the OID in dotted-decimal notation, interpret it as string and try to match it
+  against the regular expression.
+<p class="Pp">Example: &lt;SAN:1.2.3.4&gt;test</p>
+</div>
+<p class="Pp">&lt;SAN:otherName&gt;base64-string</p>
+<div class="Bd-indent">Do a binary match with the base64 encoded blob against
+  all otherName SAN components. With this option it is possible to match against
+  custom otherName components with special encodings which could not be treated
+  as strings.
+<p class="Pp">Example: &lt;SAN:otherName&gt;MTIz</p>
+</div>
+<p class="Pp">&lt;SAN:rfc822Name&gt;regular-expression</p>
+<div class="Bd-indent">Match the value of the rfc822Name SAN.
+<p class="Pp">Example: &lt;SAN:rfc822Name&gt;.*@email\.domain</p>
+</div>
+<p class="Pp">&lt;SAN:dNSName&gt;regular-expression</p>
+<div class="Bd-indent">Match the value of the dNSName SAN.
+<p class="Pp">Example: &lt;SAN:dNSName&gt;.*\.my\.dns\.domain</p>
+</div>
+<p class="Pp">&lt;SAN:x400Address&gt;base64-string</p>
+<div class="Bd-indent">Binary match the value of the x400Address SAN.
+<p class="Pp">Example: &lt;SAN:x400Address&gt;MTIz</p>
+</div>
+<p class="Pp">&lt;SAN:directoryName&gt;regular-expression</p>
+<div class="Bd-indent">Match the value of the directoryName SAN. The same
+  comments as given for &lt;ISSUER&gt; and &lt;SUBJECT&gt; apply here as well.
+<p class="Pp">Example: &lt;SAN:directoryName&gt;.*,DC=com</p>
+</div>
+<p class="Pp">&lt;SAN:ediPartyName&gt;base64-string</p>
+<div class="Bd-indent">Binary match the value of the ediPartyName SAN.
+<p class="Pp">Example: &lt;SAN:ediPartyName&gt;MTIz</p>
+</div>
+<p class="Pp">&lt;SAN:uniformResourceIdentifier&gt;regular-expression</p>
+<div class="Bd-indent">Match the value of the uniformResourceIdentifier SAN.
+<p class="Pp">Example: &lt;SAN:uniformResourceIdentifier&gt;URN:.*</p>
+</div>
+<p class="Pp">&lt;SAN:iPAddress&gt;regular-expression</p>
+<div class="Bd-indent">Match the value of the iPAddress SAN.
+<p class="Pp">Example: &lt;SAN:iPAddress&gt;192\.168\..*</p>
+</div>
+<p class="Pp">&lt;SAN:registeredID&gt;regular-expression</p>
+<div class="Bd-indent">Match the value of the registeredID SAN as dotted-decimal
+  string.
+<p class="Pp">Example: &lt;SAN:registeredID&gt;1\.2\.3\..*</p>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="MAPPING_RULE"><a class="permalink" href="#MAPPING_RULE">MAPPING
+  RULE</a></h2>
+<p class="Pp">The mapping rule is used to associate a certificate with one or
+    more accounts. A Smartcard with the certificate and the matching private key
+    can then be used to authenticate as one of those accounts.</p>
+<p class="Pp">Currently SSSD basically only supports LDAP to lookup user
+    information (the exception is the proxy provider which is not of relevance
+    here). Because of this the mapping rule is based on LDAP search filter
+    syntax with templates to add certificate content to the filter. It is
+    expected that the filter will only contain the specific data needed for the
+    mapping and that the caller will embed it in another filter to do the actual
+    search. Because of this the filter string should start and stop with '(' and
+    ')' respectively.</p>
+<p class="Pp">In general it is recommended to use attributes from the
+    certificate and add them to special attributes to the LDAP user object. E.g.
+    the 'altSecurityIdentities' attribute in AD or the 'ipaCertMapData'
+    attribute for IPA can be used.</p>
+<p class="Pp">This should be preferred to read user specific data from the
+    certificate like e.g. an email address and search for it in the LDAP server.
+    The reason is that the user specific data in LDAP might change for various
+    reasons would break the mapping. On the other hand it would be hard to break
+    the mapping on purpose for a specific user.</p>
+<p class="Pp">The default &#x201C;mapping rule&#x201D; type is 'LDAP' which can
+    be added as a prefix to a rule like e.g.
+    'LDAP:(userCertificate;binary={cert!bin})'. There is an extension called
+    'LDAPU1' which offer more templates for more flexibility. To allow older
+    versions of this library to ignore the extension the prefix 'LDAPU1' must be
+    used when using the new templates in a &#x201C;mapping rule&#x201D;
+    otherwise the old version of this library will fail with a parsing error.
+    The new templates are described in section the section called &#x201C;LDAPU1
+    extension&#x201D;.</p>
+<p class="Pp">The templates to add certificate data to the search filter are
+    based on Python-style formatting strings. They consist of a keyword in curly
+    braces with an optional sub-component specifier separated by a '.' or an
+    optional conversion/formatting option separated by a '!'. Allowed values
+    are:</p>
+<p class="Pp">{issuer_dn[!((ad|ad_x500)|ad_ldap|nss_x500|(nss|nss_ldap))]}</p>
+<div class="Bd-indent">This template will add the full issuer DN converted to a
+  string according to RFC 4514. If X.500 ordering (most specific RDN comes last)
+  an option with the '_x500' prefix should be used.
+<p class="Pp">The conversion options starting with 'ad_' will use attribute
+    names as used by AD, e.g. 'S' instead of 'ST'.</p>
+<p class="Pp">The conversion options starting with 'nss_' will use attribute
+    names as used by NSS.</p>
+<p class="Pp">The default conversion option is 'nss', i.e. attribute names
+    according to NSS and LDAP/RFC 4514 ordering.</p>
+<p class="Pp">Example:
+    (ipacertmapdata=X509:&lt;I&gt;{issuer_dn!ad}&lt;S&gt;{subject_dn!ad})</p>
+</div>
+<p class="Pp">{subject_dn[!((ad|ad_x500)|ad_ldap|nss_x500|(nss|nss_ldap))]}</p>
+<div class="Bd-indent">This template will add the full subject DN converted to
+  string according to RFC 4514. If X.500 ordering (most specific RDN comes last)
+  an option with the '_x500' prefix should be used.
+<p class="Pp">The conversion options starting with 'ad_' will use attribute
+    names as used by AD, e.g. 'S' instead of 'ST'.</p>
+<p class="Pp">The conversion options starting with 'nss_' will use attribute
+    names as used by NSS.</p>
+<p class="Pp">The default conversion option is 'nss', i.e. attribute names
+    according to NSS and LDAP/RFC 4514 ordering.</p>
+<p class="Pp">Example:
+    (ipacertmapdata=X509:&lt;I&gt;{issuer_dn!nss_x500}&lt;S&gt;{subject_dn!nss_x500})</p>
+</div>
+<p class="Pp">{cert[!(bin|base64)]}</p>
+<div class="Bd-indent">This template will add the whole DER encoded certificate
+  as a string to the search filter. Depending on the conversion option the
+  binary certificate is either converted to an escaped hex sequence '\xx' or
+  base64. The escaped hex sequence is the default and can e.g. be used with the
+  LDAP attribute 'userCertificate;binary'.
+<p class="Pp">Example: (userCertificate;binary={cert!bin})</p>
+</div>
+<p class="Pp">{subject_principal[.short_name]}</p>
+<div class="Bd-indent">This template will add the Kerberos principal which is
+  taken either from the SAN used by pkinit or the one used by AD. The
+  'short_name' component represents the first part of the principal before the
+  '@' sign.
+<p class="Pp">Example:
+    (|(userPrincipal={subject_principal})(samAccountName={subject_principal.short_name}))</p>
+</div>
+<p class="Pp">{subject_pkinit_principal[.short_name]}</p>
+<div class="Bd-indent">This template will add the Kerberos principal which is
+  given by the SAN used by pkinit. The 'short_name' component represents the
+  first part of the principal before the '@' sign.
+<p class="Pp">Example:
+    (|(userPrincipal={subject_pkinit_principal})(uid={subject_pkinit_principal.short_name}))</p>
+</div>
+<p class="Pp">{subject_nt_principal[.short_name]}</p>
+<div class="Bd-indent">This template will add the Kerberos principal which is
+  given by the SAN used by AD. The 'short_name' component represent the first
+  part of the principal before the '@' sign.
+<p class="Pp">Example:
+    (|(userPrincipalName={subject_nt_principal})(samAccountName={subject_nt_principal.short_name}))</p>
+</div>
+<p class="Pp">{subject_rfc822_name[.short_name]}</p>
+<div class="Bd-indent">This template will add the string which is stored in the
+  rfc822Name component of the SAN, typically an email address. The 'short_name'
+  component represents the first part of the address before the '@' sign.
+<p class="Pp">Example:
+    (|(mail={subject_rfc822_name})(uid={subject_rfc822_name.short_name}))</p>
+</div>
+<p class="Pp">{subject_dns_name[.short_name]}</p>
+<div class="Bd-indent">This template will add the string which is stored in the
+  dNSName component of the SAN, typically a fully-qualified host name. The
+  'short_name' component represents the first part of the name before the first
+  '.' sign.
+<p class="Pp">Example:
+    (|(fqdn={subject_dns_name})(host={subject_dns_name.short_name}))</p>
+</div>
+<p class="Pp">{subject_uri}</p>
+<div class="Bd-indent">This template will add the string which is stored in the
+  uniformResourceIdentifier component of the SAN.
+<p class="Pp">Example: (uri={subject_uri})</p>
+</div>
+<p class="Pp">{subject_ip_address}</p>
+<div class="Bd-indent">This template will add the string which is stored in the
+  iPAddress component of the SAN.
+<p class="Pp">Example: (ip={subject_ip_address})</p>
+</div>
+<p class="Pp">{subject_x400_address}</p>
+<div class="Bd-indent">This template will add the value which is stored in the
+  x400Address component of the SAN as escaped hex sequence.
+<p class="Pp">Example: (attr:binary={subject_x400_address})</p>
+</div>
+<p class="Pp">{subject_directory_name[!((ad|ad_x500)|ad_ldap|nss_x500|(nss|nss_ldap))]}</p>
+<div class="Bd-indent">This template will add the DN string of the value which
+  is stored in the directoryName component of the SAN.
+<p class="Pp">Example: (orig_dn={subject_directory_name})</p>
+</div>
+<p class="Pp">{subject_ediparty_name}</p>
+<div class="Bd-indent">This template will add the value which is stored in the
+  ediPartyName component of the SAN as escaped hex sequence.
+<p class="Pp">Example: (attr:binary={subject_ediparty_name})</p>
+</div>
+<p class="Pp">{subject_registered_id}</p>
+<div class="Bd-indent">This template will add the OID which is stored in the
+  registeredID component of the SAN as a dotted-decimal string.
+<p class="Pp">Example: (oid={subject_registered_id})</p>
+</div>
+<p class="Pp"><b>LDAPU1 extension</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">The following template are available when using the 'LDAPU1'
+    extension:</p>
+<p class="Pp">{serial_number[!(dec|hex[_ucr])]}</p>
+<div class="Bd-indent">This template will add the serial number of the
+  certificate. By default it will be printed as a hexadecimal number with
+  lower-case letters.
+<p class="Pp">With the formatting option '!dec' the number will be printed as
+    decimal string. The hexadecimal output can be printed with upper-case
+    letters ('!hex_u'), with a colon separating the hexadecimal bytes ('!hex_c')
+    or with the hexadecimal bytes in reverse order ('!hex_r'). The postfix
+    letters can be combined so that e.g. '!hex_uc' will produce a
+    colon-separated hexadecimal string with upper-case letters.</p>
+<p class="Pp">Example: LDAPU1:(serial={serial_number})</p>
+</div>
+<p class="Pp">{subject_key_id[!hex[_ucr]]}</p>
+<div class="Bd-indent">This template will add the subject key id of the
+  certificate. By default it will be printed as a hexadecimal number with
+  lower-case letters.
+<p class="Pp">The hexadecimal output can be printed with upper-case letters
+    ('!hex_u'), with a colon separating the hexadecimal bytes ('!hex_c') or with
+    the hexadecimal bytes in reverse order ('!hex_r'). The postfix letters can
+    be combined so that e.g. '!hex_uc' will produce a colon-separated
+    hexadecimal string with upper-case letters.</p>
+<p class="Pp">Example: LDAPU1:(ski={subject_key_id})</p>
+</div>
+<p class="Pp">{cert[!DIGEST[_ucr]]}</p>
+<div class="Bd-indent">This template will add the hexadecimal digest/hash of the
+  certificate where DIGEST must be replaced with the name of a digest/hash
+  function supported by OpenSSL, e.g. 'sha512'.
+<p class="Pp">The hexadecimal output can be printed with upper-case letters
+    ('!sha512_u'), with a colon separating the hexadecimal bytes ('!sha512_c')
+    or with the hexadecimal bytes in reverse order ('!sha512_r'). The postfix
+    letters can be combined so that e.g. '!sha512_uc' will produce a
+    colon-separated hexadecimal string with upper-case letters.</p>
+<p class="Pp">Example: LDAPU1:(dgst={cert!sha256})</p>
+</div>
+<p class="Pp">{subject_dn_component[(.attr_name|[number]]}</p>
+<div class="Bd-indent">This template will add an attribute value of a component
+  of the subject DN, by default the value of the most specific component.
+<p class="Pp">A different component can it either selected by attribute name,
+    e.g. {subject_dn_component.uid} or by position, e.g.
+    {subject_dn_component.[2]} where positive numbers start counting from the
+    most specific component and negative numbers start counting from the least
+    specific component. Attribute name and the position can be combined as e.g.
+    {subject_dn_component.uid[2]} which means that the name of the second
+    component must be 'uid'.</p>
+<p class="Pp">Example: LDAPU1:(uid={subject_dn_component.uid})</p>
+</div>
+<p class="Pp">{issuer_dn_component[(.attr_name|[number]]}</p>
+<div class="Bd-indent">This template will add an attribute value of a component
+  of the issuer DN, by default the value of the most specific component.
+<p class="Pp">See 'subject_dn_component' for details about the attribute name
+    and position specifiers.</p>
+<p class="Pp">Example:
+    LDAPU1:(domain={issuer_dn_component.[-2]}.{issuer_dn_component.dc[-1]})</p>
+</div>
+<p class="Pp">{sid[.rid]}</p>
+<div class="Bd-indent">This template will add the SID if the corresponding
+  extension introduced by Microsoft with the OID 1.3.6.1.4.1.311.25.2 is
+  available. With the '.rid' selector only the last component, i.e. the RID,
+  will be added.
+<p class="Pp">Example: LDAPU1:(objectsid={sid})</p>
+</div>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="DOMAIN_LIST"><a class="permalink" href="#DOMAIN_LIST">DOMAIN
+  LIST</a></h2>
+<p class="Pp">If the domain list is not empty users mapped to a given
+    certificate are not only searched in the local domain but in the listed
+    domains as well as long as they are know by SSSD. Domains not know to SSSD
+    will be ignored.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp"><b>The SSSD upstream - https://github.com/SSSD/sssd/</b></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">05/28/2026</td>
+    <td class="foot-os">SSSD</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

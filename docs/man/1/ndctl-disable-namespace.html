@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="disable the given namespace(s)">
+<title>ndctl-disable-namespace(1) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">ndctl-disable-namespace(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#THEORY_OF_OPERATION">THEORY
+  OF OPERATION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">NDCTL-DISABLE-NAMESPACE(1)</td>
+    <td class="head-vol">ndctl Manual</td>
+    <td class="head-rtitle">NDCTL-DISABLE-NAMESPACE(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">ndctl-disable-namespace - disable the given namespace(s)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><i>ndctl disable-namespace</i> &lt;namespace&gt; [&lt;options&gt;]</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THEORY_OF_OPERATION"><a class="permalink" href="#THEORY_OF_OPERATION">THEORY
+  OF OPERATION</a></h1>
+<p class="Pp">The capacity of an NVDIMM REGION (contiguous span of persistent
+    memory) is accessed via one or more NAMESPACE devices. REGION is the Linux
+    term for what ACPI and UEFI call a DIMM-interleave-set, or a
+    system-physical-address-range that is striped (by the memory controller)
+    across one or more memory modules.</p>
+<p class="Pp">The UEFI specification defines the <i>NVDIMM Label Protocol</i> as
+    the combination of label area access methods and a data format for
+    provisioning one or more NAMESPACE objects from a REGION. Note that label
+    support is optional and if Linux does not detect the label capability it
+    will automatically instantiate a &quot;label-less&quot; namespace per
+    region. Examples of label-less namespaces are the ones created by the
+    kernel&#x2019;s <i>memmap=ss!nn</i> command line option (see the nvdimm wiki
+    on kernel.org), or NVDIMMs without a valid <i>namespace index</i> in their
+    label area.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">Label-less namespaces lack many of the features of their
+    label-rich
+  <br/>
+  cousins. For example, their size cannot be modified, or they cannot be fully
+    <i>destroyed</i> (i.e. the space reclaimed). A destroy operation will zero
+    any mode-specific metadata. Finally, for create-namespace operations on
+    label-less namespaces, ndctl bypasses the region capacity availability
+    checks, and always satisfies the request using the full region capacity. The
+    only reconfiguration operation supported on a label-less namespace is
+    changing its <i>mode</i>.</p>
+<p class="Pp"></p>
+</div>
+<p class="Pp">A namespace can be provisioned to operate in one of 4 modes,
+    <i>fsdax</i>, <i>devdax</i>, <i>sector</i>, and <i>raw</i>. Here are the
+    expected usage models for these modes:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;fsdax: Filesystem-DAX mode is the default mode of
+  a namespace when specifying <i>ndctl create-namespace</i> with no options. It
+  creates a block device (/dev/pmemX[.Y]) that supports the DAX capabilities of
+  Linux filesystems (xfs and ext4 to date). DAX removes the page cache from the
+  I/O path and allows mmap(2) to establish direct mappings to persistent memory
+  media. The DAX capability enables workloads / working-sets that would exceed
+  the capacity of the page cache to scale up to the capacity of persistent
+  memory. Workloads that fit in page cache or perform bulk data transfers may
+  not see benefit from DAX. When in doubt, pick this mode.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;devdax: Device-DAX mode enables similar mmap(2)
+  DAX mapping capabilities as Filesystem-DAX. However, instead of a block-device
+  that can support a DAX-enabled filesystem, this mode emits a single character
+  device file (/dev/daxX.Y). Use this mode to assign persistent memory to a
+  virtual-machine, register persistent memory for RDMA, or when gigantic
+  mappings are needed.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;sector: Use this mode to host legacy filesystems
+  that do not checksum metadata or applications that are not prepared for torn
+  sectors after a crash. Expected usage for this mode is for small boot volumes.
+  This mode is compatible with other operating systems.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;raw: Raw mode is effectively just a memory disk
+  that does not support DAX. Typically this indicates a namespace that was
+  created by tooling or another operating system that did not know how to create
+  a Linux <i>fsdax</i> or <i>devdax</i> mode namespace. This mode is compatible
+  with other operating systems, but again, does not support DAX operation.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">&lt;namespace&gt;</p>
+<div class="Bd-indent">A <i>namespaceX.Y</i> device name. The keyword <i>all</i>
+  can be specified to carry out the operation on every namespace in the system,
+  optionally filtered by region (see --region=option)</div>
+<p class="Pp">-r, --region=</p>
+<div class="Bd-indent">A <i>regionX</i> device name, or a region id number.
+  Restrict the operation to the specified region(s). The keyword <i>all</i> can
+  be specified to indicate the lack of any restriction, however this is the same
+  as not supplying a --region option at all.</div>
+<p class="Pp">-b, --bus=</p>
+<div class="Bd-indent">A bus id number, or a provider string (e.g.
+  &quot;ACPI.NFIT&quot;). Restrict the operation to the specified bus(es). The
+  keyword <i>all</i> can be specified to indicate the lack of any restriction,
+  however this is the same as not supplying a --bus option at all.</div>
+<p class="Pp">-v, --verbose</p>
+<div class="Bd-indent">Emit debug messages for the namespace operation</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright &#x00A9; 2016 - 2022, Intel Corporation. License GPLv2:
+    GNU GPL version 2 <i></i> &lt;http://gnu.org/licenses/gpl.html&gt;. This is
+    free software: you are free to change and redistribute it. There is NO
+    WARRANTY, to the extent permitted by law.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">ndctl-enable-namespace(1)</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-04-08</td>
+    <td class="foot-os">ndctl</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

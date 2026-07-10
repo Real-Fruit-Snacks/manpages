@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Provisions for linking the RRD library to use in multi-threaded programs">
+<title>rrdthreads(1) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">rrdthreads(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#NOTES_FOR_RRD_CONTRIBUTORS">NOTES
+  FOR RRD CONTRIBUTORS</a></li><li><a href="#CURRENTLY_IMPLEMENTED_THREAD_SAFE_FUNCTIONS">CURRENTLY
+  IMPLEMENTED THREAD SAFE FUNCTIONS</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">RRDTHREADS(1)</td>
+    <td class="head-vol">rrdtool</td>
+    <td class="head-rtitle">RRDTHREADS(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">rrdthreads - Provisions for linking the RRD library to use in
+    multi-threaded programs</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Using librrd in multi-threaded programs requires some extra
+    precautions, as the RRD library in its original form was not thread-safe at
+    all. This document describes requirements and pitfalls on the way to use the
+    multi-threaded version of librrd in your own programs. It also gives hints
+    for future RRD development to keep the library thread-safe.</p>
+<p class="Pp">Currently only some RRD operations are implemented in a
+    thread-safe way. They all end in the usual
+    &quot;<span class="Li">&quot;_r&quot;</span>&quot; suffix.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">In order to use librrd in multi-threaded programs you must:</p>
+<ul class="Bl-bullet">
+  <li>Link with <i>librrd_th</i> instead of <i>librrd</i> (use
+      <span class="Li">&quot;-lrrd_th&quot;</span> when linking)</li>
+  <li>Use the &quot;<span class="Li">&quot;_r&quot;</span>&quot; functions
+      instead of the normal API-functions</li>
+  <li>Do not use any at-style time specifications. Parsing of such time
+      specifications is terribly non-thread-safe.</li>
+  <li>Never use non *<span class="Li">&quot;_r&quot;</span> functions unless it
+      is explicitly documented that the function is tread-safe.</li>
+  <li>Every thread SHOULD call <span class="Li">rrd_get_context()</span> before
+      its first call to any <span class="Li">&quot;librrd_th&quot;</span>
+      function in order to set up thread specific data. This is not strictly
+      required, but it is the only way to test if memory allocation can be done
+      by this function. Otherwise the program may die with a SIGSEGV in a
+      low-memory situation.</li>
+  <li>Always call <span class="Li">rrd_error_clear()</span> before any call to
+      the library. Otherwise the call might fail due to some earlier error.</li>
+</ul>
+<section class="Ss">
+<h2 class="Ss" id="NOTES_FOR_RRD_CONTRIBUTORS"><a class="permalink" href="#NOTES_FOR_RRD_CONTRIBUTORS">NOTES
+  FOR RRD CONTRIBUTORS</a></h2>
+<p class="Pp">Some precautions must be followed when developing RRD from now
+  on:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Only use thread-safe functions in library code. Many often used libc
+      functions aren't thread-safe. Take care in the following situations or
+      when using the following library functions:</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>Direct calls to <span class="Li">strerror()</span> must be avoided: use
+      <span class="Li">rrd_strerror()</span> instead, it provides a per-thread
+      error message.</li>
+  <li>The <span class="Li">&quot;getpw*&quot;</span>,
+      <span class="Li">&quot;getgr*&quot;</span>,
+      <span class="Li">&quot;gethost*&quot;</span> function families (and some
+      more <span class="Li">&quot;get*&quot;</span> functions) are not
+      thread-safe: use the *<span class="Li">&quot;_r&quot;</span> variants</li>
+  <li>Time functions: <span class="Li">&quot;asctime&quot;</span>,
+      <span class="Li">&quot;ctime&quot;</span>,
+      <span class="Li">&quot;gmtime&quot;</span>,
+      <span class="Li">&quot;localtime&quot;</span>: use
+      *<span class="Li">&quot;_r&quot;</span> variants</li>
+  <li><span class="Li">&quot;strtok&quot;</span>: use
+      <span class="Li">&quot;strtok_r&quot;</span></li>
+  <li><span class="Li">&quot;tmpnam&quot;</span>: use
+      <span class="Li">&quot;tmpnam_r&quot;</span></li>
+  <li>Many others (lookup documentation)</li>
+</ul>
+</div>
+<div class="Bd-indent"></div>
+<ul class="Bl-bullet">
+  <li>A header file named <i>rrd_is_thread_safe.h</i> is provided that works
+      with the GNU C-preprocessor to &quot;poison&quot; some of the most common
+      non-thread-safe functions using the <span class="Li">&quot;#pragma GCC
+      poison&quot;</span> directive. Just include this header in source files
+      you want to keep thread-safe.</li>
+  <li>Do not introduce global variables!
+    <p class="Pp">If you really, really have to use a global variable you may
+        add a new field to the <span class="Li">&quot;rrd_context&quot;</span>
+        structure and modify <i>rrd_error.c</i>, <i>rrd_thread_safe.c</i> and
+        <i>rrd_non_thread_safe.c</i></p>
+  </li>
+  <li>Do not use <span class="Li">&quot;getopt&quot;</span> or
+      <span class="Li">&quot;getopt_long&quot;</span> in
+      *<span class="Li">&quot;_r&quot;</span> (neither directly nor indirectly).
+    <p class="Pp"><span class="Li">&quot;getopt&quot;</span> uses global
+        variables and behaves badly in a multi-threaded application when called
+        concurrently. Instead provide a *_r function taking all options as
+        function parameters. You may provide argc and **argv arguments for
+        variable length argument lists. See
+        <span class="Li">&quot;rrd_update_r&quot;</span> as an example.</p>
+  </li>
+  <li>Do not use the <span class="Li">&quot;rrd_parsetime&quot;</span> function!
+    <p class="Pp">It uses lots of global variables. You may use it in functions
+        not designed to be thread-safe, like in functions wrapping the
+        <span class="Li">&quot;_r&quot;</span> version of some operation (e.g.,
+        <span class="Li">&quot;rrd_create&quot;</span>, but not in
+        <span class="Li">&quot;rrd_create_r&quot;</span>)</p>
+  </li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="CURRENTLY_IMPLEMENTED_THREAD_SAFE_FUNCTIONS"><a class="permalink" href="#CURRENTLY_IMPLEMENTED_THREAD_SAFE_FUNCTIONS">CURRENTLY
+  IMPLEMENTED THREAD SAFE FUNCTIONS</a></h2>
+<p class="Pp">Currently there exist thread-safe variants of
+    <span class="Li">&quot;rrd_update&quot;</span>,
+    <span class="Li">&quot;rrd_create&quot;</span>,
+    <span class="Li">&quot;rrd_dump&quot;</span>,
+    <span class="Li">&quot;rrd_info&quot;</span>,
+    <span class="Li">&quot;rrd_last&quot;</span>, and
+    <span class="Li">&quot;rrd_fetch&quot;</span>.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Peter Stamfest &lt;peter@stamfest.at&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">1.7.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

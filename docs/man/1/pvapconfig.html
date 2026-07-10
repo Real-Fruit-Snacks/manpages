@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="automatic configure APQNs within an SE KVM guest.">
+<title>pvapconfig(1) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pvapconfig(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#CONFIGFILE">CONFIGFILE</a></li><li><a href="#LOCKING">LOCKING</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PVAPCONFIG(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">PVAPCONFIG(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pvapconfig - automatic configure APQNs within an SE KVM guest.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<dl class="Bl-tag">
+  <dt id="pvapconfig"><a class="permalink" href="#pvapconfig"><b>pvapconfig
+    [OPTIONS]</b></a></dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">pvapconfig is a tool for automatically configuring the APQNs
+    within an Secure Execution KVM guest with AP pass-through support. Based on
+    a given AP configuration it tries to find matching APQNs and binds and
+    associates them with the given secret(s).</p>
+<p class="Pp">Here is a description of pvapconfig's process:</p>
+<dl class="Bl-tag">
+  <dt>1. Check AP bus: Support for AP bus needs to be available and the AP</dt>
+  <dd>bus needs to support APSB. APSB is only available within an KVM SE guest
+      with AP pass-through support.</dd>
+  <dt>2. Check Ultravisor: UV support needs to be available and the UV
+    needs</dt>
+  <dd>to support the <i>list secrets</i> feature.</dd>
+  <dt>3. Read in and validate the AP configuration file. By default if not</dt>
+  <dd>overwritten by the --config option the AP configuration is read from
+      <i>/etc/pvapconfig.yaml</i> and syntactically verified. See section
+      CONFIGFILE for details about the syntax and semantic of the configuration
+      file.</dd>
+  <dt>4. Fetch the list of association secrets from the UV. Actually the</dt>
+  <dd>index of the secret and the secret id for each entry is collected. The
+      secret value is NOT fetched as it is NOT accessible but only usable within
+      the UV firmware.</dd>
+  <dt>5. Gather all APQNs available within this KVM SE guest. Collect</dt>
+  <dd>information about each APQN like online states, crypto card serial numbers
+      and master key verification patterns (MKVP).</dd>
+  <dt>6. Go through all AP config entries. For each AP config entry try to</dt>
+  <dd>find an APQN which is already configured (bound/associated) to satisfy
+      this config entry. If such a match is found, the AP config entry is
+      assumed to be fulfilled and marked as done.</dd>
+  <dt>7. All remaining APQNs which do not already satisfy an AP config
+    entry</dt>
+  <dd>are now examined for their bind and association state and maybe reset to
+      unbound state.</dd>
+  <dt>8. Go through all AP config entries which are still not</dt>
+  <dd>fulfilled. For each such AP config entry try to search for an APQN which
+      would match to this entry and then prepare this APQN (bind, maybe
+      associate). If successful, mark the AP config entry as done.</dd>
+  <dt>9. Evaluation of the applied AP config entries. Applied means the AP</dt>
+  <dd>config entry has been fulfilled either in step 6 or in step 8. With the
+      strict option given ALL AP config entries need to apply otherwise an error
+      message is printed and pvapconfig returns with exit failure. If the strict
+      option is not given, it is enough to satisfy at least one AP config entry
+      from the configuration and pvapconfig will return successfully.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="c,"><a class="permalink" href="#c,"><b>-c, --config
+    &lt;configfile&gt;</b></a></dt>
+  <dd>Use &lt;configfile&gt; as the AP config file for pvapconfig. If pvapconfig
+      is run without this option the default configuration file
+      /etc/pvapconfig.yaml is used.</dd>
+  <dt id="h,"><a class="permalink" href="#h,"><b>-h, --help</b></a></dt>
+  <dd>Print pvapconfig usage information and exit.</dd>
+  <dt id="n,"><a class="permalink" href="#n,"><b>-n, --dry-run</b></a></dt>
+  <dd>Do not bind, unbind or associate APQNs but only process the configuration
+      and the available APQNs and secrets and simulate the bind, unbind or
+      associate action on the chosen APQN. Use it together with the verbose
+      option to see which actions pvapconfig would do if unleashed.</dd>
+  <dt id="s,"><a class="permalink" href="#s,"><b>-s, --strict</b></a></dt>
+  <dd>All AP config entries need to be satisfied to have pvapconfig terminate
+      with success. Without this option one applied AP config entry is enough to
+      meet the expectations.</dd>
+  <dt id="v,"><a class="permalink" href="#v,"><b>-v, --verbose</b></a></dt>
+  <dd>Print out informational messages about what pvapconfig is actually
+    doing.</dd>
+  <dt id="V,"><a class="permalink" href="#V,"><b>-V, --version</b></a></dt>
+  <dd>Print version information and exit.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGFILE"><a class="permalink" href="#CONFIGFILE">CONFIGFILE</a></h1>
+<p class="Pp">The pvapconfig yaml configuration file consists of a list of AP
+    config entries. Each entry may hold this information:</p>
+<dl class="Bl-tag">
+  <dt id="mode:"><a class="permalink" href="#mode:">- mode: AP queue mode
+    information, required, either &quot;EP11&quot; or
+    &quot;Accel&quot;.</a></dt>
+  <dd></dd>
+  <dt id="mkvp:"><a class="permalink" href="#mkvp:">- mkvp: AP queue Master Key
+    Verification Pattern (MKVP), required for</a></dt>
+  <dd>EP11, hex string optional prepented with 0x. The MKVP hex string value may
+      hold either 16 bytes (32 hex characters) or 32 bytes (64 hex characters)
+      but only the leftmost 16 bytes hold MKVP information and thus the rest is
+      ignored.</dd>
+  <dt id="serialnr:"><a class="permalink" href="#serialnr:">- serialnr: Crypto
+    Card Serial Number, string, optional for EP11,</a></dt>
+  <dd>ignored for Accel. As this is a real ASCII string uppercase and lowercase
+      character(s) count different.</dd>
+  <dt id="mingen:"><a class="permalink" href="#mingen:">- mingen: Card Minimal
+    Generation, string &quot;CEX4&quot;, &quot;CEX5&quot;,
+    &quot;CEX6&quot;,</a></dt>
+  <dd>&quot;CEX7&quot; or &quot;CEX8&quot; for Accelerator, string
+      &quot;CEC8&quot; for EP11, optional. If given specifies the minimal
+      accepted Crypto card generation.</dd>
+  <dt id="secretid:"><a class="permalink" href="#secretid:">- secretid: Secret
+    id, hex string with optional 0x prepented, required</a></dt>
+  <dd>for EP11, ignored for Accel. Details see the following text.</dd>
+  <dt id="name:"><a class="permalink" href="#name:">- name: ASCII string,
+    optional, but see details below.</a></dt>
+  <dd></dd>
+  <dt id="description:"><a class="permalink" href="#description:">- description:
+    Description of this AP config entry, string, ignored,</a></dt>
+  <dd>
+    <br/>
+     just for convenience for the reader or editor of the configuration.</dd>
+</dl>
+<p class="Pp">The secret id uniquely identifies an association secret. However,
+    it is a clumsy hex string of 64 characters which represent the readable
+    sha256 value over the secret's name. So pvapconfig can use the name instead
+    and calculate the secret id from the name. So the rule is:</p>
+<dl class="Bl-tag">
+  <dt id="If"><a class="permalink" href="#If">- If name and secretid is given,
+    the secretid needs to match to the</a></dt>
+  <dd>sha256 hash over the given name for this AP config entry.</dd>
+  <dt id="If~2"><a class="permalink" href="#If~2">- If only name is given then
+    the secretid is calculated with a sha256</a></dt>
+  <dd>
+    <br/>
+     hash over the given name.</dd>
+  <dt id="If~3"><a class="permalink" href="#If~3">- If only the secretid is
+    given, there is nothing more to do but</a></dt>
+  <dd>verify that the value is a hex string with 64 characters.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOCKING"><a class="permalink" href="#LOCKING">LOCKING</a></h1>
+<p class="Pp">Pvapconfig needs to have a consistent view of the AP resources
+    during lifetime. There must not run multiple instances of pvapconfig or any
+    manipulations of the AP resources in parallel. To prevent the execution of
+    multiple pvapconfig instances the lock file /run/lock/pvapconfig.lock is
+    established. A second instance of pvapconfig will detect this lock file and
+    terminated with an error message. If for any reason this file still exists
+    as a leftover from a previous pvapconfig crash for example, it needs to get
+    removed by hand. The lock file contains the process id of the pvapconfig
+    process which created this file.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<dl class="Bl-tag">
+  <dt><b>0 - Successful termination.</b></dt>
+  <dd>At least one AP config entry has been applied or at least one APQN has
+      been found in a state matching to one AP config entry. If strict option is
+      given, ALL AP config entries have been applied. An AP config entry is
+      applied either by configuring the APQN accordingly or an APQN has been
+      found which already fulfills the constrains.</dd>
+</dl>
+<br/>
+<dl class="Bl-tag">
+  <dt><b>1 - Failure.</b></dt>
+  <dd>Either some kind of failure happened during processing the configuration
+      or the configuration could not get applied successful. In all cases
+      pvapconfig prints out a message to standard error with details about the
+      failure. Also pvapconfig does NOT reset the APQNs to the state found at
+      the startup when failing to apply the configuration.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">For more information and details see the IBM documentation about
+    Confidential Computing &quot;Introducing IBM Secure Execution for
+    Linux&quot; available at https://www.ibm.com/docs/.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/pvsecret.html"><b>pvsecret</b>(1)</a>, <b>lszcrypt</b>(8), <b>chzcrypt</b>(8)</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">DEC 2023</td>
+    <td class="foot-os">s390-tools</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

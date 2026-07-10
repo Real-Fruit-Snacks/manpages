@@ -1,0 +1,2850 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="gpsd request/response protocol">
+<title>gpsd_json(5) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">gpsd_json(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#OVERVIEW">OVERVIEW</a></li><li><a href="#CORE_PROTOCOL_RESPONSES">CORE
+  PROTOCOL RESPONSES</a></li><li><a href="#TPV">TPV</a></li><li><a href="#SKY">SKY</a></li><li><a href="#GST">GST</a></li><li><a href="#ATT">ATT</a></li><li><a href="#IMU">IMU</a></li><li><a href="#TOFF">TOFF</a></li><li><a href="#PPS">PPS</a></li><li><a href="#OSC">OSC</a></li><li><a href="#CORE_PROTOCOL_COMMANDS">CORE
+  PROTOCOL COMMANDS</a></li><li><a href="#?VERSION;">?VERSION;</a></li><li><a href="#?DEVICES;">?DEVICES;</a></li><li><a href="#?WATCH;">?WATCH;</a></li><li><a href="#?POLL;">?POLL;</a></li><li><a href="#?DEVICE;_?DEVICE=">?DEVICE;
+  ?DEVICE=</a></li><li><a href="#Examples">Examples</a></li><li><a href="#ERROR">ERROR</a></li><li><a href="#RTCM2">RTCM2</a></li><li><a href="#RTCM_WIRE_TRANSMISSIONS">RTCM
+  WIRE TRANSMISSIONS</a></li><li><a href="#RTCM_WIRE_FORMATS">RTCM
+  WIRE FORMATS</a></li><li><a href="#RTCM2_JSON_FORMAT">RTCM2
+  JSON FORMAT</a></li><li><a href="#Header_portion">Header
+  portion</a></li><li><a href="#Type_1_and_9:_Correction_data">Type
+  1 and 9: Correction data</a></li><li><a href="#Type_3:_Reference_Station_Parameters">Type
+  3: Reference Station Parameters</a></li><li><a href="#Type_4:_Datum">Type
+  4: Datum</a></li><li><a href="#Type_5:_Constellation_Health">Type
+  5: Constellation Health</a></li><li><a href="#Type_6:_Null">Type
+  6: Null</a></li><li><a href="#Unknown_message">Unknown
+  message</a></li><li><a href="#Type_7:_Radio_Beacon_Almanac">Type
+  7: Radio Beacon Almanac</a></li><li><a href="#Type_13:_GPS_Time_of_Week">Type
+  13: GPS Time of Week</a></li><li><a href="#Type_14:_GPS_Time_of_Week">Type
+  14: GPS Time of Week</a></li><li><a href="#Type_16:_Special_Message">Type
+  16: Special Message</a></li><li><a href="#Type_31:_Correction_data">Type
+  31: Correction data</a></li><li><a href="#RTCM3_DUMP_FORMAT">RTCM3
+  DUMP FORMAT</a></li><li><a href="#AIS_DUMP_FORMATS">AIS
+  DUMP FORMATS</a></li><li><a href="#SUBFRAME_DUMP_FORMATS">SUBFRAME
+  DUMP FORMATS</a></li><li><a href="#READING">READING</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#RESOURCES">RESOURCES</a></li><li><a href="#COPYING">COPYING</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GPSD_JSON(5)</td>
+    <td class="head-vol">GPSD Documentation</td>
+    <td class="head-rtitle">GPSD_JSON(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gpsd_json - gpsd request/response protocol</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OVERVIEW"><a class="permalink" href="#OVERVIEW">OVERVIEW</a></h1>
+<p class="Pp"><b>gpsd</b> is a service daemon that can be used to monitor GPSes,
+    DGPS receivers, Marine AIS broadcasts, and various other location-related
+    and kinematic sensors.</p>
+<p class="Pp">Clients may communicate with <b>gpsd</b> via textual requests and
+    responses over a socket. It is a bad idea for applications to speak the
+    protocol directly: rather, they should use the <b>libgps</b> client library
+    (for C; bindings also exist for other languages) and take appropriate care
+    to check in their code for the expected major and minor protocol
+  versions.</p>
+<p class="Pp">The GPSD protocol is built on top of JSON, JavaScript Object
+    Notation, as specified in [RFC-7159]: The JavaScript Object Notation (JSON)
+    Data Interchange Format. Similar to ECMA 404.</p>
+<p class="Pp">GPSD&#x2019;s use of JSON is restricted in some ways that make
+    parsing it in fixed-extent languages (such as C) easier.</p>
+<p class="Pp">A request line is introduced by &quot;?&quot; and may include
+    multiple commands. Commands begin with a command identifier, followed either
+    by a terminating ';' or by an equal sign &quot;=&quot; and a JSON object
+    treated as an argument. Any ';' or newline indication (either LF or CR-LF)
+    after the end of a command is ignored. All request lines must be composed of
+    US-ASCII characters and may be no more than 80 characters in length,
+    exclusive of the trailing newline.</p>
+<p class="Pp">Responses are single JSON objects that have a &quot;class&quot;
+    attribute the value of which is the object type . Object types include, but
+    are not limited to: &quot;TPV&quot;, &quot;SKY&quot;, &quot;DEVICE&quot;,
+    and &quot;ERROR&quot;. Objects are sent both in response to commands, and
+    periodically as gpsd sends reports. Each object is terminated by a carriage
+    return and a new line (CR-NL).</p>
+<p class="Pp">The order of JSON attributes within a response object is never
+    significant, and you may specify command attributes in any order. Responses
+    never contain the special JSON value null; instead, attributes with empty or
+    undefined values are omitted. The length limit for responses and reports is
+    currently 10240 characters, including the trailing CR-NL. Longer responses
+    will be truncated, so client code must be prepared for the possibility of
+    invalid JSON fragments.</p>
+<p class="Pp">The default maximum message length is set by GPS_JSON_RESPONSE_MAX
+    in <b>include/gpsd_json.h</b>. at compile time.</p>
+<p class="Pp">In JSON reports, if an attribute is present only if the parent
+    attribute is present or has a particular range, then the parent attribute is
+    emitted first.</p>
+<p class="Pp">There is one constraint on the order in which attributes will be
+    omitted. If an optional attribute is present only when a parent attribute
+    has a specified value or range of values, the parent attribute will be
+    emitted first to make parsing easier.</p>
+<p class="Pp">The next subsection section documents the core GPSD protocol.
+    Extensions are documented in the following subsections. The extensions may
+    not be supported in your <b>gpsd</b> instance if it has been compiled with a
+    restricted feature set.</p>
+<p class="Pp">The protocol was designed and documented by Eric S. Raymond.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CORE_PROTOCOL_RESPONSES"><a class="permalink" href="#CORE_PROTOCOL_RESPONSES">CORE
+  PROTOCOL RESPONSES</a></h1>
+<p class="Pp">Here are the core-protocol responses.</p>
+<section class="Ss">
+<h2 class="Ss" id="TPV"><a class="permalink" href="#TPV">TPV</a></h2>
+<p class="Pp">A TPV object is a time-position-velocity report. The
+    &quot;class&quot; and &quot;mode&quot; fields will reliably be present. When
+    &quot;mode&quot; is 0 (Unknown) there is likely no usable data in the
+    sentence. The remaining fields are optional, their presence depends on what
+    data the GNSS receiver has sent, and what <b>gpsd</b> may calculate from
+    that data.</p>
+<p class="Pp">A TPV object will usually be sent at least once for every
+    measurement epoch as determined by the &quot;time&quot; field. Unless the
+    receiver has a solid fix, and knows the current leap second, the time may be
+    random.</p>
+<p class="Pp">Multiple TPV objects are often sent per epoch. When the receiver
+    dribbles data to <b>gpsd</b>, then <b>gpsd</b> has no choice but to dribble
+    it to the client in multiple TPV messages.</p>
+<p class="Pp">The optional &quot;status&quot; field (aka fix type), is a
+    modifier (adjective) to mode. It is not a replacement for, or superset of,
+    the &quot;mode&quot; field. It is almost, but not quite, the same as the
+    NMEA 4.x xxGGA GPS Quality Indicator Values. Many GNSS receivers do not
+    supply it. Those that do interpret the specification in various incompatible
+    ways. To save space in the output, and avoid confusion, the JSON never
+    includes status values of 0 or 1.</p>
+<p class="Pp">All error estimates (epc, epd, epe, eph, ept, epv, epx, epy) are
+    guessed to be 95% confidence, may also be 50%, one sigma, or two sigma
+    confidence. Many GNSS receivers do not specify a confidence level. None
+    specify how the value is calculated. Use error estimates with caution, and
+    only as relative &quot;goodness&quot; indicators. If the GPS reports a value
+    to <b>gpsd</b>, then <b>gpsd</b> will report that value. Otherwise
+    <b>gpsd</b> will try to compute the value from the skyview.</p>
+<p class="Pp">See the file <b>include/gps.h</b>, especially <b>struct
+    gps_data_t</b>, for expanded notes on the items and values in the TPV
+    message.</p>
+<p class="Pp"><b>Table 1. TPV object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;TPV&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">device</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Name of the originating device.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">mode</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">NMEA mode: 0=unknown, 1=no fix, 2=2D,
+      3=3D.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">status</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">GPS fix status: 0=Unknown, 1=Normal,
+      2=DGPS, 3=RTK Fixed, 4=RTK Floating, 5=DR, 6=GNSSDR, 7=Time (surveyed),
+      8=Simulated, 9=P(Y)</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">time</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Time/date stamp in ISO8601 format, UTC. May
+      have a fractional part of up to .001sec precision. May be absent if the
+      mode is not 2D or 3D. May be present, but invalid, if there is no fix.
+      Verify 3 consecutive 3D fixes before believing it is UTC. Even then it may
+      be off by several seconds until the current leap seconds is known.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">altHAE</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Altitude, height above ellipsoid, in
+      meters. Probably WGS84.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">altMSL</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">MSL Altitude in meters. The geoid used is
+      rarely specified and is often inaccurate. See the comments below on
+      geoidSep. altMSL is altHAE minus geoidSep.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">alt</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Deprecated. Undefined. Use altHAE or
+      altMSL.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">climb</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Climb (positive) or sink (negative) rate,
+      meters per second.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">datum</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Current datum. Hopefully WGS84.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">depth</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Depth in meters. Probably depth below the
+      keel...</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">dgpsAge</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Age of DGPS data. In seconds</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">dgpsSta</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Station of DGPS data.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">epc</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Estimated climb error in meters per second.
+      Certainty unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">epd</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Estimated track (direction) error in
+      degrees. Certainty unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">eph</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Estimated horizontal Position (2D) Error in
+      meters. Also known as Estimated Position Error (epe). Certainty
+      unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">eps</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Estimated speed error in meters per second.
+      Certainty unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ept</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Estimated time stamp error in seconds.
+      Certainty unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">epx</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Longitude error estimate in meters.
+      Certainty unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">epy</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Latitude error estimate in meters.
+      Certainty unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">epv</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Estimated vertical error in meters.
+      Certainty unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">geoidSep</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Geoid separation is the difference between
+      the WGS84 reference ellipsoid and the geoid (Mean Sea Level) in meters.
+      Almost no GNSS receiver specifies how they compute their geoid.
+      <b>gpsd</b> interpolates the geoid from a 5x5 degree table of EGM2008
+      values when the receiver does not supply a geoid separation. The
+      <b>gpsd</b> computed geoidSep is usually within one meter of the
+      &quot;true&quot; value, but can be off as much as 12 meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">lat</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Latitude in degrees: +/- signifies
+      North/South.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">leapseconds</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Current leap seconds.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">lon</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Longitude in degrees: +/- signifies
+      East/West.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">track</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Course over ground, degrees from true
+      north.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">magtrack</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Course over ground, degrees magnetic.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">magvar</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Magnetic variation, degrees. Also known as
+      the magnetic declination (the direction of the horizontal component of the
+      magnetic field measured clockwise from north) in degrees, Positive is West
+      variation. Negative is East variation.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">speed</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Speed over ground, meters per second.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ecefx</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">ECEF X position in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ecefy</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">ECEF Y position in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ecefz</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">ECEF Z position in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ecefpAcc</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">ECEF position error in meters. Certainty
+      unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ecefvx</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">ECEF X velocity in meters per second.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ecefvy</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">ECEF Y velocity in meters per second.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ecefvz</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">ECEF Z velocity in meters per second.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ecefvAcc</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">ECEF velocity error in meters per second.
+      Certainty unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">sep</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Estimated Spherical (3D) Position Error in
+      meters. Guessed to be 95% confidence, but many GNSS receivers do not
+      specify, so certainty unknown.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">relD</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Down component of relative position vector
+      in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">relE</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">East component of relative position vector
+      in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">relN</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">North component of relative position vector
+      in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">velD</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Down velocity component in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">velE</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">East velocity component in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">velN</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">North velocity component in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">wanglem</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Wind angle magnetic in degrees.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">wangler</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Wind angle relative in degrees.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">wanglet</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Wind angle true in degrees.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">wspeedr</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Wind speed relative in meters per
+      second.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">wspeedt</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Wind speed true in meters per second.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">wtemp</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Water temperature in degrees Celsius.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">When the C client library parses a response of this kind, it will
+  <br/>
+  assert validity bits in the top-level set member for each field received; see
+    gps.h for bitmask names and values.</p>
+<p class="Pp">Invalid or unknown floating-point values will be set to NAN.
+    Always check floating point values with isfinite() before use. isnan() is
+    not sufficient.</p>
+<p class="Pp">Here&#x2019;s an example TPV sentence:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;TPV&quot;,&quot;device&quot;:&quot;/dev/pts/1&quot;,
+<br/>
+    &quot;time&quot;:&quot;2005-06-08T10:34:48.283Z&quot;,&quot;ept&quot;:0.005,
+<br/>
+    &quot;lat&quot;:46.498293369,&quot;lon&quot;:7.567411672,&quot;alt&quot;:1343.127,
+<br/>
+    &quot;eph&quot;:36.000,&quot;epv&quot;:32.321,
+<br/>
+    &quot;track&quot;:10.3788,&quot;speed&quot;:0.091,&quot;climb&quot;:-0.085,&quot;mode&quot;:3}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="SKY"><a class="permalink" href="#SKY">SKY</a></h2>
+<p class="Pp">A SKY object reports a sky view of the GPS satellite positions. If
+    there is no GPS device available, or no skyview has been reported yet, only
+    the &quot;class&quot; field will reliably be present.</p>
+<p class="Pp"><b>Table 2. SKY object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;SKY&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">device</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Name of originating device</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">nSat</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Number of satellite objects in
+      &quot;satellites&quot; array.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">gdop</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Geometric (hyperspherical) dilution of
+      precision, a combination of PDOP and TDOP. A dimensionless factor which
+      should be multiplied by a base UERE to get an error estimate.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">hdop</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Horizontal dilution of precision, a
+      dimensionless factor which should be multiplied by a base UERE to get a
+      circular error estimate.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">pdop</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Position (spherical/3D) dilution of
+      precision, a dimensionless factor which should be multiplied by a base
+      UERE to get an error estimate.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">prRes</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Pseudorange residue in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">qual</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Quality Indicator 0=no signal 1=searching
+      signal 2=signal acquired 3=signal detected but unusable 4=code locked and
+      time synchronized 5, 6, 7=code and carrier locked and time
+      synchronized</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">satellites</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">list</td>
+    <td style="vertical-align: top;">List of satellite objects in skyview</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">tdop</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Time dilution of precision, a dimensionless
+      factor which should be multiplied by a base UERE to get an error
+      estimate.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">time</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Time/date stamp in ISO8601 format, UTC. May
+      have a fractional part of up to .001sec precision.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">uSat</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Number of satellites used in navigation
+      solution.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">vdop</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Vertical (altitude) dilution of precision,
+      a dimensionless factor which should be multiplied by a base UERE to get an
+      error estimate.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">xdop</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Longitudinal dilution of precision, a
+      dimensionless factor which should be multiplied by a base UERE to get an
+      error estimate.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ydop</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Latitudinal dilution of precision, a
+      dimensionless factor which should be multiplied by a base UERE to get an
+      error estimate.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Many devices compute dilution of precision factors but do not
+    include
+  <br/>
+  them in their reports. Many that do report DOPs report only HDOP,
+    two-dimensional circular error. <b>gpsd</b> always passes through whatever
+    the device reports, then attempts to fill in other DOPs by calculating the
+    appropriate determinants in a covariance matrix based on the satellite view.
+    DOPs may be missing if some of these determinants are singular. It can even
+    happen that the device reports an error estimate in meters when the
+    corresponding DOP is unavailable; some devices use more sophisticated error
+    modeling than the covariance calculation.</p>
+<p class="Pp">The satellite list objects have the following elements:</p>
+<p class="Pp"><b>Table 3. Satellite object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">PRN</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">PRN ID of the satellite. 1-63 are GNSS
+      satellites, 64-96 are GLONASS satellites, 100-164 are SBAS satellites</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">az</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Azimuth, degrees from true north.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">el</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Elevation in degrees.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ss</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Signal to Noise ratio in dBHz.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">used</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">Used in current solution? (SBAS/WAAS/EGNOS
+      satellites may be flagged used if the solution has corrections from them,
+      but not all drivers make this information available.)</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">gnssid</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">The GNSS ID, as defined by u-blox, not
+      NMEA. 0=GPS, 2=Galileo, 3=Beidou, 5=QZSS, 6-GLONASS.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">svid</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">The satellite ID within its constellation.
+      As defined by u-blox, not NMEA).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">sigid</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">The signal ID of this signal. As defined by
+      u-blox, not NMEA. See u-blox doc for details.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">freqid</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">For GLONASS satellites only: the frequency
+      ID of the signal. As defined by u-blox, range 0 to 13. The freqid is the
+      frequency slot plus 7.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">health</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">The health of this satellite. 0 is unknown,
+      1 is OK, and 2 is unhealthy.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Note that satellite objects do not have a &quot;class&quot; field,
+    as they are
+  <br/>
+  never shipped outside of a SKY object.</p>
+<p class="Pp">When the C client library parses a SKY response, it will assert
+    the SATELLITE_SET bit in the top-level set member.</p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;SKY&quot;,&quot;device&quot;:&quot;/dev/pts/1&quot;,
+<br/>
+    &quot;time&quot;:&quot;2005-07-08T11:28:07.114Z&quot;,
+<br/>
+    &quot;xdop&quot;:1.55,&quot;hdop&quot;:1.24,&quot;pdop&quot;:1.99,
+<br/>
+    &quot;satellites&quot;:[
+<br/>
+        {&quot;PRN&quot;:23,&quot;el&quot;:6,&quot;az&quot;:84,&quot;ss&quot;:0,&quot;used&quot;:false},
+<br/>
+        {&quot;PRN&quot;:28,&quot;el&quot;:7,&quot;az&quot;:160,&quot;ss&quot;:0,&quot;used&quot;:false},
+<br/>
+        {&quot;PRN&quot;:8,&quot;el&quot;:66,&quot;az&quot;:189,&quot;ss&quot;:44,&quot;used&quot;:true},
+<br/>
+        {&quot;PRN&quot;:29,&quot;el&quot;:13,&quot;az&quot;:273,&quot;ss&quot;:0,&quot;used&quot;:false},
+<br/>
+        {&quot;PRN&quot;:10,&quot;el&quot;:51,&quot;az&quot;:304,&quot;ss&quot;:29,&quot;used&quot;:true},
+<br/>
+        {&quot;PRN&quot;:4,&quot;el&quot;:15,&quot;az&quot;:199,&quot;ss&quot;:36,&quot;used&quot;:true},
+<br/>
+        {&quot;PRN&quot;:2,&quot;el&quot;:34,&quot;az&quot;:241,&quot;ss&quot;:43,&quot;used&quot;:true},
+<br/>
+        {&quot;PRN&quot;:27,&quot;el&quot;:71,&quot;az&quot;:76,&quot;ss&quot;:43,&quot;used&quot;:true}]}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="GST"><a class="permalink" href="#GST">GST</a></h2>
+<p class="Pp">A GST object is a pseudorange noise report.</p>
+<p class="Pp"><b>Table 4. GST object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;GST&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">device</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Name of originating device</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">time</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Time/date stamp in ISO8601 format, UTC. May
+      have a fractional part of up to .001sec precision.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">rms</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Value of the standard deviation of the
+      range inputs to the navigation process (range inputs include pseudoranges
+      and DGPS corrections).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">major</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Standard deviation of semi-major axis of
+      error ellipse, in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">minor</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Standard deviation of semi-minor axis of
+      error ellipse, in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">orient</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Orientation of semi-major axis of error
+      ellipse, in degrees from true north.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">lat</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Standard deviation of latitude error, in
+      meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">lon</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Standard deviation of longitude error, in
+      meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">alt</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Standard deviation of altitude error, in
+      meters.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;GST&quot;,&quot;device&quot;:&quot;/dev/ttyUSB0&quot;,
+<br/>
+        &quot;time&quot;:&quot;2010-12-07T10:23:07.096Z&quot;,&quot;rms&quot;:2.440,
+<br/>
+        &quot;major&quot;:1.660,&quot;minor&quot;:1.120,&quot;orient&quot;:68.989,
+<br/>
+        &quot;lat&quot;:1.600,&quot;lon&quot;:1.200,&quot;alt&quot;:2.520}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ATT"><a class="permalink" href="#ATT">ATT</a></h2>
+<p class="Pp">An ATT object is a vehicle-attitude report. It is returned by
+    digital-compass and gyroscope sensors; depending on device, it may include:
+    heading, pitch, roll, yaw, gyroscope, and magnetic-field readings. Because
+    such sensors are often bundled as part of marine-navigation systems, the ATT
+    response may also include water depth.</p>
+<p class="Pp">The &quot;class&quot; and &quot;mode&quot; fields will reliably be
+    present. Others may be reported or not depending on the specific device
+    type.</p>
+<p class="Pp">The ATT object is synchronous to the GNSS epoch. Some devices
+    report attitude information with arbitrary, even out of order, time scales.
+    <b>gpsd</b> reports those in an IMU object. The ATT and IMU objects have the
+    same fields, but IMU objects are output as soon as possible. Some devices
+    output both types with arbitrary interleaving.</p>
+<p class="Pp"><b>Table 5. ATT object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;ATT&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">device</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Name of originating device</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">time</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Time/date stamp in ISO8601 format, UTC. May
+      have a fractional part of up to .001sec precision.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">timeTag</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Arbitrary time tag of measurement.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">heading</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Heading, degrees from true north.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">mag_st</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Magnetometer status.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">mheading</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Heading, degrees from magnetic north.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">pitch</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Pitch in degrees.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">pitch_st</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Pitch sensor status.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">rot</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Rate of Turn in dgrees per minute.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">yaw</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Yaw in degrees</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">yaw_st</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Yaw sensor status.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">roll</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Roll in degrees.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">roll_st</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Roll sensor status.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">dip</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Local magnetic inclination, degrees,
+      positive when the magnetic field points downward (into the Earth).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">mag_len</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Scalar magnetic field strength.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">mag_x</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">X component of magnetic field
+      strength.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">mag_y</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Y component of magnetic field
+      strength.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">mag_z</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Z component of magnetic field
+      strength.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">acc_len</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Scalar acceleration.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">acc_x</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">X component of acceleration (m/s^2).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">acc_y</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Y component of acceleration (m/s^2).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">acc_z</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Z component of acceleration (m/s^2).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">gyro_x</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">X component of angular rate (deg/s)</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">gyro_y</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Y component of angular rate (deg/s)</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">gyro_z</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Z component of angular rate (deg/s)</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">depth</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Water depth in meters.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">temp</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Temperature at the sensor, degrees
+      centigrade.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">The heading, pitch, and roll status codes (if present) vary by
+    device.
+  <br/>
+  For the TNT Revolution digital compasses, they are coded as follows:</p>
+<p class="Pp"><b>Table 6. Device flags</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Code</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">C</td>
+    <td style="vertical-align: top;">magnetometer calibration alarm</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">L</td>
+    <td style="vertical-align: top;">low alarm</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">M</td>
+    <td style="vertical-align: top;">low warning</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">N</td>
+    <td style="vertical-align: top;">normal</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">O</td>
+    <td style="vertical-align: top;">high warning</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">P</td>
+    <td style="vertical-align: top;">high alarm</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">V</td>
+    <td style="vertical-align: top;">magnetometer voltage level alarm</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">When the C client library parses a response of this kind, it will
+  <br/>
+  assert ATT_IS.</p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;ATT&quot;,&quot;time&quot;:1270938096.843,
+<br/>
+    &quot;heading&quot;:14223.00,&quot;mag_st&quot;:&quot;N&quot;,
+<br/>
+    &quot;pitch&quot;:169.00,&quot;pitch_st&quot;:&quot;N&quot;, &quot;roll&quot;:-43.00,&quot;roll_st&quot;:&quot;N&quot;,
+<br/>
+    &quot;dip&quot;:13641.000,&quot;mag_x&quot;:2454.000}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="IMU"><a class="permalink" href="#IMU">IMU</a></h2>
+<p class="Pp">The IMU object is asynchronous to the GNSS epoch. It is reported
+    with arbitrary, even out of order, time scales.</p>
+<p class="Pp">The ATT and IMU objects have the same fields, but IMU objects are
+    output as soon as possible.</p>
+<p class="Pp">Seee the ATT onject description for field details.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="TOFF"><a class="permalink" href="#TOFF">TOFF</a></h2>
+<p class="Pp">This message is emitted on each cycle and reports the offset
+    between the host&#x2019;s clock time and the GPS time at top of the second
+    (actually, when the first data for the reporting cycle is received).</p>
+<p class="Pp">This message exactly mirrors the PPS message.</p>
+<p class="Pp">The TOFF message reports the GPS time as derived from the GPS
+    serial data stream. The PPS message reports the GPS time as derived from the
+    GPS PPS pulse.</p>
+<p class="Pp">A TOFF object has the following elements:</p>
+<p class="Pp"><b>Table 7. TOFF object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;TOFF&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">device</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Name of the originating device</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">real_sec</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">seconds from the GPS clock</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">real_nsec</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">nanoseconds from the GPS clock</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">clock_sec</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">seconds from the system clock</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">clock_nsec</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">nanoseconds from the system clock</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">This message is emitted once per second to watchers of a device
+    and is
+  <br/>
+  intended to report the timestamps of the in-band report of the GPS and seconds
+    as reported by the system clock (which may be NTP-corrected) when the first
+    valid time stamp of the reporting cycle was seen.</p>
+<p class="Pp">The message contains two second/nanosecond pairs: real_sec and
+    real_nsec contain the time the GPS thinks it was at the start of the current
+    cycle; clock_sec and clock_nsec contain the time the system clock thinks it
+    was on receipt of the first timing message of the cycle. real_nsec is always
+    to nanosecond precision. clock_nsec is nanosecond precision on most
+  systems.</p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;TOFF&quot;,&quot;device&quot;:&quot;/dev/ttyUSB0&quot;,
+<br/>
+     &quot;real_sec&quot;:1330212592, &quot;real_nsec&quot;:343182,
+<br/>
+     &quot;clock_sec&quot;:1330212592,&quot;clock_nsec&quot;:343184,
+<br/>
+     &quot;precision&quot;:-2}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="PPS"><a class="permalink" href="#PPS">PPS</a></h2>
+<p class="Pp">This message is emitted each time the daemon sees a valid PPS
+    (Pulse Per Second) strobe from a device.</p>
+<p class="Pp">This message exactly mirrors the TOFF message.</p>
+<p class="Pp">The TOFF message reports the GPS time as derived from the GPS
+    serial data stream. The PPS message reports the GPS time as derived from the
+    GPS PPS pulse.</p>
+<p class="Pp">There are various sources of error in the reported clock times.
+    The speed of the serial connection between the GPS and the system adds a
+    delay to the start of cycle detection. An even bigger error is added by the
+    variable computation time inside the GPS. Taken together the time derived
+    from the start of the GPS cycle can have offsets of 10 milliseconds to 700
+    milliseconds and combined jitter and wander of 100 to 300 milliseconds.</p>
+<p class="Pp">See the NTP documentation for their definition of precision.</p>
+<p class="Pp">A PPS object has the following elements:</p>
+<p class="Pp"><b>Table 8. PPS object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;PPS&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">device</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Name of the originating device</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">real_sec</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">seconds from the PPS source</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">real_nsec</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">nanoseconds from the PPS source</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">clock_sec</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">seconds from the system clock</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">clock_nsec</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">nanoseconds from the system clock</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">precision</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">NTP style estimate of PPS precision</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">shm</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">shm key of this PPS</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">qErr</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">Quantization error of the PPS, in
+      picoseconds. Sometimes called the &quot;sawtooth&quot; error.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">This message is emitted once per second to watchers of a device
+  <br/>
+  emitting PPS, and reports the time of the start of the GPS second (when the
+    1PPS arrives) and seconds as reported by the system clock (which may be
+    NTP-corrected) at that moment.</p>
+<p class="Pp">The message contains two second/nanosecond pairs: real_sec and
+    real_nsec contain the time the GPS thinks it was at the PPS edge; clock_sec
+    and clock_nsec contain the time the system clock thinks it was at the PPS
+    edge. real_nsec is always to nanosecond precision. clock_nsec is nanosecond
+    precision on most systems.</p>
+<p class="Pp">There are various sources of error in the reported clock times.
+    For PPS delivered via a real serial-line strobe, serial-interrupt latency
+    plus processing time to the timer call should be bounded above by about 10
+    microseconds; that can be reduced to less than 1 microsecond if your kernel
+    supports [RFC-2783]. USB1.1-to-serial control-line emulation is limited to
+    about 1 millisecond. seconds.</p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;PPS&quot;,&quot;device&quot;:&quot;/dev/ttyUSB0&quot;,
+<br/>
+     &quot;real_sec&quot;:1330212592, &quot;real_nsec&quot;:343182,
+<br/>
+     &quot;clock_sec&quot;:1330212592,&quot;clock_nsec&quot;:343184,
+<br/>
+     &quot;precision&quot;:-3}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="OSC"><a class="permalink" href="#OSC">OSC</a></h2>
+<p class="Pp">This message reports the status of a GPS-disciplined oscillator
+    (GPSDO). The GPS PPS output (which has excellent long-term stability) is
+    typically used to discipline a local oscillator with much better short-term
+    stability (such as a rubidium atomic clock).</p>
+<p class="Pp">An OSC object has the following elements:</p>
+<p class="Pp"><b>Table 9. OSC object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;OSC&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">device</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Name of the originating device.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">running</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">If true, the oscillator is currently
+      running. Oscillators may require warm-up time at the start of the
+      day.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">reference</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">If true, the oscillator is receiving a GPS
+      PPS signal.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">disciplined</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">If true, the GPS PPS signal is sufficiently
+      stable and is being used to discipline the local oscillator.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">delta</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">The time difference (in nanoseconds)
+      between the GPS-disciplined oscillator PPS output pulse and the most
+      recent GPS PPS input pulse.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;OSC&quot;,&quot;running&quot;:true,&quot;device&quot;:&quot;/dev/ttyUSB0&quot;,
+<br/>
+    &quot;reference&quot;:true,&quot;disciplined&quot;:true,&quot;delta&quot;:67}</pre>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CORE_PROTOCOL_COMMANDS"><a class="permalink" href="#CORE_PROTOCOL_COMMANDS">CORE
+  PROTOCOL COMMANDS</a></h1>
+<p class="Pp">And here are the commands you can send to <b>gpsd</b>.</p>
+<section class="Ss">
+<h2 class="Ss" id="?VERSION;"><a class="permalink" href="#?VERSION;">?VERSION;</a></h2>
+<p class="Pp">Returns an object with the following attributes:</p>
+<p class="Pp"><b>Table 10. VERSION object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;VERSION&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">release</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Public release level</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">rev</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Internal revision-control level.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">proto_major</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">API major revision level.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">proto_minor</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">numeric</td>
+    <td style="vertical-align: top;">API minor revision level.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">remote</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">URL of the remote daemon reporting this
+      version. If empty, this is the version of the local daemon.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">The daemon ships a VERSION response to each client when the client
+  <br/>
+  first connects to it.</p>
+<p class="Pp">When the C client library parses a response of this kind, it will
+    assert the VERSION_SET bit in the top-level set member.</p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;VERSION&quot;,&quot;version&quot;:&quot;2.40dev&quot;,
+<br/>
+    &quot;rev&quot;:&quot;06f62e14eae9886cde907dae61c124c53eb1101f&quot;,
+<br/>
+    &quot;proto_major&quot;:3,&quot;proto_minor&quot;:1
+}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="?DEVICES;"><a class="permalink" href="#?DEVICES;">?DEVICES;</a></h2>
+<p class="Pp">Returns a device list object with the following elements:</p>
+<p class="Pp"><b>Table 11. DEVICES object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;DEVICES&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">devices</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">list</td>
+    <td style="vertical-align: top;">List of device descriptions</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">remote</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">URL of the remote daemon reporting the
+      device set. If empty, this is a DEVICES response from the local
+      daemon.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">When the C client library parses a response of this kind, it will
+  <br/>
+  assert the DEVICELIST_SET bit in the top-level set member.</p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;=&quot;DEVICES&quot;,&quot;devices&quot;:[
+<br/>
+    {&quot;class&quot;:&quot;DEVICE&quot;,&quot;path&quot;:&quot;/dev/pts/1&quot;,&quot;flags&quot;:1,&quot;driver&quot;:&quot;SiRF binary&quot;},
+<br/>
+    {&quot;class&quot;:&quot;DEVICE&quot;,&quot;path&quot;:&quot;/dev/pts/3&quot;,&quot;flags&quot;:4,&quot;driver&quot;:&quot;AIVDM&quot;}]}</pre>
+</div>
+<p class="Pp">The daemon occasionally ships a bare DEVICE object to the client
+    (that is, one not inside a DEVICES wrapper). The data content of these
+    objects will be described later as a response to the ?DEVICE command.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="?WATCH;"><a class="permalink" href="#?WATCH;">?WATCH;</a></h2>
+<p class="Pp">This command sets watcher mode. It also sets or elicits a report
+    of per-subscriber policy and the raw bit. An argument WATCH object changes
+    the subscriber&#x2019;s policy. The response describes the
+    subscriber&#x2019;s policy. The response will also include a DEVICES
+  object.</p>
+<p class="Pp">A WATCH object has the following elements:</p>
+<p class="Pp"><b>Table 12. WATCH object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;WATCH&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">enable</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">Enable (true) or disable (false) watcher
+      mode. Default is true.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">json</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">Enable (true) or disable (false) dumping of
+      JSON reports. Default is false.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">nmea</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">Enable (true) or disable (false) dumping of
+      binary packets as pseudo-NMEA. Default is false.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">raw</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Controls 'raw' mode. When this attribute is
+      set to 1 for a channel, <b>gpsd</b> reports the unprocessed NMEA or AIVDM
+      data stream from whatever device is attached. Binary GPS packets are
+      hex-dumped. RTCM2 and RTCM3 packets are not dumped in raw mode. When this
+      attribute is set to 2 for a channel that processes binary data,
+      <b>gpsd</b> reports the received data verbatim without hex-dumping.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">scaled</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">If true, apply scaling divisors to output
+      before dumping; default is false.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">split24</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">If true, aggregate AIS type24 sentence
+      parts. If false, report each part as a separate JSON object, leaving the
+      client to match MMSIs and aggregate. Default is false. Applies only to AIS
+      reports.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">pps</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">If true, emit the TOFF JSON message on each
+      cycle and a PPS JSON message when the device issues 1PPS. Default is
+      false.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">device</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">If present, enable watching only of the
+      specified device rather than all devices. Useful with raw and NMEA modes
+      in which device responses aren&#x2019;t tagged. Has no effect when used
+      with enable:false.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">remote</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">URL of the remote daemon reporting the
+      watch set. If empty, this is a WATCH response from the local daemon.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">There is an additional boolean &quot;timing&quot; attribute which
+    is
+  <br/>
+  undocumented because that portion of the interface is considered unstable and
+    for developer use only.</p>
+<p class="Pp">In watcher mode, GPS reports are dumped as TPV and SKY responses.
+    AIS, Subframe and RTCM reporting is described in the next section.</p>
+<p class="Pp">When the C client library parses a response of this kind, it will
+    assert the POLICY_SET bit in the top-level set member.</p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;WATCH&quot;, &quot;raw&quot;:1,&quot;scaled&quot;:true}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="?POLL;"><a class="permalink" href="#?POLL;">?POLL;</a></h2>
+<p class="Pp">The POLL command requests data from the last-seen fixes on all
+    active GPS devices. Devices must previously have been activated by ?WATCH to
+    be pollable.</p>
+<p class="Pp">Polling can lead to possibly surprising results when it is used on
+    a device such as an NMEA GPS for which a complete fix has to be accumulated
+    from several sentences. If you poll while those sentences are being emitted,
+    the response will contain only the fix data collected so far in the current
+    epoch. It may be as much as one cycle time (typically 1 second) stale.</p>
+<p class="Pp">The POLL response will contain a timestamped list of TPV objects
+    describing cached data, and a timestamped list of SKY objects describing
+    satellite configuration. If a device has not seen fixes, it will be reported
+    with a mode field of zero.</p>
+<p class="Pp"><b>Table 13. POLL object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;POLL&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">time</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">Numeric</td>
+    <td style="vertical-align: top;">Timestamp in ISO 8601 format. May have a
+      fractional part of up to .001sec precision.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">active</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">Numeric</td>
+    <td style="vertical-align: top;">Count of active devices.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">tpv</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">JSON array</td>
+    <td style="vertical-align: top;">Comma-separated list of TPV objects.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">sky</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">JSON array</td>
+    <td style="vertical-align: top;">Comma-separated list of SKY objects.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Here&#x2019;s an example of a POLL response:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;POLL&quot;,&quot;time&quot;:&quot;2010-06-04T10:31:00.289Z&quot;,&quot;active&quot;:1,
+<br/>
+    &quot;tpv&quot;:[{&quot;class&quot;:&quot;TPV&quot;,&quot;device&quot;:&quot;/dev/ttyUSB0&quot;,
+<br/>
+            &quot;time&quot;:&quot;2010-09-08T13:33:06.095Z&quot;,
+<br/>
+            &quot;ept&quot;:0.005,&quot;lat&quot;:40.035093060,
+<br/>
+            &quot;lon&quot;:-75.519748733,&quot;track&quot;:99.4319,&quot;speed&quot;:0.123,&quot;mode&quot;:2}],
+<br/>
+    &quot;sky&quot;:[{&quot;class&quot;:&quot;SKY&quot;,&quot;device&quot;:&quot;/dev/ttyUSB0&quot;,
+<br/>
+            &quot;time&quot;:1270517264.240,&quot;hdop&quot;:9.20,
+<br/>
+            &quot;satellites&quot;:[{&quot;PRN&quot;:16,&quot;el&quot;:55,&quot;az&quot;:42,&quot;ss&quot;:36,&quot;used&quot;:true},
+<br/>
+                          {&quot;PRN&quot;:19,&quot;el&quot;:25,&quot;az&quot;:177,&quot;ss&quot;:0,&quot;used&quot;:false},
+<br/>
+                          {&quot;PRN&quot;:7,&quot;el&quot;:13,&quot;az&quot;:295,&quot;ss&quot;:0,&quot;used&quot;:false},
+<br/>
+                          {&quot;PRN&quot;:6,&quot;el&quot;:56,&quot;az&quot;:135,&quot;ss&quot;:32,&quot;used&quot;:true},
+<br/>
+                          {&quot;PRN&quot;:13,&quot;el&quot;:47,&quot;az&quot;:304,&quot;ss&quot;:0,&quot;used&quot;:false},
+<br/>
+                          {&quot;PRN&quot;:23,&quot;el&quot;:66,&quot;az&quot;:259,&quot;ss&quot;:0,&quot;used&quot;:false},
+<br/>
+                          {&quot;PRN&quot;:20,&quot;el&quot;:7,&quot;az&quot;:226,&quot;ss&quot;:0,&quot;used&quot;:false},
+<br/>
+                          {&quot;PRN&quot;:3,&quot;el&quot;:52,&quot;az&quot;:163,&quot;ss&quot;:32,&quot;used&quot;:true},
+<br/>
+                          {&quot;PRN&quot;:31,&quot;el&quot;:16,&quot;az&quot;:102,&quot;ss&quot;:0,&quot;used&quot;:false}
+]}]}</pre>
+</div>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<br/>
+<b>Note</b>
+<p class="Pp">Client software should not assume the field inventory of the POLL
+  <br/>
+  response is fixed for all time. As <b>gpsd</b> collects and caches more data
+    from more sensor types, those data are likely to find their way into this
+    response.</p>
+<p class="Pp"></p>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="?DEVICE;_?DEVICE="><a class="permalink" href="#?DEVICE;_?DEVICE=">?DEVICE;
+  ?DEVICE=</a></h2>
+<p class="Pp">This command reports (when followed by ';') the state of a device,
+    or sets (when followed by '=' and a DEVICE object) device-specific control
+    bits, notably the device&#x2019;s speed and serial mode and the native-mode
+    bit. The parameter-setting form will be rejected if more than one client is
+    attached to the channel and a device path is not specified.</p>
+<p class="Pp">Pay attention to the response, because it is possible for this
+    command to fail if the GPS does not support a command or only supports some
+    combinations of modes. In case of failure, the daemon and GPS will continue
+    to communicate at the old speed.</p>
+<p class="Pp">Use the parameter-setting form with caution. On USB and Bluetooth
+    GPSes it is also possible for serial mode setting to fail either because the
+    serial adaptor chip does not support non-8N1 modes or because the device
+    firmware does not properly synchronize the serial adaptor chip with the UART
+    on the GPS chipset when the speed changes. These failures can hang your
+    device, possibly requiring a GPS power cycle or (in extreme cases)
+    physically disconnecting the NVRAM backup battery.</p>
+<p class="Pp">A DEVICE object has the following elements:</p>
+<p class="Pp"><b>Table 14. DEVICE object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;DEVICE&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">activated</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Time the device was activated as an ISO8601
+      time stamp. If the device is inactive this attribute is absent.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">bps</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Device speed in bits per second.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">cycle</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">Device cycle time in seconds.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">driver</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">GPSD&#x2019;s name for the device driver
+      type. Won&#x2019;t be reported before <b>gpsd</b> has seen identifiable
+      packets from the device.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">flags</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Bit vector of property flags. Currently
+      defined flags are: describe packet types seen so far (GPS, RTCM2, RTCM3,
+      AIS). Won&#x2019;t be reported if empty, e.g. before <b>gpsd</b> has seen
+      identifiable packets from the device.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">hexdata</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Data, in bare hexadecimal, to send to the
+      GNSS receiver.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">mincycle</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">Device minimum cycle time in seconds.
+      Reported from ?DEVICE when (and only when) the rate is switchable. It is
+      read-only and not settable.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">native</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">0 means NMEA mode and 1 means alternate
+      mode (binary if it has one, for SiRF and Evermore chipsets in particular).
+      Attempting to set this mode on a non-GPS device will yield an error.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">parity</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">N, O or E for no parity, odd, or even.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">path</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Name the device for which the control bits
+      are being reported, or for which they are to be applied. This attribute
+      may be omitted only when there is exactly one subscribed channel.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">readonly</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">True if device is read-only.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">stopbits</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Stop bits (1 or 2).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">subtype</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Whatever version information the device
+      driver returned.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">subtype1</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">More version information the device driver
+      returned.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">The serial parameters will (bps, parity, stopbits) be omitted in a
+  <br/>
+  response describing a TCP/IP source such as an Ntrip, DGPSIP, or AIS feed; on
+    a serial device they will always be present.</p>
+<p class="Pp">The contents of the flags field should be interpreted as
+  follows:</p>
+<p class="Pp"><b>Table 15. Device flags</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">C #define</td>
+    <td style="vertical-align: top;">Value</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">SEEN_GPS</td>
+    <td style="vertical-align: top;">0x01</td>
+    <td style="vertical-align: top;">GPS data has been seen on this device</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">SEEN_RTCM2</td>
+    <td style="vertical-align: top;">0x02</td>
+    <td style="vertical-align: top;">RTCM2 data has been seen on this
+      device</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">SEEN_RTCM3</td>
+    <td style="vertical-align: top;">0x04</td>
+    <td style="vertical-align: top;">RTCM3 data has been seen on this
+      device</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">SEEN_AIS</td>
+    <td style="vertical-align: top;">0x08</td>
+    <td style="vertical-align: top;">AIS data has been seen on this device</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">When the C client library parses a response of this kind, it will
+  <br/>
+  assert the DEVICE_SET bit in the top-level set member.</p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;DEVICE&quot;,&quot;bps&quot;:4800,&quot;parity&quot;:&quot;N&quot;,&quot;stopbits&quot;:1,&quot;native&quot;:0}</pre>
+</div>
+<p class="Pp">When a client is in watcher mode, the daemon will ship it DEVICE
+    notifications when a device is added to the pool or deactivated.</p>
+<p class="Pp">When the C client library parses a response of this kind, it will
+    assert the DEVICE_SET bit in the top-level set member.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Examples"><a class="permalink" href="#Examples">Examples</a></h2>
+<p class="Pp">A notice of a deactivated device:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;DEVICE&quot;,&quot;path&quot;:&quot;/dev/pts1&quot;,&quot;activated&quot;:0}</pre>
+</div>
+<p class="Pp">A send a u-blox receiver at /dev/ttyUSB2 a request for a
+    UBX-MON-VER message:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>?DEVICE={&quot;path&quot;:&quot;/dev/ttyUSB2&quot;,&quot;hexdata&quot;:&quot;b5620a0400000e34&quot;}</pre>
+</div>
+<p class="Pp">The <i>gpsd</i> daemon will respond with an ACK on success:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;ACK&quot;}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ERROR"><a class="permalink" href="#ERROR">ERROR</a></h2>
+<p class="Pp">The daemon may ship an error object in response to a syntactically
+    invalid command line or unknown command. It has the following elements:</p>
+<p class="Pp"><b>Table 16. ERROR notification object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;ERROR&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">message</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Textual error message</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;ERROR&quot;,&quot;message&quot;:&quot;Unrecognized request '?FOO'&quot;}</pre>
+</div>
+<p class="Pp">When the C client library parses a response of this kind, it will
+    assert the ERR_SET bit in the top-level set member.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RTCM2"><a class="permalink" href="#RTCM2">RTCM2</a></h1>
+<p class="Pp">RTCM-104 is a family of serial protocols used for broadcasting
+    pseudorange corrections from differential-GPS reference stations. Many GPS
+    receivers can accept these corrections to improve their reporting
+  accuracy.</p>
+<p class="Pp">RTCM-104 comes in two major and incompatible flavors, 2.x and 3.x.
+    Each major flavor has minor (compatible) revisions.</p>
+<p class="Pp">The applicable standard for RTCM Version 2.x is RTCM Recommended
+    Standards for Differential NAVSTAR GPS Service RTCM Paper 194-93/SC 104-STD.
+    For RTCM 3.1 it is RTCM Paper 177-2006-SC104-STD. Ordering instructions for
+    both standards are accessible from the website of the <i>Radio Technical
+    Commission for Maritime Services</i> &lt;https://www.rtcm.org/&gt; under
+    &quot;Publications&quot;.</p>
+<section class="Ss">
+<h2 class="Ss" id="RTCM_WIRE_TRANSMISSIONS"><a class="permalink" href="#RTCM_WIRE_TRANSMISSIONS">RTCM
+  WIRE TRANSMISSIONS</a></h2>
+<p class="Pp">Differential-GPS correction stations consist of a GPS reference
+    receiver coupled to a low frequency (LF) transmitter. The GPS reference
+    receiver is a survey-grade GPS that does GPS carrier tracking and can work
+    out its position to a few millimeters. It generates range and range-rate
+    corrections and encodes them into RTCM104. It ships the RTCM104 to the LF
+    transmitter over serial rs-232 signal at 100 baud or 200 baud depending on
+    the requirements of the transmitter.</p>
+<p class="Pp">The LF transmitter broadcasts the approximately 300khz radio
+    signal that differential-GPS radio receivers pick up. Transmitters that are
+    meant to have a higher range will need to transmit at a slower rate. The
+    higher the data rate the harder it will be for the remote radio receiver to
+    receive with a good signal-to-noise ration. (Higher data rate signals
+    can&#x2019;t be averaged over as long a time frame, hence they appear
+    noisier.)</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="RTCM_WIRE_FORMATS"><a class="permalink" href="#RTCM_WIRE_FORMATS">RTCM
+  WIRE FORMATS</a></h2>
+<p class="Pp">An RTCM 2.x message consists of a sequence of up to 33 30-bit
+    words. The 24 most significant bits of each word are data and the six least
+    significant bits are parity. The parity algorithm used is the same
+    ISGPS-2000 as that used on GPS satellite downlinks. Each RTCM 2.x message
+    consists of two header words followed by zero or more data words, depending
+    upon the message type.</p>
+<p class="Pp">An RTCM 3.x message begins with a fixed leader byte 0xD3. That is
+    followed by six bits of version information and 10 bits of payload length
+    information. Following that is the payload; following the payload is a
+    3-byte checksum of the payload using the Qualcomm CRC-24Q algorithm.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="RTCM2_JSON_FORMAT"><a class="permalink" href="#RTCM2_JSON_FORMAT">RTCM2
+  JSON FORMAT</a></h2>
+<p class="Pp">Each RTCM2 message is dumped as a single JSON object per message,
+    with the message fields as attributes of that object. Arrays of satellite,
+    station, and constellation statistics become arrays of JSON sub-objects.
+    Each sentence will normally also have a &quot;device&quot; field containing
+    the pathname of the originating device.</p>
+<p class="Pp">All attributes other than the device field are mandatory. Header
+    attributes are emitted before others.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Header_portion"><a class="permalink" href="#Header_portion">Header
+  portion</a></h2>
+<p class="Pp"><b>Table 17. SKY object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;RTCM2&quot;.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">type</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Message type (1-9).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">station_id</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">The id of the GPS reference receiver. The
+      LF transmitters also have (different) id numbers.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">zcount</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">The reference time of the corrections in
+      the message in seconds within the current hour. Note that it is in GPS
+      time, which is some seconds ahead of UTC (see the U.S. Naval
+      Observatory&#x2019;s <i>table of leap second</i>
+      &lt;ftp://maia.usno.navy.mil/ser7/tai-utc.dat&gt; corrections&quot;
+      ).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">seqnum</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Sequence number. Only 3 bits wide, wraps
+      after 7.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">length</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">The number of words after the header that
+      comprise the message.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">station_health</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Station transmission status. Indicates the
+      health of the beacon as a reference source. Any nonzero value means the
+      satellite is probably transmitting bad data and should not be used in a
+      fix. 6 means the transmission is unmonitored. 7 means the station is not
+      working properly. Other values are defined by the beacon operator.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">&lt;message type&gt; is one of</p>
+<p class="Pp">1</p>
+<div class="Bd-indent">full corrections &#x2014; one message containing
+  corrections for all GPS satellites in view. This is not common.</div>
+<p class="Pp">3</p>
+<div class="Bd-indent">reference station parameters &#x2014; the position of the
+  reference station GPS antenna.</div>
+<p class="Pp">4</p>
+<div class="Bd-indent">datum &#x2014; the datum to which the DGPS data is
+  referred.</div>
+<p class="Pp">5</p>
+<div class="Bd-indent">constellation health &#x2014; information about the
+  satellites the beacon can see.</div>
+<p class="Pp">6</p>
+<div class="Bd-indent">null message &#x2014; just a filler.</div>
+<p class="Pp">7</p>
+<div class="Bd-indent">radio beacon almanac &#x2014; information about this or
+  other beacons.</div>
+<p class="Pp">9</p>
+<div class="Bd-indent">subset corrections &#x2014; a message containing
+  corrections for only a subset of the GPS satellites in view.</div>
+<p class="Pp">16</p>
+<div class="Bd-indent">special message &#x2014; a text message from the beacon
+  operator.</div>
+<p class="Pp">31</p>
+<div class="Bd-indent">GLONASS subset corrections &#x2014; a message containing
+  corrections for a set of the GLONASS satellites in view.</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Type_1_and_9:_Correction_data"><a class="permalink" href="#Type_1_and_9:_Correction_data">Type
+  1 and 9: Correction data</a></h2>
+<p class="Pp">One or more satellite objects follow the header for type 1 or type
+    9 messages. Here is the format:</p>
+<p class="Pp"><b>Table 18. Satellite object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ident</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">The PRN number of the satellite for which
+      this is correction data.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">udre</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">User Differential Range Error (0-3). See
+      the table following for values.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">iod</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Issue Of Data, matching the IOD for the
+      current ephemeris of this satellite, as transmitted by the satellite. The
+      IOD is a unique tag that identifies the ephemeris; the GPS using the DGPS
+      correction and the DGPS generating the data must use the same orbital
+      positions for the satellite.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">prc</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">The pseudorange error in meters for this
+      satellite as measured by the beacon reference receiver at the epoch
+      indicated by the z_count in the parent record.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">rrc</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">The rate of change of pseudorange error in
+      meters/sec for this satellite as measured by the beacon reference receiver
+      at the epoch indicated by the z_count field in the parent record. This is
+      used to calculate pseudorange errors at other epochs, if required by the
+      GPS receiver.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">User Differential Range Error values are as follows:</p>
+<p class="Pp"><b>Table 19. UDRE values</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">0</td>
+    <td style="vertical-align: top;">1-sigma error &#x21D0; 1 m</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">1</td>
+    <td style="vertical-align: top;">1-sigma error &#x21D0; 4 m</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">2</td>
+    <td style="vertical-align: top;">1-sigma error &#x21D0; 8 m</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">3</td>
+    <td style="vertical-align: top;">1-sigma error &gt; 8 m</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;RTCM2&quot;,&quot;type&quot;:1,
+<br/>
+    &quot;station_id&quot;:688,&quot;zcount&quot;:843.0,&quot;seqnum&quot;:5,&quot;length&quot;:19,&quot;station_health&quot;:6,
+<br/>
+    &quot;satellites&quot;:[
+<br/>
+        {&quot;ident&quot;:10,&quot;udre&quot;:0,&quot;iod&quot;:46,&quot;prc&quot;:-2.400,&quot;rrc&quot;:0.000},
+<br/>
+        {&quot;ident&quot;:13,&quot;udre&quot;:0,&quot;iod&quot;:94,&quot;prc&quot;:-4.420,&quot;rrc&quot;:0.000},
+<br/>
+        {&quot;ident&quot;:7,&quot;udre&quot;:0,&quot;iod&quot;:22,&quot;prc&quot;:-5.160,&quot;rrc&quot;:0.002},
+<br/>
+        {&quot;ident&quot;:2,&quot;udre&quot;:0,&quot;iod&quot;:34,&quot;prc&quot;:-6.480,&quot;rrc&quot;:0.000},
+<br/>
+        {&quot;ident&quot;:4,&quot;udre&quot;:0,&quot;iod&quot;:47,&quot;prc&quot;:-8.860,&quot;rrc&quot;:0.000},
+<br/>
+        {&quot;ident&quot;:8,&quot;udre&quot;:0,&quot;iod&quot;:76,&quot;prc&quot;:-7.980,&quot;rrc&quot;:0.002},
+<br/>
+        {&quot;ident&quot;:5,&quot;udre&quot;:0,&quot;iod&quot;:99,&quot;prc&quot;:-8.260,&quot;rrc&quot;:0.002},
+<br/>
+        {&quot;ident&quot;:23,&quot;udre&quot;:0,&quot;iod&quot;:81,&quot;prc&quot;:-8.060,&quot;rrc&quot;:0.000},
+<br/>
+        {&quot;ident&quot;:16,&quot;udre&quot;:0,&quot;iod&quot;:70,&quot;prc&quot;:-11.740,&quot;rrc&quot;:0.000},
+<br/>
+        {&quot;ident&quot;:30,&quot;udre&quot;:0,&quot;iod&quot;:4,&quot;prc&quot;:-18.960,&quot;rrc&quot;:-0.006},
+<br/>
+        {&quot;ident&quot;:29,&quot;udre&quot;:0,&quot;iod&quot;:101,&quot;prc&quot;:-24.960,&quot;rrc&quot;:-0.002}
+]}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Type_3:_Reference_Station_Parameters"><a class="permalink" href="#Type_3:_Reference_Station_Parameters">Type
+  3: Reference Station Parameters</a></h2>
+<p class="Pp">Here are the payload members of a type 3 (Reference Station
+    Parameters) message:</p>
+<p class="Pp"><b>Table 20. Reference Station Parameters</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">x</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">ECEF X coordinate.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">y</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">ECEF Y coordinate.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">z</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">ECEF Z coordinate.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">The coordinates are the position of the station, in meters to two
+  <br/>
+  decimal places, in Earth Centred Earth Fixed coordinates. These are usually
+    referred to the WGS84 reference frame, but may be referred to NAD83 in the
+    US (essentially identical to WGS84 for all except geodesists), or some other
+    reference frame in other parts of the world.</p>
+<p class="Pp">An invalid reference message is represented by a type 3 header
+    without payload fields.</p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;RTCM2&quot;,&quot;type&quot;:3,
+<br/>
+    &quot;station_id&quot;:652,&quot;zcount&quot;:1657.2,&quot;seqnum&quot;:2,&quot;length&quot;:4,&quot;station_health&quot;:6,
+<br/>
+    &quot;x&quot;:3878620.92,&quot;y&quot;:670281.40,&quot;z&quot;:5002093.59
+}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Type_4:_Datum"><a class="permalink" href="#Type_4:_Datum">Type
+  4: Datum</a></h2>
+<p class="Pp">Here are the payload members of a type 4 (Datum) message:</p>
+<p class="Pp"><b>Table 21. Datum</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">dgnss_type</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Either &quot;GPS&quot;,
+      &quot;GLONASS&quot;, &quot;GALILEO&quot;, or &quot;UNKNOWN&quot;.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">dat</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">0 or 1 and indicates the sense of the
+      offset shift given by dx, dy, dz. dat = 0 means that the station
+      coordinates (in the reference message) are referred to a local datum and
+      that adding dx, dy, dz to that position will render it in GNSS coordinates
+      (WGS84 for GPS). If dat = 1 then the ref station position is in GNSS
+      coordinates and adding dx, dy, dz will give it referred to the local
+      datum.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">datum_name</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">A standard name for the datum.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">dx</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">X offset.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">dy</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">Y offset.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">dz</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">Z offset.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">&lt;dx&gt; &lt;dy&gt; &lt;dz&gt; are offsets to convert from local
+    datum to GNSS datum or
+  <br/>
+  vice versa. These fields are optional.</p>
+<p class="Pp">An invalid datum message is represented by a type 4 header without
+    payload fields.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Type_5:_Constellation_Health"><a class="permalink" href="#Type_5:_Constellation_Health">Type
+  5: Constellation Health</a></h2>
+<p class="Pp">One or more of these follow the header for type 5 messages
+    &#x2014; one for each satellite.</p>
+<p class="Pp">Here is the format:</p>
+<p class="Pp"><b>Table 22. Constellation health</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ident</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">The PRN number of the satellite.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">iodl</td>
+    <td style="vertical-align: top;">bool</td>
+    <td style="vertical-align: top;">True indicates that this information
+      relates to the satellite information in an accompanying type 1 or type 9
+      message.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">health</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">0 indicates that the satellite is healthy.
+      Any other value indicates a problem (coding is not known).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">snr</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">The carrier/noise ratio of the received
+      signal in the range 25 to 55 dB(Hz).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">health_en</td>
+    <td style="vertical-align: top;">bool</td>
+    <td style="vertical-align: top;">If set to True it indicates that the
+      satellite is healthy even if the satellite navigation data says it is
+      unhealthy.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">new_data</td>
+    <td style="vertical-align: top;">bool</td>
+    <td style="vertical-align: top;">True indicates that the IOD for this
+      satellite will soon be updated in type 1 or 9 messages.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">los_warning</td>
+    <td style="vertical-align: top;">bool</td>
+    <td style="vertical-align: top;">Line-of-sight warning. True indicates that
+      the satellite will shortly go unhealthy.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">tou</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Healthy time remaining in seconds.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Type_6:_Null"><a class="permalink" href="#Type_6:_Null">Type
+  6: Null</a></h2>
+<p class="Pp">This just indicates a null message. There are no payload
+  fields.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Unknown_message"><a class="permalink" href="#Unknown_message">Unknown
+  message</a></h2>
+<p class="Pp">This format is used to dump message words in hexadecimal when the
+    message type field doesn&#x2019;t match any of the known ones.</p>
+<p class="Pp">Here is the format:</p>
+<p class="Pp"><b>Table 23. Unknown Message</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">data</td>
+    <td style="vertical-align: top;">list</td>
+    <td style="vertical-align: top;">A list of strings.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Each string in the array is a hex literal representing 30 bits of
+  <br/>
+  information, after parity checks and inversion. The high two bits should be
+    ignored.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Type_7:_Radio_Beacon_Almanac"><a class="permalink" href="#Type_7:_Radio_Beacon_Almanac">Type
+  7: Radio Beacon Almanac</a></h2>
+<p class="Pp">Here is the format:</p>
+<p class="Pp"><b>Table 24. Constellation health</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">lat</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">Latitude in degrees, of the LF transmitter
+      antenna for the station for which this is an almanac. North is
+      positive.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">lon</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">Longitude in degrees, of the LF transmitter
+      antenna for the station for which this is an almanac. East is
+      positive.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">range</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Published range of the station in km.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">frequency</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">Station broadcast frequency in kHz.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">health</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">&lt;health&gt; is the health of the station
+      for which this is an almanac. If it is non-zero, the station is issuing
+      suspect data and should not be used for fixes. The ITU and RTCM104
+      standards differ about the mode detailed interpretation of the
+      &lt;health&gt; field and even about its bit width.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">station_id</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">The id of the transmitter. This is not the
+      same as the reference id in the header, the latter being the id of the
+      reference receiver.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">bitrate</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">The transmitted bitrate.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;RTCM2&quot;,&quot;type&quot;:9,&quot;station_id&quot;:268,&quot;zcount&quot;:252.6,
+<br/>
+        &quot;seqnum&quot;:4,&quot;length&quot;:5,&quot;station_health&quot;:0,
+<br/>
+        &quot;satellites&quot;:[
+<br/>
+            {&quot;ident&quot;:13,&quot;udre&quot;:0,&quot;iod&quot;:3,&quot;prc&quot;:-25.940,&quot;rrc&quot;:0.066},
+<br/>
+            {&quot;ident&quot;:2,&quot;udre&quot;:0,&quot;iod&quot;:73,&quot;prc&quot;:0.920,&quot;rrc&quot;:-0.080},
+<br/>
+            {&quot;ident&quot;:8,&quot;udre&quot;:0,&quot;iod&quot;:22,&quot;prc&quot;:23.820,&quot;rrc&quot;:0.014}
+]}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Type_13:_GPS_Time_of_Week"><a class="permalink" href="#Type_13:_GPS_Time_of_Week">Type
+  13: GPS Time of Week</a></h2>
+<p class="Pp">Here are the payload members of a type 13 (Groumf Tramitter
+    Parameters) message:</p>
+<p class="Pp"><b>Table 25. Ground Transmitter Parameters</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">status</td>
+    <td style="vertical-align: top;">bool</td>
+    <td style="vertical-align: top;">If True, signals user to expect a type 16
+      explanatory message associated with this station. Probably indicates some
+      sort of unusual event.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">rangeflag</td>
+    <td style="vertical-align: top;">bool</td>
+    <td style="vertical-align: top;">If True, indicates that the estimated range
+      is different from that found in the type 7 message (which contains the
+      beacon&#x2019;s listed range). Generally indicates a range reduction due
+      to causes such as poor ionospheric conditions or reduced transmission
+      power.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">lat</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">Degrees latitude, signed. Positive is N,
+      negative is S.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">lon</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">Degrees longitude, signed. Positive is E,
+      negative is W.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">range</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Transmission range in km (1-1024).</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">This message type replaces message type 3 (Reference Station
+    Parameters)
+  <br/>
+  in RTCM 2.3.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Type_14:_GPS_Time_of_Week"><a class="permalink" href="#Type_14:_GPS_Time_of_Week">Type
+  14: GPS Time of Week</a></h2>
+<p class="Pp">Here are the payload members of a type 14 (GPS Time of Week)
+    message:</p>
+<p class="Pp"><b>Table 26. Reference Station Parameters</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">week</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">GPS week (0-123).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">hour</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Hour of week (0-167).</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">leapsecs</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Leap Seconds (0-63).</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;RTCM2&quot;,&quot;type&quot;:14,&quot;station_id&quot;:652,&quot;zcount&quot;:1657.2,
+<br/>
+        &quot;seqnum&quot;:3,&quot;length&quot;:1,&quot;station_health&quot;:6,&quot;week&quot;:601,&quot;hour&quot;:109,
+<br/>
+        &quot;leapsecs&quot;:15}</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Type_16:_Special_Message"><a class="permalink" href="#Type_16:_Special_Message">Type
+  16: Special Message</a></h2>
+<p class="Pp"><b>Table 27. Special Message</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">message</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">A text message sent by the beacon
+      operator.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Type_31:_Correction_data"><a class="permalink" href="#Type_31:_Correction_data">Type
+  31: Correction data</a></h2>
+<p class="Pp">One or more GLONASS satellite objects follow the header for type 1
+    or
+  <br/>
+  type 9 messages. Here is the format:</p>
+<p class="Pp"><b>Table 28. Satellite object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">ident</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">The PRN number of the satellite for which
+      this is correction data.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">udre</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">User Differential Range Error (0-3). See
+      the table following for values.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">change</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">Change-of-ephemeris bit.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">tod</td>
+    <td style="vertical-align: top;">uinteger</td>
+    <td style="vertical-align: top;">Count of 30-second periods since the top of
+      the hour.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">prc</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">The pseudorange error in meters for this
+      satellite as measured by the beacon reference receiver at the epoch
+      indicated by the z_count in the parent record.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">rrc</td>
+    <td style="vertical-align: top;">real</td>
+    <td style="vertical-align: top;">The rate of change of pseudorange error in
+      meters/sec for this satellite as measured by the beacon reference receiver
+      at the epoch indicated by the z_count field in the parent record. This is
+      used to calculate pseudorange errors at other epochs, if required by the
+      GPS receiver.</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<p class="Pp">Here&#x2019;s an example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>{&quot;class&quot;:&quot;RTCM2&quot;,&quot;type&quot;:31,&quot;station_id&quot;:652,&quot;zcount&quot;:1642.2,
+<br/>
+    &quot;seqnum&quot;:0,&quot;length&quot;:14,&quot;station_health&quot;:6,
+<br/>
+    &quot;satellites&quot;:[
+<br/>
+        {&quot;ident&quot;:5,&quot;udre&quot;:0,&quot;change&quot;:false,&quot;tod&quot;:0,&quot;prc&quot;:132.360,&quot;rrc&quot;:0.000},
+<br/>
+        {&quot;ident&quot;:15,&quot;udre&quot;:0,&quot;change&quot;:false,&quot;tod&quot;:0,&quot;prc&quot;:134.840,&quot;rrc&quot;:0.002},
+<br/>
+        {&quot;ident&quot;:14,&quot;udre&quot;:0,&quot;change&quot;:false,&quot;tod&quot;:0,&quot;prc&quot;:141.520,&quot;rrc&quot;:0.000},
+<br/>
+        {&quot;ident&quot;:6,&quot;udre&quot;:0,&quot;change&quot;:false,&quot;tod&quot;:0,&quot;prc&quot;:127.000,&quot;rrc&quot;:0.000},
+<br/>
+        {&quot;ident&quot;:21,&quot;udre&quot;:0,&quot;change&quot;:false,&quot;tod&quot;:0,&quot;prc&quot;:128.780,&quot;rrc&quot;:0.000},
+<br/>
+        {&quot;ident&quot;:22,&quot;udre&quot;:0,&quot;change&quot;:false,&quot;tod&quot;:0,&quot;prc&quot;:125.260,&quot;rrc&quot;:0.002},
+<br/>
+        {&quot;ident&quot;:20,&quot;udre&quot;:0,&quot;change&quot;:false,&quot;tod&quot;:0,&quot;prc&quot;:117.280,&quot;rrc&quot;:-0.004},
+<br/>
+        {&quot;ident&quot;:16,&quot;udre&quot;:0,&quot;change&quot;:false,&quot;tod&quot;:17,&quot;prc&quot;:113.460,&quot;rrc&quot;:0.018}
+]}</pre>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RTCM3_DUMP_FORMAT"><a class="permalink" href="#RTCM3_DUMP_FORMAT">RTCM3
+  DUMP FORMAT</a></h1>
+<p class="Pp">The support for RTCM104v3 dumping is incomplete and buggy. Do not
+    attempt to use it for production! Anyone interested in it should read the
+    source code.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AIS_DUMP_FORMATS"><a class="permalink" href="#AIS_DUMP_FORMATS">AIS
+  DUMP FORMATS</a></h1>
+<p class="Pp">AIS support is an extension. It may not be present if your
+    instance of <b>gpsd</b> has been built with a restricted feature set.</p>
+<p class="Pp">AIS packets are dumped as JSON objects with class &quot;AIS&quot;.
+    Each AIS report object contains a &quot;type&quot; field giving the AIS
+    message type and a &quot;scaled&quot; field telling whether the remainder of
+    the fields are dumped in scaled or unscaled form. (These will be emitted
+    before any type-specific fields.) It will also contain a &quot;device&quot;
+    field naming the data source. Other fields have names and types as specified
+    in the AIVDM/AIVDO Protocol Decoding document on the GPSD project website;
+    each message field table may be directly interpreted as a specification for
+    the members of the corresponding JSON object type.</p>
+<p class="Pp">By default, certain scaling and conversion operations are
+    performed for JSON output. Latitudes and longitudes are scaled to decimal
+    degrees rather than the native AIS unit of 1/10000th of a minute of arc.
+    Ship (but not air) speeds are scaled to knots rather than tenth-of-knot
+    units. Rate of turn may appear as &quot;nan&quot; if is unavailable, or as
+    one of the strings &quot;fastright&quot; or &quot;fastleft&quot; if it is
+    out of the AIS encoding range; otherwise it is quadratically mapped back to
+    the turn sensor number in degrees per minute. Vessel draughts are converted
+    to decimal meters rather than native AIS decimeters. Various other scaling
+    conversions are described in &quot;AIVDM/AIVDO Protocol Decoding&quot;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SUBFRAME_DUMP_FORMATS"><a class="permalink" href="#SUBFRAME_DUMP_FORMATS">SUBFRAME
+  DUMP FORMATS</a></h1>
+<p class="Pp">Subframe support is always compiled into <b>gpsd</b> but many
+    GPSes do not output subframe data or the <b>gpsd</b> driver may not support
+    subframes.</p>
+<p class="Pp">Subframe packets are dumped as JSON objects with class
+    &quot;SUBFRAME&quot;. Each subframe report object contains a
+    &quot;frame&quot; field giving the subframe number, a &quot;tSV&quot; field
+    for the transmitting satellite number, a &quot;TOW17&quot; field containing
+    the 17 MSBs of the start of the next 12-second message and a
+    &quot;scaled&quot; field telling whether the remainder of the fields are
+    dumped in scaled or unscaled form. It will also contain a &quot;device&quot;
+    field naming the data source. Each SUBFRAME object will have a sub-object
+    specific to that subframe page type. Those sub-object fields have names and
+    types similar to those specified in the IS-GPS-200 document; each message
+    field table may be directly interpreted as a specification for the members
+    of the corresponding JSON object type.</p>
+<p class="Pp"><b>Table 29. SUBFRAME object</b></p>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td style="vertical-align: top;">Name</td>
+    <td style="vertical-align: top;">Always?</td>
+    <td style="vertical-align: top;">Type</td>
+    <td style="vertical-align: top;">Description</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">class</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Fixed: &quot;SUBFRAME&quot;</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">device</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">string</td>
+    <td style="vertical-align: top;">Name of the originating device.</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">gnssId</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Constellation of transmitting
+      satellite</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">tSV</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">ID of transmitting satellite (Not PRN)</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">TOW17</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Type 17 bits of the next GPS Time Of
+      Week</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">frame</td>
+    <td style="vertical-align: top;">No</td>
+    <td style="vertical-align: top;">integer</td>
+    <td style="vertical-align: top;">Frame number</td>
+  </tr>
+  <tr>
+    <td style="vertical-align: top;">scaled</td>
+    <td style="vertical-align: top;">Yes</td>
+    <td style="vertical-align: top;">boolean</td>
+    <td style="vertical-align: top;">True is values scaled</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="READING"><a class="permalink" href="#READING">READING</a></h1>
+<p class="Pp">Reading the raw JSON can be tedious. You can pretty print, and
+  <br/>
+  colorize, your JSON with [jq] to make reading easier. Using <b>jq</b> ito
+    pretty pring a JSON file can be as simple as:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ jq .  GPSD.json</pre>
+</div>
+<p class="Pp">To grab 10 seconds of live <b>gpsd</b> JSON, and pretty print
+  it:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ gpspipe -w -x 10 | jq .</pre>
+</div>
+<p class="Pp">If you only want to see the TPV messages:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ gpspipe -w -x 10 | fgrep TPV | jq .</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/gpsd.html"><b>gpsd</b>(8)</a>, <a class="Xr" href="../3/libgps.html"><b>libgps</b>(3)</a>, <a class="Xr" href="../3/libgpsmm.html"><b>libgpsmm</b>(3)</a>,
+  <a class="Xr" href="../1/jq.html"><b>jq</b>(1)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCES"><a class="permalink" href="#RESOURCES">RESOURCES</a></h1>
+<p class="Pp"><b>Project web site:</b> <i></i> &lt;https://gpsd.io/&gt;</p>
+<p class="Pp">
+  <br/>
+   [RFC 2783]: <i></i> &lt;https://datatracker.ietf.org/doc/html/rfc2783&gt;
+  <br/>
+  Pulse-Per-Second API for UNIX-like Operating Systems</p>
+<p class="Pp">
+  <br/>
+   [RFC 7159]: <i></i> &lt;https://datatracker.ietf.org/doc/html/rfc7159&gt;
+  <br/>
+  The JavaScript Object Notation (JSON) Data Interchange Format</p>
+<p class="Pp">
+  <br/>
+   [jq]: <i></i> &lt;https://github.com/stedolan/jq&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYING"><a class="permalink" href="#COPYING">COPYING</a></h1>
+<p class="Pp">This file is Copyright 2013 by the GPSD project
+  <br/>
+  SPDX-License-Identifier: BSD-2-clause</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Eric S. Raymond</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-01-10</td>
+    <td class="foot-os">GPSD, Version 3.25</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

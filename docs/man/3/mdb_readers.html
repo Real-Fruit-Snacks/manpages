@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Reader Lock Table">
+<title>mdb_readers(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">mdb_readers(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#Data_Structures">Data
+  Structures</a></li><li><a href="#Macros">Macros</a></li><li><a href="#Detailed_Description">Detailed
+  Description</a></li><li><a href="#Data_Structure_Documentation">Data
+  Structure Documentation</a></li><li><a href="#struct_MDB_rxbody">struct
+  MDB_rxbody</a></li><li><a href="#volatile_MDB_PID_T_MDB_rxbody::mrb_pid">volatile
+  MDB_PID_T MDB_rxbody::mrb_pid</a></li><li><a href="#volatile_MDB_THR_T_MDB_rxbody::mrb_tid">volatile
+  MDB_THR_T MDB_rxbody::mrb_tid</a></li><li><a href="#struct_MDB_reader">struct
+  MDB_reader</a></li><li><a href="#char_MDB_reader::pad_(sizeof(">char
+  MDB_reader::pad[(sizeof(MDB_rxbody)+CACHELINE-1)
+  &amp;amp;~(CACHELINE-1)]</a></li><li><a href="#struct_MDB_txbody">struct
+  MDB_txbody</a></li><li><a href="#uint32_t_MDB_txbody::mtb_magic">uint32_t
+  MDB_txbody::mtb_magic</a></li><li><a href="#uint32_t_MDB_txbody::mtb_format">uint32_t
+  MDB_txbody::mtb_format</a></li><li><a href="#volatile_unsigned_MDB_txbody::mtb_numreaders">volatile
+  unsigned MDB_txbody::mtb_numreaders</a></li><li><a href="#struct_MDB_txninfo">struct
+  MDB_txninfo</a></li><li><a href="#Macro_Definition_Documentation">Macro
+  Definition Documentation</a></li><li><a href="#_define_DEFAULT_READERS___126">#define
+  DEFAULT_READERS 126</a></li><li><a href="#_define_CACHELINE___64">#define
+  CACHELINE 64</a></li><li><a href="#_define_MDB_LOCK_FORMAT">#define
+  MDB_LOCK_FORMAT</a></li><li><a href="#Author">Author</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">readers(3)</td>
+    <td class="head-vol">Library Functions Manual</td>
+    <td class="head-rtitle">readers(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">readers - Reader Lock Table</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Data_Structures"><a class="permalink" href="#Data_Structures">Data
+  Structures</a></h2>
+<br/>
+<p class="Pp">struct <b>MDB_rxbody</b>
+  <br/>
+  struct <b>MDB_reader</b>
+  <br/>
+  struct <b>MDB_txbody</b>
+  <br/>
+  struct <b>MDB_txninfo</b>
+  <br/>
+  <br/>
+</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Macros"><a class="permalink" href="#Macros">Macros</a></h2>
+<br/>
+<p class="Pp">#define <b>DEFAULT_READERS</b> 126
+  <br/>
+  #define <b>CACHELINE</b> 64
+  <br/>
+  #define <b>MDB_LOCK_FORMAT</b>
+  <br/>
+  <br/>
+</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Detailed_Description"><a class="permalink" href="#Detailed_Description">Detailed
+  Description</a></h1>
+<p class="Pp">Readers don't acquire any locks for their data access. Instead,
+    they simply record their transaction ID in the reader table. The reader
+    mutex is needed just to find an empty slot in the reader table. The slot's
+    address is saved in thread-specific data so that subsequent read
+    transactions started by the same thread need no further locking to
+  proceed.</p>
+<p class="Pp">If <b>MDB_NOTLS</b> is set, the slot address is not saved in
+    thread-specific data.</p>
+<p class="Pp">No reader table is used if the database is on a read-only
+    filesystem, or if <b>MDB_NOLOCK</b> is set.</p>
+<p class="Pp">Since the database uses multi-version concurrency control, readers
+    don't actually need any locking. This table is used to keep track of which
+    readers are using data from which old transactions, so that we'll know when
+    a particular old transaction is no longer in use. Old transactions that have
+    discarded any data pages can then have those pages reclaimed for use by a
+    later write transaction.</p>
+<p class="Pp">The lock table is constructed such that reader slots are aligned
+    with the processor's cache line size. Any slot is only ever used by one
+    thread. This alignment guarantees that there will be no contention or cache
+    thrashing as threads update their own slot info, and also eliminates any
+    need for locking when accessing a slot.</p>
+<p class="Pp">A writer thread will scan every slot in the table to determine the
+    oldest outstanding reader transaction. Any freed pages older than this will
+    be reclaimed by the writer. The writer doesn't use any locks when scanning
+    this table. This means that there's no guarantee that the writer will see
+    the most up-to-date reader info, but that's not required for correct
+    operation - all we need is to know the upper bound on the oldest reader, we
+    don't care at all about the newest reader. So the only consequence of
+    reading stale information here is that old pages might hang around a while
+    longer before being reclaimed. That's actually good anyway, because the
+    longer we delay reclaiming old pages, the more likely it is that a string of
+    contiguous pages can be found after coalescing old pages from many old
+    transactions together.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Data_Structure_Documentation"><a class="permalink" href="#Data_Structure_Documentation">Data
+  Structure Documentation</a></h1>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="struct_MDB_rxbody"><a class="permalink" href="#struct_MDB_rxbody">struct
+  MDB_rxbody</a></h1>
+<p class="Pp">The information we store in a single slot of the reader table. In
+    addition to a transaction ID, we also record the process and thread ID that
+    owns a slot, so that we can detect stale information, e.g. threads or
+    processes that went away without cleaning up.</p>
+<p class="Pp"><b>Note</b></p>
+<div class="Bd-indent">We currently don't check for stale records. We simply
+  re-init the table when we know that we're the only process opening the lock
+  file.</div>
+<p class="Pp">
+  <br/>
+  <b>Data Fields</b>
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  volatile <b>txnid_t</b> <b>mrb_txnid</b>
+  <br/>
+  volatile MDB_PID_T <b>mrb_pid</b>
+  <br/>
+  volatile MDB_THR_T <b>mrb_tid</b>
+  <br/>
+  <br/>
+</p>
+</section>
+<section class="Sh">
+<h1 class="Sh">Field Documentation</h1>
+<section class="Ss">
+<h2 class="Ss">volatile <b>txnid_t</b> MDB_rxbody::mrb_txnid</h2>
+<p class="Pp">Current Transaction ID when this transaction began, or
+    (txnid_t)-1. Multiple readers that start at the same time will probably have
+    the same ID here. Again, it's not important to exclude them from anything;
+    all we need to know is which version of the DB they started from so we can
+    avoid overwriting any data used in that particular version.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="volatile_MDB_PID_T_MDB_rxbody::mrb_pid"><a class="permalink" href="#volatile_MDB_PID_T_MDB_rxbody::mrb_pid">volatile
+  MDB_PID_T MDB_rxbody::mrb_pid</a></h2>
+<p class="Pp">The process ID of the process owning this reader txn.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="volatile_MDB_THR_T_MDB_rxbody::mrb_tid"><a class="permalink" href="#volatile_MDB_THR_T_MDB_rxbody::mrb_tid">volatile
+  MDB_THR_T MDB_rxbody::mrb_tid</a></h2>
+<p class="Pp">The thread ID of the thread owning this txn.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="struct_MDB_reader"><a class="permalink" href="#struct_MDB_reader">struct
+  MDB_reader</a></h1>
+<p class="Pp">The actual reader record, with cacheline padding.</p>
+<p class="Pp">
+  <br/>
+  <b>Data Fields</b>
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  union {
+  <br/>
+   <b>MDB_rxbody</b> <b>mrx</b>
+  <br/>
+   char <b>pad</b> [(sizeof(<b>MDB_rxbody</b>)+<b>CACHELINE</b>-1)
+  <br/>
+   &amp;~(<b>CACHELINE</b>-1)]&quot;
+  <br/>
+  } <b>mru</b>
+  <br/>
+  <br/>
+</p>
+</section>
+<section class="Sh">
+<h1 class="Sh">Field Documentation</h1>
+<section class="Ss">
+<h2 class="Ss" id="char_MDB_reader::pad_(sizeof("><a class="permalink" href="#char_MDB_reader::pad_(sizeof(">char
+  MDB_reader::pad[(sizeof(<b>MDB_rxbody</b>)+<b>CACHELINE</b>-1)
+  &amp;~(<b>CACHELINE</b>-1)]</a></h2>
+<p class="Pp">cache line alignment</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="struct_MDB_txbody"><a class="permalink" href="#struct_MDB_txbody">struct
+  MDB_txbody</a></h1>
+<p class="Pp">The header for the reader table. The table resides in a
+    memory-mapped file. (This is a different file than is used for the main
+    database.)</p>
+<p class="Pp">For POSIX the actual mutexes reside in the shared memory of this
+    mapped file. On Windows, mutexes are named objects allocated by the kernel;
+    we store the mutex names in this mapped file so that other processes can
+    grab them. This same approach is also used on MacOSX/Darwin (using named
+    semaphores) since MacOSX doesn't support process-shared POSIX mutexes. For
+    these cases where a named object is used, the object name is derived from a
+    64 bit FNV hash of the environment pathname. As such, naming collisions are
+    extremely unlikely. If a collision occurs, the results are
+  unpredictable.</p>
+<p class="Pp">
+  <br/>
+  <b>Data Fields</b>
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  uint32_t <b>mtb_magic</b>
+  <br/>
+  uint32_t <b>mtb_format</b>
+  <br/>
+  <b>mdb_mutex_t</b> <b>mtb_rmutex</b>
+  <br/>
+  volatile <b>txnid_t</b> <b>mtb_txnid</b>
+  <br/>
+  volatile unsigned <b>mtb_numreaders</b>
+  <br/>
+  <br/>
+</p>
+</section>
+<section class="Sh">
+<h1 class="Sh">Field Documentation</h1>
+<section class="Ss">
+<h2 class="Ss" id="uint32_t_MDB_txbody::mtb_magic"><a class="permalink" href="#uint32_t_MDB_txbody::mtb_magic">uint32_t
+  MDB_txbody::mtb_magic</a></h2>
+<p class="Pp">Stamp identifying this as an LMDB file. It must be set to
+    <b>MDB_MAGIC</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="uint32_t_MDB_txbody::mtb_format"><a class="permalink" href="#uint32_t_MDB_txbody::mtb_format">uint32_t
+  MDB_txbody::mtb_format</a></h2>
+<p class="Pp">Format of this lock file. Must be set to
+  <b>MDB_LOCK_FORMAT</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>mdb_mutex_t</b> MDB_txbody::mtb_rmutex</h2>
+<p class="Pp">Mutex protecting access to this table. This is the reader table
+    lock used with LOCK_MUTEX().</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">volatile <b>txnid_t</b> MDB_txbody::mtb_txnid</h2>
+<p class="Pp">The ID of the last transaction committed to the database. This is
+    recorded here only for convenience; the value can always be determined by
+    reading the main database meta pages.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="volatile_unsigned_MDB_txbody::mtb_numreaders"><a class="permalink" href="#volatile_unsigned_MDB_txbody::mtb_numreaders">volatile
+  unsigned MDB_txbody::mtb_numreaders</a></h2>
+<p class="Pp">The number of slots that have been used in the reader table. This
+    always records the maximum count, it is not decremented when readers release
+    their slots.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="struct_MDB_txninfo"><a class="permalink" href="#struct_MDB_txninfo">struct
+  MDB_txninfo</a></h1>
+<p class="Pp">The actual reader table definition.</p>
+<p class="Pp">
+  <br/>
+  <b>Data Fields</b>
+  <br/>
+</p>
+<p class="Pp">
+  <br/>
+  union {
+  <br/>
+   <b>MDB_txbody</b> <b>mtb</b>
+  <br/>
+   char <b>pad</b> [(sizeof(<b>MDB_txbody</b>)+<b>CACHELINE</b>-1)
+  <br/>
+   &amp;~(<b>CACHELINE</b>-1)]&quot;
+  <br/>
+  } <b>mt1</b>
+  <br/>
+  union {
+  <br/>
+   <b>mdb_mutex_t</b> <b>mt2_wmutex</b>
+  <br/>
+   char <b>pad</b> [(MNAME_LEN+<b>CACHELINE</b>-1)
+  <br/>
+   &amp;~(<b>CACHELINE</b>-1)]&quot;
+  <br/>
+  } <b>mt2</b>
+  <br/>
+  <b>MDB_reader</b> <b>mti_readers</b> [1]
+  <br/>
+  <br/>
+</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Macro_Definition_Documentation"><a class="permalink" href="#Macro_Definition_Documentation">Macro
+  Definition Documentation</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="_define_DEFAULT_READERS___126"><a class="permalink" href="#_define_DEFAULT_READERS___126">#define
+  DEFAULT_READERS 126</a></h2>
+<p class="Pp">Number of slots in the reader table. This value was chosen
+    somewhat arbitrarily. 126 readers plus a couple mutexes fit exactly into 8KB
+    on my development machine. Applications should set the table size using
+    <b>mdb_env_set_maxreaders()</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_define_CACHELINE___64"><a class="permalink" href="#_define_CACHELINE___64">#define
+  CACHELINE 64</a></h2>
+<p class="Pp">The size of a CPU cache line in bytes. We want our lock structures
+    aligned to this size to avoid false cache line sharing in the lock table.
+    This value works for most CPUs. For Itanium this should be 128.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_define_MDB_LOCK_FORMAT"><a class="permalink" href="#_define_MDB_LOCK_FORMAT">#define
+  MDB_LOCK_FORMAT</a></h2>
+<p class="Pp"><b>Value:</b>.PP</p>
+<pre>
+<br/>
+    ((uint32_t) \
+<br/>
+     ((MDB_LOCK_VERSION) \
+<br/>
+      /* Flags which describe functionality */ \
+<br/>
+      + (((MDB_PIDLOCK) != 0) &lt;&lt; 16)))</pre>
+<p class="Pp">Lockfile format signature: version, features and field layout</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Author"><a class="permalink" href="#Author">Author</a></h1>
+<p class="Pp">Generated automatically by Doxygen for LMDB from the source
+  code.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">LMDB</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

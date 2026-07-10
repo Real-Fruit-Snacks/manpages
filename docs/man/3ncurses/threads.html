@@ -1,0 +1,1983 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="curses support for multi-threaded applications">
+<title>threads(3ncurses) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">threads(3ncurses)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Usage">Usage</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#PORTABILITY">PORTABILITY</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">threads(3NCURSES)</td>
+    <td class="head-vol">Library calls</td>
+    <td class="head-rtitle">threads(3NCURSES)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><i>NCURSES_WINDOW_CB</i>, <i>NCURSES_SCREEN_CB</i>,
+    <b>get_escdelay</b>, <b>set_escdelay</b>, <b>set_tabsize</b>,
+    <b>use_screen</b>, <b>use_window</b> - <i>curses</i> support for
+    multi-threaded applications</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;curses.h&gt;</b></pre>
+<pre><i>/* data types */</i>
+<i></i><b>typedef int (*NCURSES_WINDOW_CB)(WINDOW *, void *);</b>
+<b></b><b>typedef int (*NCURSES_SCREEN_CB)(SCREEN *, void *);</b></pre>
+<pre><b>int get_escdelay(void);</b>
+<b></b><b>int set_escdelay(int </b><i>ms</i><b>);</b>
+<b></b><b>int set_tabsize(int </b><i>cols</i><b>);</b></pre>
+<pre><b>int use_screen(SCREEN *</b><i>scr</i><b>, NCURSES_SCREEN_CB </b><i>func</i><b>, void *</b><i>data</i><b>);</b>
+<b></b><b>int use_window(WINDOW *</b><i>win</i><b>, NCURSES_WINDOW_CB </b><i>func</i><b>, void *</b><i>data</i><b>);</b></pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <i>ncurses</i> library can be configured to support
+    multi-threaded applications in a rudimentary way. Such configuration
+    produces a different set of libraries, named <i>libncursest</i>, for
+    example, since doing so alters <i>ncurses</i>'s application binary interface
+    (ABI).</p>
+<p class="Pp">Instead of modifying the programming interface (API) to make
+    <i>ncurses</i> functions expect an additional argument specifying a thread,
+    the library adds functions, usable in any configuration, that hide the
+    <i>mutexes</i> (mutual exclusion locks) needed to prevent concurrent access
+    to variables shared by multiple threads of execution.</p>
+<p class="Pp"><i>ncurses</i> threading support requires the use of functions to
+    access members of the <i>WINDOW</i> structure (see <a class="Xr" href="../3ncurses/opaque.html"><b>opaque</b>(3NCURSES)</a>).
+    It further makes functions of the common global variables <b>COLORS</b>,
+    <b>COLOR_PAIRS</b>, <b>COLS</b>, <b>ESCDELAY</b>, <b>LINES</b>,
+    <b>TABSIZE</b>, <b>curscr</b>, <b>newscr</b>, and <b>ttytype</b>,
+    maintaining them as as read-only values in the <i>SCREEN</i> structure.</p>
+<p class="Pp">Even this is not enough to make an application using <i>curses</i>
+    thread-safe. We would expect a multi-threaded application to have threads
+    updating separate windows (on the same device), and separate screens (on
+    different devices). Further, applications expect a few of the global
+    variables to be writable. The functions described here address these special
+    situations.</p>
+<p class="Pp">The <b>ESCDELAY</b> and <b>TABSIZE</b> global variables are
+    modified by some applications. To modify them in any configuration, use the
+    <b>set_escdelay</b> or <b>set_tabsize</b> functions. Other global variables
+    are not modifiable. <b>get_escdelay</b> retrieves <b>ESCDELAY</b>'s
+  value.</p>
+<p class="Pp">The <b>use_window</b> and <b>use_screen</b> functions provide
+    coarse-grained mutexes for their respective <i>WINDOW</i> and <i>SCREEN</i>
+    parameters; they call a user-supplied function, pass it a <i>data</i>
+    parameter, and return the value from the user-supplied function to the
+    application.</p>
+<section class="Ss">
+<h2 class="Ss" id="Usage"><a class="permalink" href="#Usage">Usage</a></h2>
+<p class="Pp">All <i>ncurses</i> library functions assume that the locale is not
+    altered during operation. In addition, they use data that is maintained
+    within a hierarchy of scopes.</p>
+<ul class="Bl-bullet">
+  <li>global data used in the low-level <i>terminfo</i> or <i>termcap</i>
+      interfaces</li>
+  <li>terminal data associated with a call to <b>set_curterm</b>(3NCURSES)</li>
+</ul>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Terminal data are initialized when screens are created.</dd>
+</dl>
+<ul class="Bl-bullet">
+  <li>screen data associated with a call to <b>newterm</b>(3NCURSES) or
+      <a class="Xr" href="../3ncurses/initscr.html"><b>initscr</b>(3NCURSES)</a></li>
+  <li>window data associated with a call to <b>newwin</b>(3NCURSES) or
+      <b>subwin</b>(3NCURSES)</li>
+</ul>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>Windows are associated with screens. Pads are not necessarily associated
+      with any particular screen.</dd>
+  <dt></dt>
+  <dd>Most <i>curses</i> applications operate on one or more windows within a
+      single screen.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>reentrant data associated with &#x201C;pure&#x201D; functions that alter
+      no shared variables</dd>
+</dl>
+<p class="Pp">The following table lists the scope of each symbol in the
+    <i>ncurses</i> library when configured to support multi-threaded
+    applications.</p>
+<p class="Pp"></p>
+<table class="tbl">
+  <tr style="border-bottom-style: solid;">
+    <td><b>Symbol</b></td>
+    <td><b>Scope</b></td>
+  </tr>
+  <tr>
+    <td><b>BC</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>COLORS</b></td>
+    <td>screen (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>COLOR_PAIR</b></td>
+    <td>reentrant</td>
+  </tr>
+  <tr>
+    <td><b>COLOR_PAIRS</b></td>
+    <td>screen (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>COLS</b></td>
+    <td>screen (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>ESCDELAY</b></td>
+    <td>screen (read-only; see <b>set_escdelay</b>)</td>
+  </tr>
+  <tr>
+    <td><b>LINES</b></td>
+    <td>screen (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>PAIR_NUMBER</b></td>
+    <td>reentrant</td>
+  </tr>
+  <tr>
+    <td><b>PC</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>SP</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>TABSIZE</b></td>
+    <td>screen (read-only; see <b>set_tabsize</b>)</td>
+  </tr>
+  <tr>
+    <td><b>UP</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>acs_map</b></td>
+    <td>screen (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>add_wch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>add_wchnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>add_wchstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>addch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>addchnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>addchstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>addnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>addnwstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>addstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>addwstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>assume_default_colors</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>attr_get</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>attr_off</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>attr_on</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>attr_set</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>attroff</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>attron</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>attrset</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>baudrate</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>beep</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>bkgd</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>bkgdset</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>bkgrnd</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>bkgrndset</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>boolcodes</b></td>
+    <td>global (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>boolfnames</b></td>
+    <td>global (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>boolnames</b></td>
+    <td>global (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>border</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>border_set</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>box</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>box_set</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>can_change_color</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>cbreak</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>chgat</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>clear</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>clearok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>clrtobot</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>clrtoeol</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>color_content</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>color_set</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>copywin</b></td>
+    <td>window (locks source, target)</td>
+  </tr>
+  <tr>
+    <td><b>cur_term</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>curs_set</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>curscr</b></td>
+    <td>screen (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>curses_version</b></td>
+    <td>global (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>def_prog_mode</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>def_shell_mode</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>define_key</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>del_curterm</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>delay_output</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>delch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>deleteln</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>delscreen</b></td>
+    <td>global (locks screen list, screen)</td>
+  </tr>
+  <tr>
+    <td><b>delwin</b></td>
+    <td>global (locks window list)</td>
+  </tr>
+  <tr>
+    <td><b>derwin</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>doupdate</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>dupwin</b></td>
+    <td>screen (locks window)</td>
+  </tr>
+  <tr>
+    <td><b>echo</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>echo_wchar</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>echochar</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>endwin</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>erase</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>erasechar</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>erasewchar</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>filter</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>flash</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>flushinp</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>get_wch</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>get_wstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>getattrs</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getbegx</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getbegy</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getbkgd</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getbkgrnd</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getcchar</b></td>
+    <td>reentrant</td>
+  </tr>
+  <tr>
+    <td><b>getch</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>getcurx</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getcury</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getmaxx</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getmaxy</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getmouse</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>getn_wstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>getnstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>getparx</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getpary</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>getstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>getwin</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>halfdelay</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>has_colors</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>has_ic</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>has_il</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>has_key</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>hline</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>hline_set</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>idcok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>idlok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>immedok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>in_wch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>in_wchnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>in_wchstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>inch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>inchnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>inchstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>init_color</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>init_pair</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>initscr</b></td>
+    <td>global (locks screen list)</td>
+  </tr>
+  <tr>
+    <td><b>innstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>innwstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>ins_nwstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>ins_wch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>ins_wstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>insch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>insdelln</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>insertln</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>insnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>insstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>instr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>intrflush</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>inwstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>is_cleared</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_idcok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_idlok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_immedok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_keypad</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_leaveok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_linetouched</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_nodelay</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_notimeout</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_scrollok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_syncok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>is_term_resized</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>is_wintouched</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>isendwin</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>key_defined</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>key_name</b></td>
+    <td>global (static data)</td>
+  </tr>
+  <tr>
+    <td><b>keybound</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>keyname</b></td>
+    <td>global (static data)</td>
+  </tr>
+  <tr>
+    <td><b>keyok</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>keypad</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>killchar</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>killwchar</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>leaveok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>longname</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>mcprint</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>meta</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>mouse_trafo</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mouseinterval</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>mousemask</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>move</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvadd_wch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvadd_wchnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvadd_wchstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvaddch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvaddchnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvaddchstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvaddnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvaddnwstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvaddstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvaddwstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvchgat</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvcur</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>mvdelch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvderwin</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvget_wch</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvget_wstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvgetch</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvgetn_wstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvgetnstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvgetstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvhline</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvhline_set</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvin_wch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvin_wchnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvin_wchstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvinch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvinchnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvinchstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvinnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvinnwstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvins_nwstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvins_wch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvins_wstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvinsch</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvinsnstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvinsstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvinstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvinwstr</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvprintw</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvscanw</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>mvvline</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvvline_set</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>mvwadd_wch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwadd_wchnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwadd_wchstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwaddch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwaddchnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwaddchstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwaddnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwaddnwstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwaddstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwaddwstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwchgat</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwdelch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwget_wch</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvwget_wstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvwgetch</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvwgetn_wstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvwgetnstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvwgetstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>mvwhline</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwhline_set</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwin</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwin_wch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwin_wchnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwin_wchstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwinch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwinchnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwinchstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwinnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwinnwstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwins_nwstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwins_wch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwins_wstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwinsch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwinsnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwinsstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwinstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwinwstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwprintw</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwscanw</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>mvwvline</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>mvwvline_set</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>napms</b></td>
+    <td>reentrant</td>
+  </tr>
+  <tr>
+    <td><b>newpad</b></td>
+    <td>global (locks window list)</td>
+  </tr>
+  <tr>
+    <td><b>newscr</b></td>
+    <td>screen (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>newterm</b></td>
+    <td>global (locks screen list)</td>
+  </tr>
+  <tr>
+    <td><b>newwin</b></td>
+    <td>global (locks window list)</td>
+  </tr>
+  <tr>
+    <td><b>nl</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>nocbreak</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>nodelay</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>noecho</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>nofilter</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>nonl</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>noqiflush</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>noraw</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>notimeout</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>numcodes</b></td>
+    <td>global (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>numfnames</b></td>
+    <td>global (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>numnames</b></td>
+    <td>global (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>ospeed</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>overlay</b></td>
+    <td>window (locks source, target)</td>
+  </tr>
+  <tr>
+    <td><b>overwrite</b></td>
+    <td>window (locks source, target)</td>
+  </tr>
+  <tr>
+    <td><b>pair_content</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>pecho_wchar</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>pechochar</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>pnoutrefresh</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>prefresh</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>printw</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>putp</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>putwin</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>qiflush</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>raw</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>redrawwin</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>refresh</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>reset_prog_mode</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>reset_shell_mode</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>resetty</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>resize_term</b></td>
+    <td>screen (locks window list)</td>
+  </tr>
+  <tr>
+    <td><b>resizeterm</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>restartterm</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>ripoffline</b></td>
+    <td>global (static data)</td>
+  </tr>
+  <tr>
+    <td><b>savetty</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>scanw</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>scr_dump</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>scr_init</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>scr_restore</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>scr_set</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>scrl</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>scroll</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>scrollok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>set_curterm</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>set_escdelay</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>set_tabsize</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>set_term</b></td>
+    <td>global (locks screen list, screen)</td>
+  </tr>
+  <tr>
+    <td><b>setcchar</b></td>
+    <td>reentrant</td>
+  </tr>
+  <tr>
+    <td><b>setscrreg</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>setupterm</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>slk_attr</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_attr_off</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_attr_on</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_attr_set</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_attroff</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_attron</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_attrset</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_clear</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_color</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_init</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_label</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_noutrefresh</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_refresh</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_restore</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_set</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_touch</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>slk_wset</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>standend</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>standout</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>start_color</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b></b><b>stdscr</b><b></b></td>
+    <td>screen (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>strcodes</b></td>
+    <td>global (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>strfnames</b></td>
+    <td>global (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>strnames</b></td>
+    <td>global (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>subpad</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>subwin</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>syncok</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>term_attrs</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>termattrs</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>termname</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>tgetent</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>tgetflag</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>tgetnum</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>tgetstr</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>tgoto</b></td>
+    <td>global</td>
+  </tr>
+  <tr>
+    <td><b>tigetflag</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>tigetnum</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>tigetstr</b></td>
+    <td>terminal</td>
+  </tr>
+  <tr>
+    <td><b>timeout</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>touchline</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>touchwin</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>tparm</b></td>
+    <td>global (static data)</td>
+  </tr>
+  <tr>
+    <td><b>tputs</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>trace</b></td>
+    <td>global (static data)</td>
+  </tr>
+  <tr>
+    <td><b>ttytype</b></td>
+    <td>screen (read-only)</td>
+  </tr>
+  <tr>
+    <td><b>typeahead</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>unctrl</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>unget_wch</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>ungetch</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>ungetmouse</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>untouchwin</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>use_default_colors</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>use_env</b></td>
+    <td>global (static data)</td>
+  </tr>
+  <tr>
+    <td><b>use_extended_names</b></td>
+    <td>global (static data)</td>
+  </tr>
+  <tr>
+    <td><b>use_legacy_coding</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>use_screen</b></td>
+    <td>global (locks screen list, screen)</td>
+  </tr>
+  <tr>
+    <td><b>use_window</b></td>
+    <td>global (locks window list, window)</td>
+  </tr>
+  <tr>
+    <td><b>vid_attr</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>vid_puts</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>vidattr</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>vidputs</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>vline</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>vline_set</b></td>
+    <td>window (<b>stdscr</b>)</td>
+  </tr>
+  <tr>
+    <td><b>vw_printw</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>vw_scanw</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>vwprintw</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>vwscanw</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>wadd_wch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wadd_wchnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wadd_wchstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>waddch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>waddchnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>waddchstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>waddnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>waddnwstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>waddstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>waddwstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wattr_get</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wattr_off</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wattr_on</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wattr_set</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wattroff</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wattron</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wattrset</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wbkgd</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wbkgdset</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wbkgrnd</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wbkgrndset</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wborder</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wborder_set</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wchgat</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wclear</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wclrtobot</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wclrtoeol</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wcolor_set</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wcursyncup</b></td>
+    <td>screen (affects window plus parents)</td>
+  </tr>
+  <tr>
+    <td><b>wdelch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wdeleteln</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wecho_wchar</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wechochar</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wenclose</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>werase</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wget_wch</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>wget_wstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>wgetbkgrnd</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wgetch</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>wgetdelay</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wgetn_wstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>wgetnstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>wgetparent</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wgetscrreg</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wgetstr</b></td>
+    <td>screen (input operation)</td>
+  </tr>
+  <tr>
+    <td><b>whline</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>whline_set</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>win_wch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>win_wchnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>win_wchstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winchnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winchstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winnwstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wins_nwstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wins_wch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wins_wstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winsch</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winsdelln</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winsertln</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winsnstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winsstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>winwstr</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wmouse_trafo</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wmove</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wnoutrefresh</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>wprintw</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wredrawln</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wrefresh</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>wresize</b></td>
+    <td>window (locks window list)</td>
+  </tr>
+  <tr>
+    <td><b>wscanw</b></td>
+    <td>screen</td>
+  </tr>
+  <tr>
+    <td><b>wscrl</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wsetscrreg</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wstandend</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wstandout</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wsyncdown</b></td>
+    <td>screen (affects window plus parents)</td>
+  </tr>
+  <tr>
+    <td><b>wsyncup</b></td>
+    <td>screen (affects window plus parents)</td>
+  </tr>
+  <tr>
+    <td><b>wtimeout</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wtouchln</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wunctrl</b></td>
+    <td>global (static data)</td>
+  </tr>
+  <tr>
+    <td><b>wvline</b></td>
+    <td>window</td>
+  </tr>
+  <tr>
+    <td><b>wvline_set</b></td>
+    <td>window</td>
+  </tr>
+</table>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp"><b>get_escdelay</b> returns the value of <b>ESCDELAY</b>.
+    <b>set_escdelay</b> and <b>set_tabsize</b> return <b>ERR</b> upon failure
+    and <b>OK</b> upon successful completion. <b>use_screen</b> and
+    <b>use_window</b> return the <i>int</i> returned by the user-supplied
+    function they are called with.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp"><i>ncurses</i> provides both a C function and a preprocessor macro
+    for each function documented in this page.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PORTABILITY"><a class="permalink" href="#PORTABILITY">PORTABILITY</a></h1>
+<p class="Pp">These routines are specific to <i>ncurses</i>. They were not
+    supported on Version 7, BSD or System V implementations. It is recommended
+    that any code depending on <i>ncurses</i> extensions be conditioned using
+    <b>NCURSES_VERSION</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../3ncurses/ncurses.html"><b>ncurses</b>(3NCURSES)</a>, <a class="Xr" href="../3ncurses/opaque.html"><b>opaque</b>(3NCURSES)</a>,
+    <a class="Xr" href="../3ncurses/curses_variables.html"><b>curses_variables</b>(3NCURSES)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-01-13</td>
+    <td class="foot-os">ncurses 6.4</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

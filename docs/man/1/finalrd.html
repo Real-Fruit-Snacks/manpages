@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="final runtime directory generator for shutdown">
+<title>finalrd(1) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">finalrd(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#HOOKS_DIRECTORIES">HOOKS
+  DIRECTORIES</a></li><li><a href="#HOOKS_INTERFACE">HOOKS
+  INTERFACE</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#HOOKLESS_OPERATION">HOOKLESS
+  OPERATION</a></li><li><a href="#HOOKS_INTERFACE_DESCRIPTION">HOOKS
+  INTERFACE DESCRIPTION</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">FINALRD(1)</td>
+    <td class="head-vol">finalrd</td>
+    <td class="head-rtitle">FINALRD(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">finalrd - final runtime directory generator for shutdown</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre> systemctl enable --now finalrd.service
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOOKS_DIRECTORIES"><a class="permalink" href="#HOOKS_DIRECTORIES">HOOKS
+  DIRECTORIES</a></h1>
+<pre> /usr/share/finalrd/*.finalrd
+ /etc/finalrd/*.finalrd
+ /run/finalrd/*.finalrd
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOOKS_INTERFACE"><a class="permalink" href="#HOOKS_INTERFACE">HOOKS
+  INTERFACE</a></h1>
+<pre> foo.finalrd setup
+ foo.finalrd halt|poweroff|reboot|kexec
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>finalrd</b> generates a shutdown directory
+    <i>/run/initramfs</i> which <b>systemd-shutdown</b> pivots to during
+    shutdown. There system shutdown can be finalised and arbitrary hooks can be
+    executed off-root, to safely cleanup rootfs and perform any other shutdown
+    tasks.</p>
+<p class="Pp">For example, a hook may takeover monitoring external metadata RAID
+    arrays, wait for them to be clean, and stop them. If one is using iscsiroot,
+    it maybe needed to perform iscsi logout on shutdown.</p>
+<p class="Pp">Typically, one would not run <b>finalrd</b> directly, but instead
+    activate <b>finalrd.service</b>. This would execute <b>finalrd</b> generator
+    late in the shutdown cycle, just in time for pivot.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOOKLESS_OPERATION"><a class="permalink" href="#HOOKLESS_OPERATION">HOOKLESS
+  OPERATION</a></h1>
+<p class="Pp">If initramfs-tools is not available, and thus copy_exec is not
+    available, hooks will not be executed or copied into the shutdown directory.
+    However, shutdown dir will still be created to ensure init has somewhere to
+    pivot, and attempt a cleaner shutdown without holding up the root
+    filesystem.</p>
+<p class="Pp">For example, Ubuntu Core is such system.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOOKS_INTERFACE_DESCRIPTION"><a class="permalink" href="#HOOKS_INTERFACE_DESCRIPTION">HOOKS
+  INTERFACE DESCRIPTION</a></h1>
+<p class="Pp"><i>*.finalrd</i> hooks can be shipped in <i>/usr</i>, <i>/etc</i>,
+    <i>/run</i>. These directories are for distribution, sysadmin, and transient
+    hooks respectively.</p>
+<p class="Pp">They are multi-purpose binaries with action passed as the first
+    argument.</p>
+<p class="Pp">During setup stage, hooks are executed from the rootfs with one
+    argument <b>setup</b> passed as the first arg. All hooks are executed in all
+    the directories in order, first everything in <i>/usr</i>, then from
+    <i>/etc</i>, then from <i>/run</i>. Environmental variables <i>DESTDIR</i>
+    and <i>DESTROOTDIR</i> are set pointing at the finalrd location. This is
+    done for convenience to use <i>initramfs-tools</i>'s copy_exec function or
+    dracut-install, for copying binaries.</p>
+<p class="Pp">During shutdown stage, hooks are executed from finalrd in parallel
+    with one argument passed to them. The argument is one of <b>halt</b>,
+    <b>poweroff</b>, <b>reboot</b>, <b>kexec</b>.</p>
+<p class="Pp">Note if there are identically named hooks in multiple
+    configuration directories, all of them will be executed during setup stage.
+    But only the last one will be copied into the finalrd and executed during
+    the shutdown stage.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">The initrd Interface of systemd
+    &lt;https://www.freedesktop.org/wiki/Software/systemd/InitrdInterface&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os">finalrd 2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

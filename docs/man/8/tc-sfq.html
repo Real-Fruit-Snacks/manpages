@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Stochastic Fairness Queueing">
+<title>tc-sfq(8) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">tc-sfq(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#ALGORITHM">ALGORITHM</a></li><li><a href="#PARAMETERS">PARAMETERS</a></li><li><a href="#EXAMPLE_&amp;amp;_USAGE">EXAMPLE
+  &amp;amp; USAGE</a></li><li><a href="#SOURCE">SOURCE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">TC(8)</td>
+    <td class="head-vol">Linux</td>
+    <td class="head-rtitle">TC(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">sfq - Stochastic Fairness Queueing</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>tc qdisc ...</b> <b>[ divisor</b> hashtablesize <b>] [
+    limit</b> packets <b>] [ perturb</b> seconds <b>] [ quantum</b> bytes <b>] [
+    flows</b> number <b>] [ depth</b> number <b>] [ headdrop</b> <b>] [
+    redflowlimit</b> bytes <b>] [ min</b> bytes <b>] [ max</b> bytes <b>] [
+    avpkt</b> bytes <b>] [ burst</b> packets <b>] [ probability</b> P <b>] [
+    ecn</b> <b>] [ harddrop ]</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Stochastic Fairness Queueing is a classless queueing discipline
+    available for traffic control with the <a class="Xr" href="../8/tc.html"><b>tc</b>(8)</a> command.</p>
+<p class="Pp">SFQ does not shape traffic but only schedules the transmission of
+    packets, based on 'flows'. The goal is to ensure fairness so that each flow
+    is able to send data in turn, thus preventing any single flow from drowning
+    out the rest.</p>
+<p class="Pp">This may in fact have some effect in mitigating a Denial of
+    Service attempt.</p>
+<p class="Pp">SFQ is work-conserving and therefore always delivers a packet if
+    it has one available.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ALGORITHM"><a class="permalink" href="#ALGORITHM">ALGORITHM</a></h1>
+<p class="Pp">On enqueueing, each packet is assigned to a hash bucket, based on
+    the packets hash value. This hash value is either obtained from an external
+    flow classifier (use <b>tc filter</b> to set them), or a default internal
+    classifier if no external classifier has been configured.</p>
+<p class="Pp">When the internal classifier is used, sfq uses</p>
+<dl class="Bl-tag">
+  <dt>(i)</dt>
+  <dd>Source address</dd>
+  <dt>(ii)</dt>
+  <dd>Destination address</dd>
+  <dt>(iii)</dt>
+  <dd>Source and Destination port</dd>
+</dl>
+<p class="Pp">If these are available. SFQ knows about ipv4 and ipv6 and also
+    UDP, TCP and ESP. Packets with other protocols are hashed based on the
+    32bits representation of their destination and source. A flow corresponds
+    mostly to a TCP/IP connection.</p>
+<p class="Pp">Each of these buckets should represent a unique flow. Because
+    multiple flows may get hashed to the same bucket, sfqs internal hashing
+    algorithm may be perturbed at configurable intervals so that the unfairness
+    lasts only for a short while. Perturbation may however cause some
+    inadvertent packet reordering to occur. After linux-3.3, there is no packet
+    reordering problem, but possible packet drops if rehashing hits one limit
+    (number of flows or packets per flow)</p>
+<p class="Pp">When dequeuing, each hashbucket with data is queried in a round
+    robin fashion.</p>
+<p class="Pp">Before linux-3.3, the compile time maximum length of the SFQ is
+    128 packets, which can be spread over at most 128 buckets of 1024 available.
+    In case of overflow, tail-drop is performed on the fullest bucket, thus
+    maintaining fairness.</p>
+<p class="Pp">After linux-3.3, maximum length of SFQ is 65535 packets, and
+    divisor limit is 65536. In case of overflow, tail-drop is performed on the
+    fullest bucket, unless headdrop was requested.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARAMETERS"><a class="permalink" href="#PARAMETERS">PARAMETERS</a></h1>
+<dl class="Bl-tag">
+  <dt id="divisor"><a class="permalink" href="#divisor">divisor</a></dt>
+  <dd>Can be used to set a different hash table size, available from kernel
+      2.6.39 onwards. The specified divisor must be a power of two and cannot be
+      larger than 65536. Default value: 1024.</dd>
+  <dt id="limit"><a class="permalink" href="#limit">limit</a></dt>
+  <dd>Upper limit of the SFQ. Can be used to reduce the default length of 127
+      packets. After linux-3.3, it can be raised.</dd>
+  <dt id="depth"><a class="permalink" href="#depth">depth</a></dt>
+  <dd>Limit of packets per flow (after linux-3.3). Default to 127 and can be
+      lowered.</dd>
+  <dt id="perturb"><a class="permalink" href="#perturb">perturb</a></dt>
+  <dd>Interval in seconds for queue algorithm perturbation. Defaults to 0, which
+      means that no perturbation occurs. Do not set too low for each
+      perturbation may cause some packet reordering or losses. Advised value: 60
+      This value has no effect when external flow classification is used. Its
+      better to increase divisor value to lower risk of hash collisions.</dd>
+  <dt id="quantum"><a class="permalink" href="#quantum">quantum</a></dt>
+  <dd>Amount of bytes a flow is allowed to dequeue during a round of the round
+      robin process. Defaults to the MTU of the interface which is also the
+      advised value and the minimum value.</dd>
+  <dt id="flows"><a class="permalink" href="#flows">flows</a></dt>
+  <dd>After linux-3.3, it is possible to change the default limit of flows.
+      Default value is 127</dd>
+  <dt id="headdrop"><a class="permalink" href="#headdrop">headdrop</a></dt>
+  <dd>Default SFQ behavior is to perform tail-drop of packets from a flow. You
+      can ask a headdrop instead, as this is known to provide a better feedback
+      for TCP flows.</dd>
+  <dt id="redflowlimit"><a class="permalink" href="#redflowlimit">redflowlimit</a></dt>
+  <dd>Configure the optional RED module on top of each SFQ flow. Random Early
+      Detection principle is to perform packet marks or drops in a probabilistic
+      way. (man tc-red for details about RED)
+    <pre>redflowlimit configures the hard limit on the real (not average) queue size per SFQ flow in bytes.</pre>
+  </dd>
+  <dt id="min"><a class="permalink" href="#min">min</a></dt>
+  <dd>Average queue size at which marking becomes a possibility. Defaults to
+      <b>max</b> /3</dd>
+  <dt id="max"><a class="permalink" href="#max">max</a></dt>
+  <dd>At this average queue size, the marking probability is maximal. Defaults
+      to <b>redflowlimit</b> /4</dd>
+  <dt id="probability"><a class="permalink" href="#probability">probability</a></dt>
+  <dd>Maximum probability for marking, specified as a floating point number from
+      0.0 to 1.0. Default value is 0.02</dd>
+  <dt id="avpkt"><a class="permalink" href="#avpkt">avpkt</a></dt>
+  <dd>Specified in bytes. Used with burst to determine the time constant for
+      average queue size calculations. Default value is 1000</dd>
+  <dt id="burst"><a class="permalink" href="#burst">burst</a></dt>
+  <dd>Used for determining how fast the average queue size is influenced by the
+      real queue size.
+    <pre>Default value is :
+<b>(2 * min + max) / (3 * avpkt)</b></pre>
+  </dd>
+  <dt id="ecn"><a class="permalink" href="#ecn">ecn</a></dt>
+  <dd>RED can either 'mark' or 'drop'. Explicit Congestion Notification allows
+      RED to notify remote hosts that their rate exceeds the amount of bandwidth
+      available. Non-ECN capable hosts can only be notified by dropping a
+      packet. If this parameter is specified, packets which indicate that their
+      hosts honor ECN will only be marked and not dropped, unless the queue size
+      hits <b>depth</b> packets.</dd>
+  <dt id="harddrop"><a class="permalink" href="#harddrop">harddrop</a></dt>
+  <dd>If average flow queue size is above <b>max</b> bytes, this parameter
+      forces a drop instead of ecn marking.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE_&amp;_USAGE"><a class="permalink" href="#EXAMPLE_&amp;_USAGE">EXAMPLE
+  &amp; USAGE</a></h1>
+<p class="Pp">To attach to device ppp0:</p>
+<p class="Pp"># tc qdisc add dev ppp0 root sfq</p>
+<p class="Pp">Please note that SFQ, like all non-shaping (work-conserving)
+    qdiscs, is only useful if it owns the queue. This is the case when the link
+    speed equals the actually available bandwidth. This holds for regular phone
+    modems, ISDN connections and direct non-switched ethernet links.</p>
+<p class="Pp">Most often, cable modems and DSL devices do not fall into this
+    category. The same holds for when connected to a switch and trying to send
+    data to a congested segment also connected to the switch.</p>
+<p class="Pp">In this case, the effective queue does not reside within Linux and
+    is therefore not available for scheduling.</p>
+<p class="Pp">Embed SFQ in a classful qdisc to make sure it owns the queue.</p>
+<p class="Pp">It is possible to use external classifiers with sfq, for example
+    to hash traffic based only on source/destination ip addresses:</p>
+<p class="Pp"># tc filter add ... flow hash keys src,dst perturb 30 divisor
+  1024</p>
+<p class="Pp">Note that the given divisor should match the one used by sfq. If
+    you have changed the sfq default of 1024, use the same value for the flow
+    hash filter, too.</p>
+<p class="Pp"></p>
+<p class="Pp">Example of sfq with optional RED mode :</p>
+<p class="Pp"># tc qdisc add dev eth0 parent 1:1 handle 10: sfq limit 3000 flows
+    512 divisor 16384
+  <br/>
+   redflowlimit 100000 min 8000 max 60000 probability 0.20 ecn headdrop</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SOURCE"><a class="permalink" href="#SOURCE">SOURCE</a></h1>
+<dl class="Bl-tag">
+  <dt id="o"><a class="permalink" href="#o">o</a></dt>
+  <dd>Paul E. McKenney &quot;Stochastic Fairness Queuing&quot;, IEEE INFOCOMM'90
+      Proceedings, San Francisco, 1990.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="o~2"><a class="permalink" href="#o~2">o</a></dt>
+  <dd>Paul E. McKenney &quot;Stochastic Fairness Queuing&quot;,
+      &quot;Interworking: Research and Experience&quot;, v.2, 1991, p.113-131.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="o~3"><a class="permalink" href="#o~3">o</a></dt>
+  <dd>See also: M. Shreedhar and George Varghese &quot;Efficient Fair Queuing
+      using Deficit Round Robin&quot;, Proc. SIGCOMM 95.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/tc.html"><b>tc</b>(8)</a>, <a class="Xr" href="../8/tc-red.html"><b>tc-red</b>(8)</a></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Alexey N. Kuznetsov, &lt;kuznet@ms2.inr.ac.ru&gt;, Eric Dumazet
+    &lt;eric.dumazet@gmail.com&gt;.</p>
+<p class="Pp">This manpage maintained by bert hubert &lt;ahu@ds9a.nl&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">24 January 2012</td>
+    <td class="foot-os">iproute2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

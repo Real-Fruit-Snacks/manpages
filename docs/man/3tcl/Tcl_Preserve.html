@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="avoid freeing storage while it is being used">
+<title>Tcl_Preserve(3tcl) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">Tcl_Preserve(3tcl)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#ARGUMENTS">ARGUMENTS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#KEYWORDS">KEYWORDS</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">Tcl_Preserve(3tcl)</td>
+    <td class="head-vol">Tcl Library Procedures</td>
+    <td class="head-rtitle">Tcl_Preserve(3tcl)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<pre>
+</pre>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">Tcl_Preserve, Tcl_Release, Tcl_EventuallyFree - avoid freeing
+    storage while it is being used</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;tcl.h&gt;</b>
+
+<b>Tcl_Preserve</b>(<i>clientData</i>)
+
+<b>Tcl_Release</b>(<i>clientData</i>)
+
+<b>Tcl_EventuallyFree</b>(<i>clientData, freeProc</i>)</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ARGUMENTS"><a class="permalink" href="#ARGUMENTS">ARGUMENTS</a></h1>
+<dl class="Bl-tag">
+  <dt>ClientData <i>clientData</i> (in)</dt>
+  <dd>Token describing structure to be freed or reallocated. Usually a pointer
+      to memory for structure.</dd>
+  <dt>Tcl_FreeProc <i>*freeProc</i> (in)</dt>
+  <dd>Procedure to invoke to free <i>clientData</i>.
+    <pre>
+    </pre>
+    <br/>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">These three procedures help implement a simple reference count
+    mechanism for managing storage. They are designed to solve a problem having
+    to do with widget deletion, but are also useful in many other situations.
+    When a widget is deleted, its widget record (the structure holding
+    information specific to the widget) must be returned to the storage
+    allocator. However, it is possible that the widget record is in active use
+    by one of the procedures on the stack at the time of the deletion. This can
+    happen, for example, if the command associated with a button widget causes
+    the button to be destroyed: an X event causes an event-handling C procedure
+    in the button to be invoked, which in turn causes the button's associated
+    Tcl command to be executed, which in turn causes the button to be deleted,
+    which in turn causes the button's widget record to be de-allocated.
+    Unfortunately, when the Tcl command returns, the button's event-handling
+    procedure will need to reference the button's widget record. Because of
+    this, the widget record must not be freed as part of the deletion, but must
+    be retained until the event-handling procedure has finished with it. In
+    other situations where the widget is deleted, it may be possible to free the
+    widget record immediately.</p>
+<p class="Pp"><b>Tcl_Preserve</b> and <b>Tcl_Release</b> implement short-term
+    reference counts for their <i>clientData</i> argument. The <i>clientData</i>
+    argument identifies an object and usually consists of the address of a
+    structure. The reference counts guarantee that an object will not be freed
+    until each call to <b>Tcl_Preserve</b> for the object has been matched by
+    calls to <b>Tcl_Release</b>. There may be any number of unmatched
+    <b>Tcl_Preserve</b> calls in effect at once.</p>
+<p class="Pp"><b>Tcl_EventuallyFree</b> is invoked to free up its
+    <i>clientData</i> argument. It checks to see if there are unmatched
+    <b>Tcl_Preserve</b> calls for the object. If not, then
+    <b>Tcl_EventuallyFree</b> calls <i>freeProc</i> immediately. Otherwise
+    <b>Tcl_EventuallyFree</b> records the fact that <i>clientData</i> needs
+    eventually to be freed. When all calls to <b>Tcl_Preserve</b> have been
+    matched with calls to <b>Tcl_Release</b> then <i>freeProc</i> will be called
+    by <b>Tcl_Release</b> to do the cleanup.</p>
+<p class="Pp">All the work of freeing the object is carried out by
+    <i>freeProc</i>. <i>FreeProc</i> must have arguments and result that match
+    the type <b>Tcl_FreeProc</b>:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>
+typedef void <b>Tcl_FreeProc</b>(
+<br/>
+        char *<i>blockPtr</i>);</pre>
+</div>
+<p class="Pp">The <i>blockPtr</i> argument to <i>freeProc</i> will be the same
+    as the <i>clientData</i> argument to <b>Tcl_EventuallyFree</b>. The type of
+    <i>blockPtr</i> (<b>char *</b>) is different than the type of the
+    <i>clientData</i> argument to <b>Tcl_EventuallyFree</b> for historical
+    reasons, but the value is the same.</p>
+<p class="Pp">When the <i>clientData</i> argument to <b>Tcl_EventuallyFree</b>
+    refers to storage allocated and returned by a prior call to
+    <b>Tcl_Alloc</b>, <b>ckalloc</b>, or another function of the Tcl library,
+    then the <i>freeProc</i> argument should be given the special value of
+    <b>TCL_DYNAMIC</b>.</p>
+<p class="Pp">This mechanism can be used to solve the problem described above by
+    placing <b>Tcl_Preserve</b> and <b>Tcl_Release</b> calls around actions that
+    may cause undesired storage re-allocation. The mechanism is intended only
+    for short-term use (i.e. while procedures are pending on the stack); it will
+    not work efficiently as a mechanism for long-term reference counts. The
+    implementation does not depend in any way on the internal structure of the
+    objects being freed; it keeps the reference counts in a separate
+  structure.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">Tcl_Interp, Tcl_Alloc</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="KEYWORDS"><a class="permalink" href="#KEYWORDS">KEYWORDS</a></h1>
+<p class="Pp">free, reference count, storage</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">7.5</td>
+    <td class="foot-os">Tcl</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

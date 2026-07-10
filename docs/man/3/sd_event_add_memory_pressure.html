@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Add and configure an event source run as result of memory pressure">
+<title>sd_event_add_memory_pressure(3) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">sd_event_add_memory_pressure(3)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RETURN_VALUE">RETURN
+  VALUE</a></li><li><a href="#Errors">Errors</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#HISTORY">HISTORY</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#NOTES~2">NOTES</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SD_EVENT_ADD_MEMORY_PRESSURE(3)</td>
+    <td class="head-vol">sd_event_add_memory_pressure</td>
+    <td class="head-rtitle">SD_EVENT_ADD_MEMORY_PRESSURE(3)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">sd_event_add_memory_pressure,
+    sd_event_source_set_memory_pressure_type,
+    sd_event_source_set_memory_pressure_period, sd_event_trim_memory - Add and
+    configure an event source run as result of memory pressure</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>#include &lt;systemd/sd-event.h&gt;</pre>
+<p class="Pp"></p>
+<pre>typedef struct sd_event_source sd_event_source;</pre>
+<p class="Pp HP"><b>int
+    sd_event_add_memory_pressure(sd_event&#x00A0;*</b><i>event</i><b>,
+    sd_event_source&#x00A0;**</b><i>ret_source</i><b>,
+    sd_event_handler_t&#x00A0;</b><i>handler</i><b>,
+    void&#x00A0;*</b><i>userdata</i><b>);</b></p>
+<p class="Pp HP"><b>int
+    sd_event_source_set_memory_pressure_type(sd_event_source&#x00A0;*</b><i>source</i><b>,
+    const&#x00A0;char&#x00A0;*</b><i>type</i><b>);</b></p>
+<p class="Pp HP"><b>int
+    sd_event_source_set_memory_pressure_period(sd_event_source&#x00A0;*</b><i>source</i><b>,
+    uint64_t&#x00A0;</b><i>threshold_usec</i><b>,
+    uint64_t&#x00A0;</b><i>window_usec</i><b>);</b></p>
+<p class="Pp HP"><b>int sd_event_trim_memory(void);</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>sd_event_add_memory_pressure()</b> adds a new event source that
+    is triggered whenever memory pressure is seen. This functionality is built
+    around the Linux kernel's <b>Pressure Stall Information (PSI)</b>[1]
+  logic.</p>
+<p class="Pp">Expects an event loop object as first parameter, and returns the
+    allocated event source object in the second parameter, on success. The
+    <i>handler</i> parameter is a function to call when memory pressure is seen,
+    or <b>NULL</b>. The handler function will be passed the <i>userdata</i>
+    pointer, which may be chosen freely by the caller. The handler may return
+    negative to signal an error (see below), other return values are ignored. If
+    <i>handler</i> is <b>NULL</b>, a default handler that compacts allocation
+    caches maintained by libsystemd as well as glibc (via <a class="Xr" href="../3/malloc_trim.html"><b>malloc_trim</b>(3)</a>)
+    will be used.</p>
+<p class="Pp">To destroy an event source object use
+    <a class="Xr" href="../3/sd_event_source_unref.html"><b>sd_event_source_unref</b>(3)</a>, but note that the event source is only
+    removed from the event loop when all references to the event source are
+    dropped. To make sure an event source does not fire anymore, even if it is
+    still referenced, disable the event source using
+    <a class="Xr" href="../3/sd_event_source_set_enabled.html"><b>sd_event_source_set_enabled</b>(3)</a> with <b>SD_EVENT_OFF</b>.</p>
+<p class="Pp">If the second parameter of <b>sd_event_add_memory_pressure()</b>
+    is <b>NULL</b> no reference to the event source object is returned. In this
+    case the event source is considered &quot;floating&quot;, and will be
+    destroyed implicitly when the event loop itself is destroyed.</p>
+<p class="Pp">The event source will fire according to the following logic:</p>
+<p class="Pp"></p>
+<div class="Bd-indent"> 1.If the
+  <i>$MEMORY_PRESSURE_WATCH</i>/<i>$MEMORY_PRESSURE_WRITE</i> environment
+  variables are set at the time the event source is established, it will watch
+  the file, FIFO or AF_UNIX socket specified via <i>$MEMORY_PRESSURE_WATCH</i>
+  (which must contain an absolute path name) for <b>POLLPRI</b> (in case it is a
+  regular file) or <b>POLLIN</b> events (otherwise). After opening the inode, it
+  will write the (decoded) Base64 data provided via
+  <i>$MEMORY_PRESSURE_WRITE</i> into it before it starts polling on it (the
+  variable may be unset in which case this is skipped). Typically, if used,
+  <i>$MEMORY_PRESSURE_WATCH</i> will contain a path such as
+  /proc/pressure/memory or a path to a specific memory.pressure file in the
+  control group file system (cgroupfs).</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 2.If these environment variables are not set, the local
+  PSI interface file memory.pressure of the control group the invoking process
+  is running in is used.</div>
+<p class="Pp"></p>
+<div class="Bd-indent"> 3.If that file does not exist, the system-wide PSI
+  interface file /proc/pressure/memory is watched instead.</div>
+<p class="Pp">Or in other words: preferably any explicit configuration passed in
+    by an invoking service manager (or similar) is used as notification source,
+    before falling back to local notifications of the service, and finally to
+    global notifications of the system.</p>
+<p class="Pp">Well-behaving services and applications are recommended to react
+    to memory pressure events by executing one or more of the following
+    operations, in order to ensure optimal behaviour even on loaded and
+    resource-constrained systems:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Release allocation caches such as
+  <b>malloc_trim()</b> or similar, both implemented in the libraries consumed by
+  the program and in private allocation caches of the program itself.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Release any other form of in-memory caches that
+  can easily be recovered if needed (e.g. browser caches).</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Terminate idle worker threads or processes, or
+  similar.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Even exit entirely from the program if it is idle
+  and can be automatically started when needed (for example via socket or bus
+  activation).</div>
+<p class="Pp">Any of the suggested operations should help easing memory pressure
+    situations and allowing the system to make progress by reclaiming the memory
+    for other purposes.</p>
+<p class="Pp">This event source typically fires on memory pressure stalls, i.e.
+    when operational latency above a configured threshold already has been seen.
+    This should be taken into consideration when discussing whether later
+    latency to re-aquire any released resources is acceptable: it's usually more
+    important to think of the latencies that already happened than those coming
+    up in future.</p>
+<p class="Pp">The <b>sd_event_source_set_memory_pressure_type()</b> and
+    <b>sd_event_source_set_memory_pressure_period()</b> functions can be used to
+    fine-tune the PSI parameters for pressure notifications. The former takes
+    either &quot;some&quot;, &quot;full&quot; as second parameter, the latter
+    takes threshold and period times in microseconds as parameters. For details
+    about these three parameters see the PSI documentation. Note that these two
+    calls must be invoked immediately after allocating the event source, as they
+    must be configured before polling begins. Also note that these calls will
+    fail if memory pressure parameterization has been passed in via the
+    <i>$MEMORY_PRESSURE_WATCH</i>/<i>$MEMORY_PRESSURE_WRITE</i> environment
+    variables (or in other words: configuration supplied by a service manager
+    wins over internal settings).</p>
+<p class="Pp">The <b>sd_event_trim_memory()</b> function releases various
+    internal allocation caches maintained by libsystemd and then invokes glibc's
+    <a class="Xr" href="../3/malloc_trim.html"><b>malloc_trim</b>(3)</a>. This makes the operation executed when the handler
+    function parameter of <b>sd_event_add_memory_pressure</b> is passed as
+    <b>NULL</b> directly accessible for invocation at any time (see above). This
+    function will log a structured log message at <b>LOG_DEBUG</b> level (with
+    message ID f9b0be465ad540d0850ad32172d57c21) about the memory pressure
+    operation.</p>
+<p class="Pp">For further details see <b>Memory Pressure Handling in
+    systemd</b>[2].</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUE"><a class="permalink" href="#RETURN_VALUE">RETURN
+  VALUE</a></h1>
+<p class="Pp">On success, these functions return 0 or a positive integer. On
+    failure, they return a negative errno-style error code.</p>
+<section class="Ss">
+<h2 class="Ss" id="Errors"><a class="permalink" href="#Errors">Errors</a></h2>
+<p class="Pp">Returned errors may indicate the following problems:</p>
+<p class="Pp"><b>-ENOMEM</b></p>
+<div class="Bd-indent">Not enough memory to allocate an object.
+<p class="Pp">Added in version 254.</p>
+</div>
+<p class="Pp"><b>-EINVAL</b></p>
+<div class="Bd-indent">An invalid argument has been passed.
+<p class="Pp">Added in version 254.</p>
+</div>
+<p class="Pp"><b>-EHOSTDOWN</b></p>
+<div class="Bd-indent">The <i>$MEMORY_PRESSURE_WATCH</i> variable has been set
+  to the literal string /dev/null, in order to explicitly disable memory
+  pressure handling.
+<p class="Pp">Added in version 254.</p>
+</div>
+<p class="Pp"><b>-EBADMSG</b></p>
+<div class="Bd-indent">The <i>$MEMORY_PRESSURE_WATCH</i> variable has been set
+  to an invalid string, for example a relative rather than an absolute path.
+<p class="Pp">Added in version 254.</p>
+</div>
+<p class="Pp"><b>-ENOTTY</b></p>
+<div class="Bd-indent">The <i>$MEMORY_PRESSURE_WATCH</i> variable points to a
+  regular file outside of the procfs or cgroupfs file systems.
+<p class="Pp">Added in version 254.</p>
+</div>
+<p class="Pp"><b>-EOPNOTSUPP</b></p>
+<div class="Bd-indent">No configuration via <i>$MEMORY_PRESSURE_WATCH</i> has
+  been specified and the local kernel does not support the PSI interface.
+<p class="Pp">Added in version 254.</p>
+</div>
+<p class="Pp"><b>-EBUSY</b></p>
+<div class="Bd-indent">This is returned by
+  <b>sd_event_source_set_memory_pressure_type()</b> and
+  <b>sd_event_source_set_memory_pressure_period()</b> if invoked on event
+  sources at a time later than immediately after allocating them.
+<p class="Pp">Added in version 254.</p>
+</div>
+<p class="Pp"><b>-ESTALE</b></p>
+<div class="Bd-indent">The event loop is already terminated.
+<p class="Pp">Added in version 254.</p>
+</div>
+<p class="Pp"><b>-ECHILD</b></p>
+<div class="Bd-indent">The event loop has been created in a different process,
+  library or module instance.
+<p class="Pp">Added in version 254.</p>
+</div>
+<p class="Pp"><b>-EDOM</b></p>
+<div class="Bd-indent">The passed event source is not a signal event source.
+<p class="Pp">Added in version 254.</p>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">Functions described here are available as a shared library, which
+    can be compiled against and linked to with the
+    <b>libsystemd</b>&#x00A0;<a class="Xr" href="../1/pkgconf.html"><b>pkg-config</b>(1)</a> file.</p>
+<p class="Pp">The code described here uses <a class="Xr" href="../3/getenv.html"><b>getenv</b>(3)</a>, which is declared
+    to be not multi-thread-safe. This means that the code calling the functions
+    described here must not call <a class="Xr" href="../3/setenv.html"><b>setenv</b>(3)</a> from a parallel thread. It is
+    recommended to only do calls to <b>setenv()</b> from an early phase of the
+    program when no other threads have been started.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp"><b>sd_event_add_memory_pressure()</b>,
+    <b>sd_event_source_set_memory_pressure_type()</b>,
+    <b>sd_event_source_set_memory_pressure_period()</b>, and
+    <b>sd_event_trim_memory()</b> were added in version 254.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/systemd.html"><b>systemd</b>(1)</a>, <a class="Xr" href="../3/sd-event.html"><b>sd-event</b>(3)</a>, <a class="Xr" href="../3/sd_event_new.html"><b>sd_event_new</b>(3)</a>,
+    <a class="Xr" href="../3/sd_event_add_io.html"><b>sd_event_add_io</b>(3)</a>, <a class="Xr" href="../3/sd_event_add_time.html"><b>sd_event_add_time</b>(3)</a>,
+    <a class="Xr" href="../3/sd_event_add_child.html"><b>sd_event_add_child</b>(3)</a>, <a class="Xr" href="../3/sd_event_add_inotify.html"><b>sd_event_add_inotify</b>(3)</a>,
+    <a class="Xr" href="../3/sd_event_add_defer.html"><b>sd_event_add_defer</b>(3)</a>, <a class="Xr" href="../3/sd_event_source_set_enabled.html"><b>sd_event_source_set_enabled</b>(3)</a>,
+    <a class="Xr" href="../3/sd_event_source_set_description.html"><b>sd_event_source_set_description</b>(3)</a>,
+    <a class="Xr" href="../3/sd_event_source_set_userdata.html"><b>sd_event_source_set_userdata</b>(3)</a>,
+    <a class="Xr" href="../3/sd_event_source_set_floating.html"><b>sd_event_source_set_floating</b>(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES~2"><a class="permalink" href="#NOTES~2">NOTES</a></h1>
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>Pressure Stall Information (PSI)</dd>
+</dl>
+<div class="Bd-indent">https://docs.kernel.org/accounting/psi.html</div>
+<dl class="Bl-tag">
+  <dt> 2.</dt>
+  <dd>Memory Pressure Handling in systemd</dd>
+</dl>
+<div class="Bd-indent">https://systemd.io/MEMORY_PRESSURE</div>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os">systemd 255</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

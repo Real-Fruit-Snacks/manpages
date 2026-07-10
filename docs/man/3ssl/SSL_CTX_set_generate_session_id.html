@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="manipulate generation of SSL session IDs (server only)">
+<title>SSL_CTX_set_generate_session_id(3ssl) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">SSL_CTX_set_generate_session_id(3ssl)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#RETURN_VALUES">RETURN
+  VALUES</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SSL_CTX_SET_GENERATE_SESSION_ID(3SSL)</td>
+    <td class="head-vol">OpenSSL</td>
+    <td class="head-rtitle">SSL_CTX_SET_GENERATE_SESSION_ID(3SSL)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">SSL_CTX_set_generate_session_id, SSL_set_generate_session_id,
+    SSL_has_matching_session_id, GEN_SESSION_CB - manipulate generation of SSL
+    session IDs (server only)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre> #include &lt;openssl/ssl.h&gt;
+ typedef int (*GEN_SESSION_CB)(SSL *ssl, unsigned char *id,
+                               unsigned int *id_len);
+ int SSL_CTX_set_generate_session_id(SSL_CTX *ctx, GEN_SESSION_CB cb);
+ int SSL_set_generate_session_id(SSL *ssl, GEN_SESSION_CB, cb);
+ int SSL_has_matching_session_id(const SSL *ssl, const unsigned char *id,
+                                 unsigned int id_len);
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>SSL_CTX_set_generate_session_id()</b> sets the callback
+    function for generating new session ids for SSL/TLS sessions for <b>ctx</b>
+    to be <b>cb</b>.</p>
+<p class="Pp"><b>SSL_set_generate_session_id()</b> sets the callback function
+    for generating new session ids for SSL/TLS sessions for <b>ssl</b> to be
+    <b>cb</b>.</p>
+<p class="Pp"><b>SSL_has_matching_session_id()</b> checks, whether a session
+    with id <b>id</b> (of length <b>id_len</b>) is already contained in the
+    internal session cache of the parent context of <b>ssl</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">When a new session is established between client and server, the
+    server generates a session id. The session id is an arbitrary sequence of
+    bytes. The length of the session id is between 1 and 32 bytes. The session
+    id is not security critical but must be unique for the server. Additionally,
+    the session id is transmitted in the clear when reusing the session so it
+    must not contain sensitive information.</p>
+<p class="Pp">Without a callback being set, an OpenSSL server will generate a
+    unique session id from pseudo random numbers of the maximum possible length.
+    Using the callback function, the session id can be changed to contain
+    additional information like e.g. a host id in order to improve load
+    balancing or external caching techniques.</p>
+<p class="Pp">The callback function receives a pointer to the memory location to
+    put <b>id</b> into and a pointer to the maximum allowed length
+    <b>id_len</b>. The buffer at location <b>id</b> is only guaranteed to have
+    the size <b>id_len</b>. The callback is only allowed to generate a shorter
+    id and reduce <b>id_len</b>; the callback <b>must never</b> increase
+    <b>id_len</b> or write to the location <b>id</b> exceeding the given
+  limit.</p>
+<p class="Pp">The location <b>id</b> is filled with 0x00 before the callback is
+    called, so the callback may only fill part of the possible length and leave
+    <b>id_len</b> untouched while maintaining reproducibility.</p>
+<p class="Pp">Since the sessions must be distinguished, session ids must be
+    unique. Without the callback a random number is used, so that the
+    probability of generating the same session id is extremely small (2^256 for
+    SSLv3/TLSv1). In order to assure the uniqueness of the generated session id,
+    the callback must call <b>SSL_has_matching_session_id()</b> and generate
+    another id if a conflict occurs. If an id conflict is not resolved, the
+    handshake will fail. If the application codes e.g. a unique host id, a
+    unique process number, and a unique sequence number into the session id,
+    uniqueness could easily be achieved without randomness added (it should
+    however be taken care that no confidential information is leaked this way).
+    If the application can not guarantee uniqueness, it is recommended to use
+    the maximum <b>id_len</b> and fill in the bytes not used to code special
+    information with random data to avoid collisions.</p>
+<p class="Pp"><b>SSL_has_matching_session_id()</b> will only query the internal
+    session cache, not the external one. Since the session id is generated
+    before the handshake is completed, it is not immediately added to the cache.
+    If another thread is using the same internal session cache, a race condition
+    can occur in that another thread generates the same session id. Collisions
+    can also occur when using an external session cache, since the external
+    cache is not tested with <b>SSL_has_matching_session_id()</b> and the same
+    race condition applies.</p>
+<p class="Pp">The callback must return 0 if it cannot generate a session id for
+    whatever reason and return 1 on success.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp"><b>SSL_CTX_set_generate_session_id()</b> and
+    <b>SSL_set_generate_session_id()</b> return 1 on success and 0 for
+  failure.</p>
+<p class="Pp"><b>SSL_has_matching_session_id()</b> returns 1 if another session
+    with the same id is already in the cache, or 0 otherwise.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">The callback function listed will generate a session id with the
+    server id given, and will fill the rest with pseudo random bytes:</p>
+<p class="Pp"></p>
+<pre> const char session_id_prefix = &quot;www-18&quot;;
+ #define MAX_SESSION_ID_ATTEMPTS 10
+ static int generate_session_id(SSL *ssl, unsigned char *id,
+                                unsigned int *id_len)
+ {
+     unsigned int count = 0;
+     do {
+         RAND_pseudo_bytes(id, *id_len);
+         /*
+          * Prefix the session_id with the required prefix. NB: If our
+          * prefix is too long, clip it - but there will be worse effects
+          * anyway, e.g. the server could only possibly create 1 session
+          * ID (i.e. the prefix!) so all future session negotiations will
+          * fail due to conflicts.
+          */
+         memcpy(id, session_id_prefix, strlen(session_id_prefix) &lt; *id_len ?
+                                       strlen(session_id_prefix) : *id_len);
+     } while (SSL_has_matching_session_id(ssl, id, *id_len)
+               &amp;&amp; ++count &lt; MAX_SESSION_ID_ATTEMPTS);
+     if (count &gt;= MAX_SESSION_ID_ATTEMPTS)
+         return 0;
+     return 1;
+ }
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../7ssl/ssl.html"><b>ssl</b>(7)</a>, <a class="Xr" href="../3ssl/SSL_get_version.html"><b>SSL_get_version</b>(3)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright 2001-2020 The OpenSSL Project Authors. All Rights
+    Reserved.</p>
+<p class="Pp">Licensed under the Apache License 2.0 (the &quot;License&quot;).
+    You may not use this file except in compliance with the License. You can
+    obtain a copy in the file LICENSE in the source distribution or at
+    &lt;https://www.openssl.org/source/license.html&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2026-06-02</td>
+    <td class="foot-os">3.0.13</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

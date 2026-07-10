@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="CGI Interface for Fast CGI">
+<title>CGI::Fast(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">CGI::Fast(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OTHER_PIECES_OF_THE_PUZZLE">OTHER
+  PIECES OF THE PUZZLE</a></li><li><a href="#WRITING_FASTCGI_PERL_SCRIPTS">WRITING
+  FASTCGI PERL SCRIPTS</a></li><li><a href="#INSTALLING_FASTCGI_SCRIPTS">INSTALLING
+  FASTCGI SCRIPTS</a></li><li><a href="#USING_FASTCGI_SCRIPTS_AS_CGI_SCRIPTS">USING
+  FASTCGI SCRIPTS AS CGI SCRIPTS</a></li><li><a href="#EXTERNAL_FASTCGI_SERVER_INVOCATION">EXTERNAL
+  FASTCGI SERVER INVOCATION</a></li><li><a href="#FILE_HANDLES">FILE
+  HANDLES</a></li><li><a href="#CAVEATS">CAVEATS</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CGI::Fast(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">CGI::Fast(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">CGI::Fast - CGI Interface for Fast CGI</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>    use CGI::Fast
+        socket_path  =&gt; '9000',
+        socket_perm  =&gt; 0777,
+        listen_queue =&gt; 50;
+    use CGI qw/ :standard /;
+    $COUNTER = 0;
+    # optional, will default to STDOUT, STDERR
+    CGI::Fast-&gt;file_handles({
+        fcgi_output_file_handle =&gt; IO::Handle-&gt;new,
+        fcgi_error_file_handle  =&gt; IO::Handle-&gt;new,
+    });
+    while ($q = CGI::Fast-&gt;new) {
+        process_request($q);
+    }
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">CGI::Fast is a subclass of the CGI object created by CGI.pm. It is
+    specialized to work with the FCGI module, which greatly speeds up CGI
+    scripts by turning them into persistently running server processes. Scripts
+    that perform time-consuming initialization processes, such as loading large
+    modules or opening persistent database connections, will see large
+    performance improvements.</p>
+<p class="Pp">Note that as CGI::Fast is based on CGI.pm it is no longer advised
+    as a way to write Perl web apps. See
+    &lt;https://metacpan.org/pod/CGI#CGI.pm-HAS-BEEN-REMOVED-FROM-THE-PERL-CORE&gt;
+    for more information about this</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OTHER_PIECES_OF_THE_PUZZLE"><a class="permalink" href="#OTHER_PIECES_OF_THE_PUZZLE">OTHER
+  PIECES OF THE PUZZLE</a></h1>
+<p class="Pp">In order to use CGI::Fast you'll need the FCGI module. See
+    http://www.cpan.org/ for details.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WRITING_FASTCGI_PERL_SCRIPTS"><a class="permalink" href="#WRITING_FASTCGI_PERL_SCRIPTS">WRITING
+  FASTCGI PERL SCRIPTS</a></h1>
+<p class="Pp">FastCGI scripts are persistent: one or more copies of the script
+    are started up when the server initializes, and stay around until the server
+    exits or they die a natural death. After performing whatever one-time
+    initialization it needs, the script enters a loop waiting for incoming
+    connections, processing the request, and waiting some more.</p>
+<p class="Pp">A typical FastCGI script will look like this:</p>
+<p class="Pp"></p>
+<pre>    #!perl
+    use CGI::Fast;
+    do_some_initialization();
+    while ($q = CGI::Fast-&gt;new) {
+        process_request($q);
+    }
+</pre>
+<p class="Pp">Each time there's a new request, CGI::Fast returns a CGI object to
+    your loop. The rest of the time your script waits in the call to
+    <b>new()</b>. When the server requests that your script be terminated,
+    <b>new()</b> will return undef. You can of course exit earlier if you
+    choose. A new version of the script will be respawned to take its place
+    (this may be necessary in order to avoid Perl memory leaks in long-running
+    scripts).</p>
+<p class="Pp">CGI.pm's default CGI object mode also works. Just modify the loop
+    this way:</p>
+<p class="Pp"></p>
+<pre>    while (CGI::Fast-&gt;new) {
+        process_request();
+    }
+</pre>
+<p class="Pp">Calls to <b>header()</b>, <b>start_form()</b>, etc. will all
+    operate on the current request.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INSTALLING_FASTCGI_SCRIPTS"><a class="permalink" href="#INSTALLING_FASTCGI_SCRIPTS">INSTALLING
+  FASTCGI SCRIPTS</a></h1>
+<p class="Pp">See the FastCGI developer's kit documentation for full details. On
+    the Apache server, the following line must be added to srm.conf:</p>
+<p class="Pp"></p>
+<pre>    AddType application/x-httpd-fcgi .fcgi
+</pre>
+<p class="Pp">FastCGI scripts must end in the extension .fcgi. For each script
+    you install, you must add something like the following to srm.conf:</p>
+<p class="Pp"></p>
+<pre>    FastCgiServer /usr/lib/cgi-bin/file_upload.fcgi -processes 2
+</pre>
+<p class="Pp">This instructs Apache to launch two copies of file_upload.fcgi at
+    startup time.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USING_FASTCGI_SCRIPTS_AS_CGI_SCRIPTS"><a class="permalink" href="#USING_FASTCGI_SCRIPTS_AS_CGI_SCRIPTS">USING
+  FASTCGI SCRIPTS AS CGI SCRIPTS</a></h1>
+<p class="Pp">Any script that works correctly as a FastCGI script will also work
+    correctly when installed as a vanilla CGI script. However it will not see
+    any performance benefit.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXTERNAL_FASTCGI_SERVER_INVOCATION"><a class="permalink" href="#EXTERNAL_FASTCGI_SERVER_INVOCATION">EXTERNAL
+  FASTCGI SERVER INVOCATION</a></h1>
+<p class="Pp">FastCGI supports a TCP/IP transport mechanism which allows FastCGI
+    scripts to run external to the webserver, perhaps on a remote machine. To
+    configure the webserver to connect to an external FastCGI server, you would
+    add the following to your srm.conf:</p>
+<p class="Pp"></p>
+<pre>    FastCgiExternalServer /usr/lib/cgi-bin/file_upload.fcgi -host sputnik:8888
+</pre>
+<p class="Pp">Two environment variables affect how the
+    <span class="Li">&quot;CGI::Fast&quot;</span> object is created, allowing
+    <span class="Li">&quot;CGI::Fast&quot;</span> to be used as an external
+    FastCGI server. (See <span class="Li">&quot;FCGI&quot;</span> documentation
+    for <span class="Li">&quot;FCGI::OpenSocket&quot;</span> for more
+    information.)</p>
+<p class="Pp">You can set these as ENV variables or imports in the use CGI::Fast
+    statement. If the ENV variables are set then these will be favoured so you
+    can override the import statements on the command line, etc.</p>
+<dl class="Bl-tag">
+  <dt id="FCGI_SOCKET_PATH"><a class="permalink" href="#FCGI_SOCKET_PATH">FCGI_SOCKET_PATH
+    / socket_path</a></dt>
+  <dd>The address (TCP/IP) or path (UNIX Domain) of the socket the external
+      FastCGI script to which bind an listen for incoming connections from the
+      web server.</dd>
+  <dt id="FCGI_SOCKET_PERM"><a class="permalink" href="#FCGI_SOCKET_PERM">FCGI_SOCKET_PERM
+    / socket_perm</a></dt>
+  <dd>Permissions for UNIX Domain socket.</dd>
+  <dt id="FCGI_LISTEN_QUEUE"><a class="permalink" href="#FCGI_LISTEN_QUEUE">FCGI_LISTEN_QUEUE
+    / listen_queue</a></dt>
+  <dd>Maximum length of the queue of pending connections, defaults to 100.</dd>
+</dl>
+<p class="Pp">For example:</p>
+<p class="Pp"></p>
+<pre>    use CGI::Fast
+        socket_path  =&gt; &quot;sputnik:8888&quot;,
+        listen_queue =&gt; &quot;50&quot;
+    ;
+    use CGI qw/ :standard /;
+    do_some_initialization();
+    while ($q = CGI::Fast-&gt;new) {
+        process_request($q);
+    }
+</pre>
+<p class="Pp">Or:</p>
+<p class="Pp"></p>
+<pre>    use CGI::Fast;
+    use CGI qw/ :standard /;
+    do_some_initialization();
+    $ENV{FCGI_SOCKET_PATH} = &quot;sputnik:8888&quot;;
+    $ENV{FCGI_LISTEN_QUEUE} = 50;
+    while ($q = CGI::Fast-&gt;new) {
+        process_request($q);
+    }
+</pre>
+<p class="Pp">Note the importance of having use CGI after use CGI::Fast as this
+    will prevent any CGI import pragmas being overwritten by CGI::Fast. You can
+    use CGI::Fast as a drop in replacement like so:</p>
+<p class="Pp"></p>
+<pre>    use CGI::Fast qw/ :standard /
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILE_HANDLES"><a class="permalink" href="#FILE_HANDLES">FILE
+  HANDLES</a></h1>
+<p class="Pp">FCGI defaults to using STDOUT and STDERR as its output filehandles
+    - this may lead to unexpected redirect of output if you migrate scripts from
+    CGI.pm to CGI::Fast. To get around this you can use the file_handles method,
+    which you must do <b>before</b> the first call to CGI::Fast-&gt;new. For
+    example using IO::Handle:</p>
+<p class="Pp"></p>
+<pre>    CGI::Fast-&gt;file_handles({
+        fcgi_output_file_handle =&gt; IO::Handle-&gt;new,
+        fcgi_error_file_handle  =&gt; IO::Handle-&gt;new,
+    });
+    while (CGI::Fast-&gt;new) {
+        ..
+    }
+</pre>
+<p class="Pp">Overriding STDIN using the
+    <span class="Li">&quot;fcgi_input_file_handle&quot;</span> key is also
+    possible, however doing so is likely to break at least POST requests.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<p class="Pp">I haven't tested this very much.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">Copyright 1996-1998, Lincoln D. Stein. All rights reserved.
+    Currently maintained by Lee Johnson</p>
+<p class="Pp">This library is free software; you can redistribute it and/or
+    modify it under the same terms as Perl itself.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Address bug reports and comments to:</p>
+<p class="Pp"></p>
+<pre>    https://github.com/leejo/cgi-fast
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">CGI::Carp, CGI</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-11-17</td>
+    <td class="foot-os">perl v5.36.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

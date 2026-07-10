@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="How to cook Xslate templates">
+<title>Text::Xslate::Manual::Cookbook(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">Text::Xslate::Manual::Cookbook(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RECIPES">RECIPES</a></li><li><a href="#How_to_manage_HTML_forms">How
+  to manage HTML forms</a></li><li><a href="#How_to_use_Template_Toolkit&#x27;s_WRAPPER_feature_in_Kolon">How
+  to use Template Toolkit&#x27;s WRAPPER feature in Kolon</a></li><li><a href="#How_to_map__">How
+  to map __DATA__ sections to the include path</a></li><li><a href="#How_to_interpolate_data_into_JavaScript_sections_without_XSS">How
+  to interpolate data into JavaScript sections without XSS</a></li><li><a href="#How_to_interpolate_structured_texts_into_HTML_without_XSS">How
+  to interpolate structured texts into HTML without XSS</a></li><li><a href="#How_to_manage_localization_in_templates">How
+  to manage localization in templates</a></li><li><a href="#How_to_load_templates_before_fork()ing?">How
+  to load templates before fork()ing?</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">Text::Xslate::Manual::Cookbook(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">Text::Xslate::Manual::Cookbook(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">Text::Xslate::Manual::Cookbook - How to cook Xslate templates</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The Xslate cookbook is a set of recipes showing Xslate
+  features.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RECIPES"><a class="permalink" href="#RECIPES">RECIPES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="How_to_manage_HTML_forms"><a class="permalink" href="#How_to_manage_HTML_forms">How
+  to manage HTML forms</a></h2>
+<p class="Pp">Managing HTML forms is an important issue for web applications.
+    You're better off using modules that manage HTML forms rather than managing
+    this yourself in your templates. This section proposes two basic solutions:
+    using FillInForm and HTML form builders.</p>
+<p class="Pp">In both solutions, you should not use the
+    <span class="Li">&quot;mark_raw&quot;</span> filter in templates, which
+    easily creates <b>security holes</b>. Instead, application code should be
+    responsible for calling the <span class="Li">&quot;mark_raw&quot;</span>
+    function that <span class="Li">&quot;Text::Xslate&quot;</span> can
+  export.</p>
+<p class="Pp"><i>Using FillInForm</i></p>
+<p class="Pp">One solution to manage HTML forms is to use FillInForm modules
+    with the block filter syntax.</p>
+<p class="Pp">Example code using
+    <span class="Li">&quot;HTML::FillInForm&quot;</span>:</p>
+<p class="Pp"></p>
+<pre>    #!perl -w
+    use strict;
+    use Text::Xslate qw(html_builder);
+    use HTML::FillInForm; # HTML::FillInForm::Lite is okay
+    sub fillinform {
+        my($q) = @_;
+        my $fif = HTML::FillInForm-&gt;new();
+        return html_builder {
+            my($html) = @_;
+            return $fif-&gt;fill(\$html, $q);
+        };
+    }
+    my $tx = Text::Xslate-&gt;new(
+        function =&gt; {
+            fillinform =&gt; \&amp;fillinform,
+        },
+    );
+    my %vars = (
+        q =&gt; { foo =&gt; &quot;&lt;filled value&gt;&quot; },
+    );
+    print $tx-&gt;render_string(&lt;&lt;'T', \%vars);
+    FillInForm:
+    : block form | fillinform($q) -&gt; {
+    &lt;form&gt;
+    &lt;input type=&quot;text&quot; name=&quot;foo&quot; /&gt;
+    &lt;/form&gt;
+    : }
+    T
+</pre>
+<p class="Pp">Output:</p>
+<p class="Pp"></p>
+<pre>    FillInForm:
+    &lt;form&gt;
+    &lt;input type=&quot;text&quot; name=&quot;foo&quot; value=&quot;&amp;lt;filled value&amp;gt;&quot; /&gt;
+    &lt;/form&gt;
+</pre>
+<p class="Pp">Because HTML::FillInForm::Lite provides a
+    <span class="Li">&quot;fillinform&quot;</span> function, it becomes even
+    simpler:</p>
+<p class="Pp"></p>
+<pre>    use HTML::FillInForm::Lite qw(fillinform);
+    my $tx = Text::Xslate-&gt;new(
+        function =&gt; { fillinform =&gt; html_builder(\&amp;fillinform) },
+    );
+</pre>
+<p class="Pp">From 1.5018 on,
+    <span class="Li">&quot;html_builder_module&quot;</span> is supported for
+    HTML builder modules like
+    <span class="Li">&quot;HTML::FillInForm&quot;</span>. Just import HTML
+    builder functions with
+    <span class="Li">&quot;html_builder_module&quot;</span> option.</p>
+<p class="Pp"></p>
+<pre>    my $tx = Text::Xslate-&gt;new(
+        html_builder_module =&gt; [ 'HTML::FillInForm::Lite' =&gt; [qw(fillinform)] ],
+    );
+</pre>
+<p class="Pp">See also HTML::FillInForm or HTML::FillInForm::Lite for
+  details.</p>
+<p class="Pp"><i>Using HTML form builders</i></p>
+<p class="Pp">Another solution to manage HTML forms is to use form builders. In
+    such cases, all you have to do is to apply
+    <span class="Li">mark_raw()</span> to HTML parts.</p>
+<p class="Pp">Here is a PSGI application that uses
+    <span class="Li">&quot;HTML::Shakan&quot;</span>:</p>
+<p class="Pp"></p>
+<pre>    #!psgi
+    use strict;
+    use warnings;
+    use Text::Xslate qw(mark_raw);
+    use HTML::Shakan;
+    use Plack::Request;
+    my $tx = Text::Xslate-&gt;new();
+    sub app {
+        my($env) = @_;
+        my $req  = Plack::Request-&gt;new($env);
+        my $shakan = HTML::Shakan-&gt;new(
+            request =&gt; $req,
+            fields  =&gt; [ TextField(name =&gt; 'name', label =&gt; 'Your name: ') ],
+        );
+        my $res = $req-&gt;new_response(200);
+        # do mark_raw here, not in templates
+        my $form = mark_raw($shakan-&gt;render());
+        $res-&gt;body( $tx-&gt;render_string(&lt;&lt;'T', { form =&gt; $form }) );
+    &lt;!doctype html&gt;
+    &lt;html&gt;
+    &lt;head&gt;&lt;title&gt;Building form&lt;/title&gt;&lt;/head&gt;
+    &lt;body&gt;
+    &lt;form&gt;
+    &lt;p&gt;
+    Form:&lt;br /&gt;
+    &lt;: $form :&gt;
+    &lt;/p&gt;
+    &lt;/body&gt;
+    &lt;/html&gt;
+    T
+        return $res-&gt;finalize();
+    }
+    return \&amp;app;
+</pre>
+<p class="Pp">Output:</p>
+<p class="Pp"></p>
+<pre>    &lt;!doctype html&gt;
+    &lt;html&gt;
+    &lt;head&gt;&lt;title&gt;Building form&lt;/title&gt;&lt;/head&gt;
+    &lt;body&gt;
+    &lt;form&gt;
+    &lt;p&gt;
+    Form:&lt;br /&gt;
+    &lt;label for=&quot;id_name&quot;&gt;Your name&lt;/label&gt;
+    &lt;input id=&quot;id_name&quot; name=&quot;name&quot; type=&quot;text&quot; value=&quot;&amp;lt;Xslate&amp;gt;&quot; /&gt;
+    &lt;/p&gt;
+    &lt;/body&gt;
+    &lt;/html&gt;
+</pre>
+<p class="Pp">See also HTML::Shakan for details.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="How_to_use_Template_Toolkit's_WRAPPER_feature_in_Kolon"><a class="permalink" href="#How_to_use_Template_Toolkit's_WRAPPER_feature_in_Kolon">How
+  to use Template Toolkit's WRAPPER feature in Kolon</a></h2>
+<p class="Pp">Use template cascading, which is a super-set of the
+    <span class="Li">&quot;WRAPPER&quot;</span> directive.</p>
+<p class="Pp"><i>wrapper.tx</i>:</p>
+<p class="Pp"></p>
+<pre>    &lt;div class=&quot;wrapper&quot;&gt;
+    block content -&gt; { }
+    &lt;/div&gt;
+</pre>
+<p class="Pp"><i>content.tx</i></p>
+<p class="Pp"></p>
+<pre>    : cascade wrapper
+    : override content -&gt; {
+        Hello, world!
+    : }
+</pre>
+<p class="Pp">Output:</p>
+<p class="Pp"></p>
+<pre>    &lt;div class=&quot;wrapper&quot;&gt;
+        Hello, world!
+    &lt;/div&gt;
+</pre>
+<p class="Pp"><i>Template cascading</i></p>
+<p class="Pp">Xslate supports <b>template cascading</b>, which allows you to
+    extend templates with block modifiers. It is like traditional template
+    inclusion, but is more powerful.</p>
+<p class="Pp">This mechanism is also called as template inheritance.</p>
+<p class="Pp">See also &quot;Template cascading&quot; in Text::Xslate.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="How_to_map__"><a class="permalink" href="#How_to_map__">How
+  to map __DATA__ sections to the include path</a></h2>
+<p class="Pp">Use <span class="Li">&quot;Data::Section::Simple&quot;</span>, and
+    the <span class="Li">&quot;path&quot;</span> option of
+    <span class="Li">new()</span>, which accepts HASH references which contain
+    <span class="Li">&quot;$file_name =&gt; $content&quot;</span> mapping.</p>
+<p class="Pp"></p>
+<pre>    use Text::Xslate;
+    use Data::Section::Simple;
+    my $vpath = Data::Section::Simple-&gt;new()-&gt;get_data_section();
+    my $tx = Text::Xslate-&gt;new(
+        path =&gt; [$vpath],
+    );
+    print $tx-&gt;render('child.tx');
+    __DATA__
+    @@ base.tx
+    &lt;html&gt;
+    &lt;body&gt;&lt;: block body -&gt; { :&gt;default body&lt;: } :&gt;&lt;/body&gt;
+    &lt;/html&gt;
+    @@ child.tx
+    : cascade base;
+    : override body -&gt; {
+    child body
+    : } # endblock body
+</pre>
+<p class="Pp">This feature is directly inspired by
+    Text::MicroTemplate::DataSection, and originated from Mojolicious.</p>
+<p class="Pp">See also Data::Section::Simple, Text::MicroTemplate::DataSection,
+    and Mojolicious.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="How_to_interpolate_data_into_JavaScript_sections_without_XSS"><a class="permalink" href="#How_to_interpolate_data_into_JavaScript_sections_without_XSS">How
+  to interpolate data into JavaScript sections without XSS</a></h2>
+<p class="Pp">Because Xslate escapes only HTML meta characters, you must escape
+    JavaScript meta characters by yourself when you put data into
+    <span class="Li">&quot;&lt;script&gt; ... &lt;/script&gt;&quot;</span>
+    sections.</p>
+<p class="Pp">The <span class="Li">&quot;JSON&quot;</span> module is not
+    suitable because it doesn't escape some meta characters such as
+    <span class="Li">&quot;&lt;/script&gt;&quot;</span>.</p>
+<p class="Pp">It is better to use utilities proven to be secure for JavaScript
+    escaping to avoid XSS. JavaScript::Value::Escape helps you in this
+  regard.</p>
+<p class="Pp"></p>
+<pre>    my $tx = Text::Xslate-&gt;new(
+        module =&gt; ['JavaScript::Value::Escape' =&gt; [qw(js)]],
+        );
+    my %params = (
+        user_input =&gt; '&lt;/script&gt;&lt;script&gt;alert(&quot;XSS&quot;)&lt;/script&gt;',
+        );
+    print $tx-&gt;render_string(&lt;&lt;'T', \%params);
+    &lt;script&gt;
+    document.write('&lt;: $user_input | html | js :&gt;');
+    var user_input = '&lt;: $user_input | js :&gt;';
+    &lt;/script&gt;
+    T
+</pre>
+<p class="Pp">You'd better to consult the security experts on more complex
+    cases.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="How_to_interpolate_structured_texts_into_HTML_without_XSS"><a class="permalink" href="#How_to_interpolate_structured_texts_into_HTML_without_XSS">How
+  to interpolate structured texts into HTML without XSS</a></h2>
+<p class="Pp">There's no silver bullet to parse structured texts in secure ways.
+    You'd better to consult the security experts to do so.</p>
+<p class="Pp">Some CPAN module might help you. See String::Filter for
+  example.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="How_to_manage_localization_in_templates"><a class="permalink" href="#How_to_manage_localization_in_templates">How
+  to manage localization in templates</a></h2>
+<p class="Pp">You can register any functions including
+    <span class="Li">_()</span>, so no specific techniques are required.</p>
+<p class="Pp">For example:</p>
+<p class="Pp"></p>
+<pre>    use I18N::Handle;
+    # I18N::Handle installs the locale function &quot;_&quot; to the global namespace.
+    # (remember the symbol *_ is global)
+    I18N::Handle-&gt;new( ... )-&gt;speak('zh_tw');
+    my $tx = Text::Xslate-&gt;new(
+        function =&gt; {
+            _ =&gt; \&amp;_,
+        },
+    );
+</pre>
+<p class="Pp">Then in your templates:</p>
+<p class="Pp"></p>
+<pre>    &lt;: _('Hello %1', $john ) :&gt;
+</pre>
+<p class="Pp">See also: I18N::Handle, App::I18N.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="How_to_load_templates_before_fork()ing?"><a class="permalink" href="#How_to_load_templates_before_fork()ing?">How
+  to load templates before fork()ing?</a></h2>
+<p class="Pp">It is a good idea to load templates in preforking-model
+    applications. Here is an example to load all the templates which is in a
+    given path:</p>
+<p class="Pp"></p>
+<pre>    use File::Find;
+    my $path = ...;
+    my $tx = Text::Xslate-&gt;new(
+        path      =&gt; [$path],
+        cache_dir =&gt;  $path,
+    );
+    # pre-load files
+    find sub {
+        if(/\.tx$/) {
+            my $file = $File::Find::name;
+            $file =~ s/\Q$path\E .//xsm; # fix path names
+            $tx-&gt;load_file($file);
+        }
+    }, $path;
+    # fork and render ...
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">Text::Xslate</p>
+<p class="Pp">Text::Xslate::Manual</p>
+<p class="Pp">Text::Xslate::Manual::FAQ</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

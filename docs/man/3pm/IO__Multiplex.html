@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Manage IO on many file handles">
+<title>IO::Multiplex(3pm) — manpages</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='13' font-size='13'%3E%E2%9D%AF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" hidden></ul>
+  </div>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">IO::Multiplex(3pm)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Handling_input_on_descriptors">Handling
+  input on descriptors</a></li><li><a href="#Handling_output_to_descriptors">Handling
+  output to descriptors</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#Simple_Example">Simple
+  Example</a></li><li><a href="#A_server_example">A
+  server example</a></li><li><a href="#A_more_complex_server_example">A
+  more complex server example</a></li><li><a href="#METHODS">METHODS</a></li><li><a href="#new">new</a></li><li><a href="#listen">listen</a></li><li><a href="#add">add</a></li><li><a href="#remove">remove</a></li><li><a href="#set_callback_object">set_callback_object</a></li><li><a href="#kill_output">kill_output</a></li><li><a href="#outbuffer">outbuffer</a></li><li><a href="#inbuffer">inbuffer</a></li><li><a href="#set_timeout">set_timeout</a></li><li><a href="#handles">handles</a></li><li><a href="#loop">loop</a></li><li><a href="#endloop">endloop</a></li><li><a href="#udp_peer">udp_peer</a></li><li><a href="#is_udp">is_udp</a></li><li><a href="#write">write</a></li><li><a href="#shutdown">shutdown</a></li><li><a href="#close">close</a></li><li><a href="#CALLBACK_INTERFACE">CALLBACK
+  INTERFACE</a></li><li><a href="#mux_input">mux_input</a></li><li><a href="#mux_eof">mux_eof</a></li><li><a href="#mux_close">mux_close</a></li><li><a href="#mux_outbuffer_empty">mux_outbuffer_empty</a></li><li><a href="#mux_connection">mux_connection</a></li><li><a href="#mux_timeout">mux_timeout</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">IO::Multiplex(3pm)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">IO::Multiplex(3pm)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">IO::Multiplex - Manage IO on many file handles</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>  use IO::Multiplex;
+  my $mux = new IO::Multiplex;
+  $mux-&gt;add($fh1);
+  $mux-&gt;add(\*FH2);
+  $mux-&gt;set_callback_object(...);
+  $mux-&gt;listen($server_socket);
+  $mux-&gt;loop;
+  sub mux_input { ... }
+</pre>
+<p class="Pp"><span class="Li">&quot;IO::Multiplex&quot;</span> is designed to
+    take the effort out of managing multiple file handles. It is essentially a
+    really fancy front end to the <span class="Li">&quot;select&quot;</span>
+    system call. In addition to maintaining the
+    <span class="Li">&quot;select&quot;</span> loop, it buffers all input and
+    output to/from the file handles. It can also accept incoming connections on
+    one or more listen sockets.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">It is object oriented in design, and will notify you of
+    significant events by calling methods on an object that you supply. If you
+    are not using objects, you can simply supply
+    <span class="Li">&quot;__PACKAGE__&quot;</span> instead of an object
+    reference.</p>
+<p class="Pp">You may have one callback object registered for each file handle,
+    or one global one. Possibly both -- the per-file handle callback object will
+    be used instead of the global one.</p>
+<p class="Pp">Each file handle may also have a timer associated with it. A
+    callback function is called when the timer expires.</p>
+<section class="Ss">
+<h2 class="Ss" id="Handling_input_on_descriptors"><a class="permalink" href="#Handling_input_on_descriptors">Handling
+  input on descriptors</a></h2>
+<p class="Pp">When input arrives on a file handle, the
+    <span class="Li">&quot;mux_input&quot;</span> method is called on the
+    appropriate callback object. This method is passed three arguments (in
+    addition to the object reference itself of course):</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>a reference to the mux,</dd>
+  <dt>2.</dt>
+  <dd>A reference to the file handle, and</dd>
+  <dt>3.</dt>
+  <dd>a reference to the input buffer for the file handle.</dd>
+</dl>
+<p class="Pp">The method should remove the data that it has consumed from the
+    reference supplied. It may leave unconsumed data in the input buffer.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Handling_output_to_descriptors"><a class="permalink" href="#Handling_output_to_descriptors">Handling
+  output to descriptors</a></h2>
+<p class="Pp">If <span class="Li">&quot;IO::Multiplex&quot;</span> did not
+    handle output to the file handles as well as input from them, then there is
+    a chance that the program could block while attempting to write. If you let
+    the multiplexer buffer the output, it will write the data only when the file
+    handle is capable of receiveing it.</p>
+<p class="Pp">The basic method for handing output to the multiplexer is the
+    <span class="Li">&quot;write&quot;</span> method, which simply takes a file
+    descriptor and the data to be written, like this:</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;write($fh, &quot;Some data&quot;);
+</pre>
+<p class="Pp">For convenience, when the file handle is
+    <span class="Li">&quot;add&quot;</span>ed to the multiplexer, it is tied to
+    a special class which intercepts all attempts to write to the file handle.
+    Thus, you can use print and printf to send output to the handle in a normal
+    manner:</p>
+<p class="Pp"></p>
+<pre>    printf $fh &quot;%s%d%X&quot;, $foo, $bar, $baz
+</pre>
+<p class="Pp">Unfortunately, Perl support for tied file handles is incomplete,
+    and functions such as <span class="Li">&quot;send&quot;</span> cannot be
+    supported.</p>
+<p class="Pp">Also, file handle object methods such as the
+    <span class="Li">&quot;send&quot;</span> method of
+    <span class="Li">&quot;IO::Socket&quot;</span> cannot be intercepted.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Simple_Example"><a class="permalink" href="#Simple_Example">Simple
+  Example</a></h2>
+<p class="Pp">This is a simple telnet-like program, which demonstrates the
+    concepts covered so far. It does not really work too well against a telnet
+    server, but it does OK against the sample server presented further down.</p>
+<p class="Pp"></p>
+<pre>    use IO::Socket;
+    use IO::Multiplex;
+    # Create a multiplex object
+    my $mux  = new IO::Multiplex;
+    # Connect to the host/port specified on the command line,
+    # or localhost:23
+    my $sock = new IO::Socket::INET(Proto    =&gt; 'tcp',
+                                    PeerAddr =&gt; shift || 'localhost',
+                                    PeerPort =&gt; shift || 23)
+        or die &quot;socket: $@&quot;;
+    # add the relevant file handles to the mux
+    $mux-&gt;add($sock);
+    $mux-&gt;add(\*STDIN);
+    # We want to buffer output to the terminal.  This prevents the program
+    # from blocking if the user hits CTRL-S for example.
+    $mux-&gt;add(\*STDOUT);
+    # We're not object oriented, so just request callbacks to the
+    # current package
+    $mux-&gt;set_callback_object(__PACKAGE__);
+    # Enter the main mux loop.
+    $mux-&gt;loop;
+    # mux_input is called when input is available on one of
+    # the descriptors.
+    sub mux_input {
+        my $package = shift;
+        my $mux     = shift;
+        my $fh      = shift;
+        my $input   = shift;
+        # Figure out whence the input came, and send it on to the
+        # other place.
+        if ($fh == $sock) {
+            print STDOUT $$input;
+        } else {
+            print $sock $$input;
+        }
+        # Remove the input from the input buffer.
+        $$input = '';
+    }
+    # This gets called if the other end closes the connection.
+    sub mux_close {
+        print STDERR &quot;Connection Closed\n&quot;;
+        exit;
+    }
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="A_server_example"><a class="permalink" href="#A_server_example">A
+  server example</a></h2>
+<p class="Pp">Servers are just as simple to write. We just register a listen
+    socket with the multiplex object <span class="Li">&quot;listen&quot;</span>
+    method. It will automatically accept connections on it and add them to its
+    list of active file handles.</p>
+<p class="Pp">This example is a simple chat server.</p>
+<p class="Pp"></p>
+<pre>    use IO::Socket;
+    use IO::Multiplex;
+    my $mux  = new IO::Multiplex;
+    # Create a listening socket
+    my $sock = new IO::Socket::INET(Proto     =&gt; 'tcp',
+                                    LocalPort =&gt; shift || 2300,
+                                    Listen    =&gt; 4)
+        or die &quot;socket: $@&quot;;
+    # We use the listen method instead of the add method.
+    $mux-&gt;listen($sock);
+    $mux-&gt;set_callback_object(__PACKAGE__);
+    $mux-&gt;loop;
+    sub mux_input {
+        my $package = shift;
+        my $mux     = shift;
+        my $fh      = shift;
+        my $input   = shift;
+        # The handles method returns a list of references to handles which
+        # we have registered, except for listen sockets.
+        foreach $c ($mux-&gt;handles) {
+            print $c $$input;
+        }
+        $$input = '';
+    }
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="A_more_complex_server_example"><a class="permalink" href="#A_more_complex_server_example">A
+  more complex server example</a></h2>
+<p class="Pp">Let us take a look at the beginnings of a multi-user game server.
+    We will have a Player object for each player.</p>
+<p class="Pp"></p>
+<pre>    # Paste the above example in here, up to but not including the
+    # mux_input subroutine.
+    # mux_connection is called when a new connection is accepted.
+    sub mux_connection {
+        my $package = shift;
+        my $mux     = shift;
+        my $fh      = shift;
+        # Construct a new player object
+        Player-&gt;new($mux, $fh);
+    }
+    package Player;
+    my %players = ();
+    sub new {
+        my $package = shift;
+        my $self    = bless { mux  =&gt; shift,
+                              fh   =&gt; shift } =&gt; $package;
+        # Register the new player object as the callback specifically for
+        # this file handle.
+        $self-&gt;{mux}-&gt;set_callback_object($self, $self-&gt;{fh});
+        print $self-&gt;{fh}
+            &quot;Greetings, Professor.  Would you like to play a game?\n&quot;;
+        # Register this player object in the main list of players
+        $players{$self} = $self;
+        $mux-&gt;set_timeout($self-&gt;{fh}, 1);
+    }
+    sub players { return values %players; }
+    sub mux_input {
+        my $self = shift;
+        shift; shift;         # These two args are boring
+        my $input = shift;    # Scalar reference to the input
+        # Process each line in the input, leaving partial lines
+        # in the input buffer
+        while ($$input =~ s/^(.*?)\n//) {
+            $self-&gt;process_command($1);
+        }
+    }
+    sub mux_close {
+       my $self = shift;
+       # Player disconnected;
+       # [Notify other players or something...]
+       delete $players{$self};
+    }
+    # This gets called every second to update player info, etc...
+    sub mux_timeout {
+        my $self = shift;
+        my $mux  = shift;
+        $self-&gt;heartbeat;
+        $mux-&gt;set_timeout($self-&gt;{fh}, 1);
+    }
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="METHODS"><a class="permalink" href="#METHODS">METHODS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="new"><a class="permalink" href="#new">new</a></h2>
+<p class="Pp">Construct a new <span class="Li">&quot;IO::Multiplex&quot;</span>
+    object.</p>
+<p class="Pp"></p>
+<pre>    $mux = new IO::Multiplex;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="listen"><a class="permalink" href="#listen">listen</a></h2>
+<p class="Pp">Add a socket to be listened on. The socket should have had the
+    <span class="Li">&quot;bind&quot;</span> and
+    <span class="Li">&quot;listen&quot;</span> system calls already applied to
+    it. The <span class="Li">&quot;IO::Socket&quot;</span> module will do this
+    for you.</p>
+<p class="Pp"></p>
+<pre>    $socket = new IO::Socket::INET(Listen =&gt; ..., LocalAddr =&gt; ...);
+    $mux-&gt;listen($socket);
+</pre>
+<p class="Pp">Connections will be automatically accepted and
+    <span class="Li">&quot;add&quot;</span>ed to the multiplex object.
+    <span class="Li">&quot;The mux_connection&quot;</span> callback method will
+    also be called.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="add"><a class="permalink" href="#add">add</a></h2>
+<p class="Pp">Add a file handle to the multiplexer.</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;add($fh);
+</pre>
+<p class="Pp">As a side effect, this sets non-blocking mode on the handle, and
+    disables STDIO buffering. It also ties it to intercept output to the
+  handle.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="remove"><a class="permalink" href="#remove">remove</a></h2>
+<p class="Pp">Removes a file handle from the multiplexer. This also unties the
+    handle. It does not currently turn STDIO buffering back on, or turn off
+    non-blocking mode.</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;remove($fh);
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="set_callback_object"><a class="permalink" href="#set_callback_object">set_callback_object</a></h2>
+<p class="Pp">Set the object on which callbacks are made. If you are not using
+    objects, you can specify the name of the package into which the method calls
+    are to be made.</p>
+<p class="Pp">If a file handle is supplied, the callback object is specific for
+    that handle:</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;set_callback_object($object, $fh);
+</pre>
+<p class="Pp">Otherwise, it is considered a default callback object, and is used
+    when events occur on a file handle that does not have its own callback
+    object.</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;set_callback_object(__PACKAGE__);
+</pre>
+<p class="Pp">The previously registered object (if any) is returned.</p>
+<p class="Pp">See also the CALLBACK INTERFACE section.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="kill_output"><a class="permalink" href="#kill_output">kill_output</a></h2>
+<p class="Pp">Remove any pending output on a file descriptor.</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;kill_output($fh);
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="outbuffer"><a class="permalink" href="#outbuffer">outbuffer</a></h2>
+<p class="Pp">Return or set the output buffer for a descriptor</p>
+<p class="Pp"></p>
+<pre>    $output = $mux-&gt;outbuffer($fh);
+    $mux-&gt;outbuffer($fh, $output);
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="inbuffer"><a class="permalink" href="#inbuffer">inbuffer</a></h2>
+<p class="Pp">Return or set the input buffer for a descriptor</p>
+<p class="Pp"></p>
+<pre>    $input = $mux-&gt;inbuffer($fh);
+    $mux-&gt;inbuffer($fh, $input);
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="set_timeout"><a class="permalink" href="#set_timeout">set_timeout</a></h2>
+<p class="Pp">Set the timer for a file handle. The timeout value is a certain
+    number of seconds in the future, after which the
+    <span class="Li">&quot;mux_timeout&quot;</span> callback is called.</p>
+<p class="Pp">If the <span class="Li">&quot;Time::HiRes&quot;</span> module is
+    installed, the timers may be specified in fractions of a second.</p>
+<p class="Pp">Timers are not reset automatically.</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;set_timeout($fh, 23.6);
+</pre>
+<p class="Pp">Use <span class="Li">&quot;$mux-&gt;set_timeout($fh,
+    undef)&quot;</span> to cancel a timer.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="handles"><a class="permalink" href="#handles">handles</a></h2>
+<p class="Pp">Returns a list of handles that the
+    <span class="Li">&quot;IO::Multiplex&quot;</span> object knows about,
+    excluding listen sockets.</p>
+<p class="Pp"></p>
+<pre>    @handles = $mux-&gt;handles;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="loop"><a class="permalink" href="#loop">loop</a></h2>
+<p class="Pp">Enter the main loop and start processing IO events.</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;loop;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="endloop"><a class="permalink" href="#endloop">endloop</a></h2>
+<p class="Pp">Prematurly terminate the loop. The loop will automatically
+    terminate when there are no remaining descriptors to be watched.</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;endloop;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="udp_peer"><a class="permalink" href="#udp_peer">udp_peer</a></h2>
+<p class="Pp">Get peer endpoint of where the last udp packet originated.</p>
+<p class="Pp"></p>
+<pre>    $saddr = $mux-&gt;udp_peer($fh);
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="is_udp"><a class="permalink" href="#is_udp">is_udp</a></h2>
+<p class="Pp">Sometimes UDP packets require special attention. This method will
+    tell if a file handle is of type UDP.</p>
+<p class="Pp"></p>
+<pre>    $is_udp = $mux-&gt;is_udp($fh);
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="write"><a class="permalink" href="#write">write</a></h2>
+<p class="Pp">Send output to a file handle.</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;write($fh, &quot;'ere I am, JH!\n&quot;);
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="shutdown"><a class="permalink" href="#shutdown">shutdown</a></h2>
+<p class="Pp">Shut down a socket for reading or writing or both. See the
+    <span class="Li">&quot;shutdown&quot;</span> Perl documentation for further
+    details.</p>
+<p class="Pp">If the shutdown is for reading, it happens immediately. However,
+    shutdowns for writing are delayed until any pending output has been
+    successfully written to the socket.</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;shutdown($socket, 1);
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="close"><a class="permalink" href="#close">close</a></h2>
+<p class="Pp">Close a handle. Always use this method to close a handle that is
+    being watched by the multiplexer.</p>
+<p class="Pp"></p>
+<pre>    $mux-&gt;close($fh);
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CALLBACK_INTERFACE"><a class="permalink" href="#CALLBACK_INTERFACE">CALLBACK
+  INTERFACE</a></h1>
+<p class="Pp">Callback objects should support the following interface. You do
+    not have to provide all of these methods, just provide the ones you are
+    interested in.</p>
+<p class="Pp">All methods receive a reference to the callback object (or
+    package) as their first argument, in the traditional object oriented way.
+    References to the <span class="Li">&quot;IO::Multiplex&quot;</span> object
+    and the relevant file handle are also provided. This will be assumed in the
+    method descriptions.</p>
+<section class="Ss">
+<h2 class="Ss" id="mux_input"><a class="permalink" href="#mux_input">mux_input</a></h2>
+<p class="Pp">Called when input is ready on a descriptor. It is passed a
+    reference to the input buffer. It should remove any input that it has
+    consumed, and leave any partially received data in the buffer.</p>
+<p class="Pp"></p>
+<pre>    sub mux_input {
+        my $self = shift;
+        my $mux  = shift;
+        my $fh   = shift;
+        my $data = shift;
+        # Process each line in the input, leaving partial lines
+        # in the input buffer
+        while ($$data =~ s/^(.*?\n)//) {
+            $self-&gt;process_command($1);
+        }
+    }
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="mux_eof"><a class="permalink" href="#mux_eof">mux_eof</a></h2>
+<p class="Pp">This is called when an end-of-file condition is present on the
+    descriptor. This is does not nessecarily mean that the descriptor has been
+    closed, as the other end of a socket could have used
+    <span class="Li">&quot;shutdown&quot;</span> to close just half of the
+    socket, leaving us free to write data back down the still open half. Like
+    mux_input, it is also passed a reference to the input buffer. It should
+    consume the entire buffer or else it will just be lost.</p>
+<p class="Pp">In this example, we send a final reply to the other end of the
+    socket, and then shut it down for writing. Since it is also shut down for
+    reading (implicly by the EOF condition), it will be closed once the output
+    has been sent, after which the mux_close callback will be called.</p>
+<p class="Pp"></p>
+<pre>    sub mux_eof {
+        my $self = shift;
+        my $mux  = shift;
+        my $fh   = shift;
+        print $fh &quot;Well, goodbye then!\n&quot;;
+        $mux-&gt;shutdown($fh, 1);
+    }
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="mux_close"><a class="permalink" href="#mux_close">mux_close</a></h2>
+<p class="Pp">Called when a handle has been completely closed. At the time that
+    <span class="Li">&quot;mux_close&quot;</span> is called, the handle will
+    have been removed from the multiplexer, and untied.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="mux_outbuffer_empty"><a class="permalink" href="#mux_outbuffer_empty">mux_outbuffer_empty</a></h2>
+<p class="Pp">Called after all pending output has been written to the file
+    descriptor.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="mux_connection"><a class="permalink" href="#mux_connection">mux_connection</a></h2>
+<p class="Pp">Called upon a new connection being accepted on a listen
+  socket.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="mux_timeout"><a class="permalink" href="#mux_timeout">mux_timeout</a></h2>
+<p class="Pp">Called when a timer expires.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Copyright 1999 Bruce J Keeler &lt;bruce@gridpoint.com&gt;</p>
+<p class="Pp">Copyright 2001-2008 Rob Brown &lt;bbb@cpan.org&gt;</p>
+<p class="Pp">Released under the same terms as Perl itself.</p>
+<p class="Pp"><span class="Li">$Id:</span> Multiplex.pm,v 1.45 2015/04/09
+    21:27:54 rob Exp $</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2022-10-13</td>
+    <td class="foot-os">perl v5.36.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">generated 2026-07-10 · ubuntu 24.04 lts (noble) · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+</body>
+</html>

@@ -23,6 +23,15 @@ portable copy (see the optional release workflow).
 `/` focus search · `↑` `↓` navigate results · `Enter` open · `Esc` clear.
 Theme toggle (dark/light) is in the header; it follows your OS preference by default.
 
+## The ghost
+
+A small ghost companion roams the pages (ported from
+[Real-Fruit-Snacks/vault](https://github.com/Real-Fruit-Snacks/vault)). Click the
+ghost button in the header for settings: mode (Roam / Cursor / Off), size,
+opacity, color, and behaviors (napping, fleeing, reading along, tricks, speech
+bubbles). Pet it to recolor it; drag and throw it if it misbehaves. All settings
+persist locally — no network involved.
+
 ## Refreshing the corpus (internet-connected side only)
 
 Requires WSL/Linux with `mandoc groff man-db curl dpkg-dev` installed:

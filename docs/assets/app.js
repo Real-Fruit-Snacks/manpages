@@ -72,3 +72,90 @@
   var pc = document.getElementById('page-count');
   if (pc && window.MANDB) pc.textContent = window.MANDB.pages.length.toLocaleString();
 })();
+
+/* Pet settings panel — same localStorage keys and defaults as the vault site:
+   mode float (roam), size 28, opacity 70, color 0 (accent),
+   nap/flee/read/tricks on, speech off. Dispatches "twb:pet" so pet.js
+   re-reads config live. */
+(function () {
+  'use strict';
+  var open = document.getElementById('pet-open');
+  var panel = document.getElementById('pet-panel');
+  if (!open || !panel) return;
+  var root = document.documentElement;
+
+  function getMode() {
+    var a = root.getAttribute('data-pet');
+    return a === 'off' || a === 'float' ? a : 'cursor';
+  }
+  function setMode(m) {
+    if (m === 'cursor') root.removeAttribute('data-pet');
+    else root.setAttribute('data-pet', m);
+    try { if (m === 'float') localStorage.removeItem('twb-pet'); else localStorage.setItem('twb-pet', m); } catch (e) { /* private mode */ }
+    sync(); fire();
+  }
+  function num(k, dflt) { var v = parseInt(localStorage.getItem(k), 10); return isNaN(v) ? dflt : v; }
+  function onq(k, dflt) { var v = localStorage.getItem(k); return v === 'on' ? true : v === 'off' ? false : dflt; }
+  function setKey(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
+
+  function sync() {
+    var m = getMode();
+    var segs = panel.querySelectorAll('#pet-mode button');
+    for (var i = 0; i < segs.length; i++) segs[i].classList.toggle('on', segs[i].getAttribute('data-mode') === m);
+    panel.querySelector('#pet-size').value = num('twb-pet-size', 28);
+    panel.querySelector('#pet-opacity').value = num('twb-pet-opacity', 70);
+    var col = num('twb-pet-color', 0);
+    var sw = panel.querySelectorAll('#pet-color button');
+    for (var j = 0; j < sw.length; j++) sw[j].classList.toggle('on', (+sw[j].getAttribute('data-color')) === col);
+    var q = [['nap', true], ['flee', true], ['read', true], ['tricks', true], ['speech', false]];
+    for (var n = 0; n < q.length; n++) {
+      var b = panel.querySelector('#pet-q-' + q[n][0]);
+      if (b) b.classList.toggle('on', onq('twb-pet-' + q[n][0], q[n][1]));
+    }
+  }
+  function fire() { window.dispatchEvent(new Event('twb:pet')); }
+
+  function closePanel() {
+    panel.setAttribute('hidden', '');
+    open.setAttribute('aria-expanded', 'false');
+  }
+  function openPanel() {
+    sync();
+    panel.removeAttribute('hidden');
+    open.setAttribute('aria-expanded', 'true');
+  }
+  open.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (panel.hasAttribute('hidden')) openPanel(); else closePanel();
+  });
+  var petClose = document.getElementById('pet-close');
+  if (petClose) petClose.addEventListener('click', function (e) { e.stopPropagation(); closePanel(); });
+  document.addEventListener('click', function (e) {
+    if (!panel.hasAttribute('hidden') && !panel.contains(e.target) && e.target !== open && !open.contains(e.target)) closePanel();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !panel.hasAttribute('hidden')) { closePanel(); open.focus(); }
+  });
+
+  panel.querySelector('#pet-mode').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-mode]'); if (b) setMode(b.getAttribute('data-mode'));
+  });
+  panel.querySelector('#pet-size').addEventListener('input', function () { setKey('twb-pet-size', this.value); fire(); });
+  panel.querySelector('#pet-opacity').addEventListener('input', function () { setKey('twb-pet-opacity', this.value); fire(); });
+  panel.querySelector('#pet-color').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-color]'); if (!b) return;
+    var c = b.getAttribute('data-color');
+    try { if (c === '0') localStorage.removeItem('twb-pet-color'); else localStorage.setItem('twb-pet-color', c); } catch (er) { /* private mode */ }
+    sync(); fire();
+  });
+  var quirks = ['nap', 'flee', 'read', 'tricks', 'speech'];
+  for (var i = 0; i < quirks.length; i++) (function (id) {
+    var b = panel.querySelector('#pet-q-' + id);
+    if (!b) return;
+    b.addEventListener('click', function () {
+      var cur = onq('twb-pet-' + id, id === 'speech' ? false : true);
+      setKey('twb-pet-' + id, cur ? 'off' : 'on');
+      sync(); fire();
+    });
+  })(quirks[i]);
+})();

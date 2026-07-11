@@ -54,7 +54,7 @@ for dir in "$SRC"/man[1-9]*; do
     if ! zcat -f "$f" > "$outdir/$stem" 2>/dev/null; then
       rm -f "$outdir/$stem"; echo "READ-FAIL $f" >> "$WORK/extract.log"; continue
     fi
-    printf '%s\t%s\t%s\n' "$name" "$sect" "$sect/$stem" >> "$WORK/pages.tsv"
+    printf '%s\t%s\t%s\t%s\n' "$name" "$sect" "$sect/$stem" "${dir##*/}/$base" >> "$WORK/pages.tsv"
   done
 done
 echo "==> pages: $(wc -l < "$WORK/pages.tsv"), aliases: $(wc -l < "$WORK/aliases.tsv"), log: $(wc -l < "$WORK/extract.log")"

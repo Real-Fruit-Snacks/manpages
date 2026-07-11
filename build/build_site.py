@@ -94,6 +94,21 @@ def extract_toc(content):
     return toc
 
 
+def parse_page_rows(lines):
+    """pages.tsv rows: name, sect, relpath[, source-tree key]. Pad to 4."""
+    rows = []
+    for line in lines:
+        line = line.rstrip('\n')
+        if not line:
+            continue
+        parts = line.split('\t', 3)
+        if len(parts) == 3:
+            parts.append('')
+        if len(parts) == 4:
+            rows.append(tuple(parts))
+    return rows
+
+
 def load_tsv(path, ncols):
     rows = []
     if not os.path.exists(path):
@@ -119,8 +134,11 @@ def main():
     args = ap.parse_args()
     work, out = args.work, args.out
 
-    page_rows = load_tsv(os.path.join(work, 'pages.tsv'), 3)
+    with open(os.path.join(work, 'pages.tsv'), encoding='utf-8', errors='replace') as f:
+        page_rows = parse_page_rows(f)
     alias_rows = load_tsv(os.path.join(work, 'aliases.tsv'), 4)
+    filemap = dict((r[0], (r[1], r[2]))
+                   for r in load_tsv(os.path.join(work, 'filemap.tsv'), 3))
     desc_rows = load_tsv(os.path.join(work, 'descriptions.tsv'), 3)
     methods = dict((r[0], r[1]) for r in load_tsv(os.path.join(work, 'convert-report.tsv'), 2))
     descs = dict(((n, s), d) for n, s, d in desc_rows)
@@ -129,7 +147,7 @@ def main():
     pages = []
     taken_by_dir = {}
     seen = set()
-    for name, sect, relsrc in sorted(page_rows):
+    for name, sect, relsrc, src_key in sorted(page_rows):
         if (name, sect) in seen:
             continue
         seen.add((name, sect))
@@ -141,6 +159,7 @@ def main():
         pages.append({'name': name, 'sect': sect, 'slug': slug, 'src': src,
                       'desc': descs.get((name, sect), ''),
                       'method': methods.get(relsrc, 'mandoc'),
+                      'src_key': src_key,
                       'path': 'man/%s/%s.html' % (sect, slug)})
 
     exact, by_base = build_maps(pages)
@@ -190,8 +209,11 @@ def main():
         toc_html = ''.join(
             '<li><a href="#%s">%s</a></li>' % (html.escape(i, quote=True), html.escape(t))
             for i, t in extract_toc(content))
+        pkg = filemap.get(p.get('src_key', ''))
+        source_html = ('source: %s %s · ' % (html.escape(pkg[0]), html.escape(pkg[1]))) if pkg else ''
         page_html = (tpl
                      .replace('{root}', '../../')
+                     .replace('{source}', source_html)
                      .replace('{title}', html.escape('%s(%s)' % (p['name'], p['sect'])))
                      .replace('{desc}', html.escape(p['desc'], quote=True))
                      .replace('{generated}', gen_date)

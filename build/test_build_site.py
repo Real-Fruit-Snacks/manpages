@@ -59,6 +59,11 @@ class TestBuildSite(unittest.TestCase):
         self.assertIn('<b>printf</b>("%s")', out)      # function call untouched
         self.assertIn('<b>word</b>(noun)', out)        # non-section parens untouched
 
+    def test_parse_page_rows_tolerates_three_or_four_cols(self):
+        rows = build_site.parse_page_rows(['a\t1\t1/a.1', 'b\t1\t1/b.1\tman1/b.1.gz'])
+        self.assertEqual(rows[0], ('a', '1', '1/a.1', ''))
+        self.assertEqual(rows[1], ('b', '1', '1/b.1', 'man1/b.1.gz'))
+
     def test_extract_toc(self):
         self.assertEqual(build_site.extract_toc(FRAG),
                          [('NAME', 'NAME'), ('SEE_ALSO', 'SEE ALSO')])

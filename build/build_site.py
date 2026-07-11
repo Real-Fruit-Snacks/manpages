@@ -94,6 +94,102 @@ def extract_toc(content):
     return toc
 
 
+SECTION_NAMES = {
+    '1': 'User commands', '2': 'System calls', '3': 'Library functions',
+    '4': 'Devices & special files', '5': 'File formats', '6': 'Games',
+    '7': 'Overviews & conventions', '8': 'System administration', '9': 'Kernel',
+}
+
+
+def chunk_entries(entries, limit=2000):
+    """Pack alphabetically-sorted entries into <=limit chunks along letter
+    boundaries. entries: sequence of tuples whose [0] is the sort name.
+    Returns [(label, [entries])] with labels like 'a' or 'b–c'."""
+    groups = []
+    for e in entries:
+        ch = (e[0][:1] or '#').lower()
+        if groups and groups[-1][0] == ch:
+            groups[-1][1].append(e)
+        else:
+            groups.append((ch, [e]))
+    chunks = []
+    cur_lo = cur_hi = None
+    cur = []
+    for ch, items in groups:
+        if cur and len(cur) + len(items) > limit:
+            chunks.append((cur_lo if cur_lo == cur_hi else '%s–%s' % (cur_lo, cur_hi), cur))
+            cur, cur_lo = [], None
+        cur.extend(items)
+        cur_lo = cur_lo or ch
+        cur_hi = ch
+    if cur:
+        chunks.append((cur_lo if cur_lo == cur_hi else '%s–%s' % (cur_lo, cur_hi), cur))
+    return chunks
+
+
+def write_listings(pages, out, tpl):
+    by_sect = {}
+    for p in pages:
+        by_sect.setdefault(p['sect'], []).append(p)
+    browse_dir = os.path.join(out, 'browse')
+    os.makedirs(browse_dir, exist_ok=True)
+    sect_links = []
+    for sect in sorted(by_sect, key=lambda s: (s[0], s)):
+        entries = sorted(by_sect[sect], key=lambda p: p['name'].lower())
+        chunks = chunk_entries([(p['name'], p) for p in entries])
+        files = []
+        for n, (label, items) in enumerate(chunks):
+            fname = '%s.html' % sect if len(chunks) == 1 else '%s-%d.html' % (sect, n + 1)
+            body = ['<h1 class="Sh">section %s — %s%s</h1>' % (
+                html.escape(sect), html.escape(SECTION_NAMES.get(sect[0], '')),
+                '' if len(chunks) == 1 else ' (%s)' % html.escape(label))]
+            body.append('<ul class="listing-list">')
+            for _, p in items:
+                body.append('<li><a href="../%s">%s(%s)</a> <span class="l-desc">%s</span></li>'
+                            % (p['path'], html.escape(p['name']),
+                               html.escape(p['sect']), html.escape(p['desc'])))
+            body.append('</ul>')
+            with open(os.path.join(browse_dir, fname), 'w', encoding='utf-8') as f:
+                f.write(tpl.replace('{root}', '../')
+                        .replace('{title}', html.escape('section %s%s' % (
+                            sect, '' if len(chunks) == 1 else ' ' + label)))
+                        .replace('{content}', '\n'.join(body)))
+            files.append((fname, label))
+        sect_links.append((sect, len(entries), files))
+    idx = ['<h1 class="Sh">browse by section</h1><ul class="listing-list listing-sections">']
+    for sect, count, files in sect_links:
+        if len(files) > 1:
+            links = ' '.join('<a href="%s">%s</a>' % (html.escape(f), html.escape(l))
+                             for f, l in files)
+        else:
+            links = '<a href="%s">all</a>' % html.escape(files[0][0])
+        idx.append('<li><b>man%s</b> — %s <span class="l-desc">%d pages</span> · %s</li>'
+                   % (html.escape(sect), html.escape(SECTION_NAMES.get(sect[0], '')),
+                      count, links))
+    idx.append('</ul>')
+    with open(os.path.join(browse_dir, 'index.html'), 'w', encoding='utf-8') as f:
+        f.write(tpl.replace('{root}', '../').replace('{title}', 'browse')
+                .replace('{content}', '\n'.join(idx)))
+
+
+def write_about(pages, n_aliases, out, tpl, gen_date):
+    body = ('<h1 class="Sh">about</h1>\n'
+            '<p>Offline Linux manual: %d man pages (%d aliases) pre-rendered from\n'
+            'Ubuntu 24.04 LTS (noble + noble-updates, main + universe, amd64),\n'
+            'snapshot %s.</p>\n'
+            '<p>Everything is static and self-contained: no CDNs, no external fonts,\n'
+            'no analytics, no network calls. Works from GitHub/GitLab Pages, any web\n'
+            'server, or straight off disk.</p>\n'
+            '<h1 class="Sh">licenses</h1>\n'
+            '<p>Site tooling: MIT. Man page content: upstream Ubuntu package licenses\n'
+            '(see each page footer for its source package). Theme:\n'
+            'terminal-workbench-design-system (MIT). Font: JetBrains Mono (OFL 1.1).</p>'
+            % (len(pages), n_aliases, gen_date))
+    with open(os.path.join(out, 'about.html'), 'w', encoding='utf-8') as f:
+        f.write(tpl.replace('{root}', './').replace('{title}', 'about')
+                .replace('{content}', body))
+
+
 def parse_page_rows(lines):
     """pages.tsv rows: name, sect, relpath[, source-tree key]. Pad to 4."""
     rows = []
@@ -241,6 +337,13 @@ def main():
     # Service worker: version = date + index hash so corpus refreshes bust caches.
     with open(os.path.join(out, 'data', 'index.js'), 'rb') as f:
         idx_hash = hashlib.md5(f.read()).hexdigest()[:8]
+    listing_tpl_path = os.path.join(args.templates, 'listing.html')
+    if os.path.exists(listing_tpl_path):
+        with open(listing_tpl_path, encoding='utf-8') as f:
+            listing_tpl = f.read()
+        write_listings(pages, out, listing_tpl)
+        write_about(pages, len(alias_entries), out, listing_tpl, gen_date)
+
     sw_tpl_path = os.path.join(args.templates, 'sw.js')
     if os.path.exists(sw_tpl_path):
         with open(sw_tpl_path, encoding='utf-8') as f:

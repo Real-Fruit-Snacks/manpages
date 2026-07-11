@@ -64,6 +64,15 @@ class TestBuildSite(unittest.TestCase):
         self.assertEqual(rows[0], ('a', '1', '1/a.1', ''))
         self.assertEqual(rows[1], ('b', '1', '1/b.1', 'man1/b.1.gz'))
 
+    def test_chunk_entries(self):
+        entries = [('a%d' % i,) for i in range(3)] + [('b0',), ('c0',)]
+        chunks = build_site.chunk_entries(entries, limit=3)
+        self.assertEqual([c[0] for c in chunks], ['a', 'b–c'])
+        self.assertEqual(sum(len(c[1]) for c in chunks), 5)
+        one = build_site.chunk_entries(entries, limit=100)
+        self.assertEqual(len(one), 1)
+        self.assertEqual(one[0][0], 'a–c')
+
     def test_extract_toc(self):
         self.assertEqual(build_site.extract_toc(FRAG),
                          [('NAME', 'NAME'), ('SEE_ALSO', 'SEE ALSO')])

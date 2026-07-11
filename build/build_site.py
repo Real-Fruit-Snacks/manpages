@@ -61,7 +61,7 @@ def rewrite_xr(content, exact, by_base, alias_target):
                  or alias_target(name, sect))
             if p:
                 return '<a class="Xr" href="../%s/%s.html">%s</a>' % (
-                    p['sect'], p['slug'], html.escape(text))
+                    p.get('dir', p['sect']), p['slug'], html.escape(text))
         return '<span class="Xr">%s</span>' % html.escape(text)
     return XR_RE.sub(repl, content)
 
@@ -82,7 +82,7 @@ def linkify_refs(content, exact, by_base, alias_target):
              or alias_target(name, sect))
         if p:
             return '<a class="Xr" href="../%s/%s.html"><%s>%s</%s>(%s)</a>' % (
-                p['sect'], p['slug'], tag, name, tag, sect)
+                p.get('dir', p['sect']), p['slug'], tag, name, tag, sect)
         return m.group(0)
     return BOLD_REF_RE.sub(repl, content)
 
@@ -140,7 +140,7 @@ def chunk_entries(entries, limit=2000):
 def write_listings(pages, out, tpl):
     by_sect = {}
     for p in pages:
-        by_sect.setdefault(p['sect'], []).append(p)
+        by_sect.setdefault(p.get('dir', p['sect'].lower()), []).append(p)
     browse_dir = os.path.join(out, 'browse')
     os.makedirs(browse_dir, exist_ok=True)
     sect_links = []
@@ -278,12 +278,16 @@ def main():
         if not os.path.exists(src):
             report.append('MISSING-HTML %s' % relsrc)
             continue
-        slug = slugify(name, taken_by_dir.setdefault(sect, {}))
-        pages.append({'name': name, 'sect': sect, 'slug': slug, 'src': src,
+        # Section *directories* are lowercased: NTFS checkouts can't hold both
+        # man/1x and man/1X. Display section keeps its original case.
+        dir_key = sect.lower()
+        slug = slugify(name, taken_by_dir.setdefault(dir_key, {}))
+        pages.append({'name': name, 'sect': sect, 'dir': dir_key, 'slug': slug,
+                      'src': src,
                       'desc': descs.get((name, sect), ''),
                       'method': methods.get(relsrc, 'mandoc'),
                       'src_key': src_key,
-                      'path': 'man/%s/%s.html' % (sect, slug)})
+                      'path': 'man/%s/%s.html' % (dir_key, slug)})
 
     # Content dedupe: pages whose body (minus their own head/foot tables) is
     # identical become aliases of one canonical page. Collapses e.g. the ~2 MB
@@ -346,7 +350,7 @@ def main():
     n_pre = 0
     internal_hrefs = set()
     written = set()
-    planned = set('%s/%s.html' % (p['sect'], p['slug']) for p in pages)
+    planned = set('%s/%s.html' % (p['dir'], p['slug']) for p in pages)
     for p in pages:
         with open(p['src'], encoding='utf-8', errors='replace') as f:
             content = f.read()
@@ -380,7 +384,7 @@ def main():
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         with open(dest, 'w', encoding='utf-8') as f:
             f.write(page_html)
-        written.add('%s/%s.html' % (p['sect'], p['slug']))
+        written.add('%s/%s.html' % (p['dir'], p['slug']))
 
     db = {'v': 1, 'generated': gen_date,
           'pages': [[p['name'], p['sect'], p['desc'], p['path']] for p in pages],

@@ -73,6 +73,14 @@ class TestBuildSite(unittest.TestCase):
         self.assertEqual(len(one), 1)
         self.assertEqual(one[0][0], 'a–c')
 
+    def test_case_colliding_sections_share_a_dir(self):
+        # NTFS can't hold man/1x and man/1X side by side; both must land in
+        # one lowercased dir with unique slugs.
+        taken = {}
+        s1 = build_site.slugify('foo', taken)   # from section 1x
+        s2 = build_site.slugify('FOO', taken)   # from section 1X
+        self.assertNotEqual(s1.lower(), s2.lower())
+
     def test_unwrap_noncorpus_links(self):
         frag = ('<a class="Xr" href="../1/gzip.html">gzip(1)</a> and '
                 '<a href="../autopkgtest/README.md">docs</a>')

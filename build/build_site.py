@@ -296,9 +296,17 @@ def main():
     unique_pages = []
     dup_aliases = []
     n_dup_bytes = 0
+    n_empty = 0
     for p in pages:
         with open(p['src'], 'rb') as f:
             raw = f.read()
+        # Some packages ship zero-length man page stubs; don't publish shells.
+        if len(raw) < 4096:
+            text = re.sub(rb'<[^>]+>', b'', HEADFOOT_B_RE.sub(b'', raw)).strip()
+            if len(text) < 120:
+                report.append('EMPTY-PAGE %s(%s)' % (p['name'], p['sect']))
+                n_empty += 1
+                continue
         h = hashlib.md5(HEADFOOT_B_RE.sub(b'', raw)).hexdigest() if len(raw) > 65536 \
             else None  # only dedupe large pages; small dupes aren't worth aliasing
         if h and h in body_hash:
@@ -311,18 +319,24 @@ def main():
     if dup_aliases:
         report.append('DEDUPED %d pages (%.1f MB) into aliases'
                       % (len(dup_aliases), n_dup_bytes / 1e6))
+    if n_empty:
+        report.append('SKIPPED %d empty stub pages' % n_empty)
     pages = unique_pages
 
     exact, by_base = build_maps(pages)
     alias_map = dict(((a, asec), (t, tsec)) for a, asec, t, tsec in alias_rows)
+    dup_target = dict(((a, asec), tp) for a, asec, tp in dup_aliases)
 
     def alias_target(name, sect, _depth=8):
         key = (name, sect)
         for _ in range(_depth):
+            if key in dup_target:
+                return dup_target[key]
             if key not in alias_map:
                 break
             key = alias_map[key]
-            p = exact.get(key) or by_base.get((key[0], key[1][:1] or '?'))
+            p = (exact.get(key) or dup_target.get(key)
+                 or by_base.get((key[0], key[1][:1] or '?')))
             if p:
                 return p
         return None
@@ -332,7 +346,8 @@ def main():
     for a, asec, t, tsec in alias_rows:
         if (a, asec) in index_of:
             continue  # a real page shadows the alias
-        p = exact.get((t, tsec)) or by_base.get((t, tsec[:1] or '?')) or alias_target(t, tsec)
+        p = (exact.get((t, tsec)) or dup_target.get((t, tsec))
+             or by_base.get((t, tsec[:1] or '?')) or alias_target(t, tsec))
         if p is None:
             report.append('DANGLING-ALIAS %s(%s) -> %s(%s)' % (a, asec, t, tsec))
             continue

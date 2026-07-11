@@ -227,6 +227,10 @@ def main():
     ap.add_argument('--templates',
                     default=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'))
     ap.add_argument('--max-fallback-pct', type=float, default=2.0)
+    ap.add_argument('--pkg-components', default='',
+                    help='tsv of package<TAB>component (from fetch.sh)')
+    ap.add_argument('--drop', default='',
+                    help='component:sections to exclude, e.g. universe:2,3,4,9')
     args = ap.parse_args()
     work, out = args.work, args.out
 
@@ -239,14 +243,27 @@ def main():
     methods = dict((r[0], r[1]) for r in load_tsv(os.path.join(work, 'convert-report.tsv'), 2))
     descs = dict(((n, s), d) for n, s, d in desc_rows)
 
+    compmap = dict((r[0], r[1]) for r in load_tsv(args.pkg_components, 2)) \
+        if args.pkg_components else {}
+    drop_comp, drop_sects = '', set()
+    if args.drop:
+        drop_comp, _, sects = args.drop.partition(':')
+        drop_sects = set(s.strip() for s in sects.split(',') if s.strip())
+
     report = []
     pages = []
     taken_by_dir = {}
     seen = set()
+    n_dropped = 0
     for name, sect, relsrc, src_key in sorted(page_rows):
         if (name, sect) in seen:
             continue
         seen.add((name, sect))
+        if drop_sects and sect[:1] in drop_sects:
+            fm_entry = filemap.get(src_key)
+            if fm_entry and compmap.get(fm_entry[0], '') == drop_comp:
+                n_dropped += 1
+                continue
         src = os.path.join(work, 'html', relsrc + '.html')
         if not os.path.exists(src):
             report.append('MISSING-HTML %s' % relsrc)
@@ -375,8 +392,8 @@ def main():
         for e in errors:
             f.write('ERROR %s\n' % e)
 
-    print('pages=%d aliases=%d pre=%d(%.2f%%) notes=%d errors=%d'
-          % (len(pages), len(alias_entries), n_pre, pct, len(report), len(errors)))
+    print('pages=%d aliases=%d pre=%d(%.2f%%) dropped=%d notes=%d errors=%d'
+          % (len(pages), len(alias_entries), n_pre, pct, n_dropped, len(report), len(errors)))
     if errors:
         for e in errors[:10]:
             print('ERROR', e, file=sys.stderr)

@@ -51,6 +51,7 @@ for s in $SUITES; do for c in $COMPONENTS; do zcat "$CACHE/indexes/Packages-$s-$
   | awk -F'\t' '{ m[$1] = $0 } END { for (k in m) print m[k] }' \
   | sort > "$CACHE/allpkgs.tsv"
 join -t "$(printf '\t')" "$CACHE/manpkgs.txt" "$CACHE/allpkgs.tsv" > "$CACHE/download.tsv"
+awk -F'\t' '{ split($2, p, "/"); print $1 "\t" p[2] }' "$CACHE/download.tsv" > "$CACHE/components.tsv"
 echo "    to download: $(wc -l < "$CACHE/download.tsv")"
 awk -F'\t' '{ s += $4 } END { printf "    total download size: %.1f GB\n", s / 1e9 }' "$CACHE/download.tsv"
 if [ "${INDEX_ONLY:-0}" = "1" ]; then echo "==> INDEX_ONLY=1, stopping before downloads"; exit 0; fi

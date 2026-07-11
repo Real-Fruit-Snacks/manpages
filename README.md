@@ -43,6 +43,10 @@ Requires WSL/Linux with `mandoc groff man-db curl dpkg-dev` installed:
 `PKG_LIMIT=200` limits the package count for a quick test run. Downloaded debs
 are cached in `~/manbuild/cache` and reused on the next refresh.
 
+To cut a release, push a tag: `git tag v1.2.3 && git push origin v1.2.3`.
+The release workflow zips `docs/` and publishes it with that version's
+CHANGELOG section as the notes.
+
 ## How it works
 
 - `build/fetch.sh` finds every Ubuntu main package shipping man pages (via the

@@ -1,0 +1,26 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build site zip
+        run: cd docs && zip -qr ../manpages-site.zip .
+      - name: extract changelog section
+        run: |
+          ver="${GITHUB_REF_NAME#v}"
+          awk -v ver="$ver" '
+            $0 ~ "^## \\[" ver "\\]" { on=1; next }
+            on && /^## \[/ { exit }
+            on { print }' CHANGELOG.md > notes.md
+          if ! [ -s notes.md ]; then echo "No changelog entry for $ver" > notes.md; fi
+          printf '\n**manpages-site.zip** is the complete static site: unzip and open index.html, or serve the folder anywhere.\n' >> notes.md
+      - name: create release
+        run: gh release create "$GITHUB_REF_NAME" manpages-site.zip --title "manpages $GITHUB_REF_NAME" --notes-file notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -18,6 +18,9 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 python3 "$HERE/build_site.py" --work "$WORK" --out "$OUT"
 
 echo "==> copying generated site into $DOCS"
-rm -rf "$DOCS/man" "$DOCS/data"
+rm -rf "$DOCS/man" "$DOCS/data" "$DOCS/browse"
 cp -r "$OUT/man" "$OUT/data" "$DOCS/"
+for extra in sw.js about.html browse; do
+  [ -e "$OUT/$extra" ] && cp -r "$OUT/$extra" "$DOCS/"
+done
 echo "==> done: $(find "$DOCS/man" -name '*.html' | wc -l) pages in $DOCS/man"

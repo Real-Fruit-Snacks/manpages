@@ -216,6 +216,16 @@ def main():
         f.write(json.dumps(db, ensure_ascii=False, separators=(',', ':')))
         f.write(';\n')
 
+    # Service worker: version = date + index hash so corpus refreshes bust caches.
+    with open(os.path.join(out, 'data', 'index.js'), 'rb') as f:
+        idx_hash = hashlib.md5(f.read()).hexdigest()[:8]
+    sw_tpl_path = os.path.join(args.templates, 'sw.js')
+    if os.path.exists(sw_tpl_path):
+        with open(sw_tpl_path, encoding='utf-8') as f:
+            sw = f.read().replace('{version}', '%s-%s' % (gen_date, idx_hash))
+        with open(os.path.join(out, 'sw.js'), 'w', encoding='utf-8') as f:
+            f.write(sw)
+
     # ---- validation ----
     errors = []
     for p in pages:

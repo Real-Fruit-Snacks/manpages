@@ -32,9 +32,17 @@
     var h = '';
     for (var i = 0; i < items.length; i++) {
       var r = items[i];
-      h += '<li class="' + (i === sel ? 'sel' : '') + '">' +
+      var nameHtml;
+      if (r.hl) {
+        nameHtml = esc(r.name.slice(0, r.hl[0])) + '<mark>' +
+          esc(r.name.slice(r.hl[0], r.hl[0] + r.hl[1])) + '</mark>' +
+          esc(r.name.slice(r.hl[0] + r.hl[1]));
+      } else {
+        nameHtml = esc(r.name);
+      }
+      h += '<li id="opt-' + i + '" role="option" aria-selected="' + (i === sel) + '" class="' + (i === sel ? 'sel' : '') + '">' +
         '<a href="' + esc(root + r.path) + '">' +
-        '<span class="r-name">' + esc(r.name) + '</span>' +
+        '<span class="r-name">' + nameHtml + '</span>' +
         '<span class="badge s' + esc(String(r.section).charAt(0)) + '">' + esc(r.section) + '</span>' +
         '<span class="r-desc">' + esc(r.desc) + '</span></a></li>';
     }

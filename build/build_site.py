@@ -22,6 +22,7 @@ H_RE = re.compile(r'<h[12][^>]*\bid="([^"]+)"[^>]*>(.*?)</h[12]>', re.S)
 TAG_RE = re.compile(r'<[^>]+>')
 BODY_RE = re.compile(r'<body[^>]*>(.*)</body>', re.S)
 HREF_RE = re.compile(r'href="\.\./([^"#]+)"')
+REL_A_RE = re.compile(r'<a\b[^>]*href="\.\./(?!\.\./)([^"#]+)"[^>]*>(.*?)</a>', re.S)
 
 
 def slugify(name, taken):
@@ -83,6 +84,14 @@ def linkify_refs(content, exact, by_base, alias_target):
                 p['sect'], p['slug'], tag, name, tag, sect)
         return m.group(0)
     return BOLD_REF_RE.sub(repl, content)
+
+
+def unwrap_noncorpus_links(content, planned):
+    """Unwrap <a> tags whose ../-relative target is not a page we will write
+    (e.g. stray relative links in upstream roff sources)."""
+    def repl(m):
+        return m.group(0) if m.group(1) in planned else m.group(2)
+    return REL_A_RE.sub(repl, content)
 
 
 def extract_toc(content):
@@ -308,6 +317,7 @@ def main():
     n_pre = 0
     internal_hrefs = set()
     written = set()
+    planned = set('%s/%s.html' % (p['sect'], p['slug']) for p in pages)
     for p in pages:
         with open(p['src'], encoding='utf-8', errors='replace') as f:
             content = f.read()
@@ -319,6 +329,7 @@ def main():
             n_pre += 1
         content = rewrite_xr(content, exact, by_base, alias_target)
         content = linkify_refs(content, exact, by_base, alias_target)
+        content = unwrap_noncorpus_links(content, planned)
         toc_html = ''.join(
             '<li><a href="#%s">%s</a></li>' % (html.escape(i, quote=True), html.escape(t))
             for i, t in extract_toc(content))
@@ -334,7 +345,7 @@ def main():
                      .replace('{content}', content))
         for m in HREF_RE.finditer(content):
             internal_hrefs.add(m.group(1))
-        if 'grohtml-' in content:
+        if '<img' in content:
             report.append('GROHTML-IMG %s' % p['path'])
         dest = os.path.join(out, p['path'])
         os.makedirs(os.path.dirname(dest), exist_ok=True)

@@ -73,6 +73,14 @@ class TestBuildSite(unittest.TestCase):
         self.assertEqual(len(one), 1)
         self.assertEqual(one[0][0], 'a–c')
 
+    def test_unwrap_noncorpus_links(self):
+        frag = ('<a class="Xr" href="../1/gzip.html">gzip(1)</a> and '
+                '<a href="../autopkgtest/README.md">docs</a>')
+        out = build_site.unwrap_noncorpus_links(frag, {'1/gzip.html'})
+        self.assertIn('href="../1/gzip.html"', out)
+        self.assertNotIn('README.md', out)
+        self.assertIn('and docs', out)
+
     def test_extract_toc(self):
         self.assertEqual(build_site.extract_toc(FRAG),
                          [('NAME', 'NAME'), ('SEE_ALSO', 'SEE ALSO')])

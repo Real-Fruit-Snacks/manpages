@@ -24,7 +24,7 @@ one() {
 }
 export -f one
 
-ls "$CACHE"/debs/*.deb | xargs -P "$(nproc)" -n 1 bash -c 'one "$1"' _
+ls "$CACHE"/debs/*.deb | xargs -d '\n' -P "$(nproc)" -n 1 bash -c 'one "$1"' _
 cat "$MANIF"/*.tsv > "$WORK/filemap.tsv" 2>/dev/null || : > "$WORK/filemap.tsv"
 echo "==> extracted files: $(find "$DEST/usr/share/man" \( -type f -o -type l \) 2>/dev/null | wc -l)"
 echo "==> filemap: $(wc -l < "$WORK/filemap.tsv") entries"

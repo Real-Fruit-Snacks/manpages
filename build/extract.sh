@@ -72,5 +72,5 @@ desc_one() {
   return 0
 }
 export -f desc_one
-cut -f3 "$WORK/pages.tsv" | xargs -P "$(nproc)" -n 1 bash -c 'desc_one "$1"' _
+cut -f3 "$WORK/pages.tsv" | xargs -d '\n' -P "$(nproc)" -n 1 bash -c 'desc_one "$1"' _
 echo "==> descriptions: $(wc -l < "$WORK/descriptions.tsv")"

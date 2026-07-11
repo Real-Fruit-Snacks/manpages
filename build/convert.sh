@@ -32,6 +32,6 @@ conv_one() {
 }
 export -f conv_one
 
-cut -f3 "$WORK/pages.tsv" | xargs -P "$(nproc)" -n 1 bash -c 'conv_one "$1"' _
+cut -f3 "$WORK/pages.tsv" | xargs -d '\n' -P "$(nproc)" -n 1 bash -c 'conv_one "$1"' _
 echo "==> converted: $(wc -l < "$WORK/convert-report.tsv") of $(wc -l < "$WORK/pages.tsv")"
 awk -F'\t' '{ c[$2]++ } END { for (m in c) printf "    %s: %d\n", m, c[m] }' "$WORK/convert-report.tsv"

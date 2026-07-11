@@ -21,22 +21,44 @@
     var pages = db.pages;
     var i, t, s;
 
+    /* Section filter: "tar 5", "5 tar", "tar.5", or a bare "5" listing. */
+    var sectFilter = null;
+    var SECT_RE = /^\d[a-z0-9]{0,5}$/;
+    if (tokens.length === 1) {
+      var dm = tokens[0].match(/^(.+)\.(\d[a-z0-9]{0,5})$/);
+      if (dm) { tokens = [dm[1]]; sectFilter = dm[2]; }
+    }
+    if (!sectFilter) {
+      for (t = tokens.length - 1; t >= 0; t--) {
+        if (tokens.length > 1 && SECT_RE.test(tokens[t])) {
+          sectFilter = tokens[t]; tokens.splice(t, 1); break;
+        }
+      }
+    }
+    if (!sectFilter && tokens.length === 1 && SECT_RE.test(tokens[0])) {
+      sectFilter = tokens[0]; tokens = [];
+    }
+
     for (i = 0; i < pages.length; i++) {
+      if (sectFilter && pages[i][1].toLowerCase().indexOf(sectFilter) !== 0) continue;
       var name = pages[i][0].toLowerCase();
       var desc = (pages[i][2] || '').toLowerCase();
-      var total = 0, ok = true;
+      var total = 0, ok = true, hl = null;
+      if (!tokens.length) total = 1; /* bare-section listing */
       for (t = 0; t < tokens.length; t++) {
         s = scoreName(name, tokens[t]);
+        if (s && !hl) hl = [name.indexOf(tokens[t]), tokens[t].length];
         if (!s && desc.indexOf(tokens[t]) !== -1) s = 30;
         if (!s) { ok = false; break; }
         total += s;
       }
       if (ok) results.push({ name: pages[i][0], section: pages[i][1],
-        desc: pages[i][2] || '', path: pages[i][3], score: total });
+        desc: pages[i][2] || '', path: pages[i][3], score: total, hl: hl });
     }
 
-    var aliases = db.aliases || [];
+    var aliases = tokens.length ? (db.aliases || []) : [];
     for (i = 0; i < aliases.length; i++) {
+      if (sectFilter && aliases[i][1].toLowerCase().indexOf(sectFilter) !== 0) continue;
       var an = aliases[i][0].toLowerCase();
       var total2 = 0, ok2 = true;
       for (t = 0; t < tokens.length; t++) {
@@ -48,7 +70,7 @@
         var p = pages[aliases[i][2]];
         if (p) results.push({ name: aliases[i][0], section: aliases[i][1],
           desc: 'alias for ' + p[0] + '(' + p[1] + ')' + (p[2] ? ' — ' + p[2] : ''),
-          path: p[3], score: total2, alias: true });
+          path: p[3], score: total2, alias: true, hl: null });
       }
     }
 

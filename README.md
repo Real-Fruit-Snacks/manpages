@@ -48,7 +48,7 @@ Theme toggle (dark/light) is in the header; it follows your OS preference by def
 ## The ghost
 
 A small ghost companion roams the pages (ported from
-[Real-Fruit-Snacks/vault](https://github.com/Real-Fruit-Snacks/vault)). Click the
+[Real-Fruit-Snacks/obsidian-vault-publisher](https://github.com/Real-Fruit-Snacks/obsidian-vault-publisher)). Click the
 ghost button in the header for settings: mode (Roam / Cursor / Off), size,
 opacity, color, and behaviors (napping, fleeing, reading along, tricks, speech
 bubbles). Pet it to recolor it; drag and throw it if it misbehaves. All settings

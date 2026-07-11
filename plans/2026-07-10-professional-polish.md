@@ -76,7 +76,7 @@ release attaches `manpages-site.zip`, the complete static site.
 - Removed the home-page hero subtitle line.
 
 ## [1.1.0] - 2026-07-10
-- Ghost pet companion (ported from Real-Fruit-Snacks/vault) with full settings:
+- Ghost pet companion (ported from Real-Fruit-Snacks/obsidian-vault-publisher) with full settings:
   mode, size, opacity, six colors, behavior toggles.
 
 ## [1.0.2] - 2026-07-10

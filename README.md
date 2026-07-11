@@ -1,3 +1,12 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/cover-dark.svg" />
+  <img alt="manpages — offline linux manual" src="docs/assets/cover-light.svg" width="820" />
+</picture>
+
+</div>
+
 # manpages — offline linux manual
 
 ![ci](https://github.com/Real-Fruit-Snacks/manpages/actions/workflows/ci.yml/badge.svg)

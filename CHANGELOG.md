@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Release assets: each
 release attaches `manpages-site.zip`, the complete static site.
 
 ## [Unreleased]
+- Release bundle now includes a ready-to-use `.gitlab-ci.yml` and `DEPLOY.md`
+  hosting guide alongside the site files.
 
 ## [1.2.0] - 2026-07-11
 - Corpus: Ubuntu 24.04 `universe` added alongside `main` — 58,464 pages and

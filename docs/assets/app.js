@@ -1,3 +1,46 @@
+/* Inject pet markup once per page load (single source of truth; keeps the
+   ~60k static pages a few KB lighter each). Must run before pet.js (defer
+   order guarantees it). */
+(function () {
+  'use strict';
+  if (document.getElementById('site-pet')) return;
+  var EYES = '<g class="pet-eyes-open"><rect x="5" y="6" width="2" height="3"/><rect x="9" y="6" width="2" height="3"/></g>';
+  var GHOST = '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path class="pet-body" d="M2 16 V7 Q2 1 8 1 Q14 1 14 7 V16 L12 14.4 L10 16 L8 14.4 L6 16 L4 14.4 Z"/>' + EYES;
+  var GHOST_FULL = GHOST +
+    '<g class="pet-eyes-closed"><rect x="5" y="8" width="2" height="1"/><rect x="9" y="8" width="2" height="1"/></g>' +
+    '<g class="pet-eyes-happy"><path d="M4.6 8 L6 6.6 L7.4 8"/><path d="M8.6 8 L10 6.6 L11.4 8"/></g></svg>';
+
+  var btn = document.createElement('button');
+  btn.id = 'pet-open'; btn.type = 'button'; btn.title = 'pet settings';
+  btn.setAttribute('aria-haspopup', 'true');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.innerHTML = GHOST + '</svg>';
+  var header = document.querySelector('.site-header');
+  if (header) header.appendChild(btn); else document.body.appendChild(btn);
+
+  var panel = document.createElement('div');
+  panel.id = 'pet-panel'; panel.hidden = true;
+  panel.innerHTML =
+    '<div class="settings-head"><span>Pet</span><button id="pet-close" class="menu-close" type="button" aria-label="Close pet panel">&times;</button></div>' +
+    '<div class="pet-group-label">Appearance</div>' +
+    '<div id="pet-mode" class="pet-seg" role="group" aria-label="Pet mode"><button data-mode="float">Roam</button><button data-mode="cursor">Cursor</button><button data-mode="off">Off</button></div>' +
+    '<label class="pet-slider"><span>Size</span><input id="pet-size" type="range" min="16" max="64" step="2"></label>' +
+    '<label class="pet-slider"><span>Opacity</span><input id="pet-opacity" type="range" min="15" max="100" step="5"></label>' +
+    '<div id="pet-color" class="pet-swatches" role="group" aria-label="Pet color"><button data-color="0" style="--sw:var(--twb-accent)"></button><button data-color="1" style="--sw:var(--twb-accent-alt)"></button><button data-color="2" style="--sw:var(--twb-warm)"></button><button data-color="3" style="--sw:var(--twb-violet)"></button><button data-color="4" style="--sw:var(--twb-orange)"></button><button data-color="5" style="--sw:var(--twb-red)"></button></div>' +
+    '<div class="pet-group-label">Behavior</div>' +
+    '<button id="pet-q-nap" class="settings-row pet-quirk" type="button"><span class="settings-label">Nap when idle</span><span class="settings-val"></span></button>' +
+    '<button id="pet-q-flee" class="settings-row pet-quirk" type="button"><span class="settings-label">Flee from cursor</span><span class="settings-val"></span></button>' +
+    '<button id="pet-q-read" class="settings-row pet-quirk" type="button"><span class="settings-label">Read along</span><span class="settings-val"></span></button>' +
+    '<button id="pet-q-tricks" class="settings-row pet-quirk" type="button"><span class="settings-label">Do tricks</span><span class="settings-val"></span></button>' +
+    '<button id="pet-q-speech" class="settings-row pet-quirk" type="button"><span class="settings-label">Speech bubbles</span><span class="settings-val"></span></button>';
+  document.body.appendChild(panel);
+
+  var pet = document.createElement('div');
+  pet.id = 'site-pet'; pet.setAttribute('aria-hidden', 'true');
+  pet.innerHTML = '<div class="pet-tilt"><div class="pet-sprite" title="pet the ghost to recolor it">' + GHOST_FULL + '</div></div>';
+  document.body.appendChild(pet);
+})();
+
 /* UI glue: theme toggle + search box behavior. Depends on SearchCore and MANDB. */
 (function () {
   'use strict';

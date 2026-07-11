@@ -21,6 +21,7 @@ REF_RE = re.compile(r'^([^()\s][^()]*)\((\w+)\)$')
 H_RE = re.compile(r'<h[12][^>]*\bid="([^"]+)"[^>]*>(.*?)</h[12]>', re.S)
 TAG_RE = re.compile(r'<[^>]+>')
 BODY_RE = re.compile(r'<body[^>]*>(.*)</body>', re.S)
+HEADFOOT_B_RE = re.compile(rb'<table class="(?:head|foot)">.*?</table>', re.S)
 HREF_RE = re.compile(r'href="\.\./([^"#]+)"')
 REL_A_RE = re.compile(r'<a\b[^>]*href="\.\./(?!\.\./)([^"#]+)"[^>]*>(.*?)</a>', re.S)
 
@@ -284,6 +285,30 @@ def main():
                       'src_key': src_key,
                       'path': 'man/%s/%s.html' % (sect, slug)})
 
+    # Content dedupe: pages whose body (minus their own head/foot tables) is
+    # identical become aliases of one canonical page. Collapses e.g. the ~2 MB
+    # GCC manual duplicated across every cross-compiler triplet.
+    body_hash = {}
+    unique_pages = []
+    dup_aliases = []
+    n_dup_bytes = 0
+    for p in pages:
+        with open(p['src'], 'rb') as f:
+            raw = f.read()
+        h = hashlib.md5(HEADFOOT_B_RE.sub(b'', raw)).hexdigest() if len(raw) > 65536 \
+            else None  # only dedupe large pages; small dupes aren't worth aliasing
+        if h and h in body_hash:
+            dup_aliases.append((p['name'], p['sect'], body_hash[h]))
+            n_dup_bytes += len(raw)
+            continue
+        if h:
+            body_hash[h] = p
+        unique_pages.append(p)
+    if dup_aliases:
+        report.append('DEDUPED %d pages (%.1f MB) into aliases'
+                      % (len(dup_aliases), n_dup_bytes / 1e6))
+    pages = unique_pages
+
     exact, by_base = build_maps(pages)
     alias_map = dict(((a, asec), (t, tsec)) for a, asec, t, tsec in alias_rows)
 
@@ -308,6 +333,10 @@ def main():
             report.append('DANGLING-ALIAS %s(%s) -> %s(%s)' % (a, asec, t, tsec))
             continue
         alias_entries.append([a, asec, index_of[(p['name'], p['sect'])]])
+    for a, asec, target_page in dup_aliases:
+        idx = index_of.get((target_page['name'], target_page['sect']))
+        if idx is not None and (a, asec) not in index_of:
+            alias_entries.append([a, asec, idx])
 
     tpl_path = os.path.join(args.templates, 'page.html')
     with open(tpl_path, encoding='utf-8') as f:

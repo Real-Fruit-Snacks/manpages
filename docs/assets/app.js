@@ -28,7 +28,12 @@
   }
 
   function render() {
-    if (!items.length) { list.hidden = true; list.innerHTML = ''; return; }
+    if (!items.length) {
+      list.hidden = true; list.innerHTML = '';
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+      return;
+    }
     var h = '';
     for (var i = 0; i < items.length; i++) {
       var r = items[i];
@@ -48,6 +53,9 @@
     }
     list.innerHTML = h;
     list.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    if (sel >= 0) input.setAttribute('aria-activedescendant', 'opt-' + sel);
+    else input.removeAttribute('aria-activedescendant');
     var s = list.querySelector('li.sel');
     if (s && s.scrollIntoView) s.scrollIntoView({ block: 'nearest' });
   }
@@ -74,7 +82,11 @@
     }
   });
   document.addEventListener('click', function (e) {
-    if (!list.contains(e.target) && e.target !== input) list.hidden = true;
+    if (!list.contains(e.target) && e.target !== input) {
+      list.hidden = true;
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+    }
   });
 
 })();

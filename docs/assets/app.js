@@ -79,6 +79,39 @@
 
 })();
 
+/* Recently viewed: recorded on man pages, rendered on the home page. */
+(function () {
+  'use strict';
+  var root = document.documentElement.getAttribute('data-root') || './';
+  var KEY = 'twb-recent', MAX = 8;
+  function load() {
+    try { var v = JSON.parse(localStorage.getItem(KEY)); return Array.isArray(v) ? v : []; }
+    catch (e) { return []; }
+  }
+  var m = location.pathname.match(/man\/([^/]+)\/([^/]+)\.html$/);
+  if (m && document.querySelector('article.man-content')) {
+    var entry = { t: document.title.replace(/\s+—.*$/, ''), p: 'man/' + m[1] + '/' + m[2] + '.html' };
+    var list = load().filter(function (e) { return e.p !== entry.p; });
+    list.unshift(entry);
+    try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, MAX))); } catch (e) { /* private mode */ }
+  }
+  var box = document.getElementById('recent');
+  if (!box) return;
+  var recent = load();
+  if (!recent.length) return;
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+  var h = '<span class="recent-label">recent:</span>';
+  for (var i = 0; i < recent.length; i++) {
+    h += '<a class="recent-chip" href="' + esc(root + recent[i].p) + '">' + esc(recent[i].t) + '</a>';
+  }
+  box.innerHTML = h;
+  box.hidden = false;
+})();
+
 /* Pet settings panel — same localStorage keys and defaults as the vault site:
    mode float (roam), size 28, opacity 70, color 0 (accent),
    nap/flee/read/tricks on, speech off. Dispatches "twb:pet" so pet.js

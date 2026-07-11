@@ -1,10 +1,32 @@
 # manpages — offline linux manual
 
-A lightning-fast man-page lookup site. The entire site — pre-rendered
-Ubuntu 24.04 (noble, main) man pages, search index, fonts, styling — is static
-files committed to this repo under `docs/`. It makes **zero network calls**:
-no CDNs, no external fonts, no analytics. It works on an air-gapped GitHub
-Enterprise instance and even opened straight from disk.
+![ci](https://github.com/Real-Fruit-Snacks/manpages/actions/workflows/ci.yml/badge.svg)
+
+A lightning-fast man-page lookup site. The entire site — 58,464 pre-rendered
+Ubuntu 24.04 man pages (main + universe), search index, fonts, styling — is
+static files committed to this repo under `docs/`. It makes **zero network
+calls**: no CDNs, no external fonts, no analytics. It works on an air-gapped
+GitHub Enterprise instance and even opened straight from disk.
+
+![home](.github/screenshots/home.png)
+![page](.github/screenshots/page.png)
+
+## Features
+
+- **Instant search** over 58k pages + 24k aliases as you type; filter by
+  section with `tar 5`, `tar.5`, or list a whole section with a bare `5`
+- **Browse** every section from [browse/](docs/browse/) pages; **about** page
+  with corpus snapshot details
+- **Cross-linked**: `name(section)` references become links when the target
+  exists in the corpus; near-duplicate giants (cross-compiler manuals) are
+  deduplicated into search aliases
+- **Provenance**: every page footer names its source package and version;
+  `build/corpus-manifest.tsv` records the full page→package map
+- **Installable PWA** with a service worker: after one visit the whole shell
+  is cached; visited pages work fully offline
+- **Accessible**: ARIA combobox search, skip-to-content, keyboard-first
+- **Print stylesheet**, recently-viewed chips, dark/light theme, themed
+  scrollbars — and the ghost
 
 ## Deploy (any GitHub / GitHub Enterprise)
 

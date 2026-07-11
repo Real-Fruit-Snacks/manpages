@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Xen virtual Trusted Platform Module (vTPM) subsystem">
+<title>xen-vtpm(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">xen-vtpm(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#RUBRIC">RUBRIC</a></li><li><a href="#INTRODUCTION">INTRODUCTION</a></li><li><a href="#DESIGN_OVERVIEW">DESIGN
+  OVERVIEW</a></li><li><a href="#INSTALLATION">INSTALLATION</a></li><li><a href="#Prerequisites:">Prerequisites:</a></li><li><a href="#Compiling_the_Xen_tree:">Compiling
+  the Xen tree:</a></li><li><a href="#Compiling_the_LINUX_dom0_kernel:">Compiling
+  the LINUX dom0 kernel:</a></li><li><a href="#Compiling_the_LINUX_domU_kernel:">Compiling
+  the LINUX domU kernel:</a></li><li><a href="#VTPM_MANAGER_SETUP">VTPM
+  MANAGER SETUP</a></li><li><a href="#Manager_disk_image_setup:">Manager
+  disk image setup:</a></li><li><a href="#Manager_config_file:">Manager
+  config file:</a></li><li><a href="#Starting_and_stopping_the_manager:">Starting
+  and stopping the manager:</a></li><li><a href="#VTPM_AND_LINUX_PVM_SETUP">VTPM
+  AND LINUX PVM SETUP</a></li><li><a href="#vTPM_disk_image_setup:">vTPM
+  disk image setup:</a></li><li><a href="#vTPM_config_file:">vTPM
+  config file:</a></li><li><a href="#Linux_Guest_config_file:">Linux
+  Guest config file:</a></li><li><a href="#Using_the_vTPM_in_the_guest:">Using
+  the vTPM in the guest:</a></li><li><a href="#INTEGRATION_WITH_PV-GRUB">INTEGRATION
+  WITH PV-GRUB</a></li><li><a href="#MORE_INFORMATION">MORE
+  INFORMATION</a></li><li><a href="#VTPM_DOMAIN_OPERATION">VTPM
+  DOMAIN OPERATION</a></li><li><a href="#VTPM_DOMAIN_COMMAND_LINE_ARGUMENTS">VTPM
+  DOMAIN COMMAND LINE ARGUMENTS</a></li><li><a href="#List_of_Arguments:">List
+  of Arguments:</a></li><li><a href="#REFERENCES">REFERENCES</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">xen-vtpm(7)</td>
+    <td class="head-vol">Xen</td>
+    <td class="head-rtitle">xen-vtpm(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">xen-vtpm - Xen virtual Trusted Platform Module (vTPM)
+  subsystem</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RUBRIC"><a class="permalink" href="#RUBRIC">RUBRIC</a></h1>
+<p class="Pp">Copyright (c) 2010-2012 United States Government, as represented
+    by the Secretary of Defense. All rights reserved. November 12 2012 Authors:
+    Matthew Fioravante (JHUAPL), Daniel De Graaf (NSA)</p>
+<p class="Pp">This document describes the virtual Trusted Platform Module (vTPM)
+    subsystem for Xen. The reader is assumed to have familiarity with building
+    and installing Xen, Linux, and a basic understanding of the TPM and vTPM
+    concepts.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INTRODUCTION"><a class="permalink" href="#INTRODUCTION">INTRODUCTION</a></h1>
+<p class="Pp">The goal of this work is to provide a TPM functionality to a
+    virtual guest operating system (a DomU). This allows programs to interact
+    with a TPM in a virtual system the same way they interact with a TPM on the
+    physical system. Each guest gets its own unique, emulated, software TPM.
+    However, each of the vTPM's secrets (Keys, NVRAM, etc) are managed by a vTPM
+    Manager domain, which seals the secrets to the Physical TPM. If the process
+    of creating each of these domains (manager, vTPM, and guest) is trusted, the
+    vTPM subsystem extends the chain of trust rooted in the hardware TPM to
+    virtual machines in Xen. Each major component of vTPM is implemented as a
+    separate domain, providing secure separation guaranteed by the hypervisor.
+    The vTPM domains are implemented in mini-os to reduce memory and processor
+    overhead.</p>
+<p class="Pp">This mini-os vTPM subsystem was built on top of the previous vTPM
+    work done by IBM and Intel corporation.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESIGN_OVERVIEW"><a class="permalink" href="#DESIGN_OVERVIEW">DESIGN
+  OVERVIEW</a></h1>
+<p class="Pp">The architecture of vTPM is described below:</p>
+<p class="Pp"></p>
+<pre>    +------------------+
+    |    Linux DomU    | ...
+    |       |  ^       |
+    |       v  |       |
+    |   xen-tpmfront   |
+    +------------------+
+            |  ^
+            v  |
+    +------------------+
+    | mini-os/tpmback  |
+    |       |  ^       |
+    |       v  |       |
+    |  vtpm-stubdom    | ...
+    |       |  ^       |
+    |       v  |       |
+    | mini-os/tpmfront |
+    +------------------+
+            |  ^
+            v  |
+    +------------------+
+    | mini-os/tpmback  |
+    |       |  ^       |
+    |       v  |       |
+    | vtpmmgr-stubdom  |
+    |       |  ^       |
+    |       v  |       |
+    | mini-os/tpm_tis  |
+    +------------------+
+            |  ^
+            v  |
+    +------------------+
+    |   Hardware TPM   |
+    +------------------+
+</pre>
+<dl class="Bl-tag">
+  <dt id="Linux"><a class="permalink" href="#Linux">Linux DomU</a></dt>
+  <dd>The Linux based guest that wants to use a vTPM. There many be more than
+      one of these.</dd>
+  <dt id="xen"><a class="permalink" href="#xen">xen-tpmfront.ko</a></dt>
+  <dd>Linux kernel virtual TPM frontend driver. This driver provides vTPM access
+      to a para-virtualized Linux based DomU.</dd>
+  <dt id="mini"><a class="permalink" href="#mini">mini-os/tpmback</a></dt>
+  <dd>Mini-os TPM backend driver. The Linux frontend driver connects to this
+      backend driver to facilitate communications between the Linux DomU and its
+      vTPM. This driver is also used by vtpmmgr-stubdom to communicate with
+      vtpm-stubdom.</dd>
+  <dt id="vtpm-stubdom"><a class="permalink" href="#vtpm-stubdom">vtpm-stubdom</a></dt>
+  <dd>A mini-os stub domain that implements a vTPM. There is a one to one
+      mapping between running vtpm-stubdom instances and logical vtpms on the
+      system. The vTPM Platform Configuration Registers (PCRs) are all
+      initialized to zero.</dd>
+  <dt id="mini~2"><a class="permalink" href="#mini~2">mini-os/tpmfront</a></dt>
+  <dd>Mini-os TPM frontend driver. The vTPM mini-os domain vtpm-stubdom uses
+      this driver to communicate with vtpmmgr-stubdom. This driver could also be
+      used separately to implement a mini-os domain that wishes to use a vTPM of
+      its own.</dd>
+  <dt id="vtpmmgr-stubdom"><a class="permalink" href="#vtpmmgr-stubdom">vtpmmgr-stubdom</a></dt>
+  <dd>A mini-os domain that implements the vTPM manager. There is only one vTPM
+      manager and it should be running during the entire lifetime of the
+      machine. This domain regulates access to the physical TPM on the system
+      and secures the persistent state of each vTPM.</dd>
+  <dt id="mini~3"><a class="permalink" href="#mini~3">mini-os/tpm_tis</a></dt>
+  <dd>Mini-os TPM version 1.2 TPM Interface Specification (TIS) driver. This
+      driver used by vtpmmgr-stubdom to talk directly to the hardware TPM.
+      Communication is facilitated by mapping hardware memory pages into
+      vtpmmgr-stubdom.</dd>
+  <dt id="Hardware"><a class="permalink" href="#Hardware">Hardware TPM</a></dt>
+  <dd>The physical TPM that is soldered onto the motherboard.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INSTALLATION"><a class="permalink" href="#INSTALLATION">INSTALLATION</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Prerequisites:"><a class="permalink" href="#Prerequisites:">Prerequisites:</a></h2>
+<p class="Pp">You must have an x86 machine with a TPM on the motherboard. The
+    only extra software requirement for compiling vTPM is cmake. You must use
+    libxl to manage domains with vTPMs; 'xm' is deprecated and does not support
+    vTPMs.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Compiling_the_Xen_tree:"><a class="permalink" href="#Compiling_the_Xen_tree:">Compiling
+  the Xen tree:</a></h2>
+<p class="Pp">Compile and install the Xen tree as usual; be sure that the vTPM
+    domains are enabled when you run configure.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Compiling_the_LINUX_dom0_kernel:"><a class="permalink" href="#Compiling_the_LINUX_dom0_kernel:">Compiling
+  the LINUX dom0 kernel:</a></h2>
+<p class="Pp">Because the TPM manager uses direct access to the physical TPM, it
+    may interfere with access to the TPM by dom0. The simplest solution for this
+    is to prevent dom0 from accessing the physical TPM by compiling the kernel
+    without a driver or blacklisting the module. If dom0 needs a TPM but does
+    not need to use it during the boot process (i.e. it is not using IMA), a
+    virtual TPM can be attached to dom0 after the system is booted.</p>
+<p class="Pp">Access to the physical TPM may be required in order to manage the
+    NVRAM or to perform other advanced operations where the vTPM is
+    insufficient. In order to prevent interference, the TPM Manager and dom0
+    should use different values for the TPM's locality; since Linux always uses
+    locality 0, using locality 2 for the TPM Manager is recommended. If both
+    Linux and the TPM Manager attempt to access the TPM at the same time, the
+    TPM device will return a busy status; some applications will consider this a
+    fatal error instead of retrying the command at a later time. If a vTPM gets
+    an error when loading its key, it will currently generate a fresh vTPM image
+    (with a new EK, SRK, and blank NVRAM).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Compiling_the_LINUX_domU_kernel:"><a class="permalink" href="#Compiling_the_LINUX_domU_kernel:">Compiling
+  the LINUX domU kernel:</a></h2>
+<p class="Pp">The domU kernel used by domains with vtpms must include the
+    xen-tpmfront.ko driver. It can be built directly into the kernel or as a
+    module; however, some features such as IMA require the TPM to be built in to
+    the kernel.</p>
+<p class="Pp"></p>
+<pre>    CONFIG_TCG_TPM=y
+    CONFIG_TCG_XEN=y
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VTPM_MANAGER_SETUP"><a class="permalink" href="#VTPM_MANAGER_SETUP">VTPM
+  MANAGER SETUP</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Manager_disk_image_setup:"><a class="permalink" href="#Manager_disk_image_setup:">Manager
+  disk image setup:</a></h2>
+<p class="Pp">The vTPM Manager requires a disk image to store its encrypted
+    data. The image does not require a filesystem and can live anywhere on the
+    host disk. The image is not large; the Xen 4.5 vtpmmgr is limited to using
+    the first 2MB of the image but can support more than 20,000 vTPMs.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Manager_config_file:"><a class="permalink" href="#Manager_config_file:">Manager
+  config file:</a></h2>
+<p class="Pp">The vTPM Manager domain (vtpmmgr-stubdom) must be started like any
+    other Xen virtual machine and requires a config file. The manager requires a
+    disk image for storage and permission to access the hardware memory pages
+    for the TPM. The disk must be presented as &quot;hda&quot;, and the TPM
+    memory pages are passed using the iomem configuration parameter. The TPM TIS
+    uses 5 pages of IO memory (one per locality) that start at physical address
+    0xfed40000. By default, the TPM manager uses locality 0 (so only the page at
+    0xfed40 is needed); this can be changed on the domain's command line. For
+    full functionality in deep quotes, using locality 2 is required to
+    manipulate PCR 20-22.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Starting_and_stopping_the_manager:"><a class="permalink" href="#Starting_and_stopping_the_manager:">Starting
+  and stopping the manager:</a></h2>
+<p class="Pp">The vTPM manager should be started at boot; you may wish to create
+    an init script to do this. If a domain builder is used, the TPM Manager
+    should be started by the domain builder to minimize the trusted computing
+    base for the vTPM manager's secrets.</p>
+<p class="Pp">Once initialization is complete you should see the following:</p>
+<p class="Pp"></p>
+<pre>    INFO[VTPM]: Waiting for commands from vTPM's:
+</pre>
+<p class="Pp">The TPM Manager does not respond to shutdown requests; use the
+    destroy command to shut it down.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VTPM_AND_LINUX_PVM_SETUP"><a class="permalink" href="#VTPM_AND_LINUX_PVM_SETUP">VTPM
+  AND LINUX PVM SETUP</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="vTPM_disk_image_setup:"><a class="permalink" href="#vTPM_disk_image_setup:">vTPM
+  disk image setup:</a></h2>
+<p class="Pp">The vTPM requires a disk image to store its persistent data (RSA
+    keys, NVRAM, etc). The image does not require a filesystem. The image does
+    not need to be large; 2 Mb should be sufficient.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="vTPM_config_file:"><a class="permalink" href="#vTPM_config_file:">vTPM
+  config file:</a></h2>
+<p class="Pp">The vTPM domain requires a configuration file like any other
+    domain. The vTPM requires a disk image for storage and a TPM frontend driver
+    to communicate with the manager. You are required to generate a uuid for
+    this vtpm, which is specified on the
+    <span class="Li">&quot;vtpm=&quot;</span> line that describes its connection
+    to the vTPM Manager. The uuidgen application may be used to generate a uuid,
+    or one from the output of the <span class="Li">&quot;manage-vtpmmgr.pl
+    vtpm-add&quot;</span> command may be used to create a vTPM belonging to a
+    specific group.</p>
+<p class="Pp">If you wish to clear the vTPM data you can either recreate the
+    disk image or change the uuid.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Linux_Guest_config_file:"><a class="permalink" href="#Linux_Guest_config_file:">Linux
+  Guest config file:</a></h2>
+<p class="Pp">The Linux guest config file needs to be modified to include the
+    Linux tpmfront driver. Add the following line:</p>
+<p class="Pp"></p>
+<pre>    vtpm=[&quot;backend=domu-vtpm&quot;]
+</pre>
+<p class="Pp">Currently only Linux guests are supported (PV or HVM with PV
+    drivers).</p>
+<p class="Pp">While attaching a vTPM after a guest is booted (using xl
+    vtpm-attach) is supported, the attached vTPM will not have a record of the
+    boot of the attached guest. Furthermore, if the vTPM has been freshly
+    created, a malicious guest could then extend any values into PCRs,
+    potentially forging its boot configuration. Attaching a vTPM to a running
+    domain should only be used for trusted domains or when measurements have
+    already been sent to the vTPM from another source.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Using_the_vTPM_in_the_guest:"><a class="permalink" href="#Using_the_vTPM_in_the_guest:">Using
+  the vTPM in the guest:</a></h2>
+<p class="Pp">If xen-tpmfront was compiled as a module, it must be loaded it in
+    the guest.</p>
+<p class="Pp"></p>
+<pre>    # modprobe xen-tpmfront
+</pre>
+<p class="Pp">After the Linux domain boots and the xen-tpmfront driver is
+    loaded, you should see the following on the vtpm console:</p>
+<p class="Pp"></p>
+<pre>    Info: VTPM attached to Frontend X/Y
+</pre>
+<p class="Pp">You can quickly test the vTPM by using the sysfs interface:</p>
+<p class="Pp"></p>
+<pre>    # cat /sys/devices/vtpm-0/pubek
+    # cat /sys/devices/vtpm-0/pcrs
+</pre>
+<p class="Pp">If you have trousers and tpm_tools installed on the guest, the
+    tpm_version command should return the following:</p>
+<p class="Pp">The version command should return the following:</p>
+<p class="Pp"></p>
+<pre>    TPM 1.2 Version Info:
+    Chip Version:        1.2.0.7
+    Spec Level:          2
+    Errata Revision:     1
+    TPM Vendor ID:       ETHZ
+    TPM Version:         01010000
+    Manufacturer Info:   4554485a
+</pre>
+<p class="Pp">You should also see the command being sent to the vtpm console as
+    well as the vtpm saving its state. You should see the vtpm key being
+    encrypted and stored on the vtpmmgr console.</p>
+<p class="Pp">You may wish to write a script to start your vtpm and guest
+    together and to destroy the vtpm when the guest shuts down.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INTEGRATION_WITH_PV-GRUB"><a class="permalink" href="#INTEGRATION_WITH_PV-GRUB">INTEGRATION
+  WITH PV-GRUB</a></h1>
+<p class="Pp">The vTPM currently starts up with all PCRs set to their default
+    values (all zeros for the lower 16). This means that any decisions about the
+    trustworthiness of the created domain must be made based on the environment
+    that created the vTPM and the domU; for example, a system that only
+    constructs images using a trusted configuration and guest kernel be able to
+    provide guarantees about the guests and any measurements done that kernel
+    (such as the IMA TCB log). Guests wishing to use a custom kernel in such a
+    secure environment are often started using the pv-grub bootloader as the
+    kernel, which then can load the untrusted kernel without needing to parse an
+    untrusted filesystem and kernel in dom0. If the pv-grub stub domain succeeds
+    in connecting to a vTPM, it will extend the hash of the kernel that it boots
+    into PCR #4, and will extend the command line and initrd into PCR #5 before
+    booting so that a domU booted in this way can attest to its early boot
+    state.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MORE_INFORMATION"><a class="permalink" href="#MORE_INFORMATION">MORE
+  INFORMATION</a></h1>
+<p class="Pp">See &lt;<a class="Xr" href="../7/xen-vtpmmgr.html"><b>xen-vtpmmgr</b>(7)</a>&gt; for more details about how the
+    manager domain works, how to use it, and its command line parameters.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VTPM_DOMAIN_OPERATION"><a class="permalink" href="#VTPM_DOMAIN_OPERATION">VTPM
+  DOMAIN OPERATION</a></h1>
+<p class="Pp">The vtpm-stubdom is a mini-OS domain that emulates a TPM for the
+    guest OS to use. It is a small wrapper around the Berlios TPM emulator
+    version 0.7.4. Commands are passed from the linux guest via the mini-os TPM
+    backend driver. vTPM data is encrypted and stored via a disk image provided
+    to the virtual machine. The key used to encrypt the data along with a hash
+    of the vTPM's data is sent to the vTPM manager for secure storage and later
+    retrieval. The vTPM domain communicates with the manager using a mini-os tpm
+    front/back device pair.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VTPM_DOMAIN_COMMAND_LINE_ARGUMENTS"><a class="permalink" href="#VTPM_DOMAIN_COMMAND_LINE_ARGUMENTS">VTPM
+  DOMAIN COMMAND LINE ARGUMENTS</a></h1>
+<p class="Pp">Command line arguments are passed to the domain via the 'extra'
+    parameter in the VM config file. Each parameter is separated by white space.
+    For example:</p>
+<p class="Pp"></p>
+<pre>    extra=&quot;foo=bar baz&quot;
+</pre>
+<section class="Ss">
+<h2 class="Ss" id="List_of_Arguments:"><a class="permalink" href="#List_of_Arguments:">List
+  of Arguments:</a></h2>
+<dl class="Bl-tag">
+  <dt id="loglevel"><a class="permalink" href="#loglevel"><b>loglevel</b>=&lt;LOG&gt;</a></dt>
+  <dd>Controls the amount of logging printed to the console. The possible values
+      for &lt;LOG&gt; are:</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>error</li>
+  <li>info (default)</li>
+  <li>debug</li>
+</ul>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="clear"><a class="permalink" href="#clear"><b>clear</b></a></dt>
+  <dd>Start the Berlios emulator in &quot;clear&quot; mode. (default)</dd>
+  <dt id="save"><a class="permalink" href="#save"><b>save</b></a></dt>
+  <dd>Start the Berlios emulator in &quot;save&quot; mode.</dd>
+  <dt id="deactivated"><a class="permalink" href="#deactivated"><b>deactivated</b></a></dt>
+  <dd>Start the Berlios emulator in &quot;deactivated&quot; mode. See the
+      Berlios TPM emulator documentation for details about the startup mode. For
+      all normal use, always use clear which is the default. You should not need
+      to specify any of these.</dd>
+  <dt id="maintcmds"><a class="permalink" href="#maintcmds"><b>maintcmds</b>=&lt;1|0&gt;</a></dt>
+  <dd>Enable to disable the TPM maintenance commands. These commands are used by
+      tpm manufacturers and thus open a security hole. They are disabled by
+      default.</dd>
+  <dt id="hwinitpcr"><a class="permalink" href="#hwinitpcr"><b>hwinitpcr</b>=&lt;PCRSPEC&gt;</a></dt>
+  <dd>Initialize the virtual Platform Configuration Registers (PCRs) with PCR
+      values from the hardware TPM. Each pcr specified by &lt;PCRSPEC&gt; will
+      be initialized with the value of that same PCR in TPM once at startup. By
+      default all PCRs are zero initialized. Possible values of &lt;PCRSPEC&gt;
+      are:</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>all: copy all pcrs</li>
+  <li>none: copy no pcrs (default)</li>
+  <li>&lt;N&gt;: copy pcr n</li>
+  <li>&lt;X-Y&gt;: copy pcrs x to y (inclusive)</li>
+</ul>
+</div>
+<div class="Bd-indent">
+<p class="Pp">These can also be combined by comma separation, for example:
+    <span class="Li">&quot;hwinitpcrs=5,12-16&quot;</span> will copy pcrs 5, 12,
+    13, 14, 15, and 16.</p>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REFERENCES"><a class="permalink" href="#REFERENCES">REFERENCES</a></h1>
+<p class="Pp">Berlios TPM Emulator:
+    &lt;https://github.com/PeterHuewe/tpm-emulator&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-04-01</td>
+    <td class="foot-os">4.17.4-pre</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: xen-utils-common 4.17.3+10-g091466ba55-1.1ubuntu3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="automatically suspend LUKS devices on system suspend">
+<title>cryptsetup-suspend(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">cryptsetup-suspend(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#SECURITY_ASPECTS">SECURITY
+  ASPECTS</a></li><li><a href="#LIMITATIONS">LIMITATIONS</a></li><li><a href="#INTERNALS">INTERNALS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CRYPTSETUP-SUSPEND(7)</td>
+    <td class="head-vol">cryptsetup manual</td>
+    <td class="head-rtitle">CRYPTSETUP-SUSPEND(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">cryptsetup-suspend - automatically suspend LUKS devices on system
+    suspend</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><i>cryptsetup-suspend</i> brings support to automatically suspend
+    LUKS devices before entering system suspend mode. Devices will be unlocked
+    at system resume time, asking for passwords if required. The feature is
+    enabled automatically by installing the <i>cryptsetup-suspend</i> package.
+    No further configuration is required.</p>
+<p class="Pp"><i>cryptsetup-suspend</i> supports all setups of LUKS devices that
+    are supported by the <i>cryptsetup</i> packages. To do so, it depends on
+    scripts from the Debian package <i>cryptsetup-initramfs</i>. See the
+    INTERNALS section about details on how it works.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY_ASPECTS"><a class="permalink" href="#SECURITY_ASPECTS">SECURITY
+  ASPECTS</a></h1>
+<p class="Pp">Suspending LUKS devices basically means to remove the
+    corresponding encryption keys from system memory. This protects against all
+    sort of attacks that try to read out the memory from a suspended system,
+    like for example cold-boot attacks.</p>
+<p class="Pp"><i>cryptsetup-suspend</i> protects <i>only</i> the encryption keys
+    of your LUKS devices against being read from the memory. Most likely there's
+    more sensitive data in system memory, be it other kinds of private keys
+    (e.g. OpenPGP, OpenSSH) or any kind of documents with sensitive content.</p>
+<p class="Pp">The initramfs image is extracted in memory and left unencrypted
+    (see the INTERNALS section) so all key material it might include, for
+    instance key files copied using the hooks' <i>KEYFILE_PATTERN=</i> option,
+    will remain unprotected.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIMITATIONS"><a class="permalink" href="#LIMITATIONS">LIMITATIONS</a></h1>
+<p class="Pp">The <i>cryptsetup-suspend</i> feature is limited to LUKS devices
+    and doesn't work with <i>plain dm-crypt</i> or <i>tcrypt</i> devices.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INTERNALS"><a class="permalink" href="#INTERNALS">INTERNALS</a></h1>
+<p class="Pp"><i>cryptsetup-suspend</i> consists of three parts:
+    <b>cryptsetup-suspend</b>: A c program that takes a list of LUKS devices as
+    arguments, suspends them via <i>luksSuspend</i> and suspends the system
+    afterwards. , <b>cryptsetup-suspend-wrapper</b>: A shell wrapper script
+    which works the following way: 1. Disable swap and extract the initramfs
+    into a tmpfs (the chroot), 2. Run (systemd) pre-suspend scripts, stop udev,
+    freeze cgroups, 3. run cryptsetup-suspend in chroot, 4. resume initramfs
+    devices inside chroot after resume, 5. resume non-initramfs devices outside
+    chroot, 6. thaw groups, start udev, run (systemd) post-suspend scripts, 7.
+    Unmount the tmpfs and re-enable swap , A systemd unit drop-in file that
+    overrides the Exec property of systemd-suspend.service so that it invokes
+    the script <b>cryptsetup-suspend-wrapper</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/cryptsetup.html"><i>cryptsetup</i>(8)</a>, <a class="Xr" href="../5/crypttab.html"><i>crypttab</i>(5)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">This manual page was written by Jonas Meurer
+    &lt;jonas@freesources.org&gt; in December 2019.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-11-14</td>
+    <td class="foot-os">cryptsetup 2:2.7.0-1ubunt</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: cryptsetup-suspend 2.7.0-1ubuntu4.2 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

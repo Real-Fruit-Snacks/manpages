@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="persistent data base (rheolef-7.2)">
+<title>persistent_table(7rheolef) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">persistent_table(7rheolef)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#EXAMPLE">EXAMPLE</a></li><li><a href="#IMPLEMENTATION">IMPLEMENTATION</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">persistent_table(7rheolef)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">persistent_table(7rheolef)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">persistent_table - persistent data base (rheolef-7.2)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Here is a convenient way to implement a persistent data base of
+    big object that are long to initialize and then used only in a read-only
+    mode, via accessors, no modifiers. Examples of such objects in scientific
+    computing are are finite element meshes (see <b>geo(2)</b>), that are long
+    to load from file and requires large memory, or high-order polynomial basis
+    (see <b>basis(2)</b>), that are long to initialize (e.g. Vandermonde matrix
+    inversion). When such objects are created independently in different parts
+    of a code, both memory size and computation time could be save by reusing
+    them when these objects was already created.</p>
+<p class="Pp">The aim of the <b>persistent_table</b> class is to automate the
+    implementation of a persistent data base for a generic object, that could be
+    e.g. a finite element mesh or a polynomial basis. It requires very few
+    modification of a pre-existing object. The implementation of the
+    <b>persistent_table</b> class bases on those of <b>smart_pointer(7)</b>
+    class for handling reference counting. When shared object in the data base
+    are not modifiable, the idea is to use the smart_pointer_nocopy<b> class.
+    Otherwise, when the object has to be modified, the name of the object, that
+    is used as a key in an hashtable, should also be modified, in order to
+    address the new modified object. Here is a small minimalist example of the
+    class.</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE"><a class="permalink" href="#EXAMPLE">EXAMPLE</a></h1>
+<pre>struct A_rep {
+<br/>
+  public:
+<br/>
+    A_rep (const string&amp; name1) : _name(name1) { /* long init */ }
+<br/>
+    ~A_rep();
+<br/>
+    string name() const { return _name; }
+<br/>
+    static A_rep* make_ptr (const string&amp; name) { return new A_rep (name); }
+<br/>
+  // data:
+<br/>
+  protected:
+<br/>
+    string _name;
+};
+struct A : public smart_pointer_nocopy&lt;A_rep&gt;, public persistent_table&lt;A&gt; {
+<br/>
+  public:
+<br/>
+    using rep  = A_rep;
+<br/>
+    using base = smart_pointer_nocopy&lt;rep&gt;;
+<br/>
+    A (const string&amp; name = &quot;&quot;);
+<br/>
+    string name() const { return base::data().name(); }
+};
+// implementation of members:
+A::A (const string&amp; name)
+<br/>
+  : base(),
+<br/>
+    persistent_table&lt;A&gt;()
+{
+<br/>
+  if (name == &quot;&quot;) return;
+<br/>
+  base::operator= (persistent_table&lt;A&gt;::load (name));   
+}
+A_rep::~A_rep()
+{
+<br/>
+  persistent_table&lt;A&gt;::unload (_name);
+}
+int main() {
+<br/>
+  persistent_table&lt;A&gt;::set_verbose (true); // trace table load/unload
+<br/>
+  A a(&quot;a&quot;);     // &quot;a&quot; created
+<br/>
+  {
+<br/>
+    A b(&quot;b&quot;);   // &quot;b&quot; created
+<br/>
+    A c(&quot;a&quot;);   // &quot;a&quot; reused from table
+<br/>
+  }             // &quot;b&quot; destroyed and erased from table
+<br/>
+  {
+<br/>
+    A b(&quot;b&quot;);   // &quot;b&quot; created
+<br/>
+    A c(&quot;a&quot;);   // &quot;a&quot; reused from table
+<br/>
+  }             // &quot;b&quot; destroyed and erased from table
+}               // &quot;a&quot; destroyed and erased from table</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="IMPLEMENTATION"><a class="permalink" href="#IMPLEMENTATION">IMPLEMENTATION</a></h1>
+<p class="Pp">This documentation has been generated from file
+    util/lib/persistent_table.h</p>
+<p class="Pp"></p>
+<pre>template&lt;class A&gt;
+class persistent_table {
+<br/>
+  public:
+<br/>
+    static A    load   (const std::string&amp; name);
+<br/>
+    static void unload (const std::string&amp; name);
+<br/>
+    static bool verbose () { return _verbose; }
+<br/>
+    static void set_verbose (bool v) { _verbose = v; }
+<br/>
+  protected:
+<br/>
+    using  loaded_map_type = std::unordered_map&lt;std::string,void*&gt;;
+<br/>
+    static loaded_map_type&amp; get_loaded_map() { return _loaded_map; }
+<br/>
+  // data:
+<br/>
+    static loaded_map_type     _loaded_map;
+<br/>
+    static bool                _verbose;
+};</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Pierre Saramito &lt;Pierre.Saramito@imag.fr&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright (C) 2000-2018 Pierre Saramito
+    &lt;Pierre.Saramito@imag.fr&gt; GPLv3+: GNU GPL version 3 or later
+    &lt;http://gnu.org/licenses/gpl.html&gt;. This is free software: you are
+    free to change and redistribute it. There is NO WARRANTY, to the extent
+    permitted by law.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Version 7.2</td>
+    <td class="foot-os">rheolef</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: librheolef-dev 7.2-3build5 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

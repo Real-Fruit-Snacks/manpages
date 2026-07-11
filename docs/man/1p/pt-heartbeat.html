@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Monitor MySQL replication delay.">
+<title>pt-heartbeat(1p) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pt-heartbeat(1p)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#RISKS">RISKS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#MULTI-SLAVE_HIERARCHY">MULTI-SLAVE
+  HIERARCHY</a></li><li><a href="#MASTER_AND_SLAVE_STATUS">MASTER
+  AND SLAVE STATUS</a></li><li><a href="#Percona_XtraDB_Cluster">Percona
+  XtraDB Cluster</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#DSN_OPTIONS">DSN
+  OPTIONS</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#SYSTEM_REQUIREMENTS">SYSTEM
+  REQUIREMENTS</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#DOWNLOADING">DOWNLOADING</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#ABOUT_PERCONA_TOOLKIT">ABOUT
+  PERCONA TOOLKIT</a></li><li><a href="#COPYRIGHT,_LICENSE,_AND_WARRANTY">COPYRIGHT,
+  LICENSE, AND WARRANTY</a></li><li><a href="#VERSION">VERSION</a></li><li><a href="#POD_ERRORS">POD
+  ERRORS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PT-HEARTBEAT(1p)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">PT-HEARTBEAT(1p)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pt-heartbeat - Monitor MySQL replication delay.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Usage: pt-heartbeat [OPTIONS] [DSN]
+    --update|--monitor|--check|--stop</p>
+<p class="Pp">pt-heartbeat measures replication lag on a MySQL or PostgreSQL
+    server. You can use it to update a master or monitor a replica. If possible,
+    MySQL connection options are read from your .my.cnf file.</p>
+<p class="Pp">Start daemonized process to update test.heartbeat table on
+  master:</p>
+<p class="Pp"></p>
+<pre>  pt-heartbeat -D test --update -h master-server --daemonize
+</pre>
+<p class="Pp">Monitor replication lag on slave:</p>
+<p class="Pp"></p>
+<pre>  pt-heartbeat -D test --monitor -h slave-server
+  pt-heartbeat -D test --monitor -h slave-server --dbi-driver Pg
+</pre>
+<p class="Pp">Check slave lag once and exit (using optional DSN to specify slave
+    host):</p>
+<p class="Pp"></p>
+<pre>  pt-heartbeat -D test --check h=slave-server
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RISKS"><a class="permalink" href="#RISKS">RISKS</a></h1>
+<p class="Pp">Percona Toolkit is mature, proven in the real world, and well
+    tested, but all database tools can pose a risk to the system and the
+    database server. Before using this tool, please:</p>
+<ul class="Bl-bullet">
+  <li>Read the tool's documentation</li>
+  <li>Review the tool's known &quot;BUGS&quot;</li>
+  <li>Test the tool on a non-production server</li>
+  <li>Backup your production server and verify the backups</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">pt-heartbeat is a two-part MySQL and PostgreSQL replication delay
+    monitoring system that measures delay by looking at actual replicated data.
+    This avoids reliance on the replication mechanism itself, which is
+    unreliable. (For example, <span class="Li">&quot;SHOW SLAVE
+    STATUS&quot;</span> on MySQL).</p>
+<p class="Pp">The first part is an &quot;--update&quot; instance of pt-heartbeat
+    that connects to a master and updates a timestamp (&quot;heartbeat
+    record&quot;) every &quot;--interval&quot; seconds. Since the heartbeat
+    table may contain records from multiple masters (see &quot;MULTI-SLAVE
+    HIERARCHY&quot;), the server's ID (@@server_id) is used to identify
+  records.</p>
+<p class="Pp">The second part is a &quot;--monitor&quot; or &quot;--check&quot;
+    instance of pt-heartbeat that connects to a slave, examines the replicated
+    heartbeat record from its immediate master or the specified
+    &quot;--master-server-id&quot;, and computes the difference from the current
+    system time. If replication between the slave and the master is delayed or
+    broken, the computed difference will be greater than zero and potentially
+    increase if &quot;--monitor&quot; is specified.</p>
+<p class="Pp">You must either manually create the heartbeat table on the master
+    or use &quot;--create-table&quot;. See &quot;--create-table&quot; for the
+    proper heartbeat table structure. The
+    <span class="Li">&quot;MEMORY&quot;</span> storage engine is suggested, but
+    not required of course, for MySQL.</p>
+<p class="Pp">The heartbeat table must contain a heartbeat row. By default, a
+    heartbeat row is inserted if it doesn't exist. This feature can be disabled
+    with the &quot;--[no]insert-heartbeat-row&quot; option in case the database
+    user does not have INSERT privileges.</p>
+<p class="Pp">pt-heartbeat depends only on the heartbeat record being replicated
+    to the slave, so it works regardless of the replication mechanism (built-in
+    replication, a system such as Continuent Tungsten, etc). It works at any
+    depth in the replication hierarchy; for example, it will reliably report how
+    far a slave lags its master's master's master. And if replication is
+    stopped, it will continue to work and report (accurately!) that the slave is
+    falling further and further behind the master.</p>
+<p class="Pp">pt-heartbeat has a maximum resolution of 0.01 second. The clocks
+    on the master and slave servers must be closely synchronized via NTP. By
+    default, &quot;--update&quot; checks happen on the edge of the second (e.g.
+    00:01) and &quot;--monitor&quot; checks happen halfway between seconds (e.g.
+    00:01.5). As long as the servers' clocks are closely synchronized and
+    replication events are propagating in less than half a second, pt-heartbeat
+    will report zero seconds of delay.</p>
+<p class="Pp">pt-heartbeat will try to reconnect if the connection has an error,
+    but will not retry if it can't get a connection when it first starts.</p>
+<p class="Pp">The &quot;--dbi-driver&quot; option lets you use pt-heartbeat to
+    monitor PostgreSQL as well. It is reported to work well with Slony-1
+    replication.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MULTI-SLAVE_HIERARCHY"><a class="permalink" href="#MULTI-SLAVE_HIERARCHY">MULTI-SLAVE
+  HIERARCHY</a></h1>
+<p class="Pp">If the replication hierarchy has multiple slaves which are masters
+    of other slaves, like &quot;master -&gt; slave1 -&gt; slave2&quot;,
+    &quot;--update&quot; instances can be ran on the slaves as well as the
+    master. The default heartbeat table (see &quot;--create-table&quot;) is
+    keyed on the <span class="Li">&quot;server_id&quot;</span> column, so each
+    server will update the row where
+    <span class="Li">&quot;server_id=@@server_id&quot;</span>.</p>
+<p class="Pp">For &quot;--monitor&quot; and &quot;--check&quot;, if
+    &quot;--master-server-id&quot; is not specified, the tool tries to discover
+    and use the slave's immediate master. If this fails, or if you want monitor
+    lag from another master, then you can specify the
+    &quot;--master-server-id&quot; to use.</p>
+<p class="Pp">For example, if the replication hierarchy is &quot;master -&gt;
+    slave1 -&gt; slave2&quot; with corresponding server IDs 1, 2 and 3, you
+  can:</p>
+<p class="Pp"></p>
+<pre>  pt-heartbeat --daemonize -D test --update -h master
+  pt-heartbeat --daemonize -D test --update -h slave1
+</pre>
+<p class="Pp">Then check (or monitor) the replication delay from master to
+    slave2:</p>
+<p class="Pp"></p>
+<pre>  pt-heartbeat -D test --master-server-id 1 --check slave2
+</pre>
+<p class="Pp">Or check the replication delay from slave1 to slave2:</p>
+<p class="Pp"></p>
+<pre>  pt-heartbeat -D test --master-server-id 2 --check slave2
+</pre>
+<p class="Pp">Stopping the &quot;--update&quot; instance one slave1 will not
+    affect the instance on master.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MASTER_AND_SLAVE_STATUS"><a class="permalink" href="#MASTER_AND_SLAVE_STATUS">MASTER
+  AND SLAVE STATUS</a></h1>
+<p class="Pp">The default heartbeat table (see &quot;--create-table&quot;) has
+    columns for saving information from <span class="Li">&quot;SHOW MASTER
+    STATUS&quot;</span> and <span class="Li">&quot;SHOW SLAVE
+    STATUS&quot;</span>. These columns are optional. If any are present, their
+    corresponding information will be saved.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Percona_XtraDB_Cluster"><a class="permalink" href="#Percona_XtraDB_Cluster">Percona
+  XtraDB Cluster</a></h1>
+<p class="Pp">Although pt-heartbeat should work with all supported versions of
+    Percona XtraDB Cluster (PXC), we recommend using 5.5.28-23.7 and newer.</p>
+<p class="Pp">If you are setting up heartbeat instances between cluster nodes,
+    keep in mind that, since the speed of the cluster is determined by its
+    slowest node, pt-heartbeat will not report how fast the cluster itself is,
+    but only how fast events are replicating from one node to another.</p>
+<p class="Pp">You must specify &quot;--master-server-id&quot; for
+    &quot;--monitor&quot; and &quot;--check&quot; instances.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">Specify at least one of &quot;--stop&quot;, &quot;--update&quot;,
+    &quot;--monitor&quot;, or &quot;--check&quot;.</p>
+<p class="Pp">&quot;--update&quot;, &quot;--monitor&quot;, and
+    &quot;--check&quot; are mutually exclusive.</p>
+<p class="Pp">&quot;--daemonize&quot; and &quot;--check&quot; are mutually
+    exclusive.</p>
+<p class="Pp">This tool accepts additional command-line arguments. Refer to the
+    &quot;SYNOPSIS&quot; and usage information for details.</p>
+<dl class="Bl-tag">
+  <dt id="ask"><a class="permalink" href="#ask">--ask-pass</a></dt>
+  <dd>Prompt for a password when connecting to MySQL.</dd>
+  <dt id="charset"><a class="permalink" href="#charset">--charset</a></dt>
+  <dd>short form: -A; type: string
+    <p class="Pp">Default character set. If the value is utf8, sets Perl's
+        binmode on STDOUT to utf8, passes the mysql_enable_utf8 option to
+        DBD::mysql, and runs SET NAMES UTF8 after connecting to MySQL. Any other
+        value sets binmode on STDOUT without the utf8 layer, and runs SET NAMES
+        after connecting to MySQL.</p>
+  </dd>
+  <dt id="check"><a class="permalink" href="#check">--check</a></dt>
+  <dd>Check slave delay once and exit. If you also specify
+      &quot;--recurse&quot;, the tool will try to discover slave's of the given
+      slave and check and print their lag, too. The hostname or IP and port for
+      each slave is printed before its delay. &quot;--recurse&quot; only works
+      with MySQL.</dd>
+  <dt>--check-read-only</dt>
+  <dd>Check if the server has read_only enabled; If it does, the tool skips
+      doing any inserts. See also &quot;--read-only-interval&quot;</dd>
+  <dt id="config"><a class="permalink" href="#config">--config</a></dt>
+  <dd>type: Array
+    <p class="Pp">Read this comma-separated list of config files; if specified,
+        this must be the first option on the command line.</p>
+  </dd>
+  <dt id="create"><a class="permalink" href="#create">--create-table</a></dt>
+  <dd>Create the heartbeat &quot;--table&quot; if it does not exist.
+    <p class="Pp">This option causes the table specified by
+        &quot;--database&quot; and &quot;--table&quot; to be created with the
+        following MAGIC_create_heartbeat table definition:</p>
+    <p class="Pp"></p>
+    <pre>  CREATE TABLE heartbeat (
+    ts                    varchar(26) NOT NULL,
+    server_id             int unsigned NOT NULL PRIMARY KEY,
+    file                  varchar(255) DEFAULT NULL,    -- SHOW MASTER STATUS
+    position              bigint unsigned DEFAULT NULL, -- SHOW MASTER STATUS
+    relay_master_log_file varchar(255) DEFAULT NULL,    -- SHOW SLAVE STATUS
+    exec_master_log_pos   bigint unsigned DEFAULT NULL  -- SHOW SLAVE STATUS
+  );
+    </pre>
+    <p class="Pp">The heartbeat table requires at least one row. If you manually
+        create the heartbeat table, then you must insert a row by doing:</p>
+    <p class="Pp"></p>
+    <pre>  INSERT INTO heartbeat (ts, server_id) VALUES (NOW(), N);
+    </pre>
+    <p class="Pp">or if using &quot;--utc&quot;:</p>
+    <p class="Pp"></p>
+    <pre>  INSERT INTO heartbeat (ts, server_id) VALUES (UTC_TIMESTAMP(), N);
+    </pre>
+    <p class="Pp">where <span class="Li">&quot;N&quot;</span> is the server's
+        ID; do not use @@server_id because it will replicate and slaves will
+        insert their own server ID instead of the master's server ID.</p>
+    <p class="Pp">This is done automatically by &quot;--create-table&quot;.</p>
+    <p class="Pp">A legacy version of the heartbeat table is still
+      supported:</p>
+    <p class="Pp"></p>
+    <pre>  CREATE TABLE heartbeat (
+    id int NOT NULL PRIMARY KEY,
+    ts datetime NOT NULL
+  );
+    </pre>
+    <p class="Pp">Legacy tables do not support &quot;--update&quot; instances on
+        each slave of a multi-slave hierarchy like &quot;master -&gt; slave1
+        -&gt; slave2&quot;. To manually insert the one required row into a
+        legacy table:</p>
+    <p class="Pp"></p>
+    <pre>  INSERT INTO heartbeat (id, ts) VALUES (1, NOW());
+    </pre>
+    <p class="Pp">or if using &quot;--utc&quot;:</p>
+    <p class="Pp"></p>
+    <pre>  INSERT INTO heartbeat (id, ts) VALUES (1, UTC_TIMESTAMP());
+    </pre>
+    <p class="Pp">The tool automatically detects if the heartbeat table is
+        legacy.</p>
+    <p class="Pp">See also &quot;MULTI-SLAVE HIERARCHY&quot;.</p>
+  </dd>
+  <dt id="create~2"><a class="permalink" href="#create~2">--create-table-engine</a></dt>
+  <dd>type: string
+    <p class="Pp">Sets the engine to be used for the heartbeat table. The
+        default storage engine is InnoDB as of MySQL 5.5.5.</p>
+  </dd>
+  <dt id="daemonize"><a class="permalink" href="#daemonize">--daemonize</a></dt>
+  <dd>Fork to the background and detach from the shell. POSIX operating systems
+      only.</dd>
+  <dt id="database"><a class="permalink" href="#database">--database</a></dt>
+  <dd>short form: -D; type: string
+    <p class="Pp">The database to use for the connection.</p>
+  </dd>
+  <dt id="dbi"><a class="permalink" href="#dbi">--dbi-driver</a></dt>
+  <dd>default: mysql; type: string
+    <p class="Pp">Specify a driver for the connection;
+        <span class="Li">&quot;mysql&quot;</span> and
+        <span class="Li">&quot;Pg&quot;</span> are supported.</p>
+  </dd>
+  <dt id="defaults"><a class="permalink" href="#defaults">--defaults-file</a></dt>
+  <dd>short form: -F; type: string
+    <p class="Pp">Only read mysql options from the given file. You must give an
+        absolute pathname.</p>
+  </dd>
+  <dt id="file"><a class="permalink" href="#file">--file</a></dt>
+  <dd>type: string
+    <p class="Pp">Print latest &quot;--monitor&quot; output to this file.</p>
+    <p class="Pp">When &quot;--monitor&quot; is given, prints output to the
+        specified file instead of to STDOUT. The file is opened, truncated, and
+        closed every interval, so it will only contain the most recent
+        statistics. Useful when &quot;--daemonize&quot; is given.</p>
+  </dd>
+  <dt id="frames"><a class="permalink" href="#frames">--frames</a></dt>
+  <dd>type: string; default: 1m,5m,15m
+    <p class="Pp">Timeframes for averages.</p>
+    <p class="Pp">Specifies the timeframes over which to calculate moving
+        averages when &quot;--monitor&quot; is given. Specify as a
+        comma-separated list of numbers with suffixes. The suffix can be s for
+        seconds, m for minutes, h for hours, or d for days. The size of the
+        largest frame determines the maximum memory usage, as up to the
+        specified number of per-second samples are kept in memory to calculate
+        the averages. You can specify as many timeframes as you like.</p>
+  </dd>
+  <dt id="help"><a class="permalink" href="#help">--help</a></dt>
+  <dd>Show help and exit.</dd>
+  <dt id="host"><a class="permalink" href="#host">--host</a></dt>
+  <dd>short form: -h; type: string
+    <p class="Pp">Connect to host.</p>
+  </dd>
+  <dt>--[no]insert-heartbeat-row</dt>
+  <dd>default: yes
+    <p class="Pp">Insert a heartbeat row in the &quot;--table&quot; if one
+        doesn't exist.</p>
+    <p class="Pp">The heartbeat &quot;--table&quot; requires a heartbeat row,
+        else there's nothing to &quot;--update&quot;, &quot;--monitor&quot;, or
+        &quot;--check&quot;! By default, the tool will insert a heartbeat row if
+        one is not already present. You can disable this feature by specifying
+        <span class="Li">&quot;--no-insert-heartbeat-row&quot;</span> in case
+        the database user does not have INSERT privileges.</p>
+  </dd>
+  <dt id="interval"><a class="permalink" href="#interval">--interval</a></dt>
+  <dd>type: float; default: 1.0
+    <p class="Pp">How often to update or check the heartbeat
+        &quot;--table&quot;. Updates and checks begin on the first whole second
+        then repeat every &quot;--interval&quot; seconds for
+        &quot;--update&quot; and every &quot;--interval&quot; plus
+        &quot;--skew&quot; seconds for &quot;--monitor&quot;.</p>
+    <p class="Pp">For example, if at 00:00.4 an &quot;--update&quot; instance is
+        started at 0.5 second intervals, the first update happens at 00:01.0,
+        the next at 00:01.5, etc. If at 00:10.7 a &quot;--monitor&quot; instance
+        is started at 0.05 second intervals with the default 0.5 second
+        &quot;--skew&quot;, then the first check happens at 00:11.5 (00:11.0 +
+        0.5) which will be &quot;--skew&quot; seconds after the last update
+        which, because the instances are checking at synchronized intervals,
+        happened at 00:11.0.</p>
+    <p class="Pp">The tool waits for and begins on the first whole second just
+        to make the interval calculations simpler. Therefore, the tool could
+        wait up to 1 second before updating or checking.</p>
+    <p class="Pp">The minimum (fastest) interval is 0.01, and the maximum
+        precision is two decimal places, so 0.015 will be rounded to 0.02.</p>
+    <p class="Pp">If a legacy heartbeat table (see &quot;--create-table&quot;)
+        is used, then the maximum precision is 1s because the
+        <span class="Li">&quot;ts&quot;</span> column is type
+        <span class="Li">&quot;datetime&quot;</span>.</p>
+  </dd>
+  <dt id="log"><a class="permalink" href="#log">--log</a></dt>
+  <dd>type: string
+    <p class="Pp">Print all output to this file when daemonized.</p>
+  </dd>
+  <dt id="master"><a class="permalink" href="#master">--master-server-id</a></dt>
+  <dd>type: string
+    <p class="Pp">Calculate delay from this master server ID for
+        &quot;--monitor&quot; or &quot;--check&quot;. If not given, pt-heartbeat
+        attempts to connect to the server's master and determine its server
+      id.</p>
+  </dd>
+  <dt id="monitor"><a class="permalink" href="#monitor">--monitor</a></dt>
+  <dd>Monitor slave delay continuously.
+    <p class="Pp">Specifies that pt-heartbeat should check the slave's delay
+        every second and report to STDOUT (or if &quot;--file&quot; is given, to
+        the file instead). The output is the current delay followed by moving
+        averages over the timeframe given in &quot;--frames&quot;. For
+      example,</p>
+    <p class="Pp"></p>
+    <pre> 5s [  0.25s,  0.05s,  0.02s ]
+    </pre>
+  </dd>
+  <dt id="fail"><a class="permalink" href="#fail">--fail-successive-errors</a></dt>
+  <dd>type: int
+    <p class="Pp">If specified, pt-heartbeat will fail after given number of
+        successive DBI errors (failure to connect to server or issue a
+      query).</p>
+  </dd>
+  <dt id="password"><a class="permalink" href="#password">--password</a></dt>
+  <dd>short form: -p; type: string
+    <p class="Pp">Password to use when connecting. If password contains commas
+        they must be escaped with a backslash: &quot;exam\,ple&quot;</p>
+  </dd>
+  <dt id="pid"><a class="permalink" href="#pid">--pid</a></dt>
+  <dd>type: string
+    <p class="Pp">Create the given PID file. The tool won't start if the PID
+        file already exists and the PID it contains is different than the
+        current PID. However, if the PID file exists and the PID it contains is
+        no longer running, the tool will overwrite the PID file with the current
+        PID. The PID file is removed automatically when the tool exits.</p>
+  </dd>
+  <dt id="port"><a class="permalink" href="#port">--port</a></dt>
+  <dd>short form: -P; type: int
+    <p class="Pp">Port number to use for connection.</p>
+  </dd>
+  <dt id="print"><a class="permalink" href="#print">--print-master-server-id</a></dt>
+  <dd>Print the auto-detected or given &quot;--master-server-id&quot;. If
+      &quot;--check&quot; or &quot;--monitor&quot; is specified, specifying this
+      option will print the auto-detected or given
+      &quot;--master-server-id&quot; at the end of each line.</dd>
+  <dt id="read"><a class="permalink" href="#read">--read-only-interval</a></dt>
+  <dd>type: int
+    <p class="Pp">When &quot;--check-read-only&quot; is specified, the interval
+        to sleep while the server is found to be read-only. If unspecified,
+        &quot;--interval&quot; is used.</p>
+  </dd>
+  <dt id="recurse"><a class="permalink" href="#recurse">--recurse</a></dt>
+  <dd>type: int
+    <p class="Pp">Check slaves recursively to this depth in &quot;--check&quot;
+        mode.</p>
+    <p class="Pp">Try to discover slave servers recursively, to the specified
+        depth. After discovering servers, run the check on each one of them and
+        print the hostname (if possible), followed by the slave delay.</p>
+    <p class="Pp">This currently works only with MySQL. See
+        &quot;--recursion-method&quot;.</p>
+  </dd>
+  <dt id="recursion"><a class="permalink" href="#recursion">--recursion-method</a></dt>
+  <dd>type: array; default: processlist,hosts
+    <p class="Pp">Preferred recursion method used to find slaves.</p>
+    <p class="Pp">Possible methods are:</p>
+    <p class="Pp"></p>
+    <pre>  METHOD       USES
+  ===========  ==================
+  processlist  SHOW PROCESSLIST
+  hosts        SHOW SLAVE HOSTS
+  none         Do not find slaves
+    </pre>
+    <p class="Pp">The processlist method is preferred because SHOW SLAVE HOSTS
+        is not reliable. However, the hosts method is required if the server
+        uses a non-standard port (not 3306). Usually pt-heartbeat does the right
+        thing and finds the slaves, but you may give a preferred method and it
+        will be used first. If it doesn't find any slaves, the other methods
+        will be tried.</p>
+  </dd>
+  <dt id="replace"><a class="permalink" href="#replace">--replace</a></dt>
+  <dd>Use <span class="Li">&quot;REPLACE&quot;</span> instead of
+      <span class="Li">&quot;UPDATE&quot;</span> for --update.
+    <p class="Pp">When running in &quot;--update&quot; mode, use
+        <span class="Li">&quot;REPLACE&quot;</span> instead of
+        <span class="Li">&quot;UPDATE&quot;</span> to set the heartbeat table's
+        timestamp. The <span class="Li">&quot;REPLACE&quot;</span> statement is
+        a MySQL extension to SQL. This option is useful when you don't know
+        whether the table contains any rows or not. It must be used in
+        conjunction with --update.</p>
+  </dd>
+  <dt id="run"><a class="permalink" href="#run">--run-time</a></dt>
+  <dd>type: time
+    <p class="Pp">Time to run before exiting.</p>
+  </dd>
+  <dt id="sentinel"><a class="permalink" href="#sentinel">--sentinel</a></dt>
+  <dd>type: string; default: /tmp/pt-heartbeat-sentinel
+    <p class="Pp">Exit if this file exists.</p>
+  </dd>
+  <dt id="slave"><a class="permalink" href="#slave">--slave-user</a></dt>
+  <dd>type: string
+    <p class="Pp">Sets the user to be used to connect to the slaves. This
+        parameter allows you to have a different user with less privileges on
+        the slaves but that user must exist on all slaves.</p>
+  </dd>
+  <dt id="slave~2"><a class="permalink" href="#slave~2">--slave-password</a></dt>
+  <dd>type: string
+    <p class="Pp">Sets the password to be used to connect to the slaves. It can
+        be used with --slave-user and the password for the user must be the same
+        on all slaves.</p>
+  </dd>
+  <dt id="set"><a class="permalink" href="#set">--set-vars</a></dt>
+  <dd>type: Array
+    <p class="Pp">Set the MySQL variables in this comma-separated list of
+        <span class="Li">&quot;variable=value&quot;</span> pairs.</p>
+    <p class="Pp">By default, the tool sets:</p>
+    <p class="Pp"></p>
+    <pre>   wait_timeout=10000
+    </pre>
+    <p class="Pp">Variables specified on the command line override these
+        defaults. For example, specifying <span class="Li">&quot;--set-vars
+        wait_timeout=500&quot;</span> overrides the defaultvalue of
+        <span class="Li">10000</span>.</p>
+    <p class="Pp">The tool prints a warning and continues if a variable cannot
+        be set.</p>
+  </dd>
+  <dt id="skew"><a class="permalink" href="#skew">--skew</a></dt>
+  <dd>type: float; default: 0.5
+    <p class="Pp">How long to delay checks.</p>
+    <p class="Pp">The default is to delay checks one half second. Since the
+        update happens as soon as possible after the beginning of the second on
+        the master, this allows one half second of replication delay before
+        reporting that the slave lags the master by one second. If your clocks
+        are not completely accurate or there is some other reason you'd like to
+        delay the slave more or less, you can tweak this value. Try setting the
+        <span class="Li">&quot;PTDEBUG&quot;</span> environment variable to see
+        the effect this has.</p>
+  </dd>
+  <dt id="socket"><a class="permalink" href="#socket">--socket</a></dt>
+  <dd>short form: -S; type: string
+    <p class="Pp">Socket file to use for connection.</p>
+  </dd>
+  <dt id="stop"><a class="permalink" href="#stop">--stop</a></dt>
+  <dd>Stop running instances by creating the sentinel file.
+    <p class="Pp">This should have the effect of stopping all running instances
+        which are watching the same sentinel file. If none of
+        &quot;--update&quot;, &quot;--monitor&quot; or &quot;--check&quot; is
+        specified, <span class="Li">&quot;pt-heartbeat&quot;</span> will exit
+        after creating the file. If one of these is specified,
+        <span class="Li">&quot;pt-heartbeat&quot;</span> will wait the interval
+        given by &quot;--interval&quot;, then remove the file and continue
+        working.</p>
+    <p class="Pp">You might find this handy to stop cron jobs gracefully if
+        necessary, or to replace one running instance with another. For example,
+        if you want to stop and restart
+        <span class="Li">&quot;pt-heartbeat&quot;</span> every hour (just to
+        make sure that it is restarted every hour, in case of a server crash or
+        some other problem), you could use a
+        <span class="Li">&quot;crontab&quot;</span> line like this:</p>
+    <p class="Pp"></p>
+    <pre> 0 * * * * pt-heartbeat --update -D test --stop \
+   --sentinel /tmp/pt-heartbeat-hourly
+    </pre>
+    <p class="Pp">The non-default &quot;--sentinel&quot; will make sure the
+        hourly <span class="Li">&quot;cron&quot;</span> job stops only instances
+        previously started with the same options (that is, from the same
+        <span class="Li">&quot;cron&quot;</span> job).</p>
+    <p class="Pp">See also &quot;--sentinel&quot;.</p>
+  </dd>
+  <dt id="table"><a class="permalink" href="#table">--table</a></dt>
+  <dd>type: string; default: heartbeat
+    <p class="Pp">The table to use for the heartbeat.</p>
+    <p class="Pp">Don't specify database.table; use &quot;--database&quot; to
+        specify the database.</p>
+    <p class="Pp">See &quot;--create-table&quot;.</p>
+  </dd>
+  <dt id="update"><a class="permalink" href="#update">--update</a></dt>
+  <dd>Update a master's heartbeat.</dd>
+  <dt id="user"><a class="permalink" href="#user">--user</a></dt>
+  <dd>short form: -u; type: string
+    <p class="Pp">User for login if not current user.</p>
+  </dd>
+  <dt id="utc"><a class="permalink" href="#utc">--utc</a></dt>
+  <dd>Ignore system time zones and use only UTC. By default pt-heartbeat does
+      not check or adjust for different system or MySQL time zones which can
+      cause the tool to compute the lag incorrectly. Specifying this option is a
+      good idea because it ensures that the tool works correctly regardless of
+      time zones.
+    <p class="Pp">If used, this option must be used for all pt-heartbeat
+        instances: &quot;--update&quot;, &quot;--monitor&quot;,
+        &quot;--check&quot;, etc. You should probably set the option in a
+        &quot;--config&quot; file. Mixing this option with pt-heartbeat
+        instances not using this option will cause false-positive lag readings
+        due to different time zones (unless all your systems are set to use UTC,
+        in which case this option isn't required).</p>
+  </dd>
+  <dt id="version"><a class="permalink" href="#version">--version</a></dt>
+  <dd>Show version and exit.</dd>
+  <dt>--[no]version-check</dt>
+  <dd>default: yes
+    <p class="Pp">Check for the latest version of Percona Toolkit, MySQL, and
+        other programs.</p>
+    <p class="Pp">This is a standard &quot;check for updates automatically&quot;
+        feature, with two additional features. First, the tool checks its own
+        version and also the versions of the following software: operating
+        system, Percona Monitoring and Management (PMM), MySQL, Perl, MySQL
+        driver for Perl (DBD::mysql), and Percona Toolkit. Second, it checks for
+        and warns about versions with known problems. For example, MySQL 5.5.25
+        had a critical bug and was re-released as 5.5.25a.</p>
+    <p class="Pp">A secure connection to Percona&#x2019;s Version Check database
+        server is done to perform these checks. Each request is logged by the
+        server, including software version numbers and unique ID of the checked
+        system. The ID is generated by the Percona Toolkit installation script
+        or when the Version Check database call is done for the first time.</p>
+    <p class="Pp">Any updates or known problems are printed to STDOUT before the
+        tool's normal output. This feature should never interfere with the
+        normal operation of the tool.</p>
+    <p class="Pp">For more information, visit
+        &lt;https://www.percona.com/doc/percona-toolkit/LATEST/version-check.html&gt;.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DSN_OPTIONS"><a class="permalink" href="#DSN_OPTIONS">DSN
+  OPTIONS</a></h1>
+<p class="Pp">These DSN options are used to create a DSN. Each option is given
+    like <span class="Li">&quot;option=value&quot;</span>. The options are
+    case-sensitive, so P and p are not the same option. There cannot be
+    whitespace before or after the <span class="Li">&quot;=&quot;</span> and if
+    the value contains whitespace it must be quoted. DSN options are
+    comma-separated. See the percona-toolkit manpage for full details.</p>
+<ul class="Bl-bullet">
+  <li>A
+    <p class="Pp">dsn: charset; copy: yes</p>
+    <p class="Pp">Default character set.</p>
+  </li>
+  <li>D
+    <p class="Pp">dsn: database; copy: yes</p>
+    <p class="Pp">Default database.</p>
+  </li>
+  <li>F
+    <p class="Pp">dsn: mysql_read_default_file; copy: yes</p>
+    <p class="Pp">Only read default options from the given file</p>
+  </li>
+  <li>h
+    <p class="Pp">dsn: host; copy: yes</p>
+    <p class="Pp">Connect to host.</p>
+  </li>
+  <li>p
+    <p class="Pp">dsn: password; copy: yes</p>
+    <p class="Pp">Password to use when connecting. If password contains commas
+        they must be escaped with a backslash: &quot;exam\,ple&quot;</p>
+  </li>
+  <li>P
+    <p class="Pp">dsn: port; copy: yes</p>
+    <p class="Pp">Port number to use for connection.</p>
+  </li>
+  <li>S
+    <p class="Pp">dsn: mysql_socket; copy: yes</p>
+    <p class="Pp">Socket file to use for connection.</p>
+  </li>
+  <li>u
+    <p class="Pp">dsn: user; copy: yes</p>
+    <p class="Pp">User for login if not current user.</p>
+  </li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<p class="Pp">The environment variable
+    <span class="Li">&quot;PTDEBUG&quot;</span> enables verbose debugging output
+    to STDERR. To enable debugging and capture all output to a file, run the
+    tool like:</p>
+<p class="Pp"></p>
+<pre>   PTDEBUG=1 pt-heartbeat ... &gt; FILE 2&gt;&amp;1
+</pre>
+<p class="Pp">Be careful: debugging output is voluminous and can generate
+    several megabytes of output.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYSTEM_REQUIREMENTS"><a class="permalink" href="#SYSTEM_REQUIREMENTS">SYSTEM
+  REQUIREMENTS</a></h1>
+<p class="Pp">You need Perl, DBI, DBD::mysql, and some core packages that ought
+    to be installed in any reasonably new version of Perl.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">For a list of known bugs, see
+    &lt;http://www.percona.com/bugs/pt-heartbeat&gt;.</p>
+<p class="Pp">Please report bugs at
+    &lt;https://jira.percona.com/projects/PT&gt;. Include the following
+    information in your bug report:</p>
+<ul class="Bl-bullet">
+  <li>Complete command-line used to run the tool</li>
+  <li>Tool &quot;--version&quot;</li>
+  <li>MySQL version of all servers involved</li>
+  <li>Output from the tool including STDERR</li>
+  <li>Input files (log/dump/config files, etc.)</li>
+</ul>
+<p class="Pp">If possible, include debugging output by running the tool with
+    <span class="Li">&quot;PTDEBUG&quot;</span>; see
+  &quot;ENVIRONMENT&quot;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DOWNLOADING"><a class="permalink" href="#DOWNLOADING">DOWNLOADING</a></h1>
+<p class="Pp">Visit &lt;http://www.percona.com/software/percona-toolkit/&gt; to
+    download the latest release of Percona Toolkit. Or, get the latest release
+    from the command line:</p>
+<p class="Pp"></p>
+<pre>   wget percona.com/get/percona-toolkit.tar.gz
+   wget percona.com/get/percona-toolkit.rpm
+   wget percona.com/get/percona-toolkit.deb
+</pre>
+<p class="Pp">You can also get individual tools from the latest release:</p>
+<p class="Pp"></p>
+<pre>   wget percona.com/get/TOOL
+</pre>
+<p class="Pp">Replace <span class="Li">&quot;TOOL&quot;</span> with the name of
+    any tool.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Proven Scaling LLC, SixApart Ltd, Baron Schwartz, and Daniel
+    Nichter</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ABOUT_PERCONA_TOOLKIT"><a class="permalink" href="#ABOUT_PERCONA_TOOLKIT">ABOUT
+  PERCONA TOOLKIT</a></h1>
+<p class="Pp">This tool is part of Percona Toolkit, a collection of advanced
+    command-line tools for MySQL developed by Percona. Percona Toolkit was
+    forked from two projects in June, 2011: Maatkit and Aspersa. Those projects
+    were created by Baron Schwartz and primarily developed by him and Daniel
+    Nichter. Visit &lt;http://www.percona.com/software/&gt; to learn about other
+    free, open-source software from Percona.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT,_LICENSE,_AND_WARRANTY"><a class="permalink" href="#COPYRIGHT,_LICENSE,_AND_WARRANTY">COPYRIGHT,
+  LICENSE, AND WARRANTY</a></h1>
+<p class="Pp">This program is copyright 2007-2018 Percona LLC and/or its
+    affiliates, 2006 Proven Scaling LLC and Six Apart Ltd.</p>
+<p class="Pp">Feedback and improvements are welcome.</p>
+<p class="Pp">THIS PROGRAM IS PROVIDED &quot;AS IS&quot; AND WITHOUT ANY EXPRESS
+    OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES
+    OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.</p>
+<p class="Pp">This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 2; OR the Perl Artistic License. On
+    UNIX and similar systems, you can issue `man perlgpl' or `man perlartistic'
+    to read these licenses.</p>
+<p class="Pp">You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software Foundation,
+    Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
+<p class="Pp">pt-heartbeat 3.2.1</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="POD_ERRORS"><a class="permalink" href="#POD_ERRORS">POD
+  ERRORS</a></h1>
+<p class="Pp">Hey! <b>The above document had some coding errors, which are
+    explained below:</b></p>
+<dl class="Bl-tag">
+  <dt id="Around"><a class="permalink" href="#Around">Around line 7219:</a></dt>
+  <dd>Non-ASCII character seen before =encoding in 'Percona&#x2019;s'. Assuming
+      UTF-8</dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2020-08-30</td>
+    <td class="foot-os">perl v5.30.3</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: percona-toolkit 3.2.1-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

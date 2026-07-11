@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="daemon to send fax jobs queued by faxspool(1)">
+<title>faxrunqd(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">faxrunqd(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#SETUP">SETUP</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#CONFIGURATION_FILE">CONFIGURATION
+  FILE</a></li><li><a href="#POLICY_ROUTING">POLICY
+  ROUTING</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SIGNALS">SIGNALS</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">faxrunqd(1)</td>
+    <td class="head-vol">mgetty+sendfax manual</td>
+    <td class="head-rtitle">faxrunqd(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">faxrunqd - daemon to send fax jobs queued by faxspool(1)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>faxrunqd [-v] [-d] [-D] [-l &lt;ttys&gt;] [-u &lt;user or
+    uid&gt;] [ -g &lt;group or gid&gt; ] [-V]</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Runs in the background, and regularily checks the fax queue set up
+    by faxspool(1). Sends all jobs that are due, records results, and takes
+    appropriate action (notify mails etc).</p>
+<p class="Pp"><i>faxrunqd</i> basically does the same as faxrunq(1), just more
+    so. Please read the faxrunq(1) man page if you're not already familiar with
+    the concept.</p>
+<p class="Pp">The advantages of <i>faxrunqd</i> are:</p>
+<p class="Pp">- runs all the time, so you don't have to set up a cron job (but
+    you have to set up an entry in /etc/inittab or start it from /etc/rc*)</p>
+<p class="Pp">- quicker response to new faxes in queue</p>
+<p class="Pp">- can sensibly handle more than one modem</p>
+<p class="Pp">- can handle prioritized fax jobs</p>
+<p class="Pp">- can do 'policy routing' of faxes depending on the fax number</p>
+<p class="Pp">The disadvantages are:</p>
+<p class="Pp">- needs more system ressources if you have only little fax
+  traffic</p>
+<p class="Pp">- requires Perl 5.004</p>
+<p class="Pp">- more tricky to set up and to debug</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SETUP"><a class="permalink" href="#SETUP">SETUP</a></h1>
+<p class="Pp"><i>faxrunqd</i> is started at system boot from /etc/rc.*, or from
+    /etc/inittab. You can also start it from the command line. It does
+    <b>not</b> put itself in the background, so you have to start it with an
+    &quot;&amp;&quot;, or from a &quot;:respawn:&quot; line in /etc/inittab.
+    Using /etc/inittab has the advantage that <i>faxrunqd</i> is restarted
+    automatically if something goes wrong and faxrunqd is stopped.</p>
+<p class="Pp"><i>faxrunqd</i> will first read a global configuration file (see
+    below), then (optionally) the faxrunqd policy file (see further below). From
+    then on, it will sit in a loop. It will check the fax queue every 60 seconds
+    for new jobs, and will then distribute them over all available modems. If
+    the job is sent, or fails, it will do the same thing <i>faxrunq(1)</i> would
+    do (send a mail, delete the JOB directory, execute a named program, etc.).
+    Both programs are fully compatible in this respect.</p>
+<p class="Pp"><b>faxrunqd [-v] [-d] [-D] [-l &lt;ttys&gt;] [-u &lt;user or
+    uid&gt;] [ -g &lt;group or gid&gt; ] [-V]</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b></a></dt>
+  <dd>Tells <i>faxrunqd</i> to write progress information to the log file.</dd>
+  <dt id="D"><a class="permalink" href="#D"><b>-D</b></a></dt>
+  <dd>Tells <i>faxrunqd</i> to run in the background, as a daemon.</dd>
+  <dt id="d"><a class="permalink" href="#d"><b>-d</b></a></dt>
+  <dd>Tells <i>faxrunqd</i> to write debugging information to stdout and the log
+      file (usually used together with -v).</dd>
+  <dt id="l"><a class="permalink" href="#l"><b>-l &lt;ttyS&gt;</b></a></dt>
+  <dd>Specifies the list of modem devices to use. Multiple devices are separated
+      with ':', e.g. '-l ttyS0:ttyS1'.</dd>
+  <dt id="u"><a class="permalink" href="#u"><b>-u &lt;user or
+    uid&gt;</b></a></dt>
+  <dd><i>faxrunqd</i> can now (since 1.1.29) run as unprivileged user. If you
+      start it as root from /etc/inittab or from one of the /etc/rc* scripts,
+      it's strongly recommended to use '-u uucp' (to be precise: the user that
+      is owning the outgoing fax spool directory). This will make
+      <i>faxrunqd</i> drop all its privileges at startup, and run as the
+      specified user. Running <i>faxrunqd</i> as root user might lead to
+      security problems - don't do it. This parameter takes either a uid or a
+      username as argument.</dd>
+  <dt id="g"><a class="permalink" href="#g"><b>-g &lt;group or
+    gid&gt;</b></a></dt>
+  <dd><i>Same effect as above but for the group id. Indicates the group
+      which</i> should own the fax files. This parameter takes either a gid or a
+      groupname as argument.</dd>
+  <dt id="V"><a class="permalink" href="#V"><b>-V</b></a></dt>
+  <dd>print version number and exit
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_FILE"><a class="permalink" href="#CONFIGURATION_FILE">CONFIGURATION
+  FILE</a></h1>
+<p class="Pp">Some aspects of the behaviour of <i>faxrunqd</i> can be controlled
+    by a configuration file, usually named /etc/mgetty/faxrunq.config (this is
+    the same file that <i>faxrunq(1)</i> uses, but there are additional options
+    for <i>faxrunqd). In</i> this file, you can use the following options:</p>
+<dl class="Bl-tag">
+  <dt id="success-send-mail"><a class="permalink" href="#success-send-mail"><b>success-send-mail
+    [y/n]</b></a></dt>
+  <dd>A boolean parameter that controls whether a mail will be sent after
+      successful completition of the fax job.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="failure-send-mail"><a class="permalink" href="#failure-send-mail"><b>failure-send-mail
+    [y/n]</b></a></dt>
+  <dd>A boolean parameter that controls whether a mail will be sent after the
+      fax job has failed more than the maximum number of times.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="success-call-program"><a class="permalink" href="#success-call-program"><b>success-call-program
+    &lt;name&gt;</b></a></dt>
+  <dd>Here, you can specify a program that will be run when the fax has been
+      successfully sent. It will be passed two command line parameters. The
+      first is the full path to the fax JOB file (see faxq(5)), the second is
+      the last exit code from <i>sendfax</i> (for success-call-program, this is
+      always &quot;0&quot;).
+    <p class="Pp"></p>
+  </dd>
+  <dt id="failure-call-program"><a class="permalink" href="#failure-call-program"><b>failure-call-program
+    &lt;name&gt;</b></a></dt>
+  <dd>Similar to the &quot;success-call-program&quot;, this program will be run
+      when the fax has been failed too often and <i>faxrunqd</i> gives up. This
+      script could, for example, print out the fax on a printer so that it can
+      be sent manually on a paper fax machine.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="update-call-program"><a class="permalink" href="#update-call-program"><b>update-call-program
+    &lt;name&gt;</b></a></dt>
+  <dd>This is, again, similar to &quot;success-call-program&quot;. It will be
+      called for interim status updates (&quot;we've tried and it was
+      BUSY&quot;), so that frontend programs can display this information.
+      &quot;update-call-program&quot; will only be called for jobs that will be
+      <i>kept</i> in the fax queue for at least one more try.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="maxfail-costly"><a class="permalink" href="#maxfail-costly"><b>maxfail-costly
+    &lt;n&gt;</b></a></dt>
+  <dd>This specifies the number of times that a fax may fail
+      &quot;fatally&quot;, that is, causing telephone costs (explained above).
+      The default value is 5.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="maxfail-total"><a class="permalink" href="#maxfail-total"><b>maxfail-total
+    &lt;m&gt;</b></a></dt>
+  <dd>This is the absolute maximum number of times that <i>faxrunqd</i> will try
+      to send any given fax. The default value is 10.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="delete-sent-jobs"><a class="permalink" href="#delete-sent-jobs"><b>delete-sent-jobs
+    [y/n]</b></a></dt>
+  <dd>Determines whether <i>faxrunqd</i> should delete jobs after sending, or
+      leave them in the fax queue (while moving the &quot;JOB&quot; file to
+      &quot;JOB.done&quot;) so that they can be seen at by &quot;faxq -o&quot;.
+      The default value is &quot;do not delete sent faxes&quot;.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="acct-log"><a class="permalink" href="#acct-log"><b>acct-log
+    &lt;path&gt;</b></a></dt>
+  <dd>Specifies where <i>faxrunqd</i> should protocol success and failure of
+      each try to send a fax job. The default location is
+      /var/spool/fax/outgoing/acct.log.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">The options that are specific to <i>faxrunqd</i> are:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="fax-devices"><a class="permalink" href="#fax-devices"><b>fax-devices
+    [tty(s)]</b></a></dt>
+  <dd>Specifies which ttys should be used for sending jobs. <i>faxrunqd</i> will
+      always explicitely tell <i>sendfax</i> which modem to use, so the settings
+      in sendfax.config are ignored. If you use policy routing (see below), this
+      applies only to fax jobs that do not have a tty set by faxrunqd.policy.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="faxrunqd-log"><a class="permalink" href="#faxrunqd-log"><b>faxrunqd-log
+    [filename]</b></a></dt>
+  <dd>Specifies where logging information is written to. This is only used if
+      <i>faxrunqd</i> is called with the <b>-v</b> or <b>-d</b> option.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="policy-config"><a class="permalink" href="#policy-config"><b>policy-config
+    [filename]</b></a></dt>
+  <dd>Specifies a file containing rules for &quot;policy routing&quot;, see
+      below. Default is &quot;no file&quot;.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="faxrunqd-max-pages"><a class="permalink" href="#faxrunqd-max-pages"><b>faxrunqd-max-pages
+    [n]</b></a></dt>
+  <dd>If this is set to something greater 1 (default is 10), <i>faxrunqd</i>
+      will combine multiple jobs to the same receipient telephone number into
+      one telephone call. The maximum number of pages that the resulting job may
+      have is specified here. Usually it makes no sense to increase this, but in
+      some surroundings it might make sense to turn off this feature by setting
+      it to 1.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="sendfax-tty-map"><a class="permalink" href="#sendfax-tty-map"><b>sendfax-tty-map
+    [tty] [program path] [args]</b></a></dt>
+  <dd>Some special cases might require running a non-default <i>sendfax</i>
+      binary for specific ttys (like &quot;testing new version&quot; or
+      &quot;some other call-compatible sendfax applications for non-class-2
+      modems&quot;). If you want mappings for more than one &quot;special&quot;
+      tty devices, just use the option multiple times. Example:
+    <p class="Pp">sendfax-tty-map capi0 /usr/sbin/sendfax.capi</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="queue-length-high"><a class="permalink" href="#queue-length-high"><b>queue-length-high
+    [number] [program path] [args]</b></a></dt>
+  <dd>run the specified command when the number of jobs in the fax queue exceeds
+      <i>number</i> (this could be used to send out a warning by syslog or
+      e-mail when too many modems fail on a busy system, and faxes get stuck).
+      The script will be run only once, unless the queue length falls below the
+      ``low water mark'' threshold and rises again later on.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="queue-length-low"><a class="permalink" href="#queue-length-low"><b>queue-length-low
+    [number] [program path] [args]</b></a></dt>
+  <dd>run the specified command when the queue length has been over the ``high
+      water'' threshold, and is back below this number. This can be used to send
+      ``everything is back to normal'' e-mails, or just to reset the alarm
+      threshold.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="modem-error-threshold"><a class="permalink" href="#modem-error-threshold"><b>modem-error-threshold
+    [number] [program path] [args]</b></a></dt>
+  <dd>this script is called whenever a given modem has more than <i>number</i>
+      consecutive errors. Every successfully sent fax always resets the counter
+      for a given modem to 0. This can be used to notify the sysadmin when a
+      modem breaks (by default, <i>faxrunqd</i> just phases out a problematic
+      modem, but will not report the problem).
+    <p class="Pp"></p>
+  </dd>
+  <dt id="delay-rule"><a class="permalink" href="#delay-rule"><b>delay-rule
+    [errcode] [delay1] [delay2] [...]</b></a></dt>
+  <dd>fine-tune how long <i>faxrunqd</i> waits before re-sending a failed job
+      after <i>sendfax</i> returned with error code &quot;errcode&quot;.
+      &quot;delay1&quot; is used after the first try, &quot;delay2&quot; after
+      the second try, and so on. If <i>faxrunqd</i> needs more tries than delay
+      values are specified, the last one will be re-used. The values given are
+      interpreted as seconds, unless postfixed with 'm' (e.g. &quot;60m&quot;),
+      in which case they are interpreted as minutes.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="POLICY_ROUTING"><a class="permalink" href="#POLICY_ROUTING">POLICY
+  ROUTING</a></h1>
+<p class="Pp"><i>faxrunqd</i> can do some things differently, depending on the
+    phone number where the fax is supposed to be sent to. For example, this
+    might be useful to:</p>
+<p class="Pp">- send in-house faxes over a specific modem connected to a PABX
+    (to avoid paying telco charges)</p>
+<p class="Pp">- send long-distance faxes to the US over a special LD provider,
+    that is, use a specific dial-prefix for those</p>
+<p class="Pp">- use extra high debugging when sending to a known-to-be
+    problematic receipient</p>
+<p class="Pp">etc.</p>
+<p class="Pp">This feature is controlled by a file, containing match /
+    substitute rules. The name of the file is specified with the
+    &quot;policy-config&quot; option in faxrunq.config.</p>
+<p class="Pp">The file is read from top to bottom. Each line starting with a
+    &quot;#&quot; sign is a comment, and is skipped. In every other line, the
+    first field of the line is interpreted as a &quot;match&quot; clause, and
+    compared to the telefone number of an to-be-sent fax job. Regular
+    expressions can be used (see perlre(1)).</p>
+<p class="Pp">If the telefone number is matched, the second field is used to
+    substitute parts of the telefone number, for example, cut off a local
+    prefix, or change a digit, or whatever. If you do not want any
+    substitutions, put a &quot;-&quot; in that field.</p>
+<p class="Pp">The third field specifies the tty lines to use for faxes matched
+    by this line (for example, you might have one modem connected to a
+    long-distance provider, and others for local use or so). Put a &quot;-&quot;
+    in this field if you want to use the default fax modems.</p>
+<p class="Pp">The remaining part of the line are appended to the sendfax command
+    line. With those, you can set a different dial-string (&quot;-D ATD&quot;),
+    or a higher debug level (&quot;-x 9&quot;), or whatever else you can
+    imagine. Do NOT set a tty to use here (&quot;-l ttyS1&quot;), because that
+    would confuse the internal tty handling of <i>faxrunqd,</i> leading to weird
+    effects processing the fax queue!!</p>
+<p class="Pp">Examples:</p>
+<p class="Pp"># 12345-nnn is sent to &quot;nnn&quot; over a local PABX, modem on
+    tty2</p>
+<p class="Pp">^12345		s/12345//	tty2</p>
+<p class="Pp"># fax to 56789 (exact match) is sent with higher debugging</p>
+<p class="Pp">^56789$		-		-	-x 8</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><b>/var/spool/fax/outgoing/stop</b></dt>
+  <dd>if this file exists, <i>faxrunqd</i> will stop whatever it's doing at the
+      moment, wait for all outstanding jobs, and then fall asleep until the file
+      is removed. You can use this to stop queue processing while testing
+      something, or if you know that the modem(s) are unavailable and do not
+      want to run into any error messages, etc.
+    <p class="Pp"></p>
+  </dd>
+  <dt><b>/var/spool/fax/outgoing/faxqueue_done</b></dt>
+  <dd>Every time <i>faxrunqd</i> runs the fax queue, a time stamp is written
+      into that file. It is used by <i>faxspool</i> to display a warning if the
+      queue hasn't been run recently (so faxes may get stuck).
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SIGNALS"><a class="permalink" href="#SIGNALS">SIGNALS</a></h1>
+<p class="Pp">To control <i>faxrunqd's</i> behaviour, you can send it the
+    following signals:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="SIGINT"><a class="permalink" href="#SIGINT"><b>SIGINT</b></a></dt>
+  <dd></dd>
+  <dt id="SIGTERM"><a class="permalink" href="#SIGTERM"><b>SIGTERM</b></a></dt>
+  <dd>remove lock file, remove pid file, terminate immediately.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="SIGHUP"><a class="permalink" href="#SIGHUP"><b>SIGHUP</b></a></dt>
+  <dd>finish all fax jobs that are currently being sent, then terminate (this is
+      used to signal faxrunqd &quot;I want you to terminate&quot; without
+      disturbing the normal flow of operation - SIGINT/TERM etc. can lead to
+      some faxes being sent twice).
+    <p class="Pp"></p>
+  </dd>
+  <dt id="SIGUSR1"><a class="permalink" href="#SIGUSR1"><b>SIGUSR1</b></a></dt>
+  <dd>close, roll, and re-open log file.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="SIGUSR2"><a class="permalink" href="#SIGUSR2"><b>SIGUSR2</b></a></dt>
+  <dd>dump current modem success/failure statistics to log file.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp"><i>faxrunqd</i> does not report if a modem goes bad - instead it
+    will just stop using it (which is good for reliable faxing, but bad for
+    error recovery).</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">faxspool(1), sendfax(8), faxq(1), faxrunq(1), faxqueue(5)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp"><i>faxrunqd</i> is Copyright (C) 1997-2004 by Gert Doering,
+    &lt;gert@greenie.muc.de&gt;. It was inspired by Bodo Bauer's initial
+    faxrunqd, but completely rewritten.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">23 Nov 02</td>
+    <td class="foot-os">greenie</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: mgetty-fax 1.2.1-1.2 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

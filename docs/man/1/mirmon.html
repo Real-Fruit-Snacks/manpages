@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="monitor the state of mirrors">
+<title>mirmon(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">mirmon(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#USAGE">USAGE</a></li><li><a href="#CONFIG_FILE">CONFIG
+  FILE</a></li><li><a href="#STATE_FILE_FORMAT">STATE
+  FILE FORMAT</a></li><li><a href="#INSTALLATION">INSTALLATION</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MIRMON(1)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">MIRMON(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">mirmon - monitor the state of mirrors</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>  mirmon [-v] [-q] [-t timeout] [-c conf] [-get all&#x23AA;update&#x23AA;url url]
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b></a></dt>
+  <dd>Be verbose ; <b>mirmon</b> normally only reports errors and changes in the
+      mirror list.</dd>
+  <dt id="q"><a class="permalink" href="#q"><b>-q</b></a></dt>
+  <dd>Be quiet.</dd>
+  <dt id="t"><a class="permalink" href="#t"><b>-t</b> <i>timeout</i></a></dt>
+  <dd>Set the timeout ; the default is <i>300</i>.</dd>
+  <dt id="get"><a class="permalink" href="#get"><b>-get</b> all &#x23AA; update
+    &#x23AA; url &lt;url&gt;</a></dt>
+  <dd>With <b>all</b>, probe all sites. With <b>update</b>, probe a selection of
+      the sites ; see option <span class="Li">&quot;max_poll&quot;</span> below.
+      With <b>url</b>, probe only the given <i>url</i>, which must appear in the
+      mirror-list.</dd>
+  <dt id="c"><a class="permalink" href="#c"><b>-c</b> <i>name</i></a></dt>
+  <dd>Use config file <i>name</i>. The default list is
+    <p class="Pp"></p>
+    <pre>  ./mirmon.conf $HOME/.mirmon.conf /etc/mirmon.conf
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USAGE"><a class="permalink" href="#USAGE">USAGE</a></h1>
+<p class="Pp">The program is intended to be run by cron every hour.</p>
+<p class="Pp"></p>
+<pre>  42 * * * * perl /path/to/mirmon -get update
+</pre>
+<p class="Pp">It quietly probes a subset of the sites in a given list, writes
+    the results in the 'state' file and generates a web page with the results.
+    The subset contains the sites that are new, bad and/or not probed for a
+    specified time.</p>
+<p class="Pp">When no 'get' option is specified, the program just generates a
+    new web page from the last known state.</p>
+<p class="Pp">The program checks the mirrors by running a (user specified)
+    program on a pipe. A (user specified) number of probes is run in parallel
+    using nonblocking IO. When something can be read from the pipe, it switches
+    the pipe to blocking IO and reads one line from the pipe. Then it flushes
+    and closes the pipe. No attempt is made to kill the probe.</p>
+<p class="Pp">The probe should return something that looks like</p>
+<p class="Pp"></p>
+<pre>  1043625600 ...
+</pre>
+<p class="Pp">that is, a line of text starting with a timestamp. The exit status
+    of the probe is ignored.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIG_FILE"><a class="permalink" href="#CONFIG_FILE">CONFIG
+  FILE</a></h1>
+<p class="Pp"><b>location</b></p>
+<p class="Pp">A config file can be specified with the -c option. If -c is not
+    used, the program looks for a config file in</p>
+<dl class="Bl-tag">
+  <dt>* <b>./mirmon.conf</b></dt>
+  <dd></dd>
+  <dt>* <b>$HOME/.mirmon.conf</b></dt>
+  <dd></dd>
+  <dt>* <b>/etc/mirmon.conf</b></dt>
+  <dd>
+    <br/>
+  </dd>
+</dl>
+<p class="Pp"><b>syntax</b></p>
+<p class="Pp">A config file looks like this :</p>
+<p class="Pp"></p>
+<pre>  +--------------------------------------------------
+  &#x23AA;# lines that start with '#' are comment
+  &#x23AA;# blank lines are ignored too
+  &#x23AA;# tabs are replaced by a space
+  &#x23AA;
+  &#x23AA;# the config entries are 'key' and 'value' pairs
+  &#x23AA;# a 'key' begins in column 1
+  &#x23AA;# the 'value' is the rest of the line
+  &#x23AA;somekey  A_val B_val ...
+  &#x23AA;otherkey X_val Y_val ...
+  &#x23AA;
+  &#x23AA;# indented lines are glued
+  &#x23AA;# the next three lines mean 'somekey part1 part2 part3'
+  &#x23AA;somekey part1
+  &#x23AA;  part2
+  &#x23AA;  part3
+  &#x23AA;
+  &#x23AA;# lines starting with a '+' are concatenated
+  &#x23AA;# the next three lines mean 'somekey part1part2part3'
+  &#x23AA;somekey part1
+  &#x23AA;+ part2
+  &#x23AA;+ part3
+  &#x23AA;
+  &#x23AA;# lines starting with a '.' are glued too
+  &#x23AA;# don't use a '.' on a line by itself
+  &#x23AA;# 'somekey' gets the value &quot;part1\n part2\n part3&quot;
+  &#x23AA;somekey part1
+  &#x23AA;. part2
+  &#x23AA;. part3
+  +--------------------------------------------------
+</pre>
+<br/>
+<p class="Pp"><b>required entries</b></p>
+<dl class="Bl-tag">
+  <dt id="project_name"><a class="permalink" href="#project_name">project_name
+    <i>name</i></a></dt>
+  <dd>Specify a short plaintext name for the project.
+    <p class="Pp"></p>
+    <pre>  project_name Apache
+  project_name CTAN
+    </pre>
+  </dd>
+  <dt id="project_url"><a class="permalink" href="#project_url">project_url
+    <i>url</i></a></dt>
+  <dd>Specify an url pointing to the 'home' of the project.
+    <p class="Pp"></p>
+    <pre>  project_url http://www.apache.org/
+    </pre>
+  </dd>
+  <dt id="mirror_list"><a class="permalink" href="#mirror_list">mirror_list
+    <i>file-name</i></a></dt>
+  <dd>Specify the file containing the mirrors to probe.
+    <p class="Pp"></p>
+    <pre>  mirror_list /path/to/mirror-list
+    </pre>
+    <p class="Pp">If your mirror list is generated by a program, use</p>
+    <p class="Pp"></p>
+    <pre>  mirror_list /path/to/program arg1 ... &#x23AA;
+    </pre>
+    <p class="Pp">Two formats are supported :</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>* plain : lines like</dt>
+  <dd>
+    <pre>  us http://www.tux.org/ [email] ...
+  nl http://apache.cs.uu.nl/dist/ [email] ...
+  nl rsync://archive.cs.uu.nl/apache-dist/ [email] ...
+    </pre>
+  </dd>
+  <dt>* apache : lines like those in the apache mirrors.list</dt>
+  <dd>
+    <pre>  ftp  us ftp://ftp.tux.org/pub/net/apache/dist/ user@tux.org ...
+  http nl http://apache.cs.uu.nl/dist/ user@cs.uu.nl ...
+    </pre>
+  </dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">Note that in style 'plain' the third item is reserved for an
+    optional email address : the site's contact address.</p>
+<p class="Pp">Specify the required format with option
+    <span class="Li">&quot;list_style&quot;</span> (see below). The default
+    style is 'plain'.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="web_page"><a class="permalink" href="#web_page">web_page
+    <i>file-name</i></a></dt>
+  <dd>Specify where the html report page is written.</dd>
+  <dt id="icons"><a class="permalink" href="#icons">icons
+    <i>directory-name</i></a></dt>
+  <dd>Specify the directory where the icons can be found, relative to the
+      <i>web_page</i>, or relative to the DOCUMENTROOT of the web server.
+    <p class="Pp">If/when the <i>web_page</i> lives in directory
+        <span class="Li">&quot;.../mirmon/&quot;</span> and the icons live in
+        directory <span class="Li">&quot;.../mirmon/icons/&quot;</span>,
+      specify</p>
+    <p class="Pp"></p>
+    <pre>  icons icons
+    </pre>
+    <p class="Pp">If/when the icons live in
+        <span class="Li">&quot;/path/to/DOCUMENTROOT/icons/mirmon/&quot;</span>,
+        specify</p>
+    <p class="Pp"></p>
+    <pre>  icons /icons/mirmon
+    </pre>
+  </dd>
+  <dt id="probe"><a class="permalink" href="#probe">probe <i>program +
+    arguments</i></a></dt>
+  <dd>Specify the program+args to probe the mirrors. Example:
+    <p class="Pp"></p>
+    <pre>  probe /usr/bin/wget -q -O - -T %TIMEOUT% -t 1 %URL%TIME.txt
+    </pre>
+    <p class="Pp">Before the program is started,
+        <span class="Li">%TIMEOUT</span>% and <span class="Li">%URL</span>% are
+        substituted with the proper timeout and url values.</p>
+    <p class="Pp">Here it is assumed that each hour the root server writes a
+        timestamp in /path/to/archive/TIME.txt, for instance with a crontab
+        entry like</p>
+    <p class="Pp"></p>
+    <pre>  42 * * * * perl -e 'print time, &quot;\n&quot;' &gt; /path/to/archive/TIME.txt
+    </pre>
+    <p class="Pp">Mirmon reads one line of output from the probe and interprets
+        the first word on that line as a timestamp ; for example :</p>
+    <p class="Pp"></p>
+    <pre>  1043625600
+  1043625600 Mon Jan 27 00:00:00 2003
+  1043625600 www.apache.org Mon Jan 27 00:00:00 2003
+    </pre>
+    <p class="Pp">Mirmon is distributed with a program
+        <span class="Li">&quot;probe&quot;</span> that handles ftp, http and
+        rsync urls.</p>
+  </dd>
+  <dt id="state"><a class="permalink" href="#state">state
+    <i>file-name</i></a></dt>
+  <dd>Specify where the file containing the state is written.
+    <p class="Pp">The program reads this file on startup and writes the file
+        when mirrors are probed (-get is specified).</p>
+  </dd>
+  <dt id="countries"><a class="permalink" href="#countries">countries
+    <i>file-name</i></a></dt>
+  <dd>Specify the file containing the country codes; The file should contain
+      lines like
+    <p class="Pp"></p>
+    <pre>  us - United States
+  nl - Netherlands
+    </pre>
+    <p class="Pp">The mirmon package contains a recent ISO list.</p>
+    <p class="Pp"><i>Fake</i> domains like <i>Backup</i>, <i>Master</i> are
+        allowed, and are listed first in the report ; lowercase-first fake
+        domains (like <i>backup</i>) are listed last.
+      <br/>
+    </p>
+  </dd>
+</dl>
+<p class="Pp"><b>optional entries</b></p>
+<dl class="Bl-tag">
+  <dt id="max_probes"><a class="permalink" href="#max_probes">max_probes
+    <i>number</i></a></dt>
+  <dd>Optionally specify the number of parallel probes (default 25).</dd>
+  <dt id="timeout"><a class="permalink" href="#timeout">timeout
+    <i>seconds</i></a></dt>
+  <dd>Optionally specify the timeout for the probes (default 300).
+    <p class="Pp">After the last probe is started, the program waits for
+        &lt;timeout&gt; + 10 seconds, cleans up and exits.</p>
+  </dd>
+  <dt id="project_logo"><a class="permalink" href="#project_logo">project_logo
+    <i>logo</i></a></dt>
+  <dd>Optionally specify (the SRC of the IMG of) a logo to be placed top right
+      on the page.
+    <p class="Pp"></p>
+    <pre>  project_logo /icons/apache.gif
+  project_logo http://www.apache.org/icons/...
+    </pre>
+  </dd>
+  <dt id="htm_head"><a class="permalink" href="#htm_head">htm_head
+    <i>html</i></a></dt>
+  <dd>Optionally specify some HTML to be placed before &lt;/HEAD&gt;.
+    <p class="Pp"></p>
+    <pre>  htm_head
+    &lt;link REL=StyleSheet HREF=&quot;/style.css&quot; TYPE=&quot;text/css&quot;&gt;
+    </pre>
+  </dd>
+  <dt id="htm_top"><a class="permalink" href="#htm_top">htm_top
+    <i>html</i></a></dt>
+  <dd>Optionally specify some HTML to be placed near the top of the page.
+    <p class="Pp"></p>
+    <pre>  htm_top testing 1, 2, 3
+    </pre>
+  </dd>
+  <dt id="htm_foot"><a class="permalink" href="#htm_foot">htm_foot
+    <i>html</i></a></dt>
+  <dd>Optionally specify HTML to be placed near the bottom of the page.
+    <p class="Pp"></p>
+    <pre>  htm_foot
+    &lt;HR&gt;
+    &lt;A HREF=&quot;...&quot;&gt;&lt;IMG SRC=&quot;...&quot; BORDER=0&gt;&lt;/A&gt;
+    &lt;HR&gt;
+    </pre>
+  </dd>
+  <dt id="put_histo"><a class="permalink" href="#put_histo">put_histo
+    top&#x23AA;bottom&#x23AA;nowhere</a></dt>
+  <dd>Optionally specify where the age histogram must be placed. The default is
+      'top'.</dd>
+  <dt id="min_poll"><a class="permalink" href="#min_poll">min_poll
+    <i>time-spec</i></a></dt>
+  <dd>For 'min_poll' see next item. A <i>time-spec</i> is a number followed by a
+      unit 's' (seconds), or 'm' (minutes), or 'h' (hours), or 'd' (days). For
+      example '3d' (three days) or '36h' (36 hours).</dd>
+  <dt id="max_poll"><a class="permalink" href="#max_poll">max_poll
+    <i>time-spec</i></a></dt>
+  <dd>Optionally specify the maximum probe interval. When the program is called
+      with option '-get update', all sites are probed which are :</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>* new</dt>
+  <dd>the site appears in the list, but there is no known state</dd>
+  <dt>* bad</dt>
+  <dd>the last probe of the site was unsuccessful</dd>
+  <dt>* old</dt>
+  <dd>the last probe was more than 'max_poll' ago.</dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">Sites are not probed if the last probe was less than 'min_poll'
+    ago. So, if you specify</p>
+<p class="Pp"></p>
+<pre>  min_poll 4h
+  max_poll 12h
+</pre>
+<p class="Pp">the 'reachable' sites are probed twice daily and the 'unreachable'
+    sites are probed at most six times a day.</p>
+<p class="Pp">The default 'min_poll' is '1h' (1 hour). The default 'max_poll' is
+    '4h' (4 hours).</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="min_sync"><a class="permalink" href="#min_sync">min_sync
+    <i>time-spec</i></a></dt>
+  <dd>Optionally specify how often the mirrors are required to make an update.
+    <p class="Pp">The default 'min_sync' is '1d' (1 day).</p>
+  </dd>
+  <dt id="max_sync"><a class="permalink" href="#max_sync">max_sync
+    <i>time-spec</i></a></dt>
+  <dd>Optionally specify the maximum allowable sync interval.
+    <p class="Pp">Sites exceeding the limit will be considered 'old'. The
+        default 'max_sync' is '2d' (2 days).</p>
+  </dd>
+  <dt id="always_get"><a class="permalink" href="#always_get">always_get
+    <i>region ...</i></a></dt>
+  <dd>Optionally specify a list of regions that must be probed always.
+    <p class="Pp"></p>
+    <pre>  always_get Master Tier1
+    </pre>
+    <p class="Pp">This is intended for <i>fake regions</i> like <i>Master</i>
+        etc.</p>
+  </dd>
+  <dt id="no_randomize"><a class="permalink" href="#no_randomize">no_randomize</a></dt>
+  <dd>Mirmon tries to balance the probe load over the hourly mirmon runs. If the
+      current run has a below average number of mirrors to probe, mirmon probes
+      a few extra, randomly chosen mirrors, picked from the runs that have the
+      highest load.
+    <p class="Pp">If you don't want this behaviour, use <b>no_randomize</b>.</p>
+  </dd>
+  <dt id="no_add_slash"><a class="permalink" href="#no_add_slash">no_add_slash</a></dt>
+  <dd>If the url part of a line in the mirror_list doesn't end in a slash ('/'),
+      mirmon adds a slash and issues a warning unless it is in quiet mode.
+    <p class="Pp">If you don't want this behaviour, use <b>no_add_slash</b>.</p>
+  </dd>
+  <dt id="list_style"><a class="permalink" href="#list_style">list_style
+    plain&#x23AA;apache</a></dt>
+  <dd>Optionally specify the format ('plain' or 'apache') of the mirror-list.
+    <p class="Pp">See the description of 'mirror_list' above. The default
+        list_style is 'plain'.</p>
+  </dd>
+  <dt id="site_url"><a class="permalink" href="#site_url">site_url <i>site</i>
+    <i>url</i></a></dt>
+  <dd>Optionally specify a substitute url for a site.
+    <p class="Pp">When access to a site is restricted (in Australia, for
+        instance), another (sometimes secret) url can be used to probe the site.
+        The &lt;site&gt; of an url is the part between '://' and the first
+      '/'.</p>
+  </dd>
+  <dt id="env"><a class="permalink" href="#env">env <i>key</i>
+    <i>value</i></a></dt>
+  <dd>Optionally specify an environment variable.</dd>
+  <dt id="include"><a class="permalink" href="#include">include
+    <i>file-name</i></a></dt>
+  <dd>Optionally specify a file to include.
+    <p class="Pp">The specified file is processed 'in situ'. After the specified
+        file is read and processed, config processing is resumed in the file
+        where the <span class="Li">&quot;include&quot;</span> was encountered.
+        The include depth is unlimited. However, it is a fatal error to include
+        a file twice under the same name.</p>
+  </dd>
+  <dt id="show"><a class="permalink" href="#show">show</a></dt>
+  <dd>When the config processor encounters the 'show' command, it dumps the
+      content of the current config to standout, if option
+      <span class="Li">&quot;-v&quot;</span> is specified. This is intented for
+      debugging.</dd>
+  <dt id="exit"><a class="permalink" href="#exit">exit</a></dt>
+  <dd>When the config processor encounters the 'exit' command, it terminates the
+      program. This is intented for debugging.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STATE_FILE_FORMAT"><a class="permalink" href="#STATE_FILE_FORMAT">STATE
+  FILE FORMAT</a></h1>
+<p class="Pp">The state file consists of lines; one line per site. Each line
+    consists of white space separated fields. The seven fields are :</p>
+<dl class="Bl-tag">
+  <dt>* field 1 : url</dt>
+  <dd>The url as given in the mirror list.</dd>
+  <dt>* field 2 : age</dt>
+  <dd>The mirror's timestamp found by the last successful probe, or 'undef' if
+      no probe was ever successful.</dd>
+  <dt>* field 3 : status last probe</dt>
+  <dd>The status of the last probe, or 'undef' if the mirror was never
+    probed.</dd>
+  <dt>* field 4 : time last successful probe</dt>
+  <dd>The timestamp of the last successful probe or 'undef' if the mirror was
+      never successfully probed.</dd>
+  <dt>* field 5 : probe history</dt>
+  <dd>The probe history is a list of 's' (for success) and 'f' (for failure)
+      characters indicating the result of the probe. New results are appended
+      whenever the mirror is probed.</dd>
+  <dt>* field 6 : state history</dt>
+  <dd>The state history consists of a timestamp, a '-' char, and a list of chars
+      indicating a past status: 's' (fresh), 'b' (oldish), 'f' (old), 'z' (bad)
+      or 'x' (skip). The timestamp indicates when the state history was last
+      updated. The current status of the mirror is determined by the mirror's
+      age and a few configuration parameters (min_sync, max_sync, max_poll). The
+      state history is updated when the mirror is probed. If the last update of
+      the history was less than 24 hours ago, the last status is replaced by the
+      current status. If the last update of the history was more than 24 hours
+      ago, the current status is appended to the history. One or more 'skip's is
+      inserted, if the timestamp is two or more days old (when mirmon hasn't run
+      for more than two days).</dd>
+  <dt>* field 7 : last probe</dt>
+  <dd>The timestamp of the last probe, or 'undef' if the mirror was never
+      probed.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INSTALLATION"><a class="permalink" href="#INSTALLATION">INSTALLATION</a></h1>
+<p class="Pp"><b>general</b></p>
+<dl class="Bl-tag">
+  <dt>* Note: The (empty) state file must exist before mirmon runs.</dt>
+  <dd></dd>
+  <dt>* The mirmon repository is here :</dt>
+  <dd>
+    <pre>  https://svn.science.uu.nl/repos/project.mirmon/trunk/
+    </pre>
+  </dd>
+  <dt>* The mirmon tarball is here :</dt>
+  <dd>
+    <pre>  http://www.staff.science.uu.nl/~penni101/mirmon/mirmon.tar.gz
+    </pre>
+    <br/>
+  </dd>
+</dl>
+<p class="Pp"><b>installation suggestions</b></p>
+<p class="Pp">To install and configure mirmon, take the following steps :</p>
+<dl class="Bl-tag">
+  <dt>* First, make the webdir :</dt>
+  <dd>
+    <pre>  cd DOCUMENTROOT
+  mkdir mirmon
+    </pre>
+    <p class="Pp">For <i>DOCUMENTROOT</i>, substitute the full pathname of the
+        document root of your webserver.</p>
+  </dd>
+  <dt>* Check out the mirmon repository :</dt>
+  <dd>
+    <pre>  cd /usr/local/src
+  svn checkout REPO mirmon
+    </pre>
+    <p class="Pp">where</p>
+    <p class="Pp"></p>
+    <pre>  REPO = https://svn.science.uu.nl/repos/project.mirmon/trunk/
+    </pre>
+    <p class="Pp">or download the package and unpack it.</p>
+  </dd>
+  <dt>* Chdir to directory mirmon :</dt>
+  <dd>
+    <pre>  cd mirmon
+    </pre>
+  </dd>
+  <dt>* Create the (empty) state file :</dt>
+  <dd>
+    <pre>  touch state.txt
+    </pre>
+  </dd>
+  <dt>* Install the icons in the webdir :</dt>
+  <dd>
+    <pre>  mkdir DOCUMENTROOT/mirmon/icons
+  cp icons/* DOCUMENTROOT/mirmon/icons
+    </pre>
+  </dd>
+  <dt>* Create a mirror list &quot;mirror_list&quot; ;</dt>
+  <dd>Use your favorite editor, or genererate the list from an existing
+      database.
+    <p class="Pp"></p>
+    <pre>  nl http://archive.cs.uu.nl/your-project/ contact@cs.uu.nl
+  uk http://mirrors.this.org/your-project/ mirrors@this.org
+  us http://mirrors.that.org/your-project/ mirrors@that.org
+    </pre>
+    <p class="Pp">The email addresses are optional.</p>
+  </dd>
+  <dt>* Create a mirmon config file &quot;mirmon.conf&quot; with your favorite
+    editor.</dt>
+  <dd>
+    <pre>  # lines must start in the first column ; no leading white space
+  project_name ....
+  project_url  ....
+  mirror_list mirror_list
+  state state.txt
+  countries countries.list
+  web_page DOCUMENTROOT/mirmon/index.html
+  icons /mirmon/icons
+  probe /usr/bin/wget -q -O - -T %TIMEOUT% -t 1 %URL%TIME.txt
+    </pre>
+    <p class="Pp">This assumes the project's timestamp is in file
+        <span class="Li">&quot;TIME.txt&quot;</span>.</p>
+  </dd>
+  <dt>* If you have rsync urls, change the probe line to :</dt>
+  <dd>
+    <pre>  probe perl /usr/local/src/mirmon/probe -t %TIMEOUT% %URL%TIME.txt
+    </pre>
+  </dd>
+  <dt>* Run mirmon :</dt>
+  <dd>
+    <pre>  perl mirmon -v -get all
+    </pre>
+    <p class="Pp">The mirmon report should now be in
+        'DOCUMENTROOT/mirmon/index.html'</p>
+    <p class="Pp"></p>
+    <pre>  http://www.your.project.org/mirmon/
+    </pre>
+  </dd>
+  <dt>* If/when, at a later date, you want to upgrade mirmon :</dt>
+  <dd>
+    <pre>  cd /usr/local/src/mirmon
+  svn status -u
+  svn up
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">mirmon.pm(3)</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<pre>  (c) 2003-2016 Henk P. Penning
+  Faculty of Science, Utrecht University
+  http://www.staff.science.uu.nl/~penni101/ -- penning@uu.nl
+  mirmon-2.11 - Sat Jul 23 09:12:31 2016 ; henkp
+</pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2016-07-23</td>
+    <td class="foot-os">perl v5.8.8</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: mirmon 2.11-7 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

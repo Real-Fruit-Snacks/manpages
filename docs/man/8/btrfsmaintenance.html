@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="automate btrfs maintenance tasks">
+<title>btrfsmaintenance(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">btrfsmaintenance(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#NOTE">NOTE</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Tasks">Tasks</a></li><li><a href="#scrub">scrub</a></li><li><a href="#balance">balance</a></li><li><a href="#trim">trim</a></li><li><a href="#defrag">defrag</a></li><li><a href="#Periodic_scheduling">Periodic
+  scheduling</a></li><li><a href="#Cron">Cron</a></li><li><a href="#Systemd_timers">Systemd
+  timers</a></li><li><a href="#Quick_start">Quick
+  start</a></li><li><a href="#cron_jobs">cron
+  jobs</a></li><li><a href="#Tuning_periodic_snapshotting">Tuning
+  periodic snapshotting</a></li><li><a href="#Intro">Intro</a></li><li><a href="#Sample_problem">Sample
+  problem</a></li><li><a href="#Factors_affecting_space_consumption">Factors
+  affecting space consumption</a></li><li><a href="#Tuning">Tuning</a></li><li><a href="#Snapshotting_frequency">Snapshotting
+  frequency</a></li><li><a href="#Amount_of_data_change">Amount
+  of data change</a></li><li><a href="#Retention_settings">Retention
+  settings</a></li><li><a href="#Filesystem_size">Filesystem
+  size</a></li><li><a href="#Typical_use_cases">Typical
+  use cases</a></li><li><a href="#A_rolling_distro">A
+  rolling distro</a></li><li><a href="#Regular/enterprise_distro">Regular/enterprise
+  distro</a></li><li><a href="#Big_file_storage">Big
+  file storage</a></li><li><a href="#Mixed">Mixed</a></li><li><a href="#Summary">Summary</a></li><li><a href="#About">About</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">BTRFSMAINTENANCE(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">BTRFSMAINTENANCE(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>btrfsmaintenance</b> - automate btrfs maintenance tasks</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTE"><a class="permalink" href="#NOTE">NOTE</a></h1>
+<p class="Pp">Refer to /usr/share/doc/btrfsmaintenance/README.Debian in addition
+    to this man page.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This is a set of scripts supplementing the btrfs filesystem and
+    aims to automate a few maintenance tasks. This means the <i>scrub</i>,
+    <i>balance</i>, <i>trim</i> or <i>defragmentation</i>.</p>
+<p class="Pp"></p>
+<p class="Pp">Each of the tasks can be turned on/off and configured
+    independently. The default config values were selected to fit the default
+    installation profile with btrfs on the root filesystem.</p>
+<p class="Pp"></p>
+<p class="Pp">Overall tuning of the default values should give a good balance
+    between effects of the tasks and low impact of other work on the system. If
+    this does not fit your needs, please adjust the settings.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Tasks"><a class="permalink" href="#Tasks">Tasks</a></h1>
+<p class="Pp">The following sections will describe the tasks in detail. There's
+    one config option that affects the task concurrency,
+    <b>BTRFS_ALLOW_CONCURRENCY</b>. This is to avoid extra high resource
+    consumption or unexpected interaction among the tasks and will serialize
+    them in the order they're started by timers.</p>
+<p class="Pp"></p>
+<section class="Ss">
+<h2 class="Ss" id="scrub"><a class="permalink" href="#scrub">scrub</a></h2>
+<p class="Pp"><b>Description:</b> Scrub operation reads all data and metadata
+    from the devices and verifies the checksums. It's not mandatory, but may
+    point out problems with faulty hardware early as it touches data that might
+    not be in use and bit rot.</p>
+<p class="Pp"></p>
+<p class="Pp">If there's a redundancy of data/metadata, ie. the <i>DUP</i> or
+    <i>RAID1/5/6</i> profiles, scrub is able to repair the data automatically if
+    there's a good copy available.</p>
+<p class="Pp"></p>
+<p class="Pp"><b>Impact when active:</b> Intense read operations take place and
+    may slow down or block other filesystem activies, possibly only for short
+    periods.</p>
+<p class="Pp"></p>
+<p class="Pp"><b>Tuning:</b></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>the recommended period is once in a month but a weekly period is also
+      acceptable</li>
+  <li>you can turn off the automatic repair (<b>BTRFS_SCRUB_READ_ONLY</b>)</li>
+  <li>the default IO priority is set to <i>idle</i> but scrub may take long to
+      finish, you can change priority to <i>normal</i>
+      (<b>BTRFS_SCRUB_PRIORITY</b>)
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+<p class="Pp"><b>Related commands:</b></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>you can check status of last scrub run (either manual or through the cron
+      job) by <b>btrfs scrub status /path</b></li>
+  <li>you can cancel a running scrub anytime if you find it inconvenient
+      (<b>btrfs</b> <b>scrub cancel /path</b>), the progress state is saved each
+      5 seconds and next time scrub will start from that point
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="balance"><a class="permalink" href="#balance">balance</a></h2>
+<p class="Pp"><b>Description:</b> The balance command can do a lot of things, in
+    general moves data around in big chunks. Here we use it to reclaim back the
+    space of the underused chunks so it can be allocated again according to
+    current needs.</p>
+<p class="Pp"></p>
+<p class="Pp">The point is to prevent some corner cases where it's not possible
+    to eg. allocate new metadata chunks because the whole device space is
+    reserved for all the chunks, although the total space occupied is smaller
+    and the allocation should succeed.</p>
+<p class="Pp"></p>
+<p class="Pp">The balance operation needs enough workspace so it can shuffle
+    data around. By workspace we mean device space that has no filesystem chunks
+    on it, not to be confused by free space as reported eg. by <b>df</b>.</p>
+<p class="Pp"></p>
+<p class="Pp"><b>Impact when active:</b> Possibly big. There's a mix of read and
+    write operations, is seek-heavy on rotational devices. This can interfere
+    with other work in case the same set of blocks is affected.</p>
+<p class="Pp"></p>
+<p class="Pp">The balance command uses filters to do the work in smaller
+    batches.</p>
+<p class="Pp"></p>
+<p class="Pp">Before kernel version 5.2, the impact with quota groups enabled
+    can be extreme. The balance operation performs quota group accounting for
+    every extent being relocated, which can have the impact of stalling the file
+    system for an extended period of time.</p>
+<p class="Pp"></p>
+<p class="Pp"><b>Expected result:</b> If possible all the underused chunks are
+    removed, the value of <b>total</b> in output of <b>btrfs fi df /path</b>
+    should be lower than before. Check the logs.</p>
+<p class="Pp"></p>
+<p class="Pp">The balance command may fail with <i>no space</i> reason but this
+    is considered a minor fault as the internal filesystem layout may prevent
+    the command to find enough workspace. This might be a time for manual
+    inspection of space.</p>
+<p class="Pp"></p>
+<p class="Pp"><b>Tuning:</b></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>you can make the space reclaim more aggressive by adding higher percentage
+      to <b>BTRFS_BALANCE_DUSAGE</b> or <b>BTRFS_BALANCE_MUSAGE</b>. Higher
+      value means bigger impact on your system and becomes very noticeable.</li>
+  <li>the metadata chunks usage pattern is different from data and it's not
+      necessary to reclaim metadata block groups that are more than 30 full. The
+      default maximum is 10 which should not degrade performance too much but
+      may be suboptimal if the metadata usage varies wildly over time. The
+      assumption is that underused metadata chunks will get used at some point
+      so it's not absolutely required to do the reclaim.</li>
+  <li>the useful period highly depends on the overall data change pattern on the
+      filesystem
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+<p class="Pp"><b>Changed defaults since 0.5:</b></p>
+<p class="Pp"></p>
+<p class="Pp">Versions up to 0.4.2 had usage filter set up to 50% for data and
+    up to 30% for metadata. Based on user feedback, the numbers have been
+    reduced to 10% (data) and 5% (metadata). The system load during the balance
+    service will be smaller and the result of space compaction still reasonable.
+    Multiple data chunks filled to less than 10% can be merged into fewer
+    chunks. The file data can change in large volumes, eg. deleting a big file
+    can free a lot of space. If the space is left unused for the given period,
+    it's desirable to make it more compact. Metadata consumption follows a
+    different pattern and reclaiming only the almost unused chunks makes more
+    sense, otherwise there's enough reserved metadata space for operations like
+    reflink or snapshotting.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="trim"><a class="permalink" href="#trim">trim</a></h2>
+<p class="Pp"><b>Description:</b> The TRIM operation (aka. <i>discard</i>) can
+    instruct the underlying device to optimize blocks that are not used by the
+    filesystem. This task is performed on-demand by the <i>fstrim</i>
+  utility.</p>
+<p class="Pp"></p>
+<p class="Pp">This makes sense for SSD devices or other type of storage that can
+    translate the TRIM action to something useful (eg. thin-provisioned
+    storage).</p>
+<p class="Pp"></p>
+<p class="Pp"><b>Impact when active:</b> Should be low, but depends on the
+    amount of blocks being trimmed.</p>
+<p class="Pp"></p>
+<p class="Pp"><b>Tuning:</b></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>the recommended period is weekly, but monthly is also fine</li>
+  <li>the trim commands might not have an effect and are up to the device, eg. a
+      block range too small or other constraints that may differ by device
+      type/vendor/firmware</li>
+  <li>the default configuration is <i>off</i> because of the the system
+      fstrim.timer
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="defrag"><a class="permalink" href="#defrag">defrag</a></h2>
+<p class="Pp"><b>Description:</b> Run defragmentation on configured directories.
+    This is for convenience and not necessary as defragmentation needs are
+    usually different for various types of data.</p>
+<p class="Pp"></p>
+<p class="Pp">Please note that the defragmentation process does not descend to
+    other mount points and nested subvolumes or snapshots. All nested paths
+    would need to be enumerated in the respective config variable. The command
+    utilizes <b>find</b> <b>-xdev</b>, you can use that to verify in advance
+    which paths will the defragmentation affect.</p>
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Periodic_scheduling"><a class="permalink" href="#Periodic_scheduling">Periodic
+  scheduling</a></h1>
+<p class="Pp">There are now two ways how to schedule and run the periodic tasks:
+    cron and systemd timers. Only one can be active on a system and this should
+    be decided at the installation time.</p>
+<p class="Pp"></p>
+<section class="Ss">
+<h2 class="Ss" id="Cron"><a class="permalink" href="#Cron">Cron</a></h2>
+<p class="Pp">Cron takes care of periodic execution of the scripts, but they can
+    be run any time directly from <b>/usr/share/btrfsmaintenance/</b>,
+    respecting the configured values in <b>/etc/defaul/btrfsmaintenance</b>.</p>
+<p class="Pp"></p>
+<p class="Pp">The changes to configuration file need to be reflected in the
+    <b>/etc/cron</b> directories where the scripts are linked for the given
+    period.</p>
+<p class="Pp"></p>
+<p class="Pp">If the period is changed, the cron symlinks have to be
+  refreshed:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>manually -- use <b>systemctl restart btrfsmaintenance-refresh</b> (or the
+      <b>rcbtrfsmaintenance-refresh</b> shortcut)</li>
+  <li>using a file watcher -- if <b>btrfsmaintenance-refresh.path</b> is
+      enabled, this will utilize the file monitor to detect changes and will run
+      the refresh
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Systemd_timers"><a class="permalink" href="#Systemd_timers">Systemd
+  timers</a></h2>
+<p class="Pp">There's a set of timer units that run the respective task script.
+    The periods are configured in the <b>/etc/default/btrfsmaintenance</b> file
+    as well. Please note that the '<i>.timer' and respective '</i>.service'
+    files must be manually enabled before the timers will work properly.</p>
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Quick_start"><a class="permalink" href="#Quick_start">Quick
+  start</a></h1>
+<p class="Pp">Refer to /usr/share/doc/btrfsmaintenance/README.Debian for
+    instructions to enable the Systemd timers.</p>
+<p class="Pp"></p>
+<section class="Ss">
+<h2 class="Ss" id="cron_jobs"><a class="permalink" href="#cron_jobs">cron
+  jobs</a></h2>
+<p class="Pp">The periodic execution of the tasks is done by the 'cron' service.
+    Symlinks to the task scripts are located in the respective directories in
+    <b>/etc/cron.&lt;PERIOD&gt;</b>.</p>
+<p class="Pp"></p>
+<p class="Pp">The script <b>btrfsmaintenance-refresh-cron.sh</b> will
+    synchronize the symlinks according to the configuration files. This can be
+    called automatically by a GUI configuration tool if it's capable of running
+    post-change scripts or services. In that case there's
+    <b>btrfsmaintenance-refresh.service</b> systemd service.</p>
+<p class="Pp"></p>
+<p class="Pp">This service can also be automatically started upon any
+    modification of the configuration file in
+    <b>/etc/default/btrfsmaintenance</b> by enabling the
+    <b>btrfsmaintenance-refresh.path</b> systemd watcher.</p>
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Tuning_periodic_snapshotting"><a class="permalink" href="#Tuning_periodic_snapshotting">Tuning
+  periodic snapshotting</a></h1>
+<p class="Pp">There are various tools and handwritten scripts to manage periodic
+    snapshots and cleaning. The common problem is tuning the retention policy
+    constrained by the filesystem size and not running out of space.</p>
+<p class="Pp"></p>
+<p class="Pp">This section will describe factors that affect that, using snapper
+    &#x27E8;https://snapper.io&#x27E9; as an example, but adapting to other
+    tools should be straightforward.</p>
+<p class="Pp"></p>
+<section class="Ss">
+<h2 class="Ss" id="Intro"><a class="permalink" href="#Intro">Intro</a></h2>
+<p class="Pp">Snapper is a tool to manage snapshots of btrfs subvolumes. It can
+    create snapshots of given subvolume manually, periodically or in a pre/post
+    way for a given command. It can be configured to retain existing snapshots
+    according to time-based settings. As the retention policy can be very
+    different for various use cases, we need to be able to find matching
+    settings.</p>
+<p class="Pp"></p>
+<p class="Pp">The settings should satisfy user's expectation about storing
+    previous copies of the subvolume but not taking too much space. In an
+    extreme, consuming the whole filesystem space and preventing some operations
+    to finish.</p>
+<p class="Pp"></p>
+<p class="Pp">In order to avoid such situations, the snapper settings should be
+    tuned according to the expected use case and filesystem size.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Sample_problem"><a class="permalink" href="#Sample_problem">Sample
+  problem</a></h2>
+<p class="Pp">Default settings of snapper on default root partition size can
+    easily lead to no-space conditions (all TIMELINE values set to 10). Frequent
+    system updates make it happen earlier, but this also affects long-term
+  use.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Factors_affecting_space_consumption"><a class="permalink" href="#Factors_affecting_space_consumption">Factors
+  affecting space consumption</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt> 1.</dt>
+  <dd>frequency of snapshotting</dd>
+  <dt> 2.</dt>
+  <dd>amount of data changes between snapshots (delta)</dd>
+  <dt> 3.</dt>
+  <dd>snapshot retention settings</dd>
+  <dt> 4.</dt>
+  <dd>size of the filesystem
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Each will be explained below.</p>
+<p class="Pp"></p>
+<p class="Pp">The way how the files are changed affects the space consumption.
+    When a new data overwrite existing, the new data will be pinned by the
+    following snapshot, while the original data will belong to previous
+    snapshot. This means that the allocated file blocks are freed after the last
+    snapshot pointing to them is gone.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Tuning"><a class="permalink" href="#Tuning">Tuning</a></h2>
+<p class="Pp">The administrator/user is supposed to know the approximate use of
+    the partition with snapshots enabled.</p>
+<p class="Pp"></p>
+<p class="Pp">The decision criteria for tuning is space consumption and we're
+    optimizing to maximize retention without running out of space.</p>
+<p class="Pp"></p>
+<p class="Pp">All the factors are intertwined and we cannot give definite
+    answers but rather describe the tendencies.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Snapshotting_frequency"><a class="permalink" href="#Snapshotting_frequency">Snapshotting
+  frequency</a></h2>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>automatic</b>: if turned on with the <b>TIMELINE</b> config option, the
+      periodic snapshots are taken hourly. The daily/weekly/monthly/yearly
+      periods will keep the first hourly snapshot in the given period.</li>
+  <li><b>at package update</b>: package manager with snapper support will create
+      pre/post snapshots before/after an update happens.</li>
+  <li><b>manual</b>: the user can create a snapshot manually with <b>snapper
+      create</b>, with a given snapshot type (ie. single, pre, post).
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Amount_of_data_change"><a class="permalink" href="#Amount_of_data_change">Amount
+  of data change</a></h2>
+<p class="Pp">This is a parameter hard to predict and calculate. We work with
+    rough estimates, eg. megabytes, gigabytes etc.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Retention_settings"><a class="permalink" href="#Retention_settings">Retention
+  settings</a></h2>
+<p class="Pp">The user is supposed to know possible needs of recovery or
+    examination of previous file copies stored in snapshots.</p>
+<p class="Pp"></p>
+<p class="Pp">It's not recommended to keep too old snapshots, eg. monthly or
+    even yearly if there's no apparent need for that. The yearly snapshots
+    should not substitute backups, as they reside on the same partition and
+    cannot be used for recovery.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Filesystem_size"><a class="permalink" href="#Filesystem_size">Filesystem
+  size</a></h2>
+<p class="Pp">Bigger filesystem allows for longer retention, higher frequency
+    updates and amount of data changes.</p>
+<p class="Pp"></p>
+<p class="Pp">As an example of a system root partition, the recommended size is
+    30 GiB, but 50 GiB is selected by the installer if the snapshots are turned
+    on.</p>
+<p class="Pp"></p>
+<p class="Pp">For non-system partition it is recommended to watch remaining free
+    space. Although getting an accurate value on btrfs is tricky, due to shared
+    extents and snapshots, the output of <b>df</b> gives a rough idea. Low
+    space, like under a few gigabytes is more likely to lead to no-space
+    conditions, so it's a good time to delete old snapshots or review the
+    snapper settings.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Typical_use_cases"><a class="permalink" href="#Typical_use_cases">Typical
+  use cases</a></h2>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="A_rolling_distro"><a class="permalink" href="#A_rolling_distro">A
+  rolling distro</a></h2>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>frequency of updates: high, multiple times per week</li>
+  <li>amount of data changed between updates: high
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Suggested values:</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>TIMELINE_LIMIT_HOURLY=&quot;12&quot;
+TIMELINE_LIMIT_DAILY=&quot;5&quot;
+TIMELINE_LIMIT_WEEKLY=&quot;2&quot;
+TIMELINE_LIMIT_MONTHLY=&quot;1&quot;
+TIMELINE_LIMIT_YEARLY=&quot;0&quot;
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">The size of root partition should be at least 30GiB, but more is
+    better.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Regular/enterprise_distro"><a class="permalink" href="#Regular/enterprise_distro">Regular/enterprise
+  distro</a></h2>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>frequency of updates: low, a few times per month</li>
+  <li>amount of data changed between updates: low to moderate
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Most data changes come probably from the package updates, in the
+    range of hundreds of megabytes per update.</p>
+<p class="Pp"></p>
+<p class="Pp">Suggested values:</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>TIMELINE_LIMIT_HOURLY=&quot;12&quot;
+TIMELINE_LIMIT_DAILY=&quot;7&quot;
+TIMELINE_LIMIT_WEEKLY=&quot;4&quot;
+TIMELINE_LIMIT_MONTHLY=&quot;6&quot;
+TIMELINE_LIMIT_YEARLY=&quot;1&quot;
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Big_file_storage"><a class="permalink" href="#Big_file_storage">Big
+  file storage</a></h2>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>frequency of updates: moderate to high</li>
+  <li>amount of data changed between updates: no changes in files, new files
+      added, old deleted
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Suggested values:</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>TIMELINE_LIMIT_HOURLY=&quot;12&quot;
+TIMELINE_LIMIT_DAILY=&quot;7&quot;
+TIMELINE_LIMIT_WEEKLY=&quot;4&quot;
+TIMELINE_LIMIT_MONTHLY=&quot;6&quot;
+TIMELINE_LIMIT_YEARLY=&quot;0&quot;
+</pre>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Note, that deleting a big file that has been snapshotted will not
+    free the space until all relevant snapshots are deleted.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Mixed"><a class="permalink" href="#Mixed">Mixed</a></h2>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>frequency of updates: unpredictable</li>
+  <li>amount of data changed between updates: unpredictable
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Examples:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>home directory with small files (in range of kilobytes to megabytes),
+      large files (hundreds of megabytes to gigabytes).</li>
+  <li>git trees, bare and checked out repositories
+    <p class="Pp"></p>
+  </li>
+</ul>
+</div>
+<p class="Pp"></p>
+<p class="Pp">Not possible to suggest config numbers as it really depends on
+    user expectations. Keeping a few hourly snapshots should not consume too
+    much space and provides a copy of files, eg. to restore after accidental
+    deletion.</p>
+<p class="Pp"></p>
+<p class="Pp">Starting point:</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>TIMELINE_LIMIT_HOURLY=&quot;12&quot;
+TIMELINE_LIMIT_DAILY=&quot;7&quot;
+TIMELINE_LIMIT_WEEKLY=&quot;1&quot;
+TIMELINE_LIMIT_MONTHLY=&quot;0&quot;
+TIMELINE_LIMIT_YEARLY=&quot;0&quot;
+</pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Summary"><a class="permalink" href="#Summary">Summary</a></h2>
+<table class="tbl" border="1" style="border-style: solid;">
+  <tr>
+    <td><b>Type</b></td>
+    <td><b>Hourly</b></td>
+    <td><b>Daily</b></td>
+    <td><b>Weekly</b></td>
+    <td><b>Monthly</b></td>
+    <td><b>Yearly</b></td>
+  </tr>
+  <tr>
+    <td>Rolling</td>
+    <td>12</td>
+    <td>5</td>
+    <td>2</td>
+    <td>1</td>
+    <td>0</td>
+  </tr>
+  <tr>
+    <td>Regular</td>
+    <td>12</td>
+    <td>7</td>
+    <td>4</td>
+    <td>6</td>
+    <td>1</td>
+  </tr>
+  <tr>
+    <td>Big files</td>
+    <td>12</td>
+    <td>7</td>
+    <td>4</td>
+    <td>6</td>
+    <td>0</td>
+  </tr>
+  <tr>
+    <td>Mixed</td>
+    <td>12</td>
+    <td>7</td>
+    <td>1</td>
+    <td>0</td>
+    <td>0</td>
+  </tr>
+</table>
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="About"><a class="permalink" href="#About">About</a></h1>
+<p class="Pp">The goal of this project is to help administering btrfs
+    filesystems. It is not supposed to be distribution specific. Common
+    scripts/configs are preferred but per-distro exceptions will be added when
+    necessary.</p>
+<p class="Pp"></p>
+<p class="Pp">License: GPL 2
+    &#x27E8;https://www.gnu.org/licenses/gpl-2.0.html&#x27E9;</p>
+<p class="Pp"></p>
+<p class="Pp">Contributing guide &#x27E8;CONTRIBUTING.md&#x27E9;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-08-15</td>
+    <td class="foot-os">v0.5</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: btrfsmaintenance 0.5-5 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

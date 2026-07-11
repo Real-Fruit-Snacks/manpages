@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Guest Automatic NUMA Placement in libxl and xl">
+<title>xl-numa-placement(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">xl-numa-placement(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Rationale">Rationale</a></li><li><a href="#Xen_and_NUMA_machines:_the_concept_of_">Xen
+  and NUMA machines: the concept of node-affinity</a></li><li><a href="#Placing_via_pinning_and_cpupools">Placing
+  via pinning and cpupools</a></li><li><a href="#NUMA_aware_scheduling">NUMA
+  aware scheduling</a></li><li><a href="#Guest_placement_in_xl">Guest
+  placement in xl</a></li><li><a href="#Placing_the_guest_manually">Placing
+  the guest manually</a></li><li><a href="#Placing_the_guest_automatically">Placing
+  the guest automatically</a></li><li><a href="#Guest_placement_in_libxl">Guest
+  placement in libxl</a></li><li><a href="#Xen___4.5">Xen &amp;lt;
+  4.5</a></li><li><a href="#Xen___4.3">Xen &amp;lt;
+  4.3</a></li><li><a href="#Limitations">Limitations</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">xl-numa-placement(7)</td>
+    <td class="head-vol">Xen</td>
+    <td class="head-rtitle">xl-numa-placement(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">xl-numa-placement - Guest Automatic NUMA Placement in libxl and
+  xl</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Rationale"><a class="permalink" href="#Rationale">Rationale</a></h2>
+<p class="Pp">NUMA (which stands for Non-Uniform Memory Access) means that the
+    memory accessing times of a program running on a CPU depends on the relative
+    distance between that CPU and that memory. In fact, most of the NUMA systems
+    are built in such a way that each processor has its local memory, on which
+    it can operate very fast. On the other hand, getting and storing data from
+    and on remote memory (that is, memory local to some other processor) is
+    quite more complex and slow. On these machines, a NUMA node is usually
+    defined as a set of processor cores (typically a physical CPU package) and
+    the memory directly attached to the set of cores.</p>
+<p class="Pp">NUMA awareness becomes very important as soon as many domains
+    start running memory-intensive workloads on a shared host. In fact, the cost
+    of accessing non node-local memory locations is very high, and the
+    performance degradation is likely to be noticeable.</p>
+<p class="Pp">For more information, have a look at the Xen NUMA Introduction
+    &lt;https://wiki.xenproject.org/wiki/Xen_on_NUMA_Machines&gt; page on the
+    Wiki.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Xen_and_NUMA_machines:_the_concept_of_"><a class="permalink" href="#Xen_and_NUMA_machines:_the_concept_of_">Xen
+  and NUMA machines: the concept of <i>node-affinity</i></a></h2>
+<p class="Pp">The Xen hypervisor deals with NUMA machines throughout the concept
+    of <i>node-affinity</i>. The node-affinity of a domain is the set of NUMA
+    nodes of the host where the memory for the domain is being allocated
+    (mostly, at domain creation time). This is, at least in principle, different
+    and unrelated with the vCPU (hard and soft, see below) scheduling affinity,
+    which instead is the set of pCPUs where the vCPU is allowed (or prefers) to
+    run.</p>
+<p class="Pp">Of course, despite the fact that they belong to and affect
+    different subsystems, the domain node-affinity and the vCPUs affinity are
+    not completely independent. In fact, if the domain node-affinity is not
+    explicitly specified by the user, via the proper libxl calls or xl config
+    item, it will be computed basing on the vCPUs' scheduling affinity.</p>
+<p class="Pp">Notice that, even if the node affinity of a domain may change
+    on-line, it is very important to &quot;place&quot; the domain correctly when
+    it is fist created, as the most of its memory is allocated at that time and
+    can not (for now) be moved easily.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Placing_via_pinning_and_cpupools"><a class="permalink" href="#Placing_via_pinning_and_cpupools">Placing
+  via pinning and cpupools</a></h2>
+<p class="Pp">The simplest way of placing a domain on a NUMA node is setting the
+    hard scheduling affinity of the domain's vCPUs to the pCPUs of the node.
+    This also goes under the name of vCPU pinning, and can be done through the
+    &quot;cpus=&quot; option in the config file (more about this below). Another
+    option is to pool together the pCPUs spanning the node and put the domain in
+    such a <i>cpupool</i> with the &quot;pool=&quot; config option (as
+    documented in our Wiki
+    &lt;https://wiki.xenproject.org/wiki/Cpupools_Howto&gt;).</p>
+<p class="Pp">In both the above cases, the domain will not be able to execute
+    outside the specified set of pCPUs for any reasons, even if all those pCPUs
+    are busy doing something else while there are others, idle, pCPUs.</p>
+<p class="Pp">So, when doing this, local memory accesses are 100% guaranteed,
+    but that may come at he cost of some load imbalances.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="NUMA_aware_scheduling"><a class="permalink" href="#NUMA_aware_scheduling">NUMA
+  aware scheduling</a></h2>
+<p class="Pp">If using the credit1 scheduler, and starting from Xen 4.3, the
+    scheduler itself always tries to run the domain's vCPUs on one of the nodes
+    in its node-affinity. Only if that turns out to be impossible, it will just
+    pick any free pCPU. Locality of access is less guaranteed than in the
+    pinning case, but that comes along with better chances to exploit all the
+    host resources (e.g., the pCPUs).</p>
+<p class="Pp">Starting from Xen 4.5, credit1 supports two forms of affinity:
+    hard and soft, both on a per-vCPU basis. This means each vCPU can have its
+    own soft affinity, stating where such vCPU prefers to execute on. This is
+    less strict than what it (also starting from 4.5) is called hard affinity,
+    as the vCPU can potentially run everywhere, it just prefers some pCPUs
+    rather than others. In Xen 4.5, therefore, NUMA-aware scheduling is achieved
+    by matching the soft affinity of the vCPUs of a domain with its
+    node-affinity.</p>
+<p class="Pp">In fact, as it was for 4.3, if all the pCPUs in a vCPU's soft
+    affinity are busy, it is possible for the domain to run outside from there.
+    The idea is that slower execution (due to remote memory accesses) is still
+    better than no execution at all (as it would happen with pinning). For this
+    reason, NUMA aware scheduling has the potential of bringing substantial
+    performances benefits, although this will depend on the workload.</p>
+<p class="Pp">Notice that, for each vCPU, the following three scenarios are
+    possbile:</p>
+<ul class="Bl-bullet">
+  <li>a vCPU <i>is pinned</i> to some pCPUs and <i>does not have</i> any soft
+      affinity In this case, the vCPU is always scheduled on one of the pCPUs to
+      which it is pinned, without any specific peference among them.</li>
+  <li>a vCPU <i>has</i> its own soft affinity and <i>is not</i> pinned to any
+      particular pCPU. In this case, the vCPU can run on every pCPU.
+      Nevertheless, the scheduler will try to have it running on one of the
+      pCPUs in its soft affinity;</li>
+  <li>a vCPU <i>has</i> its own vCPU soft affinity and <i>is also</i> pinned to
+      some pCPUs. In this case, the vCPU is always scheduled on one of the pCPUs
+      onto which it is pinned, with, among them, a preference for the ones that
+      also forms its soft affinity. In case pinning and soft affinity form two
+      disjoint sets of pCPUs, pinning &quot;wins&quot;, and the soft affinity is
+      just ignored.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Guest_placement_in_xl"><a class="permalink" href="#Guest_placement_in_xl">Guest
+  placement in xl</a></h2>
+<p class="Pp">If using xl for creating and managing guests, it is very easy to
+    ask for both manual or automatic placement of them across the host's NUMA
+    nodes.</p>
+<p class="Pp">Note that xm/xend does a very similar thing, the only differences
+    being the details of the heuristics adopted for automatic placement (see
+    below), and the lack of support (in both xm/xend and the Xen versions where
+    that was the default toolstack) for NUMA aware scheduling.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Placing_the_guest_manually"><a class="permalink" href="#Placing_the_guest_manually">Placing
+  the guest manually</a></h2>
+<p class="Pp">Thanks to the &quot;cpus=&quot; option, it is possible to specify
+    where a domain should be created and scheduled on, directly in its config
+    file. This affects NUMA placement and memory accesses as, in this case, the
+    hypervisor constructs the node-affinity of a VM basing right on its vCPU
+    pinning when it is created.</p>
+<p class="Pp">This is very simple and effective, but requires the user/system
+    administrator to explicitly specify the pinning for each and every domain,
+    or Xen won't be able to guarantee the locality for their memory
+  accesses.</p>
+<p class="Pp">That, of course, also mean the vCPUs of the domain will only be
+    able to execute on those same pCPUs.</p>
+<p class="Pp">It is is also possible to have a &quot;cpus_soft=&quot; option in
+    the xl config file, to specify the soft affinity for all the vCPUs of the
+    domain. This affects the NUMA placement in the following way:</p>
+<ul class="Bl-bullet">
+  <li>if only &quot;cpus_soft=&quot; is present, the VM's node-affinity will be
+      equal to the nodes to which the pCPUs in the soft affinity mask
+    belong;</li>
+  <li>if both &quot;cpus_soft=&quot; and &quot;cpus=&quot; are present, the VM's
+      node-affinity will be equal to the nodes to which the pCPUs present both
+      in hard and soft affinity belong.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Placing_the_guest_automatically"><a class="permalink" href="#Placing_the_guest_automatically">Placing
+  the guest automatically</a></h2>
+<p class="Pp">If neither &quot;cpus=&quot; nor &quot;cpus_soft=&quot; are
+    present in the config file, libxl tries to figure out on its own on which
+    node(s) the domain could fit best. If it finds one (some), the domain's node
+    affinity get set to there, and both memory allocations and NUMA aware
+    scheduling (for the credit scheduler and starting from Xen 4.3) will comply
+    with it. Starting from Xen 4.5, this also means that the mask resulting from
+    this &quot;fitting&quot; procedure will become the soft affinity of all the
+    vCPUs of the domain.</p>
+<p class="Pp">It is worthwhile noting that optimally fitting a set of VMs on the
+    NUMA nodes of an host is an incarnation of the Bin Packing Problem. In fact,
+    the various VMs with different memory sizes are the items to be packed, and
+    the host nodes are the bins. As such problem is known to be NP-hard, we will
+    be using some heuristics.</p>
+<p class="Pp">The first thing to do is find the nodes or the sets of nodes (from
+    now on referred to as 'candidates') that have enough free memory and enough
+    physical CPUs for accommodating the new domain. The idea is to find a spot
+    for the domain with at least as much free memory as it has configured to
+    have, and as much pCPUs as it has vCPUs. After that, the actual decision on
+    which candidate to pick happens accordingly to the following heuristics:</p>
+<ul class="Bl-bullet">
+  <li>candidates involving fewer nodes are considered better. In case two (or
+      more) candidates span the same number of nodes,</li>
+  <li>candidates with a smaller number of vCPUs runnable on them (due to
+      previous placement and/or plain vCPU pinning) are considered better. In
+      case the same number of vCPUs can run on two (or more) candidates,</li>
+  <li>the candidate with with the greatest amount of free memory is considered
+      to be the best one.</li>
+</ul>
+<p class="Pp">Giving preference to candidates with fewer nodes ensures better
+    performance for the guest, as it avoid spreading its memory among different
+    nodes. Favoring candidates with fewer vCPUs already runnable there ensures a
+    good balance of the overall host load. Finally, if more candidates fulfil
+    these criteria, prioritizing the nodes that have the largest amounts of free
+    memory helps keeping the memory fragmentation small, and maximizes the
+    probability of being able to put more domains there.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Guest_placement_in_libxl"><a class="permalink" href="#Guest_placement_in_libxl">Guest
+  placement in libxl</a></h2>
+<p class="Pp">xl achieves automatic NUMA placement because that is what libxl
+    does by default. No API is provided (yet) for modifying the behaviour of the
+    placement algorithm. However, if your program is calling libxl, it is
+    possible to set the <span class="Li">&quot;numa_placement&quot;</span> build
+    info key to <span class="Li">&quot;false&quot;</span> (it is
+    <span class="Li">&quot;true&quot;</span> by default) with something like the
+    below, to prevent any placement from happening:</p>
+<p class="Pp"></p>
+<pre>    libxl_defbool_set(&amp;domain_build_info-&gt;numa_placement, false);
+</pre>
+<p class="Pp">Also, if <span class="Li">&quot;numa_placement&quot;</span> is set
+    to <span class="Li">&quot;true&quot;</span>, the domain's vCPUs must not be
+    pinned (i.e.,
+    <span class="Li">&quot;domain_build_info-&gt;cpumap&quot;</span> must have
+    all its bits set, as it is by default), or domain creation will fail with
+    <span class="Li">&quot;ERROR_INVAL&quot;</span>.</p>
+<p class="Pp">Starting from Xen 4.3, in case automatic placement happens (and is
+    successful), it will affect the domain's node-affinity and <i>not</i> its
+    vCPU pinning. Namely, the domain's vCPUs will not be pinned to any pCPU on
+    the host, but the memory from the domain will come from the selected node(s)
+    and the NUMA aware scheduling (if the credit scheduler is in use) will try
+    to keep the domain's vCPUs there as much as possible.</p>
+<p class="Pp">Besides than that, looking and/or tweaking the placement algorithm
+    search &quot;Automatic NUMA placement&quot; in libxl_internal.h.</p>
+<p class="Pp">Note this may change in future versions of Xen/libxl.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Xen___4.5"><a class="permalink" href="#Xen___4.5">Xen &lt;
+  4.5</a></h2>
+<p class="Pp">The concept of vCPU soft affinity has been introduced for the
+    first time in Xen 4.5. In 4.3, it is the domain's node-affinity that drives
+    the NUMA-aware scheduler. The main difference is soft affinity is per-vCPU,
+    and so each vCPU can have its own mask of pCPUs, while node-affinity is
+    per-domain, that is the equivalent of having all the vCPUs with the same
+    soft affinity.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Xen___4.3"><a class="permalink" href="#Xen___4.3">Xen &lt;
+  4.3</a></h2>
+<p class="Pp">As NUMA aware scheduling is a new feature of Xen 4.3, things are a
+    little bit different for earlier version of Xen. If no &quot;cpus=&quot;
+    option is specified and Xen 4.2 is in use, the automatic placement algorithm
+    still runs, but the results is used to <i>pin</i> the vCPUs of the domain to
+    the output node(s). This is consistent with what was happening with
+  xm/xend.</p>
+<p class="Pp">On a version of Xen earlier than 4.2, there is not automatic
+    placement at all in xl or libxl, and hence no node-affinity, vCPU affinity
+    or pinning being introduced/modified.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Limitations"><a class="permalink" href="#Limitations">Limitations</a></h2>
+<p class="Pp">Analyzing various possible placement solutions is what makes the
+    algorithm flexible and quite effective. However, that also means it won't
+    scale well to systems with arbitrary number of nodes. For this reason,
+    automatic placement is disabled (with a warning) if it is requested on a
+    host with more than 16 NUMA nodes.</p>
+</section>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-04-01</td>
+    <td class="foot-os">4.17.4-pre</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: xen-utils-common 4.17.3+10-g091466ba55-1.1ubuntu3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

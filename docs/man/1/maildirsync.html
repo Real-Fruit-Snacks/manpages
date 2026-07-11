@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Online synchronizer for Maildir-format mailboxes">
+<title>maildirsync(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">maildirsync(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#HOW_IT_WORKS">HOW
+  IT WORKS</a></li><li><a href="#REMOTE_OPERATION">REMOTE
+  OPERATION</a></li><li><a href="#COMMAND-LINE_SWITCHES">COMMAND-LINE
+  SWITCHES</a></li><li><a href="#ALGORITHMS">ALGORITHMS</a></li><li><a href="#ONLINE_OPERATION">ONLINE
+  OPERATION</a></li><li><a href="#SPEED">SPEED</a></li><li><a href="#TODO">TODO</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MAILDIRSYNC(1)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">MAILDIRSYNC(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">maildirsync - Online synchronizer for Maildir-format mailboxes</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>    maildirsync.pl [ --recursive ] [ --backup path ] [ --backup-tree ]     \
+        [ --bzip2=bzip2 ] [ --gzip=gzip ] [ --maildirsync=maildirsync ] \
+        [ --rsh=ssh ] [ --verbose ] [ --alg=md5 ] [ --delete-before ]      \
+        [ --exclude=^/Folder1 ] [ --exclude=^/Fold.*er2 ]                  \
+        [ --exclude-source=^/Folder3 ] [ --exclude-target=^/Folder4 ]      \
+        [ --rename=&quot;s/SourceFolder/TargetFolder/&quot; ]                        \
+        [ --destination=win|lin ]                                          \
+        [ -r ] [ -b path ] [ -B ] [ -R ssh ] [ -v ] [ -a ] [ -d ]          \
+        source dest state_file.bz2
+</pre>
+<p class="Pp">A simple two-way synchronization:</p>
+<p class="Pp"></p>
+<pre>    maildirsync.pl -rvv -a md5 desktop:Maildir Maildir lib/sync_desk_note.bz2
+    maildirsync.pl -rvv -a md5 Maildir desktop:Maildir lib/sync_note_desk.bz2
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">maildirsync is a utility for online Maildir-synchronization. It is
+    designed to be used on live maildir folders, be fail-safe and optimized for
+    minimal bandwidth.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOW_IT_WORKS"><a class="permalink" href="#HOW_IT_WORKS">HOW
+  IT WORKS</a></h1>
+<p class="Pp">If you call the program once, it will propagate the changes from
+    the source side to the target side. Two-way synchronization requires two
+    state-file and two call for the program.</p>
+<p class="Pp">This propagation is basically two different operations from the
+    source side:</p>
+<ul class="Bl-bullet">
+  <li>New file is created or an existing file is moved to a new location (e.g
+      flags are changed).</li>
+  <li>A file is deleted in the source side. (Will be deleted in the target side
+      also).</li>
+</ul>
+<p class="Pp">At the first phase, the source side reads the state file (which
+    stores the state of the last synchronization) and compares it to the current
+    state. It collects the changes and sends them the target side.</p>
+<p class="Pp">The target side checks every file, which is marked new in the
+    source file, and decides if:</p>
+<ul class="Bl-bullet">
+  <li>The file needs to be downloaded fully</li>
+  <li>Its header needs to be downloaded</li>
+  <li>We have this file already, so we need no data.</li>
+</ul>
+<p class="Pp">After it decides, it sends back the requests for new files.</p>
+<p class="Pp">Then the source side will send the files to the target side, which
+    stores them into the Maildir structure.</p>
+<p class="Pp">After the send operation is completed, both operation agrees upon
+    the commit operation. Then the source side saves the new state into the
+    state file.</p>
+<p class="Pp">Note if we forget saving the state, or the program exits before
+    it, the operation can be restarted without data loss and inconsistency,
+    because all operations can be redone without errors.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REMOTE_OPERATION"><a class="permalink" href="#REMOTE_OPERATION">REMOTE
+  OPERATION</a></h1>
+<p class="Pp">Maildir can be used in remote mode, so it can synchronize Maildir
+    folders between computers. If you want to use it this way, you have to
+    provide the host name before either the source or the target, like:</p>
+<p class="Pp"></p>
+<pre>    maildirsync.pl ... desktop:Maildir Maildir lib/maildirsync.bz2
+</pre>
+<p class="Pp">or</p>
+<p class="Pp"></p>
+<pre>    maildirsync.pl ... Maildir desktop:Maildir lib/maildirsync.bz2
+</pre>
+<p class="Pp">In remote mode, the target side must have maildirsync installed
+    also. (See the --maildirsync command-line argument).</p>
+<p class="Pp">The state-file must be in the same system as the source, so the
+    source file in the first example is searched in the &quot;desktop&quot;
+    computer, and in the local computer in the second example.</p>
+<p class="Pp">At least source or the destination must be local, so you cannot
+    sync maildirs on two different remote hosts.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMAND-LINE_SWITCHES"><a class="permalink" href="#COMMAND-LINE_SWITCHES">COMMAND-LINE
+  SWITCHES</a></h1>
+<p class="Pp">Some command line switches has two form: a short form and a longer
+    form. In the short form, the switches can be grouped, like: -vvvr. Short
+    options with parameters also can be grouped, but the parameter must be the
+    following command-line argument, like:</p>
+<p class="Pp"></p>
+<pre>    maildirsync.pl -rvvvbR Maildir/Trash/cur ssh ...
+</pre>
+<p class="Pp">It is the same as:</p>
+<p class="Pp"></p>
+<pre>    maildirsync.pl --recursive --verbose --verbose --verbose --backup \
+        Maildir/Trash/cur --rsh ssh ...
+</pre>
+<p class="Pp">Long options can use '=' for assigning the parameter, or they can
+    use the syntax above.</p>
+<p class="Pp">Let's see what switches we have:</p>
+<dl class="Bl-tag">
+  <dt id="recursive,"><a class="permalink" href="#recursive,">--recursive,
+    -r</a></dt>
+  <dd>Process the base folder as the recursive collection of Maildir
+    folders.</dd>
+  <dt id="backup"><a class="permalink" href="#backup">--backup dir, -b
+    dir</a></dt>
+  <dd>The deleted files are backed up to the specified directory (this directory
+      does not needs to be a maildir folder). The directory is relative to the
+      start-up directory, not the target base folder! The directory is created
+      if it does not exists.</dd>
+  <dt id="backup~2"><a class="permalink" href="#backup~2">--backup-tree,
+    -B</a></dt>
+  <dd>This option is only useful when used in conjunction with the --backup
+      option. If set, deleted messages are moved to a Maildir folders tree
+      inside the backup directory with the same relative path. The resulting
+      backup directory can be used with any Maildir-capable application (MUAs,
+      MTAs, etc.).</dd>
+  <dt id="bzip2"><a class="permalink" href="#bzip2">--bzip2 bzip2</a></dt>
+  <dd>Path to the bzip2 utility (used only when the state file has .bz2
+      extension). Note that using bzip2 is turned out to be quite unstable, it
+      sometimes leave the state file empty or corrupted.</dd>
+  <dt id="gzip"><a class="permalink" href="#gzip">--gzip gzip</a></dt>
+  <dd>Path to the gzip utility (used only when the state file has .gz
+      extension).</dd>
+  <dt id="maildirsync"><a class="permalink" href="#maildirsync">--maildirsync
+    maildirsync.pl</a></dt>
+  <dd>Path to the maildirsync utility on the remote machine (if we use
+      maildirsync in remote mode).</dd>
+  <dt id="rsh"><a class="permalink" href="#rsh">--rsh ssh</a></dt>
+  <dd>Path to the utility, which can be used to connect to the remote side. It
+      defaults to &quot;ssh&quot;. Note that the protocol, which is used in
+      remote mode, does not contain compression, but the data can be compressed
+      well, so I suggest using the ssh compression for this purpose.</dd>
+  <dt id="destination"><a class="permalink" href="#destination">--destination</a></dt>
+  <dd>If it is provided, then it does transformation in the file names. The
+      transformations are the following:</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>win: Converts &quot;:&quot; to &quot;&amp;#58;&quot; (since windows don't
+      allow colon in the filename).</li>
+  <li>lin: Converts &quot;&amp;#58;&quot; to &quot;:&quot;.</li>
+</ul>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="verbose,"><a class="permalink" href="#verbose,">--verbose, -v</a></dt>
+  <dd>Adds more verbosity to the operation. There are currently 6 different
+      verbosity level:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>0</dt>
+  <dd>No information at all.</dd>
+  <dt>1</dt>
+  <dd>Main operations.</dd>
+  <dt>2</dt>
+  <dd>Files sent, received, deleted, moved, md5 calculations.</dd>
+  <dt>3</dt>
+  <dd>Directories read and created.</dd>
+  <dt>4</dt>
+  <dd>Options + command echo.</dd>
+  <dt>5</dt>
+  <dd>Misc info about file transfer.</dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="alg"><a class="permalink" href="#alg">--alg md5, -a md5</a></dt>
+  <dd>Selects the synchronization algorithm. Currently two algorithms are
+      provided:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="id"><a class="permalink" href="#id">id (default)</a></dt>
+  <dd>The messages are synchronized only by the ID of a message (the ID can be
+      determined by the message filename).</dd>
+  <dt id="md5"><a class="permalink" href="#md5">md5</a></dt>
+  <dd>This method is recommended for low bandwidth operations. This mode can
+      reduce the file transfers by checking the message moves on the target
+      side. This mode requires an MD5 sum on the body of the message, so the
+      first use of this mode can be quite time-consuming on both sides.</dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">For more information about the algorithms, read the chapter about
+    that.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="delete"><a class="permalink" href="#delete">--delete-before,
+    -d</a></dt>
+  <dd>Normally the delete operations on the target side is done after the
+      transfers. Use this switch if you don't have too much space on your hard
+      disk. Note that using this switch can reduce the chance of detecting the
+      message moves.</dd>
+  <dt id="exclude,"><a class="permalink" href="#exclude,">--exclude, -x</a></dt>
+  <dd>Excludes a directory regexp from the transfer and removes it from the
+      state file. This option can be used more than once to specify more than
+      one directories. Note, that the directory, which is matched against these
+      regexps are the relative path of the folders with a leading '/', so if you
+      want to exclude your Trash folder in the root of your synchronization,
+      then you have to use the following form:
+    <p class="Pp"></p>
+    <pre>    --exclude=^/Trash
+    </pre>
+    <p class="Pp">The excluded paths are used in either source or the target
+        side also. So if you exclude a very large directory, you will notice
+        speedup in the source and target side also.</p>
+    <p class="Pp">Note that this regexp is matched for every directory that is
+        read from the filesystem, and every directory what is found in the state
+        file. So if you provide the exclude pattern as ^/Trash$, then it will
+        skip the Trash directory when traversing the directory structure, but it
+        WON'T skip files from the Trash/cur directory when reading from the
+        state file! So be careful if you use the exclude pattern with existing
+        state file!</p>
+  </dd>
+  <dt id="exclude"><a class="permalink" href="#exclude">--exclude-source,
+    --exclude-target</a></dt>
+  <dd>These parameters can be used to exclude files only from one side of the
+      synchronization. Can be useful with the rename options (below).</dd>
+  <dt id="rename"><a class="permalink" href="#rename">--rename</a></dt>
+  <dd>Can be used to rename files when transferred from one side to another. A
+      perl expression is the parameter for this.
+    <p class="Pp">If you use this option, use it with care, because you have to
+        provide exactly the opposite of the name-transformation if you sync to
+        the other side, for example:</p>
+    <p class="Pp">In one side, you can use (A to B):</p>
+    <p class="Pp"></p>
+    <pre>    --rename=&quot;s{^/Saved/}{/ToBeSaved/}&quot; \
+    --exclude-target=&quot;^/Saved/&quot; \
+    </pre>
+    <p class="Pp">In the other side, you can use (B to A):</p>
+    <p class="Pp"></p>
+    <pre>    --exclude-source=&quot;^/Saved/&quot; \
+    --rename=&quot;s{^/ToBeSaved/}{/Saved/}&quot; \
+    </pre>
+    <p class="Pp">In this case, the Saved folder in the A side will be
+        synchronized with the ToBeSaved folder in the B side, and the Saved
+        folder in the B side will be excluded from the synchronization. This
+        scenario can be used when you don't want to store your emails in the
+        server, but you want to use the &quot;Saved&quot; folder in the server
+        too. In this case, the emails will be downloaded from the server (A
+        side) to your laptop (B side), then you can move them to the Saved
+        folder in B with a script. If this is done, then you can resynchronize,
+        then the saved files will disappear from the server also.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ALGORITHMS"><a class="permalink" href="#ALGORITHMS">ALGORITHMS</a></h1>
+<p class="Pp">Currently the program has two algorithms, which can be used for
+    synchronization.</p>
+<dl class="Bl-tag">
+  <dt id="id~2"><a class="permalink" href="#id~2">id (default)</a></dt>
+  <dd>This algorithm is based on the message-id-s of the messages. It assumes
+      that a message-id exists only once in both repositories with the same id.
+      The id can be determined form the filename.
+    <p class="Pp">With this algorithm, you can trace the flag changes or the
+        deletion of a message and these changes can be propagated to the other
+        side also. It also handles if a message is copied from the
+        &quot;new&quot; directory to the &quot;cur&quot; directory without
+        retransmit the files over the network.</p>
+    <p class="Pp">This algorithm is recommended if you want a simple and quite
+        fast operation, and if you have a not-so-slow internet connection.</p>
+  </dd>
+  <dt id="md5~2"><a class="permalink" href="#md5~2">md5</a></dt>
+  <dd>This algorithm does further calculations. It stores the size of the header
+      and the md5 sum of the message body for each message besides the data that
+      the &quot;id&quot; algorithm stores.
+    <p class="Pp">By using this algorithm, you can track the copies and moves of
+        a message, so you don't need to retransmit large files if you move them
+        to a new folder.</p>
+    <p class="Pp">If you copy or move a message from one folder to another, the
+        header is sometimes changed by the mail-reader program. This is why we
+        cannot simply calculate the MD5 sum of the whole message. A new message
+        in a folder will have a new identifier also, so it doesn't violate the
+        law that a message-id is unique.</p>
+    <p class="Pp">When you copy or move a message from your INBOX to your
+        &quot;Save&quot; folder (for example), the new message is analyzed in
+        the source side, header-size and md5 sum is calculated on the new
+        message, and from the md5-hash, the source side can tell the target side
+        what messages has the same hash-value, so the target side can copy the
+        body from the other message. If the target side has successfully copied
+        the body from one of those provided messages, then only the header needs
+        to be transmitted across the network. If the target-side did not find
+        the messages, then it requests for the body also.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ONLINE_OPERATION"><a class="permalink" href="#ONLINE_OPERATION">ONLINE
+  OPERATION</a></h1>
+<p class="Pp">Online operation means that the software can be used in an online
+    mailbox also. It assumes that the Maildir folder can be changed when the
+    program is working, so it tries to be as fail-safe as can be.</p>
+<p class="Pp">Every new file is opened in the &quot;tmp&quot; directory, and
+    moved to the target place only when the file is fully downloaded.</p>
+<p class="Pp">This mode of operation was the first priority, because this
+    feature is missing from most synchronizer software, including my
+    &quot;drsync&quot; utility also.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SPEED"><a class="permalink" href="#SPEED">SPEED</a></h1>
+<p class="Pp">I am using this program to synchronize my Mailboxes. I have 9700
+    emails in my mailbox and the state file (bzipped) is 283K.</p>
+<p class="Pp">The first time of a two-way synchronization between a P166 server
+    and a PIII/1200 notebook over a Cable network, where the starting position
+    is an already synchronized directory, tooks about 10 minutes. This time is
+    used for md5-calculation and message-id propagation.</p>
+<p class="Pp">The next two-way run tooks about 40 seconds.</p>
+<p class="Pp">These things are measured in Debian GNU/Linux testing/unstable
+    operating system (08 Oct 2002).</p>
+<p class="Pp">These are only the overhead of the software, not the real
+    transfer. If you got a very big email, it needs to be transferred at least
+    one time on the network. But if you have it in both sides, then it does not
+    require any more transfer if you save it to different folders.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TODO"><a class="permalink" href="#TODO">TODO</a></h1>
+<p class="Pp">I am currently happy with this feature set, but if I have time, I
+    will implement these features into the software. Anyway if you have time and
+    willingness, I accept patches also:</p>
+<ul class="Bl-bullet">
+  <li>Message-size limit. By limiting the maximum transmitted message, you can
+      effectively use this software if you have very low bandwidth.</li>
+  <li>Config-file and cron-safe operation.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright (c) 2000-2010 Szabo, Balazs (dLux)</p>
+<p class="Pp">All rights reserved. This program is free software; you can
+    redistribute it and/or modify it under the same terms as Perl itself.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">dLux (Szabo, Balazs) &lt;dlux@dlux.hu&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2021-09-28</td>
+    <td class="foot-os">perl v5.32.1</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: maildirsync 1.2-4 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

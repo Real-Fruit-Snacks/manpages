@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="dump raw packets to disk">
+<title>stenotype(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">stenotype(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">stenotype(1)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">stenotype(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>stenotype </b>- dump raw packets to disk <b></b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>stenotype</b> [<b>-qv</b>?] [<b>--aiops</b>=NUM] [<b>--blocks</b>=NUM] [<b>--count</b>=NUM]
+<br/>
+          [<b>--dir</b>=STRING] [<b>--fanout_id</b>=NUM] [<b>--fanout_type</b>=NUM]
+<br/>
+          [<b>--fileage_sec</b>=NUM] [<b>--filesize_mb</b>=NUM] [<b>--filter</b>=STRING]
+<br/>
+          [<b>--gid</b>=NUM] [<b>--iface</b>=STRING] [<b>--index_nicelevel</b>=NUM] [<b>--no_index</b>]
+<br/>
+          [<b>--no_watchdogs</b>] [<b>--preallocate_file_mb</b>=NUM] [<b>--seccomp</b>=STRING]
+<br/>
+          [<b>--threads</b>=NUM] [<b>--uid</b>=NUM] [<b>--help</b>] [<b>--usage</b>]
+</pre>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Stenotype is a mechanism for quickly dumping raw packets to disk.
+    It aims to have a simple interface (no file rotation: that's left as an
+    exercise for the reader) while being very powerful.</p>
+<p class="Pp"><b>stenotype</b> uses a NIC-&gt;disk pipeline specifically
+    designed to provide as fast an output to disk as possible while just using
+    the kernel's built-in mechanisms.</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>NIC -&gt; RAM: <b>stenotype</b> uses MMAP'd AF_PACKET with 1MB blocks and
+      a high timeout to offload writing packets and deciding their layout to the
+      kernel. The kernel packs all the packets it can into 1MB, then lets the
+      userspace process know there's a block available in the MMAP'd ring
+      buffer. Nicely, it guarantees no overruns (packets crossing the 1MB
+      boundary) and good alignment to memory pages.</dd>
+  <dt>2.</dt>
+  <dd>RAM -&gt; Disk: Since the kernel already gave us a single 1MB block of
+      packets that's nicely aligned, we can O_DIRECT write it straight to disk.
+      This avoids any additional copying or kernel buffering. To keep sequential
+      reads going strong, we do all disk IO asynchronously via io_submit (which
+      works specifically for O_DIRECT files... joy!). Since the data is being
+      written to disk asynchronously, we use the time it's writing to disk to do
+      our own in-memory processing and indexing.</dd>
+</dl>
+<p class="Pp">There are N (flag-specified) async IO operations available... once
+    we've used up all N, we block on a used one finishing, then reuse it. The
+    whole pipeline consists of:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>kernel gives userspace a 1MB block of packets</li>
+  <li>userspace iterates over packets in block, updates any indexes</li>
+  <li>userspace starts async IO operation to write block to disk</li>
+  <li>after N async IO operations are submitted, we synchronously wait for the
+      least recent one to finish.</li>
+  <li>when an async IO operation finishes, we release the 1MB block back to the
+      kernel to write more packets.</li>
+</ul>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="aiops"><a class="permalink" href="#aiops"><b><b>--aiops</b>=NUM</b></a></dt>
+  <dd>Max number of async IO operations</dd>
+  <dt id="blocks"><a class="permalink" href="#blocks"><b><b>--blocks</b>=NUM</b></a></dt>
+  <dd>Total number of blocks to use, each is 1MB</dd>
+  <dt id="count"><a class="permalink" href="#count"><b><b>--count</b>=NUM</b></a></dt>
+  <dd>Total number of packets to read, <b>-1</b> to read forever</dd>
+  <dt id="dir"><a class="permalink" href="#dir"><b><b>--dir</b>=STRING</b></a></dt>
+  <dd>Directory to store packet files in</dd>
+  <dt id="fanout_id"><a class="permalink" href="#fanout_id"><b><b>--fanout_id</b>=NUM</b></a></dt>
+  <dd>If fanning out across processes, set this</dd>
+  <dt id="fanout_type"><a class="permalink" href="#fanout_type"><b><b>--fanout_type</b>=NUM</b></a></dt>
+  <dd>TPACKET_V3 fanout type to fanout packets</dd>
+  <dt id="fileage_sec"><a class="permalink" href="#fileage_sec"><b><b>--fileage_sec</b>=NUM</b></a></dt>
+  <dd>Files older than this many secs are rotated</dd>
+  <dt id="filesize_mb"><a class="permalink" href="#filesize_mb"><b><b>--filesize_mb</b>=NUM</b></a></dt>
+  <dd>Max file size in MB before file is rotated</dd>
+  <dt id="filter"><a class="permalink" href="#filter"><b><b>--filter</b>=STRING</b></a></dt>
+  <dd>BPF compiled filter used to filter which packets will be captured. This
+      has to be a compiled BPF in hexadecimal, which can be obtained from a
+      human readable filter expression using the provided compile_bpf.sh
+    script.</dd>
+  <dt id="gid"><a class="permalink" href="#gid"><b><b>--gid</b>=NUM</b></a></dt>
+  <dd>Drop privileges to this group</dd>
+  <dt id="iface"><a class="permalink" href="#iface"><b><b>--iface</b>=STRING</b></a></dt>
+  <dd>Interface to read packets from</dd>
+  <dt id="index_nicelevel"><a class="permalink" href="#index_nicelevel"><b><b>--index_nicelevel</b>=NUM</b></a></dt>
+  <dd>Nice level of indexing threads</dd>
+  <dt id="no_index"><a class="permalink" href="#no_index"><b><b>--no_index</b></b></a></dt>
+  <dd>Do not compute or write indexes</dd>
+  <dt id="no_watchdogs"><a class="permalink" href="#no_watchdogs"><b><b>--no_watchdogs</b></b></a></dt>
+  <dd>Don't start any watchdogs</dd>
+  <dt id="preallocate_file_mb"><a class="permalink" href="#preallocate_file_mb"><b><b>--preallocate_file_mb</b>=NUM</b></a></dt>
+  <dd>When creating new files, preallocate to this many MB</dd>
+  <dt id="q"><a class="permalink" href="#q"><b><b>-q</b></b></a></dt>
+  <dd>Quiet logging. Each <b>-q</b> counteracts one <b>-v</b></dd>
+  <dt id="seccomp"><a class="permalink" href="#seccomp"><b><b>--seccomp</b>=STRING</b></a></dt>
+  <dd>Seccomp style, one of 'none', 'trace', 'kill'.</dd>
+  <dt id="threads"><a class="permalink" href="#threads"><b><b>--threads</b>=NUM</b></a></dt>
+  <dd>Number of parallel threads to read packets with</dd>
+  <dt id="uid"><a class="permalink" href="#uid"><b><b>--uid</b>=NUM</b></a></dt>
+  <dd>Drop privileges to this user</dd>
+  <dt id="v"><a class="permalink" href="#v"><b><b>-v</b></b></a></dt>
+  <dd>Verbose logging, may be given multiple times</dd>
+  <dt><b>-?, <b>--help</b></b></dt>
+  <dd>Give this help list</dd>
+  <dt id="usage"><a class="permalink" href="#usage"><b><b>--usage</b></b></a></dt>
+  <dd>Give a short usage message</dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">21 July 2025</td>
+    <td class="foot-os">stenographer 1.0.1</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: stenographer 1.0.1-3ubuntu0.3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

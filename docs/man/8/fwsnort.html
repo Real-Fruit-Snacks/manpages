@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Firewall Snort">
+<title>fwsnort(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">fwsnort(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#FILES">FILES</a></li><li><a href="#FWSNORT_CONFIGURATION_VARIABLES">FWSNORT
+  CONFIGURATION VARIABLES</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#DEPENDENCIES">DEPENDENCIES</a></li><li><a href="#DIAGNOSTICS">DIAGNOSTICS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#CONTRIBUTORS">CONTRIBUTORS</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#DISTRIBUTION">DISTRIBUTION</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">FWSNORT(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">FWSNORT(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>fwsnort</b> - Firewall Snort</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>fwsnort [options]</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>fwsnort</b> translates SNORT rules into iptables rules on Linux
+    systems and generates a corresponding iptables policy in iptables-save
+    format. This ruleset allows network traffic that matches Snort signatures
+    (i.e. attacks and other suspicious network behavior) to be logged and/or
+    dropped by iptables directly without putting an interface into promiscuous
+    mode or queuing packets from kernel to user space. Note that fwsnort can
+    also build an iptables policy that combines the string match extension with
+    the NFQUEUE or QUEUE targets to allow the kernel to perform preliminary
+    string matches that are defined within Snort rules before queuing matching
+    packets to a userspace snort_inline instance. Because the bulk of network
+    communications are not generally malicious, this should provide a speedup
+    for snort_inline since the majority of packets do not then have to be copied
+    from kernel memory into user memory and subsequently inspected by
+    snort_inline. There is a tradeoff here in terms of signature detection
+    however because snort_inline when deployed in this way does not have the
+    opportunity to see all packets associated with a session, so stream
+    reassembly and signature comparisons against a reassembled buffer do not
+    take place (the stream preprocessor should be disabled in the userspace
+    snort_inline instance).</p>
+<p class="Pp">As of <b>fwsnort-1.5</b> all iptables rules built by fwsnort are
+    written out to the <i>/var/lib/fwsnort/fwsnort.save</i> file in
+    iptables-save format. This allows a long fwsnort policy (which may contain
+    thousands of iptables rules translated from a large Snort signature set) to
+    be quickly instantiated via the &quot;iptables-restore&quot; command. A
+    wrapper script <i>/var/lib/fwsnort/fwsnort.sh</i> is also written out to
+    make this easy. Hence, the typical work flow for fwsnort is to: 1) run
+    fwsnort, 2) note the Snort rules that fwsnort was able to successfully
+    translate (the number of such rules is printed to stdout), and then 3)
+    execute the <i>/var/lib/fwsnort/fwsnort.sh</i> wrapper script to instantiate
+    the policy in the running kernel.</p>
+<p class="Pp"><b>fwsnort</b> (optionally) uses the IPTables::Parse CPAN module
+    to parse the iptables ruleset on the machine to determine which Snort rules
+    are applicable to the specific iptables policy. After all, if iptables is
+    blocking all inbound http traffic from external addresses for example, it is
+    probably not of much use to try detecting inbound attacks against against
+    tcp/80. By default fwsnort generates iptables rules that log Snort sid's
+    within a --log-prefix to syslog where the messages can be analyzed with a
+    log analyzer such as <b>psad</b> (see http://www.cipherdyne.org/psad/).
+    <b>fwsnort</b> relies on the iptables string match module to match Snort
+    content fields in the application portion of ip traffic. Since Snort rules
+    can contain hex data in content fields (specified between pipe &quot;|&quot;
+    characters), fwsnort implements a patch against iptables (which has been
+    accepted by the Netfilter project as of iptables-1.2.7a) which adds a
+    &quot;--hex-string&quot; option. This allow iptables to accept content
+    fields from Snort rules such as &quot;|0d0a5b52504c5d3030320d0a|&quot;
+    without any modification. <b>fwsnort</b> is able to translate approximately
+    60% of all rules from the Snort-2.3.3 IDS into equivalent iptables rules.
+    For more information about the translation strategy as well as
+    advantages/disadvantages of the method used by fwsnort to obtain intrusion
+    detection data, see the README included with the fwsnort sources or browse
+    to: http://www.cipherdyne.org/fwsnort/</p>
+<p class="Pp"><b>fwsnort</b> is able to apply Snort rules to IPv6 traffic by
+    building an ip6tables policy (see the &quot;--ip6tables&quot; command line
+    argument).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="c"><a class="permalink" href="#c"><b>-c</b>,
+    <b>--config&#x00A0;&lt;configuration&#x00A0;file&gt;</b></a></dt>
+  <dd>By default fwsnort makes use of the configuration file
+      <b>/etc/fwsnort/fwsnort.conf</b> for almost all configuration parameters.
+      fwsnort can be made to override this path by specifying a different file
+      on the command line with the --config option. When fwsnort is not executed
+      as root, then a path to a readable fwsnort.conf file is required.</dd>
+  <dt id="update-rules"><a class="permalink" href="#update-rules"><b>--update-rules</b></a></dt>
+  <dd>Download the latest Emerging Threats rules from
+      http://www.emergingthreats.net This will overwrite the emerging-all.rules
+      file in the /etc/fwsnort/snort_rules/ directory. Note that the automatic
+      downloading of Snort rules from http://www.snort.org/ as of March, 2005 is
+      only offered as a pay service.</dd>
+  <dt id="rules-url"><a class="permalink" href="#rules-url"><b>--rules-url&#x00A0;&#x00A0;&lt;url&gt;</b></a></dt>
+  <dd>Specify the URL to use when updating the Emerging Threats rule set (or any
+      other rule set). The default URL is:
+      http://rules.emergingthreats.net/open/snort-2.9.0/emerging-all.rules</dd>
+  <dt><b>-6</b>, <b>--ip6tables</b></dt>
+  <dd>Enable <b>ip6tables</b> mode so that the fwsnort rule set is built into an
+      ip6tables policy instead of the iptables policy. This allows fwsnort
+      controls to apply to IPv6 traffic.</dd>
+  <dt id="include-type"><a class="permalink" href="#include-type"><b>--include-type&#x00A0;&#x00A0;&lt;rules&#x00A0;type&gt;</b></a></dt>
+  <dd>Restrict to processing snort rules of &lt;rules type&gt;. Example rule
+      types would include &quot;ddos&quot;, &quot;backdoor&quot;, and
+      &quot;web-attacks&quot;. This option also supports a comma-separated list
+      of types, e.g. &quot;ddos,backdoor&quot;.</dd>
+  <dt id="exclude-type"><a class="permalink" href="#exclude-type"><b>--exclude-type&#x00A0;&#x00A0;&lt;rules&#x00A0;type&gt;</b></a></dt>
+  <dd>Exclude all Snort rules from of type &lt;rules type&gt; from the
+      translation process. For example, if you don't want any rules from the
+      file emerging-all.rules to be translated, then use
+      &quot;emerging-all&quot; as the argument to this option. A comma-separated
+      list of types to exclude can be specified.</dd>
+  <dt id="include-regex"><a class="permalink" href="#include-regex"><b>--include-regex&#x00A0;&#x00A0;&lt;regex&gt;</b></a></dt>
+  <dd>Only translate Snort rules that match the specified regular expression.
+      This is useful to build <b>fwsnort</b> policies for Snort rules that have
+      a common characteristic (such as a string match on the word
+      &quot;Storm&quot; for the Storm worm for example).</dd>
+  <dt id="exclude-regex"><a class="permalink" href="#exclude-regex"><b>--exclude-regex&#x00A0;&#x00A0;&lt;regex&gt;</b></a></dt>
+  <dd>Translate all Snort rules except those that match the specified regular
+      expression. This is useful to omit Snort rules from <b>fwsnort</b>
+      policies that have a common characteristic (such as a string match on
+      &quot;HTTP_PORTS&quot; for example).</dd>
+  <dt id="include-re-caseless"><a class="permalink" href="#include-re-caseless"><b>--include-re-caseless</b></a></dt>
+  <dd>Make the rule matching regular expression specified with
+      <i>--include-regex</i> match case insensitively.</dd>
+  <dt id="exclude-re-caseless"><a class="permalink" href="#exclude-re-caseless"><b>--exclude-re-caseless</b></a></dt>
+  <dd>Make the rule matching regular expression specified with
+      <i>--exclude-regex</i> match case insensitively.</dd>
+  <dt id="snort-rdir"><a class="permalink" href="#snort-rdir"><b>--snort-rdir&#x00A0;&lt;snort-rules-directory&gt;</b></a></dt>
+  <dd>Manually specify the directory where the snort rules files are located.
+      The default is <b>/etc/fwsnort/snort_rules.</b> Multiple directories are
+      supported as a comma-separated list.</dd>
+  <dt id="snort-rfile"><a class="permalink" href="#snort-rfile"><b>--snort-rfile&#x00A0;&lt;snort-rules-file&gt;</b></a></dt>
+  <dd>Manually specify a Snort rules file to translated into iptables rules.
+      Multiple files are also supported as a comma-separated list.</dd>
+  <dt id="snort-sid"><a class="permalink" href="#snort-sid"><b>--snort-sid&#x00A0;&lt;sid&gt;</b></a></dt>
+  <dd>Generate an iptables ruleset for a single snort rule specified by
+      &lt;sid&gt;. A comma-separated list of sids can be specified, e.g.
+      &quot;2001842,1834&quot;.</dd>
+  <dt id="exclude-sid"><a class="permalink" href="#exclude-sid"><b>--exclude-sid&#x00A0;&lt;sid&gt;</b></a></dt>
+  <dd>Provide a list of Snort ID's to be excluded from the translation
+    process.</dd>
+  <dt id="include-perl-triggers"><a class="permalink" href="#include-perl-triggers"><b>--include-perl-triggers</b></a></dt>
+  <dd>Include <i>'perl -e print ... '</i> commands as comments in the
+      <i>fwsnort.sh</i> script. These commands allow payloads that are designed
+      to trigger snort rules to easily be built, and when combined with netcat
+      (or other software that can send bytes over the wire) it becomes possible
+      to test whether an fwsnort policy appropriately triggers on matching
+      traffic.</dd>
+  <dt id="ipt-script"><a class="permalink" href="#ipt-script"><b>--ipt-script&#x00A0;&lt;script&#x00A0;file&gt;</b></a></dt>
+  <dd>Specify the path to the iptables script generated by fwsnort. The default
+      location is /var/lib/fwsnort/fwsnort.sh.</dd>
+  <dt id="ipt-check-capabilities"><a class="permalink" href="#ipt-check-capabilities"><b>--ipt-check-capabilities</b></a></dt>
+  <dd>Check iptables capabilities and exit.</dd>
+  <dt id="Last"><a class="permalink" href="#Last"><b>--Last-cmd</b></a></dt>
+  <dd>Run <b>fwsnort</b> with the same command line arguments as the previous
+      execution. This is a convenient way of rebuilding the
+      <i>/var/lib/fwsnort/fwsnort.sh</i> script without having to remember what
+      the last command line args were.</dd>
+  <dt id="NFQUEUE"><a class="permalink" href="#NFQUEUE"><b>--NFQUEUE</b></a></dt>
+  <dd>Build an <b>fwsnort</b> policy that sends packets that match Snort
+      <b>content</b> or <b>uricontent</b> fields to userspace via the iptables
+      NFQUEUE target for further analysis. This is a mechanism for reducing the
+      signature inspection load placed on snort_inline. A parallel set of Snort
+      rules that are successfully translated are placed in the
+      /etc/fwsnort/snort_rules_queue directory. This requires
+      CONFIG_NETFILTER_XT_TARGET_NFQUEUE support in the Linux kernel.</dd>
+  <dt id="QUEUE"><a class="permalink" href="#QUEUE"><b>--QUEUE</b></a></dt>
+  <dd>Same as the <b>--NFQUEUE</b> command line argument except that the older
+      QUEUE target is used instead of the NFQUEUE target. This requires
+      CONFIG_IP_NF_QUEUE support in the Linux kernel.</dd>
+  <dt id="queue-num"><a class="permalink" href="#queue-num"><b>--queue-num&#x00A0;&lt;num&gt;</b></a></dt>
+  <dd>Specify a queue number in --NFQUEUE mode.</dd>
+  <dt id="queue-pre-match-max"><a class="permalink" href="#queue-pre-match-max"><b>--queue-pre-match-max&#x00A0;&lt;num&gt;</b></a></dt>
+  <dd>In --QUEUE or --NFQUEUE mode, limit the number of content matches that are
+      performed within the kernel before sending a matching packet to a
+      userspace Snort instance. This allows a level of tuning with respect to
+      how much work the kernel does to qualify a packet based on a signature
+      match before having Snort do the same thing. The default is to perform all
+      specified content matches in the signature before queuing the packet to
+      userspace because the multiple in-kernel content matches is probably less
+      expensive than sending a packet to userspace by default.</dd>
+  <dt id="string-match-alg"><a class="permalink" href="#string-match-alg"><b>--string-match-alg&#x00A0;&lt;alg&gt;</b></a></dt>
+  <dd>Specify the string matching algorithm to use with the kernel. By default,
+      this is 'bm' for the 'Boyer-Moore' string matching algorithm, but 'kmp'
+      may also be specified (short for the 'Knuth&#x2013;Morris&#x2013;Pratt'
+      algorithm).</dd>
+  <dt id="ipt-apply"><a class="permalink" href="#ipt-apply"><b>--ipt-apply</b></a></dt>
+  <dd>Execute the iptables script generated by fwsnort.</dd>
+  <dt id="ipt-exec"><a class="permalink" href="#ipt-exec"><b>--ipt-exec</b></a></dt>
+  <dd>Synonym for --ipt-apply.</dd>
+  <dt id="ipt-revert"><a class="permalink" href="#ipt-revert"><b>--ipt-revert</b></a></dt>
+  <dd>Revert to a version of the iptables policy without any <b>fwsnort</b>
+      rules. Note that this reverts to the iptables policy as it was when
+      <b>fwsnort</b> was originally executed. So, it is not recommended to use
+      this option if there is a large amount of time between when fwsnort is run
+      to translate Snort rules vs. running it with this option. For most
+      purposes it is better to use the --ipt-flush option below.</dd>
+  <dt id="ipt-flush"><a class="permalink" href="#ipt-flush"><b>--ipt-flush</b></a></dt>
+  <dd>Flush all <b>fwsnort</b> currently active iptables rules (flushes the
+      fwsnort chains).</dd>
+  <dt id="ipt-list"><a class="permalink" href="#ipt-list"><b>--ipt-list</b></a></dt>
+  <dd>List all <b>fwsnort</b> currently active iptables rules (lists the fwsnort
+      chains).</dd>
+  <dt id="ipt-drop"><a class="permalink" href="#ipt-drop"><b>--ipt-drop</b></a></dt>
+  <dd>For each logging rule generated by <b>fwsnort</b> add a corresponding DROP
+      rule. Note that for TCP sessions using this option will cause
+      retransmissions as packets that are part of established sessions
+      selectively dropped. Remember that false positives are common occurrences
+      for intrusion detection systems, and so using this or the --ipt-reject
+      option may break things on your network! You have been warned.</dd>
+  <dt id="ipt-reject"><a class="permalink" href="#ipt-reject"><b>--ipt-reject</b></a></dt>
+  <dd>For each logging rule generated by <b>fwsnort</b> add a corresponding
+      REJECT rule. Reset packets will be generated for TCP sessions through the
+      use of the &quot;--reject-with tcp-reset&quot; option, and ICMP port
+      unreachable messages will be generated for UDP packets through the use of
+      the &quot;--reject-with icmp-port-unreachable&quot; option.</dd>
+  <dt id="C"><a class="permalink" href="#C"><b>-C</b>,
+    <b>--Conntrack-state&#x00A0;&lt;state&gt;</b></a></dt>
+  <dd>Specify a conntrack state in place of the &quot;established&quot; state
+      that commonly accompanies the Snort &quot;flow&quot; keyword. By default,
+      fwsnort uses the conntrack state of &quot;ESTABLISHED&quot; for this. In
+      certain corner cases, it might be useful to use
+      &quot;ESTABLISHED,RELATED&quot; instead to apply application layer
+      inspection to things like ICMP port unreachable messages that are
+      responses to real attempted communications.</dd>
+  <dt id="no-ipt-log"><a class="permalink" href="#no-ipt-log"><b>--no-ipt-log</b></a></dt>
+  <dd>By default fwsnort generates an iptables script that implements a logging
+      rule for each successfully translated snort rule. This can be disabled
+      with the --no-ipt-log option, but --ipt-drop must also be specified.</dd>
+  <dt id="no-ipt-sync"><a class="permalink" href="#no-ipt-sync"><b>--no-ipt-sync</b></a></dt>
+  <dd>This is a deprecated option since the default behavior is to translate as
+      many Snort rules into iptables rules as possible. With <b>fwsnort</b> able
+      to produce iptables rules in iptables-save format, it is extremely fast to
+      instantiate a large set of translated Snort rules into an iptables policy.
+      A new --ipt-sync option has been added to reverse this behavior (not
+      recommended).</dd>
+  <dt id="ipt-sync"><a class="permalink" href="#ipt-sync"><b>--ipt-sync</b></a></dt>
+  <dd>Consult the iptables policy currently running on the machine for
+      applicable snort rules.</dd>
+  <dt id="no-ipt-test"><a class="permalink" href="#no-ipt-test"><b>--no-ipt-test</b></a></dt>
+  <dd>Do not test the iptables build for existence of support for the LOG and
+      REJECT targets, and ascii and hex string matching.</dd>
+  <dt id="no-ipt-jumps"><a class="permalink" href="#no-ipt-jumps"><b>--no-ipt-jumps</b></a></dt>
+  <dd>Do not jump packets from the built-in iptables INPUT, OUTPUT, and FORWARD
+      chains to the custom <b>fwsnort</b> chains. This options is mostly useful
+      to make it easy to manually alter the placement of the jump rules in the
+      iptables ruleset.</dd>
+  <dt id="no-ipt-rule-nums"><a class="permalink" href="#no-ipt-rule-nums"><b>--no-ipt-rule-nums</b></a></dt>
+  <dd>By default <b>fwsnort</b> includes the rule number within the logging
+      prefix for each of the rules it adds to the fwsnort chains. E.g. the
+      logging prefix for rule 34 would look something like &quot;[34] SID1242
+      ESTAB&quot;. Use this option to not include the rule number.</dd>
+  <dt id="no-ipt-comments"><a class="permalink" href="#no-ipt-comments"><b>--no-ipt-comments</b></a></dt>
+  <dd>If the iptables &quot;comment&quot; match exists, then <b>fwsnort</b> puts
+      the Snort &quot;msg&quot;, &quot;classtype&quot;, &quot;reference&quot;,
+      &quot;priority&quot;, and &quot;rev&quot; fields within a comment for each
+      iptables rule. Use this option to disable this.</dd>
+  <dt id="no-ipt-INPUT"><a class="permalink" href="#no-ipt-INPUT"><b>--no-ipt-INPUT</b></a></dt>
+  <dd>Do not jump packets from the iptables INPUT chain to the <b>fwsnort</b>
+      chains.</dd>
+  <dt id="no-ipt-OUTPUT"><a class="permalink" href="#no-ipt-OUTPUT"><b>--no-ipt-OUTPUT</b></a></dt>
+  <dd>Do not jump packets from the iptables OUTPUT chain to the <b>fwsnort</b>
+      chains.</dd>
+  <dt id="no-ipt-FORWARD"><a class="permalink" href="#no-ipt-FORWARD"><b>--no-ipt-FORWARD</b></a></dt>
+  <dd>Do not jump packets from the iptables FORWARD chain to the <b>fwsnort</b>
+      chains.</dd>
+  <dt id="no-fast-pattern-ordering"><a class="permalink" href="#no-fast-pattern-ordering"><b>--no-fast-pattern-ordering</b></a></dt>
+  <dd>Cause <b>fwsnort</b> to not try to reorder pattern matches to process the
+      longest pattern first. The Snort <i>fast_pattern</i> keyword is also
+      ignored if this option is specified.</dd>
+  <dt id="H"><a class="permalink" href="#H"><b>-H</b>,
+    <b>--Home-net&#x00A0;&lt;network/mask&gt;</b></a></dt>
+  <dd>Specify the internal network instead of having <b>fwsnort</b> derive it
+      from the HOME_NET keyword in the fwsnort.conf configuration file.</dd>
+  <dt id="E"><a class="permalink" href="#E"><b>-E</b>,
+    <b>--External-net&#x00A0;&lt;network/mask&gt;</b></a></dt>
+  <dd>Specify the external network instead of having <b>fwsnort</b> derive it
+      from the EXTERNAL_NET keyword in the fwsnort.conf configuration file.</dd>
+  <dt id="no-addresses"><a class="permalink" href="#no-addresses"><b>--no-addresses</b></a></dt>
+  <dd>Disable all checks against the output of ifconfig for proper IP addresses.
+      This is useful if <b>fwsnort</b> is running on a bridging firewall.</dd>
+  <dt id="Dump-conf"><a class="permalink" href="#Dump-conf"><b>--Dump-conf</b></a></dt>
+  <dd>Print the fwsnort configuration on STDOUT and exit.</dd>
+  <dt id="debug"><a class="permalink" href="#debug"><b>--debug</b></a></dt>
+  <dd>Run in debug mode. This will cause all parse errors which are normally
+      written to the fwsnort logfile <b>/var/log/fwsnort.log</b> to be written
+      to STDOUT instead.</dd>
+  <dt id="strict"><a class="permalink" href="#strict"><b>--strict</b></a></dt>
+  <dd>Run fwsnort in &quot;strict&quot; mode. This will prevent fwsnort from
+      translating snort rules that contain the keywords &quot;offset&quot;,
+      &quot;uricontent&quot;, and &quot;depth&quot;.</dd>
+  <dt id="U"><a class="permalink" href="#U"><b>-U</b>, <b>--Ulog</b></a></dt>
+  <dd>Force the usage of the ULOG target for all log messages instead of the
+      default LOG target.</dd>
+  <dt id="ulog-nlgroup"><a class="permalink" href="#ulog-nlgroup"><b>--ulog-nlgroup</b></a></dt>
+  <dd>Specify the netlink group for ULOG rules. Such rules are only added for
+      Snort rules that have an action of &quot;log&quot;, or when <b>fwsnort</b>
+      is run in <b>--Ulog</b> mode.</dd>
+  <dt id="l"><a class="permalink" href="#l"><b>-l</b>,
+    <b>--logfile&#x00A0;&lt;logfile&gt;</b></a></dt>
+  <dd>By default fwsnort logs all parse errors to the logfile
+      <b>/var/log/fwsnort.log.</b> This path can be manually changed with the
+      --logfile option.</dd>
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b>, <b>--verbose</b></a></dt>
+  <dd>Run fwsnort in verbose mode. This will cause fwsnort to add the original
+      snort rule as a comment to the fwsnort.sh script for each successfully
+      translated rule.</dd>
+  <dt id="V"><a class="permalink" href="#V"><b>-V</b>, <b>--Version</b></a></dt>
+  <dd>Print the fwsnort version and exit.</dd>
+  <dt id="h"><a class="permalink" href="#h"><b>-h</b>, <b>--help</b></a></dt>
+  <dd>Print usage information on STDOUT and exit.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<p class="Pp"><b>/etc/fwnort/fwsnort.conf</b></p>
+<div class="Bd-indent">The fwsnort configuration file. The path to this file can
+  be changed on the command line with --config.</div>
+<p class="Pp"><b>/var/lib/fwnort/fwsnort.sh</b></p>
+<div class="Bd-indent">The iptables script generated by fwsnort. The path can be
+  manually specified on the command line with the --ipt-script option.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FWSNORT_CONFIGURATION_VARIABLES"><a class="permalink" href="#FWSNORT_CONFIGURATION_VARIABLES">FWSNORT
+  CONFIGURATION VARIABLES</a></h1>
+<p class="Pp">This section describes what each of the more important fwsnort
+    configuration variables do and how they can be tuned to meet your needs.
+    These variables are located in the fwsnort configuration file
+    <b>/etc/fwsnort/fwsnort.conf</b></p>
+<dl class="Bl-tag">
+  <dt id="HOME_NET"><a class="permalink" href="#HOME_NET"><b>HOME_NET</b></a></dt>
+  <dd><b>fwsnort</b> uses the same HOME_NET and EXTERNAL_NET variables as
+      defined in Snort rules, and the same semantics are supported. I.e.,
+      individual IP addresses or networks in standard dotted-quad or CIDR
+      notation can be specified, and comma separated lists are also
+    supported.</dd>
+  <dt id="EXTERNAL_NET"><a class="permalink" href="#EXTERNAL_NET"><b>EXTERNAL_NET</b></a></dt>
+  <dd>Defines the external network. See the HOME_NET variable for more
+      information.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">The following examples illustrate the command line arguments that
+    could be supplied to fwsnort in a few situations:</p>
+<p class="Pp">Script generation in logging mode, parse errors written to the
+    fwsnort logfile, and iptables policy checking are enabled by default without
+    having to specify any command line arguments:</p>
+<p class="Pp"><b># fwsnort</b></p>
+<p class="Pp">Generate ip6tables rules for attacks delivered over IPv6:</p>
+<p class="Pp"><b># fwsnort -6</b></p>
+<p class="Pp">Generate iptables rules for ddos and backdoor Snort rules
+  only:</p>
+<p class="Pp"><b># fwsnort --include-type ddos,backdoor</b></p>
+<p class="Pp">Generate iptables rules for Snort ID's 2008475 and 2003268 (from
+    emerging-all.rules):</p>
+<p class="Pp"><b>fwsnort --snort-sid 2008475,2003268</b></p>
+<p class="Pp">Generate iptables rules for Snort ID's 1834 and 2001842 but queue
+    them to userspace via the NFQUEUE target and restrict exclude the INPUT and
+    OUTPUT chains:</p>
+<p class="Pp"><b>fwsnort --snort-sid 1834,2001842 --NFQUEUE --no-ipt-INPUT
+    --no-ipt-OUTPUT</b></p>
+<p class="Pp">Instruct <b>fwsnort</b> to only inspect traffic that traverses the
+    eth0 and eth1 interfaces:</p>
+<p class="Pp"><b># fwsnort --restrict-intf eth0,eth1</b></p>
+<p class="Pp">Generate iptables rules for Snort rules that appear to be allowed
+    by the local iptables policy, and write original snort rules to the iptables
+    script as a comment:</p>
+<p class="Pp"><b># fwsnort --ipt-sync --verbose</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEPENDENCIES"><a class="permalink" href="#DEPENDENCIES">DEPENDENCIES</a></h1>
+<p class="Pp"><b>fwsnort</b> requires that the iptables string match module be
+    compiled into the kernel (or as a loadable kernel module) in order to be
+    able to match snort signatures that make use of the &quot;content&quot;
+    keyword. Note that the --no-opt-test option can be specified to have fwsnort
+    generate an iptables script even if the string match module is not compiled
+    in.</p>
+<p class="Pp"><b>fwsnort</b> also requires the IPTables::Parse CPAN module in
+    order to parse iptables policies. This module is bundled with the fwsnort
+    sources in the deps/ directory for convenience.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIAGNOSTICS"><a class="permalink" href="#DIAGNOSTICS">DIAGNOSTICS</a></h1>
+<p class="Pp">The --debug option can be used to display on STDOUT any errors
+    that are generated as fwsnort parses each snort rule. Normally these errors
+    are written to the fwsnort logfile /var/log/fwsnort.log</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/psad.html"><b>psad</b>(8)</a>, <a class="Xr" href="../8/iptables.html"><b>iptables</b>(8)</a>, <a class="Xr" href="../8/snort.html"><b>snort</b>(8)</a>,
+    <a class="Xr" href="../1/nmap.html"><b>nmap</b>(1)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Michael Rash &lt;mbr@cipherdyne.org&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONTRIBUTORS"><a class="permalink" href="#CONTRIBUTORS">CONTRIBUTORS</a></h1>
+<p class="Pp">Many people who are active in the open source community have
+    contributed to fwsnort; see the <b>CREDITS</b> file in the fwsnort sources,
+    or visit <b>http://www.cipherdyne.org/fwsnort/docs/contributors.html</b> to
+    view the online list of contributors.</p>
+<p class="Pp"><b>fwsnort</b> is based on the original <b>snort2iptables</b>
+    script written by William Stearns.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Send bug reports to mbr@cipherdyne.org. Suggestions and/or
+    comments are always welcome as well.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DISTRIBUTION"><a class="permalink" href="#DISTRIBUTION">DISTRIBUTION</a></h1>
+<p class="Pp"><b>fwsnort</b> is distributed under the GNU General Public License
+    (GPLv2), and the latest version may be downloaded from
+    <b>http://www.cipherdyne.org/</b> Snort is a registered trademark of
+    Sourcefire, Inc.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Jan, 2011</td>
+    <td class="foot-os">Linux</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: fwsnort 1.6.8-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

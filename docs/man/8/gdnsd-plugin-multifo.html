@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="gdnsd plugin for multi-address, all-active failover groups">
+<title>gdnsd-plugin-multifo(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">gdnsd-plugin-multifo(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#TOP-LEVEL_PLUGIN_CONFIG">TOP-LEVEL
+  PLUGIN CONFIG</a></li><li><a href="#RESOURCE_CONFIG">RESOURCE
+  CONFIG</a></li><li><a href="#SHORTCUT_CONFIG">SHORTCUT
+  CONFIG</a></li><li><a href="#OPERATIONAL_MECHANICS">OPERATIONAL
+  MECHANICS</a></li><li><a href="#UP_THRESH">UP
+  THRESH</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GDNSD-PLUGIN-MULTIFO(8)</td>
+    <td class="head-vol">gdnsd</td>
+    <td class="head-rtitle">GDNSD-PLUGIN-MULTIFO(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gdnsd-plugin-multifo - gdnsd plugin for multi-address, all-active
+    failover groups</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Example plugin config:</p>
+<p class="Pp"></p>
+<pre>  plugins =&gt; {
+    multifo =&gt; {
+      up_thresh =&gt; 0.3
+      service_types =&gt; up,
+      v4www =&gt; {
+        lb01 =&gt; 192.0.2.200,
+        lb02 =&gt; 192.0.2.201,
+        lb03 =&gt; 192.0.2.202,
+      }
+      v6smtp =&gt; {
+        service_types =&gt; [ smtp ],
+        up_thresh =&gt; 0.1,
+        lb01_v6 =&gt; 2001:DB8::1,
+        lb02_v6 =&gt; 2001:DB8::2,
+        lb03_v6 =&gt; 2001:DB8::3,
+      }
+      pubwww =&gt; {
+        up_thresh =&gt; 0.5
+        service_types =&gt; corpwww_type
+        addrs_v4 =&gt; [ 192.0.2.100, 192.0.2.101, 192.0.2.102 ]
+        addrs_v6 =&gt; {
+          service_types =&gt; [ up ],
+          up_thresh =&gt; 0.7
+          lb01_v6 =&gt; 2001:DB8::1,
+          lb02_v6 =&gt; 2001:DB8::2,
+          lb03_v6 =&gt; 2001:DB8::3,
+        }
+      }
+    }
+  }
+</pre>
+<p class="Pp">Example zonefile RRs:</p>
+<p class="Pp"></p>
+<pre>  web4 180 DYNA multifo!v4www
+  smtp 180 DYNA multifo!v6smtp
+  www 180 DYNA multifo!pubwww
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>gdnsd-plugin-multifo</b> is designed to do multi-address
+    all-active failover grouping. Basically, for each configured resource name,
+    you supply a labeled list of addresses. multifo monitors these addresses
+    according to <span class="Li">&quot;service_types&quot;</span>, and answers
+    <span class="Li">&quot;DYNA&quot;</span> address queries using the
+    non-<span class="Li">&quot;DOWN&quot;</span> subset. The core gdnsd code
+    will round-robin rotate the records on the way out, as it does for all
+    address RR-sets.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TOP-LEVEL_PLUGIN_CONFIG"><a class="permalink" href="#TOP-LEVEL_PLUGIN_CONFIG">TOP-LEVEL
+  PLUGIN CONFIG</a></h1>
+<p class="Pp">At the top level of the plugin's configuration stanza, three
+    special parameters <span class="Li">&quot;up_thresh&quot;</span>,
+    <span class="Li">&quot;service_types&quot;</span>, and
+    <span class="Li">&quot;ignore_health&quot;</span> are supported. These set
+    default per-resource options of the same name for any resources which do not
+    define them explicitly.</p>
+<p class="Pp">The rest of the hash entries at the top level are the names of the
+    resources you define. Each resource gets a configuration hash of its own for
+    containing resource-specific parameters as well as the actual address
+  data.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCE_CONFIG"><a class="permalink" href="#RESOURCE_CONFIG">RESOURCE
+  CONFIG</a></h1>
+<p class="Pp">Within a resource, you have two basic options. You can either
+    directly specify a set of <span class="Li">&quot;label =&gt;
+    address&quot;</span> pairs which are all the same family (IPv4 or IPv6), or
+    you can use the sub-stanzas <span class="Li">&quot;addrs_v4&quot;</span>
+    and/or <span class="Li">&quot;addrs_v6&quot;</span> to specify one or both
+    families in the same resource.</p>
+<p class="Pp">The <span class="Li">&quot;up_thresh&quot;</span>,
+    <span class="Li">&quot;service_types&quot;</span>, and
+    <span class="Li">&quot;ignore_health&quot;</span> parameters are inherited
+    through every level, and can be overridden at any level (even
+    per-address-family):</p>
+<dl class="Bl-tag">
+  <dt id="up_thresh"><a class="permalink" href="#up_thresh"><b>up_thresh</b></a></dt>
+  <dd>Floating point, default 0.5, range (0.0 - 1.0]. This configures the
+      per-resource <span class="Li">&quot;up_thresh&quot;</span> threshold. More
+      details in &quot;UP THRESH&quot; below.</dd>
+  <dt id="service_types"><a class="permalink" href="#service_types"><b>service_types</b></a></dt>
+  <dd>Array of strings, or single string. Default
+      <span class="Li">&quot;default&quot;</span>. This sets the monitored
+      service_types for this resource. If an array of more than one is provided,
+      all will be monitored for each address, and the net monitored state will
+      be the minimum (worst) of the set. See <b>gdnsd.config</b>(8) for more
+      details on service_types.</dd>
+  <dt id="ignore_health"><a class="permalink" href="#ignore_health"><b>ignore_health</b></a></dt>
+  <dd>Boolean, default false. If set to true, the health of individual addresses
+      will not affect whether multifo adds them to the set of output addresses,
+      but it will still be checked and used for the
+      <span class="Li">&quot;up_thresh&quot;</span> calculation which is
+      consumed by meta-plugins like geoip and metafo, which might use that
+      information to fail over to a completely different datacenter as a
+    result.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SHORTCUT_CONFIG"><a class="permalink" href="#SHORTCUT_CONFIG">SHORTCUT
+  CONFIG</a></h1>
+<p class="Pp">If you have no parameters (service_types, up_thresh,
+    ignore_health) to configure in a given stanza (single-family direct resource
+    config, or addrs_v[46]), and do not care about the descriptive per-address
+    labels used in monitoring, you can replace the hash with an array of
+    addresses. The labels will be generated for you as a series of integers
+    starting with <span class="Li">1</span>. For example, the following are
+    equivalent:</p>
+<p class="Pp"></p>
+<pre>   res1 =&gt; { addrs_v4 =&gt; [ 192.0.2.1, 192.0.2.2 ] }
+   res1 =&gt; { addrs_v4 =&gt; { 1 =&gt; 192.0.2.1, 2 =&gt; 192.0.2.2 } }
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPERATIONAL_MECHANICS"><a class="permalink" href="#OPERATIONAL_MECHANICS">OPERATIONAL
+  MECHANICS</a></h1>
+<p class="Pp">All of the addresses for all of the resources are monitored using
+    the per-address-family inherited
+    <span class="Li">&quot;service_types&quot;</span> specified (default would
+    be the static virtual monitor <span class="Li">&quot;up&quot;</span>). When
+    the core daemon requests a lookup for address records of a given family on
+    one of this plugin's resources, it goes through essentially the following
+    process to determine the set of response addresses for that address family:
+    1) Add all non-DOWN addresses to the result set. 2) If the set of non-DOWN
+    addresses fail the up_thresh check, add *all* addresses to the result set as
+    a fallback. 3) If any address is in the DOWN state, cut the
+    zonefile-specified TTL in half.</p>
+<p class="Pp">If <span class="Li">&quot;ignore_health&quot;</span> is true, all
+    addresses are added to the result set regardless of health, but the
+    up_thresh and TTL effects still happen, and the final resource-level state
+    still reflects the overall state as it would without
+    <span class="Li">&quot;ignore_health&quot;</span>.</p>
+<p class="Pp">This process is repeated independently for each of the IPv4 and
+    IPv6 address subsets, in the case that a resource has both address families
+    configured (the TTL is only cut in half once of course). Details on the
+    up_thresh check follow:</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="UP_THRESH"><a class="permalink" href="#UP_THRESH">UP
+  THRESH</a></h1>
+<p class="Pp">If there are not enough UP addresses to pass the threshold (per
+    address family), all addresses (of a given address family) will be returned
+    as a fallback.</p>
+<p class="Pp">The threshold is implemented mathematically as in the following
+    pseudo-code <span class="Li">&quot;if(non_down &gt;= ceil(thresh * total))
+    threshold_passed;&quot;</span>. For example, if thresh is at the default
+    value of <span class="Li">0.5</span>, and there are 3 total IPv4 addresses,
+    then 2 of them must be non-down to pass the threshold. The net result is
+    that with the default threshold, the plugin will never return an isolated
+    single address from a set of 3. It will either return all 3, or it will
+    return 2/3 if a single address from the set has failed.</p>
+<p class="Pp">When the threshold check fails (and all addresses are returned)
+    for either address family, resource-level total failure will also be
+    signaled to any applicable upstream meta-plugins such as metafo or
+  geoip.</p>
+<p class="Pp">General rules for the results of the up_thresh formula:</p>
+<ul class="Bl-bullet">
+  <li>A threshold of 1.0 will only pass if <b>all</b> addresses are not-down.
+      This is mostly pointless, you might as well not monitor anything and set
+      up these addresses as a static set in a zonefile.</li>
+  <li>A threshold of 0.01 will pass even if only one address is alive and return
+      just that one address, even if it's e.g. the only one left out of 40.</li>
+  <li>Because a threshold of 0.0 is illegal, if all addresses are down the
+      threshold will always fail, returning all addresses.</li>
+</ul>
+<p class="Pp">Intermediate value examples: (threshold: non-down/total required
+    to pass threshold):</p>
+<ul class="Bl-bullet">
+  <li>0.1: 1/1 1/2 1/3 1/4 1/5 1/6 1/7 1/8 2/16</li>
+  <li>0.2: 1/1 1/2 1/3 1/4 1/5 2/6 2/7 2/8 4/16</li>
+  <li>0.3: 1/1 1/2 1/3 2/4 2/5 2/6 3/7 3/8 5/16</li>
+  <li>0.4: 1/1 1/2 2/3 2/4 2/5 3/6 3/7 4/8 7/16</li>
+  <li>0.5: 1/1 1/2 2/3 2/4 3/5 3/6 4/7 4/8 8/16</li>
+  <li>0.6: 1/1 2/2 2/3 3/4 3/5 4/6 5/7 5/8 10/16</li>
+  <li>0.7: 1/1 2/2 3/3 3/4 4/5 5/6 5/7 6/8 12/16</li>
+  <li>0.8: 1/1 2/2 3/3 4/4 4/5 5/6 6/7 7/8 13/16</li>
+  <li>0.9: 1/1 2/2 3/3 4/4 5/5 6/6 7/7 8/8 15/16</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../5/gdnsd.config.html"><b>gdnsd.config</b>(5)</a>, <a class="Xr" href="../5/gdnsd.zonefile.html"><b>gdnsd.zonefile</b>(5)</a>, <a class="Xr" href="../8/gdnsd.html"><b>gdnsd</b>(8)</a>,
+    <a class="Xr" href="../8/gdnsd-plugin-simplefo.html"><b>gdnsd-plugin-simplefo</b>(8)</a></p>
+<p class="Pp">The gdnsd manual.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT_AND_LICENSE"><a class="permalink" href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></h1>
+<p class="Pp">Copyright (c) 2012 Brandon L Black &lt;blblack@gmail.com&gt;</p>
+<p class="Pp">This file is part of gdnsd.</p>
+<p class="Pp">gdnsd is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.</p>
+<p class="Pp">gdnsd is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+    more details.</p>
+<p class="Pp">You should have received a copy of the GNU General Public License
+    along with gdnsd. If not, see &lt;http://www.gnu.org/licenses/&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">gdnsd 3.8.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: gdnsd 3.8.2-1build2 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

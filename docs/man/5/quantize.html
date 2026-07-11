@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="ImageMagick&#x27;s color reduction algorithm.">
+<title>quantize(5) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">quantize(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#MEASURING_COLOR_REDUCTION_ERROR">MEASURING
+  COLOR REDUCTION ERROR</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">quantize(5)</td>
+    <td class="head-vol">File Formats Manual</td>
+    <td class="head-rtitle">quantize(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">Quantize - ImageMagick's color reduction algorithm.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>#include &lt;magick.h&gt;</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This document describes how <b>ImageMagick</b> performs color
+    reduction on an image. To fully understand this document, you should have a
+    knowledge of basic imaging techniques and the tree data structure and
+    terminology.</p>
+<p class="Pp">For purposes of color allocation, an image is a set of <i>n</i>
+    pixels, where each pixel is a point in RGB space. RGB space is a
+    3-dimensional vector space, and each pixel, <i>pi</i>, is defined by an
+    ordered triple of red, green, and blue coordinates, (<i>ri,</i> <i>gi,
+    bi</i>).</p>
+<p class="Pp">Each primary color component (red, green, or blue) represents an
+    intensity which varies linearly from 0 to a maximum value, <i>cmax</i>,
+    which corresponds to full saturation of that color. Color allocation is
+    defined over a domain consisting of the cube in RGB space with opposite
+    vertices at (0,0,0) and (<i>cmax,cmax,cmax</i>). <b>ImageMagick</b> requires
+    <i>cmax = 255</i>.</p>
+<p class="Pp">The algorithm maps this domain onto a tree in which each node
+    represents a cube within that domain. In the following discussion, these
+    cubes are defined by the coordinate of two opposite vertices: The vertex
+    nearest the origin in RGB space and the vertex farthest from the origin.</p>
+<p class="Pp">The tree's root node represents the the entire domain, (0,0,0)
+    through (<i>cmax,cmax,cmax</i>). Each lower level in the tree is generated
+    by subdividing one node's cube into eight smaller cubes of equal size. This
+    corresponds to bisecting the parent cube with planes passing through the
+    midpoints of each edge.</p>
+<p class="Pp">The basic algorithm operates in three phases:
+    <b>Classification,</b> <b>Reduction</b>, and <b>Assignment</b>.
+    <b>Classification</b> builds a color description tree for the image.
+    <b>Reduction</b> collapses the tree until the number it represents, at most,
+    is the number of colors desired in the output image. <b>Assignment</b>
+    defines the output image's color map and sets each pixel's color by
+    reclassification in the reduced tree. Our goal is to minimize the numerical
+    discrepancies between the original colors and quantized colors. To learn
+    more about quantization error, see MEASURING COLOR REDUCTION ERROR later in
+    this document.</p>
+<p class="Pp"><b>Classification</b> begins by initializing a color description
+    tree of sufficient depth to represent each possible input color in a leaf.
+    However, it is impractical to generate a fully-formed color description tree
+    in the classification phase for realistic values of <i>cmax</i>. If color
+    components in the input image are quantized to <i>k</i>-bit precision, so
+    that <i>cmax =</i> <i>2k-1</i>, the tree would need <i>k</i> levels below
+    the root node to allow representing each possible input color in a leaf.
+    This becomes prohibitive because the tree's total number of nodes is</p>
+<p class="Pp"></p>
+<pre>
+<br/>
+        &#x03A3; ki=1 8k<i></i></pre>
+<p class="Pp">A complete tree would require 19,173,961 nodes for <i>k = 8,</i>
+    <i>cmax = 255</i>. Therefore, to avoid building a fully populated tree,
+    <b>ImageMagick</b>: (1) Initializes data structures for nodes only as they
+    are needed; (2) Chooses a maximum depth for the tree as a function of the
+    desired number of colors in the output image (currently <i>log4(colormap
+    size)+2</i>). A tree of this depth generally allows the best representation
+    of the source image with the fastest computational speed and the least
+    amount of memory. However, the default depth is inappropriate for some
+    images. Therefore, the caller can request a specific tree depth.</p>
+<p class="Pp">For each pixel in the input image, classification scans downward
+    from the root of the color description tree. At each level of the tree, it
+    identifies the single node which represents a cube in RGB space containing
+    the pixel's color. It updates the following data for each such node:</p>
+<dl class="Bl-tag">
+  <dt id="n"><a class="permalink" href="#n"><b>n1:</b></a></dt>
+  <dd>Number of pixels whose color is contained in the RGB cube which this node
+      represents;</dd>
+  <dt id="n~2"><a class="permalink" href="#n~2"><b>n2:</b></a></dt>
+  <dd>Number of pixels whose color is not represented in a node at lower depth
+      in the tree; initially, <i>n2 = 0</i> for all nodes except leaves of the
+      tree.</dd>
+  <dt id="S"><a class="permalink" href="#S"><b>Sr, Sg, Sb:</b></a></dt>
+  <dd>Sums of the red, green, and blue component values for all pixels not
+      classified at a lower depth. The combination of these sums and <i>n2</i>
+      will ultimately characterize the mean color of a set of pixels represented
+      by this node.</dd>
+  <dt id="E:"><a class="permalink" href="#E:"><b>E:</b></a></dt>
+  <dd>The distance squared in RGB space between each pixel contained within a
+      node and the nodes' center. This represents the quantization error for a
+      node.</dd>
+</dl>
+<p class="Pp"><b>Reduction</b> repeatedly prunes the tree until the number of
+    nodes with <i>n2 &gt; 0</i> is less than or equal to the maximum number of
+    colors allowed in the output image. On any given iteration over the tree, it
+    selects those nodes whose <i>E</i> value is minimal for pruning and merges
+    their color statistics upward. It uses a pruning threshold, <i>Ep</i>, to
+    govern node selection as follows:</p>
+<p class="Pp">
+  <br/>
+   Ep = 0
+  <br/>
+   while number of nodes with (n2 &gt; 0) &gt; required maximum number of colors
+  <br/>
+   prune all nodes such that E &lt;= Ep
+  <br/>
+   Set Ep to minimum E in remaining nodes</p>
+<p class="Pp">This has the effect of minimizing any quantization error when
+    merging two nodes together.</p>
+<p class="Pp">When a node to be pruned has offspring, the pruning procedure
+    invokes itself recursively in order to prune the tree from the leaves
+    upward. The values of <i>n2 Sr, Sg,</i> and <i>Sb</i> in a node being pruned
+    are always added to the corresponding data in that node's parent. This
+    retains the pruned node's color characteristics for later averaging.</p>
+<p class="Pp">For each node, <i>n2</i> pixels exist for which that node
+    represents the smallest volume in RGB space containing those pixel's colors.
+    When <i>n2 &gt; 0</i> the node will uniquely define a color in the output
+    image. At the beginning of reduction, <i>n2 = 0</i> for all nodes except the
+    leaves of the tree which represent colors present in the input image.</p>
+<p class="Pp">The other pixel count, <i>n1</i>, indicates the total number of
+    colors within the cubic volume which the node represents. This includes
+    <i>n1 - n2</i> pixels whose colors should be defined by nodes at a lower
+    level in the tree.</p>
+<p class="Pp"><b>Assignment</b> generates the output image from the pruned tree.
+    The output image consists of two parts: (1) A color map, which is an array
+    of color descriptions (RGB triples) for each color present in the output
+    image; (2) A pixel array, which represents each pixel as an index into the
+    color map array.</p>
+<p class="Pp">First, the assignment phase makes one pass over the pruned color
+    description tree to establish the image's color map. For each node with
+    <i>n2 &gt; 0</i>, it divides <i>Sr,</i> <i>Sg</i>, and <i>Sb</i> by
+    <i>n2</i>. This produces the mean color of all pixels that classify no lower
+    than this node. Each of these colors becomes an entry in the color map.</p>
+<p class="Pp">Finally, the assignment phase reclassifies each pixel in the
+    pruned tree to identify the deepest node containing the pixel's color. The
+    pixel's value in the pixel array becomes the index of this node's mean color
+    in the color map.</p>
+<p class="Pp">Empirical evidence suggests that distances in color spaces such as
+    YUV, or YIQ correspond to perceptual color differences more closely than do
+    distances in RGB space. These color spaces may give better results when
+    color reducing an image. Here the algorithm is as described except each
+    pixel is a point in the alternate color space. For convenience, the color
+    components are normalized to the range 0 to a maximum value, <i>cmax</i>.
+    The color reduction can then proceed as described.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MEASURING_COLOR_REDUCTION_ERROR"><a class="permalink" href="#MEASURING_COLOR_REDUCTION_ERROR">MEASURING
+  COLOR REDUCTION ERROR</a></h1>
+<p class="Pp">Depending on the image, the color reduction error may be obvious
+    or invisible. Images with high spatial frequencies (such as hair or grass)
+    will show error much less than pictures with large smoothly shaded areas
+    (such as faces). This is because the high-frequency contour edges introduced
+    by the color reduction process are masked by the high frequencies in the
+    image.</p>
+<p class="Pp">To measure the difference between the original and color reduced
+    images (the total color reduction error), <b>ImageMagick</b> sums over all
+    pixels in an image the distance squared in RGB space between each original
+    pixel value and its color reduced value. <b>ImageMagick</b> prints several
+    error measurements including the mean error per pixel, the normalized mean
+    error, and the normalized maximum error.</p>
+<p class="Pp">The normalized error measurement can be used to compare images. In
+    general, the closer the mean error is to zero the more the quantized image
+    resembles the source image. Ideally, the error should be perceptually-based,
+    since the human eye is the final judge of quantization quality.</p>
+<p class="Pp">These errors are measured and printed when <b>-verbose</b> and
+    <b>-colors</b><i></i> <i>are specified on the command line:</i></p>
+<dl class="Bl-tag">
+  <dt id="mean"><a class="permalink" href="#mean"><b>mean error per
+    pixel:</b></a></dt>
+  <dd>is the mean error for any single pixel in the image.</dd>
+  <dt id="normalized"><a class="permalink" href="#normalized"><b>normalized mean
+    square error:</b></a></dt>
+  <dd>is the normalized mean square quantization error for any single pixel in
+      the image.
+    <p class="Pp">This distance measure is normalized to a range between 0 and
+        1. It is independent of the range of red, green, and blue values in the
+        image.</p>
+  </dd>
+  <dt id="normalized~2"><a class="permalink" href="#normalized~2"><b>normalized
+    maximum square error:</b></a></dt>
+  <dd>is the largest normalized square quantization error for any single pixel
+      in the image.
+    <p class="Pp">This distance measure is normalized to a range between 0 and
+        1. It is independent of the range of red, green, and blue values in the
+        image.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>display(1), animate(1), mogrify(1), import(1), miff(5)</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright (C) 2002 ImageMagick Studio, a non-profit organization
+    dedicated to making software imaging solutions freely available.</p>
+<p class="Pp">Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation files
+    (&quot;ImageMagick&quot;), to deal in ImageMagick without restriction,
+    including without limitation the rights to use, copy, modify, merge,
+    publish, distribute, sublicense, and/or sell copies of ImageMagick, and to
+    permit persons to whom the ImageMagick is furnished to do so, subject to the
+    following conditions:</p>
+<p class="Pp">The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of ImageMagick.</p>
+<p class="Pp">The software is provided &quot;as is&quot;, without warranty of
+    any kind, express or implied, including but not limited to the warranties of
+    merchantability, fitness for a particular purpose and noninfringement. In no
+    event shall ImageMagick Studio be liable for any claim, damages or other
+    liability, whether in an action of contract, tort or otherwise, arising
+    from, out of or in connection with ImageMagick or the use or other dealings
+    in ImageMagick.</p>
+<p class="Pp">Except as contained in this notice, the name of the ImageMagick
+    Studio shall not be used in advertising or otherwise to promote the sale,
+    use or other dealings in ImageMagick without prior written authorization
+    from the ImageMagick Studio.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGEMENTS"><a class="permalink" href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></h1>
+<p class="Pp">Paul Raveling, USC Information Sciences Institute, for the
+    original idea of using space subdivision for the color reduction algorithm.
+    With Paul's permission, this document is an adaptation from a document he
+    wrote.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">John Cristy, ImageMagick Studio</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">$Date$</td>
+    <td class="foot-os">ImageMagick</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: graphicsmagick 1.4+really1.3.42-1.1build3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

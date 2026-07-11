@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="gdnsd plugin for address meta-failover">
+<title>gdnsd-plugin-metafo(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">gdnsd-plugin-metafo(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#PER-DATACENTER_RESOLUTION">PER-DATACENTER
+  RESOLUTION</a></li><li><a href="#SYNTHETIC_PER-DATACENTER_RESOURCES">SYNTHETIC
+  PER-DATACENTER RESOURCES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GDNSD-PLUGIN-METAFO(8)</td>
+    <td class="head-vol">gdnsd</td>
+    <td class="head-rtitle">GDNSD-PLUGIN-METAFO(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gdnsd-plugin-metafo - gdnsd plugin for address meta-failover</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Minimal example gdnsd config file using this plugin:</p>
+<p class="Pp"></p>
+<pre>  plugins =&gt; {
+    metafo =&gt; {
+      resources =&gt; {
+        prod_www =&gt; {
+          datacenters =&gt; [ dc-01, dc-02, dc-03 ]
+          dcmap =&gt; {
+            dc-01 =&gt; 192.0.2.1
+            dc-02 =&gt; { lb01 =&gt; 192.0.2.2, lb02 =&gt; 192.0.2.3 }
+            dc-03 =&gt; [ 192.0.2.4, 192.0.2.5, 192.0.2.6 ]
+          }
+        },
+        prod_foo =&gt; {
+          datacenters =&gt; [ dc-01, dc-02, dc-bk ]
+          dcmap =&gt; {
+            dc-01 =&gt; { lb01 =&gt; 192.0.1.1, lb02 =&gt; 192.0.1.2 }
+            dc-02 =&gt; [ 192.0.5.1, 192.0.5.2, 192.0.5.3 ]
+            dc-bk =&gt; fallback.static.cname.example.org.
+          }
+        }
+      }
+    }
+  }
+</pre>
+<p class="Pp">Example zonefile RRs in zone example.com:</p>
+<p class="Pp"></p>
+<pre>  www      600 DYNA metafo!prod_www
+  www-dc01 600 DYNA metafo!prod_www/dc-01
+  foo      700 DYNC metafo!prod_foo
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>gdnsd-plugin-metafo</b> is a meta-plugin. It does
+    static-ordered address failover between multiple
+    <span class="Li">&quot;datacenters&quot;</span> (which may or may not
+    correspond with real datacenters, it's just a convenient label). Each
+    datacenter is defined in terms of other plugins such as
+    <span class="Li">&quot;multifo&quot;</span>,
+    <span class="Li">&quot;weighted&quot;</span>, etc, as described below.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh">CONFIGURATION - TOP-LEVEL</h1>
+<p class="Pp">The top level of the metafo plugin's configuration (i.e.
+    <span class="Li">&quot;plugins =&gt; {</span> <span class="Li">metafo =&gt;
+    { ... } }&quot;</span>) supports only one fixed, required key,
+    <span class="Li">&quot;resources&quot;</span>, whose value must be a hash.
+    The contents of <span class="Li">&quot;resources&quot;</span> is a key per
+    named resource, with the value defining that resource.</p>
+<p class="Pp">Any other keys present at the top level will be inherited down
+    inside of each per-resource hash inside the
+    <span class="Li">&quot;resources&quot;</span> stanza, acting as per-resource
+    defaults for anything not defined explicitly there, as explained below.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh">CONFIGURATION - RESOURCES</h1>
+<p class="Pp">All keys within the resources stanza represent named resources,
+    which can be referenced by <span class="Li">&quot;DYNA&quot;</span> RRs in
+    zonefiles (e.g. <span class="Li">&quot;www DYNA</span>
+    <span class="Li">metafo!resource_name&quot;</span>). Each resource's value
+    must be a key-value hash configuring the resource itself. Lightweight
+    structural example:</p>
+<p class="Pp"></p>
+<pre>  plugins =&gt; {
+    metafo =&gt; {
+      resources =&gt; { resA =&gt; { ... }, resB =&gt; { ... } }
+    }
+  }
+</pre>
+<p class="Pp">Within a resource, there are only three specifically meaningful
+    keys:</p>
+<dl class="Bl-tag">
+  <dt>&quot;datacenters = [ A, B, C, ... ]&quot;</dt>
+  <dd>Array of datacenter names, required. This is the set of datacenter name
+      labels used for this resource, in the order they will be checked for
+      failover.</dd>
+  <dt>&quot;dcmap = { ... }&quot;</dt>
+  <dd>Hash, required. The <span class="Li">&quot;dcmap&quot;</span> is a
+      key-value hash where the keys must be exactly the list of datacenters
+      defined in this resource's <span class="Li">&quot;datacenters&quot;</span>
+      list, and the values defined the address configuration of each datacenter.
+      Another minimal structural example down to this level:
+    <p class="Pp"></p>
+    <pre>  plugins =&gt; {
+    metafo =&gt; {
+      resources =&gt; {
+        resA =&gt; {
+          datacenters =&gt; [ dc01, dc02 ],
+          dcmap =&gt; {
+            dc01 =&gt; ???
+            dc02 =&gt; ???
+          }
+        }
+      }
+    }
+  }
+    </pre>
+    <p class="Pp">There are several forms the per-datacenter values
+        (<span class="Li">&quot;???&quot;</span> above) can take, documented in
+        the next section.</p>
+  </dd>
+  <dt>&quot;skip_first = true&quot;</dt>
+  <dd>If this boolean configuration flag is set, the resolver code will skip the
+      first datacenter when resolving this resource. This is mostly useful in
+      the context of the geoip plugin, and is discussed in more detail
+    there.</dd>
+</dl>
+<p class="Pp">Any keys other than
+    <span class="Li">&quot;datacenters&quot;</span> and
+    <span class="Li">&quot;dcmap&quot;</span> at the per-resource level serve as
+    inherited defaults for each per-datacenter configuration inside of the
+    <span class="Li">&quot;dcmap&quot;</span>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PER-DATACENTER_RESOLUTION"><a class="permalink" href="#PER-DATACENTER_RESOLUTION">PER-DATACENTER
+  RESOLUTION</a></h1>
+<p class="Pp">The value of the datacenters within the
+    <span class="Li">&quot;dcmap&quot;</span> section of a resource can take
+    several forms. It is important to understand that for the most part,
+    plugin_metafo does not deal with this level of results itself, but instead
+    delegates the work at this scope to other plugins. These sub-plugins, in
+    turn, also notify metafo of complete failure at their level, which is the
+    information metafo uses to know to fail over to the next datacenter in the
+    list.</p>
+<p class="Pp">The most direct and obvious way to do this is with a direct
+    reference of the form <span class="Li">&quot;%plugin!resource&quot;</span>,
+    as shown here:</p>
+<p class="Pp"></p>
+<pre>  plugins =&gt; {
+    metafo =&gt; {
+      resources =&gt; {
+        resA =&gt; {
+          datacenters =&gt; [ dc1, dc2 ],
+          dcmap =&gt; {
+            dc1 =&gt; %multifo!res_mfo1
+            dc2 =&gt; %multifo!res_mfo2
+          }
+        }
+      }
+    }
+    multifo =&gt; {
+      res_mfo1 =&gt; { lb01 =&gt; 192.0.2.1, lb02 =&gt; 192.0.2.3 }
+      res_mfo2 =&gt; { lb01 =&gt; 192.0.2.111, lb02 =&gt; 192.0.2.113 }
+    }
+  }
+</pre>
+<p class="Pp">However, to make life simpler in the simple cases, plugin_metafo
+    can synthesize the lower-level plugin's configuration from a hash, like
+  so:</p>
+<p class="Pp"></p>
+<pre>  plugins =&gt; {
+    metafo =&gt; {
+      resources =&gt; {
+        resA =&gt; {
+          datacenters =&gt; [ dc1, dc2 ],
+          dcmap =&gt; {
+            dc1 =&gt; { plugin =&gt; multifo, lb01 =&gt; 192.0.2.1, lb02 =&gt; 192.0.2.3 }
+            dc2 =&gt; { lb01 =&gt; 192.0.2.111, lb02 =&gt; 192.0.2.113 }
+            # the above are effectively treated as:
+            # dc1 =&gt; %multifo!metafo_resA_dc1
+            # dc2 =&gt; %multifo!metafo_resA_dc2
+          }
+        }
+      }
+    }
+    # below does not exist in your configfile, but is what plugin_metafo
+    #   synthesizes to support the above:
+    #multifo =&gt; {
+    #  metafo_resA_dc1 =&gt; { lb01 =&gt; 192.0.2.1, lb02 =&gt; 192.0.2.3 }
+    #  metafo_resA_dc2 =&gt; { lb01 =&gt; 192.0.2.111, lb02 =&gt; 192.0.2.113 }
+    #}
+  }
+</pre>
+<p class="Pp">Within a hash like the above, the special key
+    <span class="Li">&quot;plugin&quot;</span> will be stripped out internally
+    and used to name the plugin we synthesize the config for.
+    <span class="Li">&quot;plugin&quot;</span> defaults to
+    <span class="Li">&quot;multifo&quot;</span> if not specified. Note that
+    <span class="Li">&quot;plugin&quot;</span> could also be specified at the
+    resource level (just inside of the <span class="Li">&quot;resA&quot;</span>
+    stanza) to change the default for all
+    <span class="Li">&quot;dcmap&quot;</span> entries in one resource, and could
+    also be specified at the outer-most scope (just inside the
+    <span class="Li">&quot;metafo&quot;</span> stanza) to change the default for
+    all resources.</p>
+<p class="Pp">The defaulted-down <span class="Li">&quot;plugin&quot;</span> is
+    also the default for the direct-reference
+    <span class="Li">&quot;%plugin!resource&quot;</span> form discussed earlier.
+    With the correct default plugin name, it can be shortened to just
+    <span class="Li">&quot;!resource&quot;</span>.</p>
+<p class="Pp">The same sort of key-value inheritance scheme (top-level -&gt;
+    per-resource level -&gt; per-datacenter level) can also be used for any
+    other parameter in synthesized resource configurations specific to the
+    per-datacenter plugin(s) you are using. A common example would be the
+    <span class="Li">&quot;service_types&quot;</span> parameter that most
+    plugins which support monitored address results have. Note that these other
+    values (e.g. service_types) would only apply to synthesized resources,
+    <b>not</b> to direct-references like
+    <span class="Li">&quot;%multifo!foo&quot;</span>, which must be configured
+    entirely separately within that plugin's config.</p>
+<p class="Pp">There are three other possible shortcut values for datacenters: a
+    single direct address, an array of addresses, or a single CNAME hostname. If
+    a single IP address or an array of IP addresses are specified, plugin_metafo
+    will synthesize a hash from them with the plugin forced to
+    <span class="Li">&quot;multifo&quot;</span> (since it cannot know the syntax
+    of hashes for all other plugins, which may differ), and give them address
+    labels <span class="Li">1</span>, <span class="Li">2</span>, etc.</p>
+<p class="Pp">If the value for a datacenter is a single CNAME hostname, no
+    sub-plugin is used, and that CNAME result is returned directly. Note that
+    any resource with such an entry can only be used with
+    <span class="Li">&quot;DYNC&quot;</span> RRs, and not
+    <span class="Li">&quot;DYNA&quot;</span> RRs (as is the case if any
+    subplugin's configuration is capable of returning CNAME data).</p>
+<p class="Pp">A much more complete example, showing off most of the features
+    above:</p>
+<p class="Pp"></p>
+<pre>  plugins =&gt; {
+    metafo =&gt; {
+      plugin =&gt; multifo # change default for all resources
+      service_types =&gt; [ bar ] # default service_types for synthesized below
+      resources =&gt; {
+        resA =&gt; {
+          plugin =&gt; multifo # change default for this resource
+          service_types =&gt; [foo, bar] # services types for synthesized below:
+          datacenters =&gt; [ dc1, dc2, dc3, dc4, dc5, dc6, dc7, dc8 ],
+          dcmap =&gt; {
+            dc1 =&gt; { plugin =&gt; multifo, lb01 =&gt; 192.0.2.1, lb02 =&gt; 192.0.2.3 }
+            dc2 =&gt; { lb01 =&gt; 192.0.2.111, lb02 =&gt; 192.0.2.113 }
+            dc3 =&gt; %simplefo!foo
+            dc4 =&gt; { plugin =&gt; simplefo, primary =&gt; 192.0.2.100, secondary =&gt; 192.0.2.101 }
+            dc5 =&gt; !bar
+            dc6 =&gt; 192.0.2.150
+            dc7 =&gt; [ 192.0.2.180, 192.0.2.181 ]
+            dc8 =&gt; last.resort.example.com.
+          }
+        }
+      }
+    }
+    # below, commented-out sections show configuration synthesized
+    #   by plugin_metafo, whereas the rest are direct-references that
+    #   had to be manually specified here:
+    multifo =&gt; {
+      # metafo_resA_dc1 =&gt; { lb01 =&gt; 192.0.2.1, lb02 =&gt; 192.0.2.3, service_types =&gt; [foo, bar] }
+      # metafo_resA_dc2 =&gt; { lb01 =&gt; 192.0.2.111, lb02 =&gt; 192.0.2.113, service_types =&gt; [foo, bar] }
+      bar =&gt; { asd =&gt; 192.0.2.77, xyz =&gt; 192.0.2.88 }
+      # metafo_resA_dc6 =&gt; { 1 =&gt; 192.0.2.150, service_types =&gt; [foo, bar] }
+      # metafo_resA_dc7 =&gt; { 1 =&gt; 192.0.2.180, 2 =&gt; 192.0.2.181, service_types =&gt; [foo, bar] }
+    }
+    simplefo =&gt; {
+      foo =&gt; { primary =&gt; 192.0.2.80, secondary =&gt; 192.0.2.81 }
+      # metafo_resA_dc4 =&gt; { primary =&gt; 192.0.2.100, secondary =&gt; 192.0.2.101, service_types =&gt; [foo, bar] }
+    }
+  }
+</pre>
+<p class="Pp">Note in the example above that
+    <span class="Li">&quot;%multifo!bar&quot;</span> and
+    <span class="Li">&quot;%simplefo!foo&quot;</span> would have had their
+    default <span class="Li">&quot;service_types = up&quot;</span> rather than
+    the one specified at the metafo level, because they were not synthesized. It
+    would be up to you to keep all of the service_types in sync when using
+    direct references.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNTHETIC_PER-DATACENTER_RESOURCES"><a class="permalink" href="#SYNTHETIC_PER-DATACENTER_RESOURCES">SYNTHETIC
+  PER-DATACENTER RESOURCES</a></h1>
+<p class="Pp">This plugin will synthesize additional, per-datacenter resource
+    names from your configuration. They are named as
+    <span class="Li">&quot;resname/dcname&quot;</span>. For example, if you
+    define a metafo resource named <span class="Li">&quot;prodwww&quot;</span>
+    with the datacenter list <span class="Li">&quot;[ pri, sec ]&quot;</span>,
+    the resource names <span class="Li">&quot;prodwww/pri&quot;</span> and
+    <span class="Li">&quot;prodwww/sec&quot;</span> will be sythesized and can
+    be used in zonefile records, e.g.:</p>
+<p class="Pp"></p>
+<pre>  www-backup 300 DYNA metafo!prodwww/sec
+</pre>
+<p class="Pp">When used, these per-datacenter synthetic resource names cause a
+    given lookup to skip the normal failover process and directly return results
+    from that particular datacenter.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../5/gdnsd.config.html"><b>gdnsd.config</b>(5)</a>, <a class="Xr" href="../5/gdnsd.zonefile.html"><b>gdnsd.zonefile</b>(5)</a>,
+  <a class="Xr" href="../8/gdnsd.html"><b>gdnsd</b>(8)</a></p>
+<p class="Pp">The gdnsd manual.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT_AND_LICENSE"><a class="permalink" href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></h1>
+<p class="Pp">Copyright (c) 2012 Brandon L Black &lt;blblack@gmail.com&gt;</p>
+<p class="Pp">This file is part of gdnsd.</p>
+<p class="Pp">gdnsd is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.</p>
+<p class="Pp">gdnsd is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+    more details.</p>
+<p class="Pp">You should have received a copy of the GNU General Public License
+    along with gdnsd. If not, see &lt;http://www.gnu.org/licenses/&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">gdnsd 3.8.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: gdnsd 3.8.2-1build2 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

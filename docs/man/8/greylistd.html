@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="simple greylisting system for mail transport agents">
+<title>greylistd(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">greylistd(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Greylisting">Greylisting</a></li><li><a href="#greylistd">greylistd</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#Exim_4">Exim 4</a></li><li><a href="#Others">Others</a></li><li><a href="#FILES">FILES</a></li><li><a href="#/etc/greylistd/config">/etc/greylistd/config</a></li><li><a href="#/var/lib/greylistd/states">/var/lib/greylistd/states</a></li><li><a href="#/var/lib/greylistd/triplets">/var/lib/greylistd/triplets</a></li><li><a href="#/var/run/greylistd/socket">/var/run/greylistd/socket</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">greylistd(8)</td>
+    <td class="head-vol">Mail Administration</td>
+    <td class="head-rtitle">greylistd(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">greylistd - simple greylisting system for mail transport
+  agents</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>greylistd</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Greylisting"><a class="permalink" href="#Greylisting">Greylisting</a></h2>
+<p class="Pp">This daemon provides a simple greylisting implementation for use
+    with Exim and other mail transport agents (MTAs). For a more elaborate
+    introduction to greylisting, please refer to Evan Harris' whitepaper at:
+    	http://projects.puremagic.com/greylisting/</p>
+<p class="Pp">Greylisting is a simple but highly effective means to weed out
+    messages that are being delivered via spamware/ratware tools. The idea is to
+    establish whether a prior relationship exists between the sender and the
+    receiver of a message. Most of the time it does, and the delivery proceeds
+    normally.</p>
+<p class="Pp">On the other hand, if no prior relationship exists, the delivery
+    is temporarily rejected, using a 451 SMTP response. Legitimate MTAs will
+    treat this response accordingly, and retry the delivery in a while. In
+    contrast, ratware will usually fail to retry the delivery in a normal
+    fashion.</p>
+<p class="Pp">As a result, greylisting is currently more than 90% effective in
+    blocking incoming junk mail, while nearly all legitimate mail goes
+  through.</p>
+<p class="Pp">Three pieces of information (herafter called a <i>triplet</i>)
+    from the delivery attempt are cached for future reference:</p>
+<p class="Pp">
+  <br/>
+   - The address of the host attempting the delivery
+  <br/>
+   - The envelope sender address (MAIL FROM:)
+  <br/>
+   - The envelope recipient address (RCPT TO:)</p>
+<p class="Pp">If a delivery attempt was temporarily rejected, then after an
+    initial timeout (60 minutes by default), but before a retry expiration time
+    (8 hours by default), new delivery attempts with the same <i>triplet</i> are
+    accepted, and the <i>triplet</i> is added to a whitelist. This allows for
+    delivery retries, presumably from legitimate MTAs, and ensures that future
+    mail from the same contact is not subject to greylisting.</p>
+<p class="Pp">If a whitelisted <i>triplet</i> has not been seen for an extended
+    duration (by default 60 days), it is expired. This prevents unlimited growth
+    of the list.</p>
+<p class="Pp">The downside to greylisting is that legitimate mail from people
+    who have never sent you mail in the past (or, at least, within the last 60
+    days) are subject to a one-hour delay.</p>
+<p class="Pp">The upside is that the current generation of ratware tools will
+    not be able to deliver spam or virii to you. Even if, as a result of lots of
+    sites incorporating the greylisting concept, ratware tools are modified such
+    that temporarily rejected deliveries are retried, you stand an increased
+    chance of blocking such mail. That is because within the mandatory 1-hour
+    initial delay, chances are that the sending host's IP address has been
+    listed in one or more DNS block lists (such as bl.spamcop.net,
+    cbl.abuseat.org, etc..), and can be rejected by your MTA by consulting these
+    lists directly, or via anti-spam software like SpamAssassin.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="greylistd"><a class="permalink" href="#greylistd">greylistd</a></h2>
+<p class="Pp"><b>greylistd</b> is meant to be installed on a server that accepts
+    incoming mail. The MTA on this server connects to the greylistd daemon over
+    a UNIX domain socket (by default <i>/var/run/greylistd/socket</i>), or
+    alternatively via the command <a class="Xr" href="../1/greylist.html"><b>greylist</b>(1)</a>, and submits a string
+    (<i>triplet</i>) that identifies a particular host/sender/recipient
+    relationship. <b>greylistd</b> responds &quot;white&quot;, &quot;grey&quot;
+    or &quot;black&quot;, depending on the current listing status of the
+    provided <i>triplet</i>. Alternatively, if either of the
+    &quot;--white&quot;, &quot;--grey&quot;, or &quot;--black&quot; options
+    precede the data, <b>greylistd</b> responds &quot;true&quot; or
+    &quot;false&quot;, indicating whether the triplet is currently in the
+    corresponding state.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Exim_4"><a class="permalink" href="#Exim_4">Exim 4</a></h2>
+<p class="Pp">A sample greylistd statement for Exim 4 is provided with this
+    package, and can normally be found in
+    &quot;/usr/share/doc/greylistd/examples/exim4-acl-example.txt&quot;.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Others"><a class="permalink" href="#Others">Others</a></h2>
+<p class="Pp">What others? :-)</p>
+<p class="Pp">A prerequisite to greylisting in general is the ability to perform
+    custom filtering throughout the various stages in the SMTP transaction, most
+    notably after the <b>RCPT TO:</b> SMTP command. In particular,
+    <a class="Xr" href="../8/greylistd.html"><b>greylistd</b>(8)</a> can be invoked either over a UNIX domain socket or via
+    the supplied <a class="Xr" href="../1/greylist.html"><b>greylist</b>(1)</a> utility.</p>
+<p class="Pp">Although <a class="Xr" href="../8/greylistd.html"><b>greylistd</b>(8)</a> is written mainly with Exim in mind,
+    it should be possible to use it with any MTA that:</p>
+<dl class="Bl-tag">
+  <dt> -</dt>
+  <dd>Allows arbitrary strings to be passed on via a UNIX domain socket
+      (<b>/var/run/greylistd/socket</b>) or supplied to external programs
+      (<a class="Xr" href="../1/greylist.html"><b>greylist</b>(1)</a>).</dd>
+  <dt> -</dt>
+  <dd>Can defer the incoming delivery, based on the response.</dd>
+</dl>
+<p class="Pp">Some MTAs either have limited or no support for such external
+    filters in the SMTP transaction (e.g. Sendmail), or define a very custom
+    interface for such filters (e.g. Postifx &quot;Policy Servers&quot;).</p>
+<p class="Pp">That said, solutions exist for these other MTAs as well. For
+    Postfix, check into &quot;postgrey&quot;, and for Sendmail there is
+    &quot;relaydelay&quot;. For other MTAs, check the links on Evan Harris'
+    greylisting project page:</p>
+<p class="Pp">
+  <br/>
+   http://projects.puremagic.com/greylisting/links.html</p>
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="/etc/greylistd/config"><a class="permalink" href="#/etc/greylistd/config">/etc/greylistd/config</a></h2>
+<p class="Pp">Configuration settings. Currently, this file consists of three
+    sections:</p>
+<dl class="Bl-tag">
+  <dt>[timeout]</dt>
+  <dd>Lists various timeouts used to determine how long to keep a new
+      <i>triplet</i> greylisted, and when to expire previosly known
+      <i>triplet</i>s.</dd>
+  <dt>[socket]</dt>
+  <dd>Specifies path and permissions of the UNIX domain socket on which
+      <b>greylistd</b> will listen.</dd>
+  <dt>[data]</dt>
+  <dd>Specifies the paths to the data files, containing the data items and
+      statistics, as well as an <i>update interval</i> specifying how often data
+      will be written to these files.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="/var/lib/greylistd/states"><a class="permalink" href="#/var/lib/greylistd/states">/var/lib/greylistd/states</a></h2>
+<p class="Pp">(default path, can be modified in the configuration file)</p>
+<p class="Pp">Runtime data. Theare are four sections: <b>[white]</b>,
+    <b>[grey]</b>, <b>[black]</b> and <b>[statistics]</b>. The first three
+    sections consist of lines of the form:</p>
+<p class="Pp">
+  <br/>
+   <i>hash</i> = <i>lastseen firstseen count</i></p>
+<p class="Pp">where:</p>
+<dl class="Bl-tag">
+  <dt> -</dt>
+  <dd><i>hash</i> is a 32-bit value representing a given <i>triplet</i>,</dd>
+  <dt> -</dt>
+  <dd><i>lastseen</i> is a 32-bit value representing the timestamp of last
+      delivery attempt for this triplet,</dd>
+  <dt> -</dt>
+  <dd><i>firstseen</i> is a 32-bit value representing the timestamp of first
+      known delivery attempt for this triplet,</dd>
+  <dt> -</dt>
+  <dd><i>count</i> is a 32-bit value representing the number of delivery
+      attempts that have been made for this triplet in this time period.</dd>
+</dl>
+<p class="Pp">The <b>[statistics]</b> section contains a counter for each of the
+    three lists, indicating how many items that has ever made its way into these
+    lists by way of the <b>update</b> protocol.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="/var/lib/greylistd/triplets"><a class="permalink" href="#/var/lib/greylistd/triplets">/var/lib/greylistd/triplets</a></h2>
+<p class="Pp">(default path, can be modified in the configuration file)</p>
+<p class="Pp">Unhashed data - i.e. the original triplets passed to greylistd.
+    Internally, <a class="Xr" href="../8/greylistd.html"><b>greylistd</b>(8)</a> hashes the provided data into a single
+    32-bit value for efficiency. Prior to version 0.6, the original data was not
+    retained; as of version 0.6, data is optionally saved into this file.</p>
+<p class="Pp">Data items are saved in the form:
+  <br/>
+   <i>hash</i> = <i>data</i> ...</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="/var/run/greylistd/socket"><a class="permalink" href="#/var/run/greylistd/socket">/var/run/greylistd/socket</a></h2>
+<p class="Pp">(default path, can be modified in the configuration file)</p>
+<p class="Pp">The UNIX domain socket providing the main interface to
+    &quot;greylistd&quot;. The MTA can either connect to this socket directly,
+    or use the supplied &quot;greylist&quot; utility to do so.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Because <i>triplet</i>s and timestamps are hashed into simple
+    32-bit values, there is a very slim chance that deliveries that should have
+    been greylisted are allowed through. More so for very busy sites.</p>
+<p class="Pp">Commands are actually executed in the daemon, not the
+    &quot;greylist&quot; client. If the user who invokes &quot;greylist&quot;
+    interactively has a different time zone than the daemon process, time and
+    date representations in the output will reflect those of the daemon.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">This python script and manual page is written by Tor Slettnes,
+    originally for Debian GNU/Linux.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright &#x00A9; 2004-2005 Tor Slettnes.</p>
+<p class="Pp">This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or (at your
+    option) any later version.</p>
+<p class="Pp">This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+    Public License for more details.</p>
+<p class="Pp">On a Debian GNU/Linux system, the full text of the GPL is
+    available in /usr/share/common-licenses/GPL. It is also available at:</p>
+<p class="Pp">
+  <br/>
+   http://www.gnu.org/licenses/gpl.html</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<dl class="Bl-tag">
+  <dt id="http://projects.puremagic.com/greylisting/"><a class="permalink" href="#http://projects.puremagic.com/greylisting/">http://projects.puremagic.com/greylisting/</a></dt>
+  <dd>Evan Harris' greylisting whitepaper</dd>
+  <dt id="greylist"><a class="permalink" href="#greylist"><a class="Xr" href="../1/greylist.html"><b>greylist</b>(1)</a></a></dt>
+  <dd>Command-line interface to the greylist daemon.</dd>
+  <dt id="greylistd-setup-exim4"><a class="permalink" href="#greylistd-setup-exim4"><a class="Xr" href="../8/greylistd-setup-exim4.html"><b>greylistd-setup-exim4</b>(8)</a></a></dt>
+  <dd>Utility to add/remove support for greylistd in Exim 4 configuration
+    files.</dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">0.8</td>
+    <td class="foot-os">Tor Slettnes</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: greylistd 0.9.0.2+nmu1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

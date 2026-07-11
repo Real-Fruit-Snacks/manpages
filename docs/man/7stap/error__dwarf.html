@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="dwarf debuginfo quality problems">
+<title>error::dwarf(7stap) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">error::dwarf(7stap)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#ALTERNATIVES">ALTERNATIVES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ERROR::DWARF(7stap)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">ERROR::DWARF(7stap)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">error::dwarf - dwarf debuginfo quality problems</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Systemtap sometimes relies on ELF/DWARF debuginfo for programs
+    being instrumented to locate places to probe, or context variables to
+    read/write, just like a symbolic debugger does. Even though examination of
+    the program's source code may show variables or lines where probes may be
+    desired, the compiler must preserve information about them for systemtap (or
+    a debugger such as gdb) to get pinpoint access to the desired information.
+    If a script requires such data, but the compiler did not preserve enough of
+    it, pass-2 errors may result.</p>
+<p class="Pp">Common conditions that trigger these problems include:</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="debuginfo"><a class="permalink" href="#debuginfo">debuginfo missing or
+    mismatching</a></dt>
+  <dd>Sometimes debuginfo is installed, but does not match the binaries being
+      probed. See the <i>warning::debuginfo</i> man page for more help for
+      locating correct debuginfo.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="compiler"><a class="permalink" href="#compiler">compiler
+    version</a></dt>
+  <dd>Prior to GCC version 4.5, debuginfo quality was fairly limited. Often
+      developers were advised to build their programs with <i>-O0 -g</i> flags
+      to disable optimization. GCC version 4.5 introduced a facility called
+      &quot;variable-tracking assignments&quot; that allows it to generate
+      high-quality debuginfo under full <i>-O2 -g</i> optimization. It is not
+      perfect, but much better than before. Note that, due to another gcc bug
+      (PR51358) <i>-O0 -g</i> can actually sometimes make debuginfo quality
+      worse than for <i>-O2 -g</i>.
+    <p class="Pp">Another related problem involves debuginfo quality for the
+        prologue area of a function (PR15123), wherein a program compiled with
+        CFLAGS=-mfentry (especially the kernel, for ftrace) may lack accurate
+        debuginfo for the entry instructions for gcc prior to version 4.8. If
+        able, arrange to compile your programs with <i>-grecord-gcc-switches</i>
+        CFLAGS, and/or try rerunning systemtap with
+        <i>$PR15123_ASSUME_MFENTRY=1</i>.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="linux"><a class="permalink" href="#linux">linux kbuild damaging
+    debuginfo quality</a></dt>
+  <dd>An upstream kernel commit #2062afb4f804a put -fno-var-tracking-assignments
+      into KCFLAGS, dramatically reducing debuginfo quality, which can cause
+      debuginfo failures. The simplest fix is to <b>erase, excise, nay,
+      eradicate</b> this line from the top level linux Makefile:
+    <p class="Pp">KBUILD_CFLAGS += [...] -fno-var-tracking-assignments [...]</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="function"><a class="permalink" href="#function">function
+    inlining</a></dt>
+  <dd>Even modern gcc sometimes has problems with parameters for inlined
+      functions. It may be necessary to change the script to probe at a slightly
+      different place. Try a <i>.statement()</i> probe, instead of a
+      <i>.function()</i> probe, somewhere a few source lines into the body of
+      the inlined function. Or try putting a probe at the call site of the
+      inlined function. Or use the <i>if @defined($var) { ... }</i> script
+      language construct to test for the resolvability of the context variable
+      before using it.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="instruction"><a class="permalink" href="#instruction">instruction
+    reordering</a></dt>
+  <dd>Heavily optimized code often smears the instructions from multiple source
+      statements together. This can leave systemtap with no place to choose to
+      place a probe, especially a statement probe specified by line number.
+      Systemtap may advise to try a nearby line number, but these may not work
+      well either. Consider placing a probe by a statement wildcard or line
+      number range.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="elfutils"><a class="permalink" href="#elfutils">elfutils
+    configuration</a></dt>
+  <dd>It is possible that the DWARF debuginfo being sought is available, but not
+      in a format acceptable to the copy of elfutils used by systemtap. For
+      example, your copy of gcc might produce compressed debuginfo
+      (<i>.zdebug_*</i> ELF sections or <i>.xz</i> files) while your copy of
+      elfutils might lack appropriate decompression capabilities. Unfortunately,
+      there is no easy way to tell if this is the problem. If you're building
+      your own copy of elfutils, ensure all decompression library
+      headers/libraries are available at build time.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="debuginfo~2"><a class="permalink" href="#debuginfo~2">debuginfo
+    configuration</a></dt>
+  <dd>Some tools may generate debuginfo that is unsupported by systemtap, such
+      as the linux kernel CONFIG_DEBUG_INFO_SPLIT (<i>.dwo</i> files) option.
+      Stick with plain ELF/DWARF (optinally split, Fedora-style), if possible.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ALTERNATIVES"><a class="permalink" href="#ALTERNATIVES">ALTERNATIVES</a></h1>
+<p class="Pp">In order to reduce reliance on ELF/DWARF debuginfo, consider the
+    use of statically compiled-in instrumentation, such as kernel tracepoints,
+    or <i>&lt;sys/sdt.h&gt;</i> userspace markers. Such instrumentation hook
+    sites are relatively low cost (just one NOP instruction for sdt.h), and
+    nearly guarantee the availability of parameter data and a reliable probe
+    site, all without reliance on debuginfo.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<pre><a class="Xr" href="../1/stap.html"><i>stap</i>(1)</a>,
+<i>http://dwarfstd.org/</i>,
+<i>http://sourceware.org/systemtap/wiki/TipContextVariables</i>,
+<i>http://gcc.gnu.org/wiki/Var_Tracking_Assignments</i>,
+<a class="Xr" href="../7stap/warning__debuginfo.html"><i>warning::debuginfo</i>(7stap)</a>,
+<a class="Xr" href="../7stap/warning__buildid.html"><i>warning::buildid</i>(7stap)</a>,
+<a class="Xr" href="../7stap/error__reporting.html"><i>error::reporting</i>(7stap)</a></pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: systemtap-doc 5.0-2ubuntu1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

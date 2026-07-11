@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Load balance GBrowse using Amazon Web Service instances">
+<title>gbrowse_aws_balancer(1p) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">gbrowse_aws_balancer(1p)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#COMMAND-LINE_OPTIONS">COMMAND-LINE
+  OPTIONS</a></li><li><a href="#PREREQUISITES">PREREQUISITES</a></li><li><a href="#THE_CONFIGURATION_FILE">THE
+  CONFIGURATION FILE</a></li><li><a href="#_LOAD_TABLE_">[LOAD
+  TABLE]</a></li><li><a href="#_MASTER_">[MASTER]</a></li><li><a href="#_SLAVE_">[SLAVE]</a></li><li><a href="#CONFIGURING_AWS_CREDENTIALS">CONFIGURING
+  AWS CREDENTIALS</a></li><li><a href="#USING_THE_INIT_SCRIPT">USING
+  THE INIT SCRIPT</a></li><li><a href="#DEBUGGING_SLAVE_PROBLEMS">DEBUGGING
+  SLAVE PROBLEMS</a></li><li><a href="#THE_GBROWSE_SYNC_AWS_SLAVE.PL_SCRIPT">THE
+  GBROWSE_SYNC_AWS_SLAVE.PL SCRIPT</a></li><li><a href="#ENVIRONMENT_VARIABLES">ENVIRONMENT
+  VARIABLES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GBROWSE_AWS_BALANCER(1p)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">GBROWSE_AWS_BALANCER(1p)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gbrowse_aws_balancer.pl - Load balance GBrowse using Amazon Web
+    Service instances</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Launch the balancer in the foreground</p>
+<p class="Pp"></p>
+<pre> % gbrowse_aws_balancer.pl --conf         /etc/gbrowse2/aws_balancer.conf \
+                           --access_key   XYZZY \
+                           --secret_key   Plugh
+</pre>
+<p class="Pp">Launch the balancer in the background as a daemon:</p>
+<p class="Pp"></p>
+<pre> % gbrowse_aws_balancer.pl --background \
+                           --conf         /etc/gbrowse2/aws_balancer.conf \
+                           --access_key   XYZZY \
+                           --secret_key   Plugh \
+                           --logfile      /var/log/gbrowse/aws_balancer.log \
+                           --pidfile      /var/run/aws_balancer.pid \
+                           --user         nobody
+</pre>
+<p class="Pp">Kill a running balancer daemon:</p>
+<p class="Pp"></p>
+<pre> % gbrowse_aws_balancer.pl --kill \
+                           --conf         /etc/gbrowse2/aws_balancer.conf \
+                           --access_key   XYZZY \
+                           --secret_key   Plugh \
+                           --logfile      /var/log/gbrowse/aws_balancer.log \
+                           --pidfile      /var/run/aws_balancer.pid \
+                           --user         nobody
+</pre>
+<p class="Pp">Use the init script:</p>
+<p class="Pp"></p>
+<pre> % sudo /etc/init.d/gbrowse-aws-balancer start
+ % sudo /etc/init.d/gbrowse-aws-balancer restart
+ % sudo /etc/init.d/gbrowse-aws-balancer stop
+ % sudo /etc/init.d/gbrowse-aws-balancer status
+</pre>
+<p class="Pp">Synchronize the master with the slave image:</p>
+<p class="Pp"></p>
+<pre> % sudo gbrowse_sync_aws_slave.pl -c /etc/gbrowse2/aws_balancer.conf
+ syncing data....done
+ data stored in snapshot(s) snap-12345
+ updated conf file, previous version in /etc/gbrowse2/aws_balancer.conf.bak
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This script launches a process that monitors the load on the local
+    GBrowse instance. If the load exceeds certain predefined levels, then it
+    uses Amazon web services to launch one or more GBrowse slave instances. The
+    work of rendering tracks is then handed off to these instances, reducing the
+    load on the local instance. Slave instances are implemented using Amazon's
+    spot instance mechanism, which allows you to run EC2 instances at a fraction
+    of the price of a standard on-demand instance.</p>
+<p class="Pp">Load balancing is most convenient to run in conjunction with a
+    GBrowse instance running within the Amazon Web Service EC2 cloud, but it can
+    also be used to supplement an instance running on local hardware. The
+    sections below describe the configuration needed for these two
+  scenarios.</p>
+<p class="Pp">Note that this script requires you to have an Amazon Web Services
+    account, and for the VM::EC2 Perl module to be installed on the machine that
+    is running this script.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COMMAND-LINE_OPTIONS"><a class="permalink" href="#COMMAND-LINE_OPTIONS">COMMAND-LINE
+  OPTIONS</a></h1>
+<p class="Pp">Options can be abbreviated. For example, you can use -a for
+    --access_key:</p>
+<p class="Pp"></p>
+<pre>      --access_key   EC2 access key
+      --secret_key   EC2 secret key
+      --conf         Path to balancer configuration file
+      --pidfile      Path to file that holds daemon process ID
+      --logfile      Path to file that records log messages
+      --user         User to run daemon under (script must be
+                         started as root)
+      --verbosity    Logging verbosity. 0=least, 3=most.
+      --background   Go into the background and run as daemon.
+      --kill         Kill a previously-launched daemon. Must provide
+                         the same --pidfile argument as used when
+                         the daemon was started.
+      --ssh_key      Enable ssh login on the slave(s) using the specified
+                         AWS ssh keypair. Login will only be available
+                         from the host this script is run on.
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PREREQUISITES"><a class="permalink" href="#PREREQUISITES">PREREQUISITES</a></h1>
+<p class="Pp">1. You must have the Perl modules VM::EC2 (v1.21 or later), and
+    Parse::Apache::ServerStatus installed on the machine you intend to run the
+    balancer on. The balancer must run on the same machine that GBrowse is
+    running on. To install these modules, run:</p>
+<p class="Pp"></p>
+<pre> perl -MCPAN -e 'install VM::EC2; install Parse::Apache::ServerStatus'
+</pre>
+<p class="Pp">2. You must have an account on Amazon Web Services and must be
+    familiar with using the AWS Console to launch and terminate EC2 instances.
+    If you run GBrowse on local hardware, then you will need to provide the
+    script with your access key and secret access key when launching it. It may
+    be safer to create and use an IAM user (Identity and Access Management) who
+    has more limited privileges. See CONFIGURATION below for some
+  suggestions.</p>
+<p class="Pp">3. GBrowse must be running under Apache.</p>
+<p class="Pp">4. Apache must be configured to enable the mod_status module and
+    to allow password-less requests to this module from localhost
+    (http://httpd.apache.org/docs/2.2/mod/mod_status.html). This is the
+    recommended configuration:</p>
+<p class="Pp">&lt;IfModule mod_status.c&gt;
+  <br/>
+   ExtendedStatus on
+  <br/>
+   &lt;Location /server-status&gt;
+  <br/>
+   SetHandler server-status
+  <br/>
+   Order deny,allow
+  <br/>
+   Deny from all
+  <br/>
+   Allow from 127.0.0.1 ::1
+  <br/>
+   &lt;/Location&gt; &lt;/IfModule&gt;</p>
+<p class="Pp">5. If you are running GBrowse on local hardware, the local
+    hardware must be connected to the Internet or have a Virtual Private Cloud
+    (VPC) connection to Amazon.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THE_CONFIGURATION_FILE"><a class="permalink" href="#THE_CONFIGURATION_FILE">THE
+  CONFIGURATION FILE</a></h1>
+<p class="Pp">The balancer requires a configuration file, ordinarily named
+    aws_balancer.conf and located in the GBrowse configuration directory (e.g.
+    /etc/gbrowse2). The configuration file has three sections:</p>
+<section class="Ss">
+<h2 class="Ss" id="_LOAD_TABLE_"><a class="permalink" href="#_LOAD_TABLE_">[LOAD
+  TABLE]</a></h2>
+<p class="Pp">This section describes the number of slave instances to launch for
+    different load levels. It consists of a three-column space-delimited table
+    with the following columns:</p>
+<p class="Pp"></p>
+<pre> &lt;requests/sec&gt;    &lt;min instances&gt;    &lt;max instances&gt;
+</pre>
+<p class="Pp">For example, the first few rows of the default table reads:</p>
+<p class="Pp"></p>
+<pre> 0.1     0   1
+ 0.5     0   2
+ 1.0     1   3
+ 2.0     2   4
+</pre>
+<p class="Pp">This is read as meaning that when the number of requests per
+    second on the GBrowse server is greater than 0.1 but less than 0.5, run at
+    least 0 slave servers but no more than 1 slave server. When the number of
+    requests is between 0.5 and 1.0, run between 0 and 2 slave instances. When
+    the rate is between 1.0 and 2.0, run at least 1 slave instance, but no more
+    than 3. Load levels below the lowest value on the table (0.1 in this case)
+    will run no slave servers, while levels above the highest value on the table
+    (2.0) will launch the minimum and maximum number of slaves for that load
+    value (between 2 and 4 in this case).</p>
+<p class="Pp">The reason for having a range of instance counts for each load
+    range is to avoid unecessarily launching and killing slaves repeatedly when
+    the load fluctuates around the boundary. You may wish to tune the values in
+    this table to maximize the performance of your GBrowse installation.</p>
+<p class="Pp">Note that the server load includes both GBrowse requests and all
+    other requests on the web server. If this is a problem, you may wish to run
+    GBrowse on a separate Apache port or virtual host.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_MASTER_"><a class="permalink" href="#_MASTER_">[MASTER]</a></h2>
+<p class="Pp">The options in this sections configure the master GBrowse
+    instance. Three options are recognized:</p>
+<dl class="Bl-tag">
+  <dt id="external_ip"><a class="permalink" href="#external_ip">external_ip
+    (optional)</a></dt>
+  <dd>This controls the externally-visible IP address of the GBrowse master,
+      which is needed by the firewall rule for master/slave communications. This
+      option can usually be left blank: when the master is running on EC2, then
+      the IP address is known; when the master is running on a local machine,
+      the externally-visible IP address is looked up using a web service. It is
+      only in the rare case that this lookup is incorrect that you will need to
+      configure this option yourself.
+    <p class="Pp">The external IP that the balancer script finds can be seen in
+        a log message when verbosity is 2 or higher.</p>
+  </dd>
+  <dt id="poll_interval"><a class="permalink" href="#poll_interval">poll_interval
+    (required)</a></dt>
+  <dd>This is the interval, in minutes, that the balancer script will
+      periodically check the Apache load and adjust the number of slave
+      instances. The suggested value is 0.5 (30s intervals).</dd>
+  <dt id="server_status_url"><a class="permalink" href="#server_status_url">server_status_url
+    (required)</a></dt>
+  <dd>This is the URL to call to fetch the server load from Apache's
+      server_status module.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_SLAVE_"><a class="permalink" href="#_SLAVE_">[SLAVE]</a></h2>
+<p class="Pp">The options in this section apply to the render slaves launched by
+    the balancer.</p>
+<dl class="Bl-tag">
+  <dt id="instance_type"><a class="permalink" href="#instance_type">instance_type
+    (required)</a></dt>
+  <dd>This is the EC2 instance type. Faster instances give better performance.
+      High-IO instances give the best performance, but cost more.</dd>
+  <dt id="spot_bid"><a class="permalink" href="#spot_bid">spot_bid
+    (required)</a></dt>
+  <dd>This is the maximum, in US dollars, that you are willing to pay per hour
+      to run a slave spot instance. Typically you will pay less than the bid
+      price. If the spot price increases beyond the maximum bid, then the spot
+      instances will be terminated and the balancer will wait until the spot
+      price decreases below the maximum bid before launching additional
+    slaves.</dd>
+  <dt id="ports"><a class="permalink" href="#ports">ports (required)</a></dt>
+  <dd>This is a space-delimited list of TCP port numbers on which the render
+      slaves should listen for incoming render requests from the master.
+      Generally it is only necessary to listen on a single port; multiple ports
+      were supported for performance reasons in earlier single-threaded versions
+      of the slave.</dd>
+  <dt id="region"><a class="permalink" href="#region">region (required for local
+    masters)</a></dt>
+  <dd>The Amazon region in which to launch slaves. When the master is running in
+      EC2, this is automatically chosen to be the same as the master's region
+      and can be left blank.</dd>
+  <dt id="image_id"><a class="permalink" href="#image_id">image_id (required for
+    local masters)</a></dt>
+  <dd>This is the ID of the AMI that will be used to launch slaves. The correct
+      value will be filled in when you run the gbrowse_sync_aws_slave.pl. You
+      can leave this value blank if the GBrowse master is being run within an
+      EC2 instance, in which case the slave will be launched using the same AMI
+      that was used to launch the master.</dd>
+  <dt id="data_snapshots"><a class="permalink" href="#data_snapshots">data_snapshots
+    (required for local masters)</a></dt>
+  <dd>Before launching the slave, attach EBS volumes created from one or more
+      volume snapshots listed in this option. Multiple snapshots can be attached
+      by providing a space-delimited list:
+    <p class="Pp"></p>
+    <pre> data_snapshots = snap-12345 snap-abcdef
+    </pre>
+    <p class="Pp">The gbrowse_sync_aws_slave.pl script will automatically
+        maintain this option for you.</p>
+  </dd>
+  <dt id="availability_zone"><a class="permalink" href="#availability_zone">availability_zone
+    (optional)</a></dt>
+  <dd>This option will force the slave into the named availability zone. If not
+      specified, an availability zone in the current region will be chosen at
+      random.</dd>
+  <dt id="subnet"><a class="permalink" href="#subnet">subnet (optional)</a></dt>
+  <dd>If you are in a VPC environment, then this option will force the slave
+      into the named subnet. Ordinarily the balancer script will launch slaves
+      into non-VPC instances if the master is running on local hardware or a
+      non-VPC EC2 instance. The balancer will launch slaves into the same VPC
+      subnet as the master if the master is running on a VPC instance.</dd>
+  <dt id="security_group"><a class="permalink" href="#security_group">security_group
+    (optional)</a></dt>
+  <dd>This specifies the security group to assign the slaves to. If not
+      specified, a properly-configured security group will be created as needed
+      and destroyed when the balancer script exits. If you choose to manage the
+      security group manually, be sure to configure the firewall ingress rule to
+      allow access to the slave port(s) (see the &quot;ports&quot; option) from
+      the master's group or IP address.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURING_AWS_CREDENTIALS"><a class="permalink" href="#CONFIGURING_AWS_CREDENTIALS">CONFIGURING
+  AWS CREDENTIALS</a></h1>
+<p class="Pp">To work, the balancer script must be able to make spot instance
+    requests and to monitor and terminate instances. To perform these operations
+    the script must have access to the appropriate AWS credentials (access key
+    and secret key) on the command line or as environment variables.</p>
+<p class="Pp">While the script does its best to shield the credentials from
+    prying eyes, there is still a chance that the credentials can be intercepted
+    by another party with login access to the machine that the master runs on
+    and use the credentials to run up your AWS bill. For this reason some people
+    will prefer to create an EC2 account or role with limited access to AWS
+    resources.</p>
+<dl class="Bl-tag">
+  <dt>1. Your personal EC2 credentials</dt>
+  <dd>You may provide the balancer script with --access_key and --secret_key
+      command line arguments using your personal EC2 credentials or set the
+      environment variables EC2_ACCESS_KEY and EC2_SECRET_KEY. If not provided,
+      the script will interactively prompt for one or both of these values.
+    <p class="Pp">This is the simplest method, but has the risk that if the
+        credentials are intercepted by a malicious third party, he or she gains
+        access to all your EC2 resources.</p>
+  </dd>
+  <dt>2. The credentials of a restricted IAM account</dt>
+  <dd>You may use the Amazon AWS console to create an IAM (Identity Access and
+      Management) user with restricted permissions, and provide that user's
+      credentials to the script on the command line or with environment
+      variables. The following IAM permission policy is the minimum needed for
+      the balancer script to work properly:
+    <p class="Pp"></p>
+    <pre> {
+  &quot;Statement&quot;: [
+    {
+      &quot;Sid&quot;: &quot;BalancerPolicy&quot;,
+      &quot;Action&quot;: [
+        &quot;ec2:AuthorizeSecurityGroupEgress&quot;,
+        &quot;ec2:AuthorizeSecurityGroupIngress&quot;,
+        &quot;ec2:CreateSecurityGroup&quot;,
+        &quot;ec2:DeleteSecurityGroup&quot;,
+        &quot;ec2:DescribeAvailabilityZones&quot;,
+        &quot;ec2:DescribeImageAttribute&quot;,
+        &quot;ec2:DescribeImages&quot;,
+        &quot;ec2:DescribeInstances&quot;,
+        &quot;ec2:DescribeInstanceAttribute&quot;,
+        &quot;ec2:DescribeInstanceStatus&quot;,
+        &quot;ec2:DescribeSecurityGroups&quot;,
+        &quot;ec2:DescribeVolumes&quot;,
+        &quot;ec2:DescribeSnapshots&quot;,
+        &quot;ec2:DescribeSpotInstanceRequests&quot;,
+        &quot;ec2:RequestSpotInstances&quot;,
+        &quot;ec2:CreateKeyPair&quot;,
+        &quot;ec2:DescribeKeyPairs&quot;,
+        &quot;ec2:DeleteKeyPair&quot;,
+        &quot;ec2:RunInstances&quot;,
+        &quot;ec2:TerminateInstances&quot;,
+        &quot;ec2:CreateSnapshot&quot;,
+        &quot;ec2:CreateVolume&quot;,
+        &quot;ec2:CreateTags&quot;,
+        &quot;ec2:DeleteTags&quot;
+      ],
+      &quot;Effect&quot;: &quot;Allow&quot;,
+      &quot;Resource&quot;: [
+        &quot;*&quot;
+      ]
+    }
+  ]
+ }
+    </pre>
+    <p class="Pp">Note that even with these restrictions, an unauthorized user
+        with access to the credentials could still launch a large number of spot
+        instances or terminate bona fide instances. This is just a fundamental
+        limitation of the granularity of EC2's permissions system.</p>
+  </dd>
+  <dt>3. Create an IAM role</dt>
+  <dd>If the master is running on an EC2 instance, then the most convenient way
+      to pass credentials is by assigning the instance an IAM role. The balancer
+      script can then obtain temporary credentials by making internal EC2 calls.
+      The credentials do not need to be provided on the command line or in
+      environment variables, and are only valid for short periods of time,
+      limiting the effect of theft.
+    <p class="Pp">First, create an IAM role using the Amazon Console. Select
+        IAM-&gt;Roles-&gt;Create New Role, and give the role the name
+        &quot;GBrowseMaster&quot; (or whatever you prefer).</p>
+    <p class="Pp">Next, when prompted for the role type, select AWS Service
+        Roles-&gt;Amazon EC2.</p>
+    <p class="Pp">On the Select Role Permissions screen, choose &quot;Custom
+        Policy&quot;. Give the policy a name like &quot;GBrowseBalancer&quot;
+        and cut and paste into the Policy Document text field the permission
+        policy listed above in the instructions for creating a restriced IAM
+        account. Be sure to remove the whitespace before the beginning of the
+        first curly brace, or the console will complain about an invalid
+      policy.</p>
+    <p class="Pp">You only need to do this once. After this, whenever you launch
+        an instance that will run the GBrowse master (typically from a GBrowse
+        AMI), specify the &quot;GBrowseMaster&quot; IAM role name. This can be
+        done from the AWS console's instance launch wizard, or by passing the -p
+        option to the ec2-run-instances command-line tool.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USING_THE_INIT_SCRIPT"><a class="permalink" href="#USING_THE_INIT_SCRIPT">USING
+  THE INIT SCRIPT</a></h1>
+<p class="Pp">The gbrowse-aws-balancer init script can be used on Ubuntu and
+    Debian-based systems to simplify launching the balancer at boot time. It can
+    be found in /etc/init.d by default, and is called in the following
+  manner:</p>
+<p class="Pp">start the service
+  <br/>
+   % sudo /etc/init.d/gbrowse-aws-balancer start</p>
+<p class="Pp">stop the service
+  <br/>
+   % sudo /etc/init.d/gbrowse-aws-balancer stop</p>
+<p class="Pp">stop and restart the service
+  <br/>
+   % sudo /etc/init.d/gbrowse-aws-balancer restart</p>
+<p class="Pp">show the status of the service (running, stopped)
+  <br/>
+   % sudo /etc/init.d/gbrowse-aws-balancer status</p>
+<p class="Pp">The various script options are all set in a single configuration
+    file named /etc/default/gbrowse-aws-balancer. The distribution contents of
+    this file looks like this:</p>
+<p class="Pp"></p>
+<pre> DAEMON=/usr/local/bin/gbrowse_aws_balancer.pl
+ USER=www-data
+ RUNDIR=/var/run/gbrowse
+ LOGDIR=/var/log/gbrowse
+ CONFFILE=/etc/gbrowse2/aws_balancer.conf
+ ACCESS_KEY=YOUR_EC2_ACCESS_KEY_HERE
+ SECRET_KEY=YOUR_EC2_SECRET_KEY_HERE
+ VERBOSITY=3
+</pre>
+<p class="Pp">The variables in this file set the location of the balancer
+    script, the location of its configuration file, the verbosity to run with,
+    and where to write the script's process ID and log information. In addition,
+    you can place your (or another authorized user's) EC2 access and secret key
+    in this file. Please make sure that this file is only readable by root.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DEBUGGING_SLAVE_PROBLEMS"><a class="permalink" href="#DEBUGGING_SLAVE_PROBLEMS">DEBUGGING
+  SLAVE PROBLEMS</a></h1>
+<p class="Pp">If slaves are returning track renderinge errors, then there is
+    likely an issue with data synchronization. This typically happens when the
+    data on the master differs from the data on the slave, or path names are
+    different on the two systems.</p>
+<p class="Pp">To debug this, launch the script with the -ssh_key option:</p>
+<p class="Pp"></p>
+<pre>  % gbrowse_aws_balancer.pl --conf         /etc/gbrowse2/aws_balancer.conf \
+                           --access_key   XYZZY \
+                           --secret_key   Plugh \
+                           --ssh_key      John_Doe_default
+</pre>
+<p class="Pp">You may then ssh into the slave using the specified ssh key and
+    the username &quot;admin&quot;. A useful thing to do is to tail the slave
+    log file:</p>
+<p class="Pp"></p>
+<pre> ssh -i .ssh/John_Doe_default admin@54.280.19.203 \
+        tail -f /var/log/gbrowse/gbrowse_slave
+</pre>
+<p class="Pp">Replace the IP number with the correct IP number of one of the
+    running slaves, which you can find in /etc/gbrowse2/renderfarm.conf.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THE_GBROWSE_SYNC_AWS_SLAVE.PL_SCRIPT"><a class="permalink" href="#THE_GBROWSE_SYNC_AWS_SLAVE.PL_SCRIPT">THE
+  GBROWSE_SYNC_AWS_SLAVE.PL SCRIPT</a></h1>
+<p class="Pp">The gbrowse_sync_aws_script.pl script should be run on the master
+    each time you add a new database to an existing data source, or if you add a
+    whole new data source. What it does is to prepare a new Amazon EBS snapshot
+    containing a copy of all the data needed for the GBrowse slave to run. This
+    snapshot is then attached to new slave instances.</p>
+<p class="Pp">After running, it updates the conf file with the current versions
+    of the slave AMI and the data snapshot.</p>
+<p class="Pp"></p>
+<pre> % sudo gbrowse_sync_aws_script.pl --conf     /etc/gbrowse2/aws_balancer.conf \
+                                   --mysql    /var/lib/mysql \
+                                   --postgres /var/lib/postgresql
+</pre>
+<p class="Pp">The --conf argument is required. The script will create a snapshot
+    of the appropriate size, mount it on a temporary staging instance, and rsync
+    a copy of your gbrowse databases directory (e.g.
+    /var/lib/gbrowse2/databases) to the snapshot. If you have created mysql or
+    postgres databases, you must also give the paths to their database file
+    directories, as shown in the example.</p>
+<p class="Pp">Note that ALL your mysql and postgres data files located on the
+    server will be copied; not just those used for track display.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT_VARIABLES"><a class="permalink" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT
+  VARIABLES</a></h1>
+<p class="Pp">The following environment variables are used if the corresponding
+    command line options are not present:</p>
+<p class="Pp"></p>
+<pre> EC2_ACCESS_KEY     AWS EC2 access key
+ EC2_SECRET_KEY     AWS EC2 secret key
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">VM::EC2, VM::EC2::Staging::Manager</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Lincoln Stein, lincoln.stein@gmail.com</p>
+<p class="Pp">Copyright (c) 2012 Ontario Institute for Cancer Research</p>
+<p class="Pp">This package and its accompanying libraries is free software; you
+    can redistribute it and/or modify it under the terms of the GPL (either
+    version 1, or at your option, any later version) or the Artistic License
+    2.0. Refer to LICENSE for the full license text. In addition, please see
+    DISCLAIMER.txt for disclaimers of warranty.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: gbrowse 2.56+dfsg-12build3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

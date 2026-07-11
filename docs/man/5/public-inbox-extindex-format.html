@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="external index format description">
+<title>public-inbox-extindex-format(5) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">public-inbox-extindex-format(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#DIRECTORY_LAYOUT">DIRECTORY
+  LAYOUT</a></li><li><a href="#misc_">misc XAPIAN
+  DB</a></li><li><a href="#BENEFITS">BENEFITS</a></li><li><a href="#CAVEATS">CAVEATS</a></li><li><a href="#LOCKING">LOCKING</a></li><li><a href="#THANKS">THANKS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PUBLIC-INBOX-EXTINDEX-FORMAT(5)</td>
+    <td class="head-vol">public-inbox user manual</td>
+    <td class="head-rtitle">PUBLIC-INBOX-EXTINDEX-FORMAT(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">public-inbox-extindex-format - external index format
+  description</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The extindex is an index-only evolution of the per-inbox SQLite
+    and Xapian indices used by <a class="Xr" href="../5/public-inbox-v2-format.html"><b>public-inbox-v2-format</b>(5)</a> and
+    <a class="Xr" href="../5/public-inbox-v1-format.html"><b>public-inbox-v1-format</b>(5)</a>. It exists to facilitate searches across
+    multiple inboxes as well as to reduce index space when messages are
+    cross-posted to several existing inboxes.</p>
+<p class="Pp">It transparently indexes messages across any combination of v1 and
+    v2 inboxes and data about inboxes themselves.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIRECTORY_LAYOUT"><a class="permalink" href="#DIRECTORY_LAYOUT">DIRECTORY
+  LAYOUT</a></h1>
+<p class="Pp">While inspired by v2, there is no git blob storage nor
+    <span class="Li">&quot;msgmap.sqlite3&quot;</span> DB.</p>
+<p class="Pp">Instead, there is an <span class="Li">&quot;ALL.git&quot;</span>
+    (all caps) git repo which treats every indexed v1 inbox or v2 epoch as a git
+    alternate.</p>
+<p class="Pp">As with v2 inboxes, it uses
+    <span class="Li">&quot;over.sqlite3&quot;</span> and Xapian
+    &quot;shards&quot; for WWW and IMAP use. Several exclusive new tables are
+    added to deal with &quot;XREF3 DEDUPLICATION&quot; and metadata.</p>
+<p class="Pp">Unlike v1 and v2 inboxes, it is NOT designed to map to a NNTP
+    newsgroup. Thus it lacks <span class="Li">&quot;msgmap.sqlite3&quot;</span>
+    to enforce the unique Message-ID requirement of NNTP.</p>
+<section class="Ss">
+<h2 class="Ss">INDEX OVERVIEW AND DEFINITIONS</h2>
+<pre>  $SCHEMA_VERSION - DB schema version (for Xapian)
+  $SHARD - Integer starting with 0 based on parallelism
+  foo/                              # &quot;foo&quot; is the name of the index
+  - ei.lock                         # lock file to protect global state
+  - ALL.git                         # empty, alternates for inboxes
+  - ei$SCHEMA_VERSION/$SHARD        # per-shard Xapian DB
+  - ei$SCHEMA_VERSION/over.sqlite3  # overview DB for WWW, IMAP
+  - ei$SCHEMA_VERSION/misc          # misc Xapian DB
+</pre>
+<p class="Pp">File and directory names are intentionally different from
+    analogous v2 names to ensure extindex and v2 inboxes can easily be
+    distinguished from each other.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">XREF3 DEDUPLICATION</h2>
+<p class="Pp">Due to cross-posted messages being the norm in the large Linux
+    kernel development community and Xapian indices being the primary consumer
+    of storage, it makes sense to deduplicate indexing as much as possible.</p>
+<p class="Pp">The internal storage format is based on the NNTP &quot;Xref&quot;
+    tuple, but with the addition of a third element: the git blob OID. Thus the
+    triple is expressed in string form as:</p>
+<p class="Pp"></p>
+<pre>        $NEWSGROUP_NAME:$ARTICLE_NUM:$OID
+</pre>
+<p class="Pp">If no <span class="Li">&quot;newsgroup&quot;</span> is configured
+    for an inbox, the <span class="Li">&quot;inboxdir&quot;</span> of the inbox
+    is used.</p>
+<p class="Pp">This data is stored in the
+    <span class="Li">&quot;xref3&quot;</span> table of over.sqlite3.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="misc_"><a class="permalink" href="#misc_">misc XAPIAN
+  DB</a></h2>
+<p class="Pp">In addition to the numeric Xapian shards for indexing messages,
+    there is a new, in-development Xapian index for storing data about inboxes
+    themselves and other non-message data. This index allows us to speed up
+    operations involving hundreds or thousands of inboxes.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BENEFITS"><a class="permalink" href="#BENEFITS">BENEFITS</a></h1>
+<p class="Pp">In addition to providing cross-inbox search capabilities, it can
+    also replace per-inbox Xapian shards (but not per-inbox over.sqlite3). This
+    allows reduction in disk space, open file handles, and associated memory
+    use.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<p class="Pp">Relocating v1 and v2 inboxes on the filesystem will require
+    extindex to be garbage-collected and/or reindexed.</p>
+<p class="Pp">Configuring and maintaining stable
+    <span class="Li">&quot;newsgroup&quot;</span> names before any messages are
+    indexed from every inbox can avoid expensive reindexing and rely exclusively
+    on GC.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOCKING"><a class="permalink" href="#LOCKING">LOCKING</a></h1>
+<p class="Pp"><a class="Xr" href="../2/flock.html"><b>flock</b>(2)</a> locking exclusively locks the empty ei.lock file
+    for all non-atomic operations.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THANKS"><a class="permalink" href="#THANKS">THANKS</a></h1>
+<p class="Pp">Thanks to the Linux Foundation for sponsoring the development and
+    testing.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright 2020-2021 all contributors
+    &lt;mailto:meta@public-inbox.org&gt;</p>
+<p class="Pp">License: AGPL-3.0+
+    &lt;http://www.gnu.org/licenses/agpl-3.0.txt&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../5/public-inbox-v2-format.html"><b>public-inbox-v2-format</b>(5)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">1993-10-02</td>
+    <td class="foot-os">public-inbox.git</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: public-inbox 1.9.0-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

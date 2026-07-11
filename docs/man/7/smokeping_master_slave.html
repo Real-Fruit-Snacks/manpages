@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="How to run multiple distributed instances of SmokePing">
+<title>smokeping_master_slave(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">smokeping_master_slave(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#OVERVIEW">OVERVIEW</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Architecture">Architecture</a></li><li><a href="#Master_Configuration">Master
+  Configuration</a></li><li><a href="#Slave_Configuration">Slave
+  Configuration</a></li><li><a href="#SECURITY_CONSIDERATIONS">SECURITY
+  CONSIDERATIONS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SMOKEPING_MASTER_SLAVE(7)</td>
+    <td class="head-vol">SmokePing</td>
+    <td class="head-rtitle">SMOKEPING_MASTER_SLAVE(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">smokeping_master_slave - How to run multiple distributed instances
+    of SmokePing</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OVERVIEW"><a class="permalink" href="#OVERVIEW">OVERVIEW</a></h1>
+<p class="Pp">Normally smokeping probes run their tests from the host where
+    smokeping runs to some target host and monitor the latency of the connection
+    between the two.</p>
+<p class="Pp">The Master/Slave concept enables all smokeping probes to run
+    remotely. The use case for this is to measure the overall connectivity in a
+    network. If you are interested in checking that your central DNS server or
+    your file server works for everyone, you could setup several smokeping
+    instances checking up on on the two servers from multiple locations within
+    your network. With the Master/Slave smokeping configuration this process
+    becomes much simpler, as one smokeping master server can control multiple
+    slaves.</p>
+<p class="Pp">All monitoring data is stored and presented on the server, but
+    collected by the slaves. The slaves will also get their configuration
+    information from the master, so that you just have to maintain the master
+    server configuration file and the rest is taken care of automatically.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Architecture"><a class="permalink" href="#Architecture">Architecture</a></h2>
+<p class="Pp">The slaves communicate with the master smokeping server via the
+    normal smokeping web interface. On initial startup each slave connects to
+    the master server and asks for its assignments. When the slave has done a
+    round of probing it connects to the master again to deliver the results.</p>
+<p class="Pp">If the assignment for a slave changes, the master will tell the
+    slave after the slave has delivered its results.</p>
+<p class="Pp">The master and the slaves sign their messages by supplying an
+    HMAC-MD5 code (RFC 2104) of the message and a shared secret. Optionally the
+    whole communication can run over ssl.</p>
+<p class="Pp"></p>
+<pre>    [slave 1]     [slave 2]      [slave 3]
+        |             |              |
+        +-------+     |     +--------+
+                |     |     |
+                v     v     v
+              +---------------+
+              |    master     |
+              +---------------+
+</pre>
+<p class="Pp">The slave is a normal smokeping instance setup where the
+    configuration comes from the master instead of a local configuration file.
+    The slave tries to contact the master server after every round of probing,
+    supplying its results. If the master server can not be reached, the results
+    will be sent to the server together with the next round of results. Results
+    will be stored in a file in Perl storable form so that they survive a
+    restart of the smokeping instance.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Master_Configuration"><a class="permalink" href="#Master_Configuration">Master
+  Configuration</a></h2>
+<p class="Pp">To configure a master/slave setup, add a slaves section to your
+    smokeping configuration file. Each slave has a section in the slaves part of
+    the master configuration file. The section name must match the hostname of
+    the slave. If some configuration parameter must be set to a special value
+    for the slave, use an override section to configure this.</p>
+<p class="Pp">The slave names must be the names the hosts think they have, not
+    their outside hostnames or ip addresses or anything like that. When the
+    slave calls the master to get its config or report its measurements it will
+    tell the master its 'hostname'. This together with the shared secret is used
+    to authenticate and identify who is who.</p>
+<p class="Pp"></p>
+<pre> *** Slaves ***
+ secrets=/etc/smokeping/slavesecrets.conf 
+ +slave1
+ display_name=erul22
+ location=India
+ color=ff0000
+ ++override
+ Probes.FPing.binary = /usr/bin/fping
+ ...
+</pre>
+<p class="Pp">Then in the targets section you can define slaves at every level.
+    Again the settings get inherited by lower order targets and can be
+    overwritten anywhere in the tree.</p>
+<p class="Pp">A slave will then get the appropriate configuration assigned by
+    the server.</p>
+<p class="Pp"></p>
+<pre> *** Targets ***
+ slaves = slave1 slave2
+ ...
+ +dest1
+ slaves =
+ ...
+ +dest2
+ slaves = slave1
+ ...
+ +dest3
+ ...
+</pre>
+<p class="Pp">The data from the slaves will be stored in
+    <i>TargetName~SlaveName.rrd</i>. So the example above would create the
+    following files:</p>
+<p class="Pp"></p>
+<pre> dest1.rrd
+ dest2.rrd
+ dest2~slave1.rrd
+ dest3.rrd
+ dest3~slave1.rrd
+ dest3~slave2.rrd
+</pre>
+<p class="Pp">The <i>slavesecrets.conf</i> file contains a colon separated list
+    of hostnames and secrets.</p>
+<p class="Pp"></p>
+<pre> host1:secret1
+ host2:secret2
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Slave_Configuration"><a class="permalink" href="#Slave_Configuration">Slave
+  Configuration</a></h2>
+<p class="Pp">A smokeping slave setup has no configuration file. It just needs
+    to know that it runs in slave-mode and its secret. The secret is stored in a
+    file for optimal protection. By default the persistent data cache will be
+    located in <i>/tmp/smokeping.$USER.cache</i>.</p>
+<p class="Pp"></p>
+<pre> ./smokeping --master-url=http://smokeping/smokeping.cgi \
+             --cache-dir=/var/smokeping/ \
+             --shared-secret=/var/smokeping/secret.txt
+</pre>
+<p class="Pp">The <i>secret.txt</i> file contains a single word, the secret of
+    this slave. It is NOT the same as the <i>slavesecrets.conf</i> file the
+    master uses.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY_CONSIDERATIONS"><a class="permalink" href="#SECURITY_CONSIDERATIONS">SECURITY
+  CONSIDERATIONS</a></h1>
+<p class="Pp">The master effectively has full access to slave hosts as the user
+    running the slave smokeping instance. The configuration is transferred as
+    Perl code that is evaluated on the slave. While this is done inside a
+    restricted <span class="Li">&quot;Safe&quot;</span> compartment, there are
+    various ways that a malicious master could embed arbitrary commands in the
+    configuration and get them to run when the slave probes its targets.</p>
+<p class="Pp">The strength of the shared secret is thus of paramount importance.
+    Brute forcing the secret would enable a man-in-the-middle to inject a
+    malicious new configuration and compromise the slave.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright (c) 2007 by Tobias Oetiker, OETIKER+PARTNER AG. All
+    right reserved.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or (at your
+    option) any later version.</p>
+<p class="Pp">This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
+    Public License for more details.</p>
+<p class="Pp">You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software Foundation,
+    Inc., 675 Mass Ave, Cambridge, MA 02139, USA.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Tobias Oetiker &lt;tobi@oetiker.ch&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-02-04</td>
+    <td class="foot-os">2.8.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: smokeping 2.8.2+ds-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

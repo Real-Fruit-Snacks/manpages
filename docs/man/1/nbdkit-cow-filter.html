@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="nbdkit copy-on-write (COW) filter">
+<title>nbdkit-cow-filter(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">nbdkit-cow-filter(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#PARAMETERS">PARAMETERS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#Creating_a_diff_with_qemu-img">Creating
+  a diff with qemu-img</a></li><li><a href="#Compared_to_nbd-server_">Compared
+  to nbd-server -c option</a></li><li><a href="#ENVIRONMENT_VARIABLES">ENVIRONMENT
+  VARIABLES</a></li><li><a href="#FILES">FILES</a></li><li><a href="#VERSION">VERSION</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#LICENSE">LICENSE</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">nbdkit-cow-filter(1)</td>
+    <td class="head-vol">NBDKIT</td>
+    <td class="head-rtitle">nbdkit-cow-filter(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">nbdkit-cow-filter - nbdkit copy-on-write (COW) filter</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre> nbdkit --filter=cow plugin [plugin-args...]
+                            [cow-block-size=N]
+                            [cow-on-cache=false|true]
+                            [cow-on-read=false|true|/PATH]
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><span class="Li">&quot;nbdkit-cow-filter&quot;</span> is a filter
+    that makes a temporary writable copy on top of a plugin. It can also be used
+    to enable writes for plugins which are read-only.</p>
+<p class="Pp">The underlying plugin is opened read-only. This filter does not
+    pass any writes or write-like operations (like trim and zero) through to the
+    underlying plugin.</p>
+<p class="Pp"><b>Note that anything written is thrown away as soon as nbdkit
+    exits.</b> If you want to save changes, either copy out the whole disk using
+    a tool like <a class="Xr" href="../1/nbdcopy.html"><b>nbdcopy</b>(1)</a>, or use the method described in
+    &quot;NOTES&quot; below to create a diff.</p>
+<p class="Pp">Limitations of the filter include:</p>
+<ul class="Bl-bullet">
+  <li>The underlying file/device must not be resized.</li>
+  <li>The underlying plugin must behave &#x201C;normally&#x201D;, meaning that
+      it must serve the same data to each client.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARAMETERS"><a class="permalink" href="#PARAMETERS">PARAMETERS</a></h1>
+<dl class="Bl-tag">
+  <dt id="cow"><a class="permalink" href="#cow"><b>cow-block-size=</b>N</a></dt>
+  <dd>Set the block size used by the filter. This has to be a power of two and
+      the minimum block size is 4K. The maximum block size depends on the
+      plugin, but a block size larger than a few megabytes is not usually a good
+      idea.
+    <p class="Pp">The default is 64K.</p>
+  </dd>
+  <dt id="cow~2"><a class="permalink" href="#cow~2"><b>cow-on-cache=false</b></a></dt>
+  <dd>Do not save data from cache (prefetch) requests in the overlay. This
+      leaves the overlay as small as possible. This is the default.</dd>
+  <dt id="cow~3"><a class="permalink" href="#cow~3"><b>cow-on-cache=true</b></a></dt>
+  <dd>When the client issues a cache (prefetch) request, preemptively save the
+      data from the plugin into the overlay.</dd>
+  <dt id="cow~4"><a class="permalink" href="#cow~4"><b>cow-on-read=false</b></a></dt>
+  <dd>Do not save data from read requests in the overlay. This leaves the
+      overlay as small as possible. This is the default.</dd>
+  <dt id="cow~5"><a class="permalink" href="#cow~5"><b>cow-on-read=true</b></a></dt>
+  <dd>When the client issues a read request, copy the data into the overlay so
+      that the same data can be served more quickly later.</dd>
+  <dt id="cow~6"><a class="permalink" href="#cow~6"><b>cow-on-read=/PATH</b></a></dt>
+  <dd>When <i>/PATH</i> (which must be an absolute path) exists, this behaves
+      like <span class="Li">&quot;cow-on-read=true&quot;</span>, and when it
+      does not exist like <span class="Li">&quot;cow-on-read=false&quot;</span>.
+      This allows you to control the
+      <span class="Li">&quot;cow-on-read&quot;</span> behaviour while nbdkit is
+      running.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<section class="Ss">
+<h2 class="Ss">nbdkit --filter=cow file disk.img</h2>
+<p class="Pp">Serve the file <i>disk.img</i>, allowing writes, but do not save
+    any changes into the file.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">nbdkit --filter=cow --filter=xz file disk.xz
+  cow-on-read=true</h2>
+<p class="Pp"><a class="Xr" href="../1/nbdkit-xz-filter.html"><b>nbdkit-xz-filter</b>(1)</a> only supports read access, but you can
+    provide temporary write access by using the command above. Because xz
+    decompression is slow, using
+    <span class="Li">&quot;cow-on-read=true&quot;</span> causes reads to be
+    cached as well as writes, improving performance at the expense of using more
+    temporary space. Note that writes are thrown away when nbdkit exits and do
+    not get saved into the file.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Creating_a_diff_with_qemu-img"><a class="permalink" href="#Creating_a_diff_with_qemu-img">Creating
+  a diff with qemu-img</a></h2>
+<p class="Pp">Although nbdkit-cow-filter itself cannot save the differences, it
+    is possible to do this using an obscure feature of <a class="Xr" href="../1/qemu-img.html"><b>qemu-img</b>(1)</a>.
+    <b>nbdkit must remain continuously running during the whole operation,</b>
+    <b>otherwise all changes will be lost</b>.</p>
+<p class="Pp">Run nbdkit:</p>
+<p class="Pp"></p>
+<pre> nbdkit --filter=cow file disk.img
+</pre>
+<p class="Pp">and then connect with a client and make whatever changes you need.
+    At the end, disconnect the client.</p>
+<p class="Pp">Run these <span class="Li">&quot;qemu-img&quot;</span> commands to
+    construct a qcow2 file containing the differences:</p>
+<p class="Pp"></p>
+<pre> qemu-img create -F raw -b nbd:localhost -f qcow2 diff.qcow2
+ qemu-img rebase -F raw -b disk.img -f qcow2 diff.qcow2
+</pre>
+<p class="Pp"><i>diff.qcow2</i> now contains the differences between the base
+    (<i>disk.img</i>) and the changes stored in nbdkit-cow-filter.
+    <span class="Li">&quot;nbdkit&quot;</span> can now be killed.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Compared_to_nbd-server_"><a class="permalink" href="#Compared_to_nbd-server_">Compared
+  to nbd-server -c option</a></h2>
+<p class="Pp">All connections to the nbdkit instance see the same view of the
+    disk. This is different from <a class="Xr" href="../1/nbd-server.html"><b>nbd-server</b>(1)</a> <i>-c</i> option where
+    each connection sees its own copy-on-write overlay and simply disconnecting
+    the client throws that away. It also allows us to create diffs as above.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT_VARIABLES"><a class="permalink" href="#ENVIRONMENT_VARIABLES">ENVIRONMENT
+  VARIABLES</a></h1>
+<dl class="Bl-tag">
+  <dt>&quot;TMPDIR&quot;</dt>
+  <dd>The copy-on-write changes are stored in a temporary file located in
+      <i>/var/tmp</i> by default. You can override this location by setting the
+      <span class="Li">&quot;TMPDIR&quot;</span> environment variable before
+      starting nbdkit.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><i>$filterdir</i><i>/nbdkit-cow-filter.so</i></dt>
+  <dd>The filter.
+    <p class="Pp">Use <span class="Li">&quot;nbdkit --dump-config&quot;</span>
+        to find the location of <span class="Li">$filterdir</span>.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
+<p class="Pp"><span class="Li">&quot;nbdkit-cow-filter&quot;</span> first
+    appeared in nbdkit 1.2.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/nbdkit.html"><b>nbdkit</b>(1)</a>, <a class="Xr" href="../1/nbdkit-file-plugin.html"><b>nbdkit-file-plugin</b>(1)</a>,
+    <a class="Xr" href="../1/nbdkit-cache-filter.html"><b>nbdkit-cache-filter</b>(1)</a>, <a class="Xr" href="../1/nbdkit-cacheextents-filter.html"><b>nbdkit-cacheextents-filter</b>(1)</a>,
+    <a class="Xr" href="../1/nbdkit-xz-filter.html"><b>nbdkit-xz-filter</b>(1)</a>, <b>nbdkit-filter</b>(3), <a class="Xr" href="../1/nbdcopy.html"><b>nbdcopy</b>(1)</a>,
+    <a class="Xr" href="../1/qemu-img.html"><b>qemu-img</b>(1)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Eric Blake</p>
+<p class="Pp">Richard W.M. Jones</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright Red Hat</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are
+  met:</p>
+<ul class="Bl-bullet">
+  <li>Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.</li>
+  <li>Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.</li>
+  <li>Neither the name of Red Hat nor the names of its contributors may be used
+      to endorse or promote products derived from this software without specific
+      prior written permission.</li>
+</ul>
+<p class="Pp">THIS SOFTWARE IS PROVIDED BY RED HAT AND CONTRIBUTORS ''AS IS''
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED. IN NO EVENT SHALL RED HAT OR CONTRIBUTORS BE LIABLE FOR ANY
+    DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+    (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+    ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">nbdkit-1.36.3</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: nbdkit 1.36.3-1ubuntu10 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

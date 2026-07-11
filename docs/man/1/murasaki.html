@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="compute anchors between multiple sequences">
+<title>murasaki(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">murasaki(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#Anchor_parameter_related_options">Anchor
+  parameter related options</a></li><li><a href="#Output_options">Output
+  options</a></li><li><a href="#Performance/tuning_options">Performance/tuning
+  options</a></li><li><a href="#Universal_options:">Universal
+  options:</a></li><li><a href="#FILE_FORMATS">FILE
+  FORMATS</a></li><li><a href="#.seqs">.seqs</a></li><li><a href="#.anchors_files">.anchors
+  files</a></li><li><a href="#.anchors.details">.anchors.details</a></li><li><a href="#.anchors.bitscore">.anchors.bitscore</a></li><li><a href="#.stats.tfidf">.stats.tfidf</a></li><li><a href="#.histogram">.histogram</a></li><li><a href="#.options">.options</a></li><li><a href="#.repeats">.repeats</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#AVAILABILITY">AVAILABILITY</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MURASAKI(1)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">MURASAKI(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">murasaki - compute anchors between multiple sequences</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre> murasaki [OPTIONS] -p[pattern] seq1.fa seq2.gbk [seq3.raw ...] #compute anchors between seq1.fa and seq2.gbk using [pattern]
+ mpirun murasaki [OPTIONS] -p[pattern] seq1.fa seq2.gbk [seq3.raw ...] #compute anchors between seq1.fa and seq2.gbk using [pattern] in parallel via MPI
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Murasaki generates anchors based on all supplied sequences based
+    on the user supplied <b>pattern</b> and hash tables. Essentially each base
+    of each sequence is masked by the pattern, forming a <b>seed</b> that is
+    used to generate a hash. The location of the seed is stored in the <b>hash
+    table</b>. Once all seeds have been hashed and stored, Murasaki scans the
+    hash table, generating anchors for all matching seeds. An anchor refers to a
+    set intervals across a subset of the input sequences. These are stored in
+    <b>name</b>.anchors files, and described in &quot;FILE FORMATS&quot;. By
+    default anchors are maximally extended until their minimum pairwise ungapped
+    alignment score drops below a threshold in the same fashion the X-drop
+    parameter in BLAST and BLAST-like searches.</p>
+<section class="Ss">
+<h2 class="Ss">PATTERNS</h2>
+<p class="Pp">Murasaki uses <b>spaced seed patterns</b> to in considering seeds.
+    A <b>spaced seed pattern</b> is typically expressed as a string of 1s and 0s
+    necessarily starting and ending with a 1. 1s indicate that this base is
+    considered part of the seed, while bases at 0 positions are not. For example
+    with a pattern &quot;1011&quot; the sequence &quot;ACGT&quot; would match
+    sequences &quot;AGGT&quot; and &quot;ATGT&quot; but not &quot;ACTT&quot;.
+    The number of 1s in the pattern is known as the &quot;weight&quot; of the
+    pattern, and the number of 1s and 0s combined is the &quot;length&quot; of
+    the pattern. Murasaki allows the use of any arbitrary pattern expressed as a
+    string of 1s and 0s, and also interprets patterns of the form
+    &quot;x:y&quot; to mean a &quot;random pattern of weight <i>x</i> and length
+    <i>y</i>.&quot;</p>
+<p class="Pp">The choice of pattern obviously has an impact on sensitivity and
+    specificity, but whether one pattern is &quot;better&quot; than another
+    depends on the application and the input sequences under consideration.
+    Calcuating &quot;maximally sensitive spaced seed patterns&quot; is a
+    computationally difficult problem and there are a number of research papers
+    describing various methods for approximation (&quot;RELATED READING&quot;).
+    In general, however, &quot;heavier&quot; spaced seed patterns are less
+    sensitive, but more specific, than lighter seeds. Anecdotally we find that
+    seeds with weights approximately 60% to 75% (with lengths around 24 for
+    bacteria, and 36 to 48 for mammals) are good for most applications.
+    Extremely similar species (for example human and chimp) benefit from longer,
+    heavier, seeds.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">HASH FUNCTIONS</h2>
+<p class="Pp">Hash functions (as well as hash parameters) are generated
+    automatically based the system environment and input sequences. There are
+    essentially two types of hash functions available in Murasaki: adaptive and
+    cryptoraphic hashes. The adaptive hashes are XOR combinations of various
+    bitwise shifts of the seed designed by analyzing the <b>spaced seed
+    pattern</b> to maximize the entropy of the resulting hash. Cryptographic
+    hashes are available via the CryptoPP library and use the <i>entire</i>
+    spaced seed pattern to generate a hash using one of the common cryptographic
+    hashes like MD5 or SHA-1. The adaptive hash functions are almost always
+    faster and more efficient than MD5 and SHA-1, but the cryptographic
+    functions are available for reference and may be useful as an alternative in
+    the unlikely event you're dealing with an environment where the adaptive
+    hasher is unsuitable (for example a sequence consisting of only A and T
+    (leaving 1 out of every 2 bits uninitialized)).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">MEMORY SCALING</h2>
+<p class="Pp">Murasaki can take a lot of memory. Storing the location of each
+    seed in the hash table is the most costly part of the operation, requiring
+    approximately <span class="Li">&quot;ceil(log_2(N))&quot;</span> bits per
+    seed where <span class="Li">&quot;N&quot;</span> is the total sequence
+    length. Locations are, by default, stored in a bitpacked format to approach
+    theoretical minimum. The second most costly element is the hash table
+    structure, where each bucket carries a small overhead and unused are simply
+    wasted space. More hash table buckets (i.e. a longer hash table) decreases
+    the expected number of collisions, leading to faster execution time.
+    Therefore Murasaki tries to use as many buckets as possible by inspecting
+    the available system memory and using as much as it can while still storing
+    all the seed locations. If this automatic scaling is ineffective, setting
+    the hash table size directly via the --hashbits|-b options can force a
+    specific hash table size. If the memory of one computer is insufficient to
+    store the desired hash table, PARALLELIZATION can be used to distribute the
+    hash table across multiple computers.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">PARALLELIZATION</h2>
+<p class="Pp">Murasaki is designed to run in parallel using MPI. Consult the
+    documentation for the specific variations of your MPI implementation,
+    however in general the execution method looks like:</p>
+<p class="Pp"></p>
+<pre> mpirun [MPI options] murasaki [murasaki options] -p[pattern] [seq1 ...]
+</pre>
+<p class="Pp">Murasaki in parallel divides the number of processors available
+    (NP) into two groups: hasher nodes and storage nodes. The storage nodes
+    divide the hash table between each themselves, each being responsible for a
+    different part of the table. Hasher nodes divide the input sequence in
+    between themselves, each hashing a separate portion of the input sequence,
+    and passing the seed location to the appropriate storage node for storage.
+    When all the hasher nodes are finished hashing, the storage nodes scan their
+    portion of hash table and pass matching sets of seeds to a hasher node where
+    they are assembled into anchors and extended. Finally all the hasher nodes
+    combine their independent anchor sets into one final set in
+    <span class="Li">&quot;ceil(log_2(H))&quot;</span> iterations (where
+    <span class="Li">&quot;H&quot;</span> is the number of hasher nodes), with
+    each hasher node number 2h passing its anchors to hasher number 2h-1 at each
+    iteration.</p>
+<p class="Pp">Because almost none of the parallelization steps require
+    communication between <i>all</i> nodes, and each seed and each anchor can be
+    processed in parallel, Murasaki scales very well in parallel, running
+    approximately twice as fast when twice as many nodes are available.
+    Furthermore, the hash table is automatically grown to take advantage of the
+    combined memory from multiple machines.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">Most options can be specified in their long form (e.g.
+    &quot;--directory out&quot; or &quot;--directory=out&quot;) or short form
+    (e.g. &quot;-dout&quot;). Options marked by &lt;S&gt; expect a string,
+    &lt;D&gt; an integer, &lt;F&gt; a float, and &lt;B&gt; a boolean value
+    (&quot;yes/on/true/1&quot; for true, &quot;no/off/false/0&quot; for false).
+    Most booleans can omit the value, toggling the value from whatever it was to
+    the opposite.</p>
+<p class="Pp">Murasaki has a lot of options. Here we've separated them into
+    categories to help distinguish the scope of the various options, however in
+    certain situations certain option choices may have onforseen consequences,
+    and of course ultimately if the specified output is <i>huge</i>, the
+    required runtime will necessarily be <i>long</i>. It is a mistake to think
+    that everything outside of the &quot;tuning options&quot; in Performance
+    section has no bearing on performance.</p>
+<section class="Ss">
+<h2 class="Ss" id="Anchor_parameter_related_options"><a class="permalink" href="#Anchor_parameter_related_options">Anchor
+  parameter related options</a></h2>
+<p class="Pp">These options shape what is considered an &quot;anchor&quot;.</p>
+<dl class="Bl-tag">
+  <dt id="pattern_"><a class="permalink" href="#pattern_">--pattern|-p
+    &lt;S&gt;</a></dt>
+  <dd>
+    <pre> specifies the seed pattern (eg. 11101001010011011). using the format
+ C&lt;[&lt;w&gt;:&lt;l&gt;]&gt; automatically generates a random pattern of weight &lt;w&gt;
+ and length &lt;l&gt;
+    </pre>
+  </dd>
+  <dt id="repeatmask_"><a class="permalink" href="#repeatmask_">--repeatmask|-r
+    &lt;B&gt;</a></dt>
+  <dd>Skip repeat masked data (ie: lowercase atgc). Be aware that some sequence
+      files are distributed purely in lower case.</dd>
+  <dt id="seedfilter_"><a class="permalink" href="#seedfilter_">--seedfilter|-f
+    &lt;D&gt;</a></dt>
+  <dd>Skip seeds that occur more than N times. Exceptionally slow. See
+      --hashfilter for a faster approximation.</dd>
+  <dt id="hashfilter_"><a class="permalink" href="#hashfilter_">--hashfilter|-m
+    &lt;D&gt;</a></dt>
+  <dd>Like --seedfilter but works on hash keys instead of seeds. May cause some
+      collateral damage to otherwise unique seeds, but it's faster.</dd>
+  <dt id="skipfwd_"><a class="permalink" href="#skipfwd_">--skipfwd|-F
+    &lt;B&gt;</a></dt>
+  <dd>Don't hash/match the forward strands.</dd>
+  <dt id="skiprev_"><a class="permalink" href="#skiprev_">--skiprev|-R
+    &lt;B&gt;</a></dt>
+  <dd>Don't hash/match the reverse complement strands.</dd>
+  <dt id="skip1to1_"><a class="permalink" href="#skip1to1_">--skip1to1|-1
+    &lt;B&gt;</a></dt>
+  <dd>Skip matches along the 1:1 line (good for comparing to self).</dd>
+  <dt id="hashonly_"><a class="permalink" href="#hashonly_">--hashonly|-Q
+    &lt;B&gt;</a></dt>
+  <dd>Hash Only. No anchor output, just statistics.</dd>
+  <dt id="hashskip_"><a class="permalink" href="#hashskip_">--hashskip|-S
+    &lt;D&gt;</a></dt>
+  <dd>Hashes every n bases. Default is 1 (i.e. hashing all positions). Not
+      supplying any argument increments the skip amount by 1.</dd>
+  <dt id="join_"><a class="permalink" href="#join_">--join|-j &lt;D&gt;</a></dt>
+  <dd>Join anchors within n bases of eachother (default: 0). Specifying a
+      negative D implies -D*patternLength.</dd>
+  <dt id="bitscore_"><a class="permalink" href="#bitscore_">--bitscore|-B
+    &lt;B&gt;</a></dt>
+  <dd>toggles compututation of a bitscore for all anchors (default is on).</dd>
+  <dt id="seedterms_"><a class="permalink" href="#seedterms_">--seedterms|-T
+    &lt;B&gt;</a></dt>
+  <dd>toggles retention of seed terms (defaults to off). These are necessary for
+      computing TF-IDF scores).</dd>
+  <dt id="sectime_"><a class="permalink" href="#sectime_">--sectime|-e
+    &lt;B&gt;</a></dt>
+  <dd>Always display times in seconds as opposed to human readable &quot;1d 3h
+      45m 5s&quot; style times.</dd>
+  <dt id="mergefilter_"><a class="permalink" href="#mergefilter_">--mergefilter|-Y
+    &lt;D&gt;</a></dt>
+  <dd>Filter out matches which would would cause more than <i>D</i> many anchors
+      to be generated from 1 seed (default -Y100). Use -Y0 to disable.</dd>
+  <dt id="scorefilter"><a class="permalink" href="#scorefilter">--scorefilter
+    &lt;D&gt;</a></dt>
+  <dd>Set a minimum ungapped score for seeds.</dd>
+  <dt id="rifts_"><a class="permalink" href="#rifts_">--rifts|-/
+    &lt;D&gt;</a></dt>
+  <dd>Allow anchors to skip D sequences (default 0).</dd>
+  <dt id="islands_"><a class="permalink" href="#islands_">--islands|-%
+    &lt;D&gt;</a></dt>
+  <dd>Same as --rifts=S-D (where S is number of input seqs).</dd>
+  <dt id="fuzzyextend_"><a class="permalink" href="#fuzzyextend_">--fuzzyextend|-z
+    &lt;B&gt;</a></dt>
+  <dd>Enable (default) or disable fuzzy extension (i.e. ungapped alignment) of
+      anchors.</dd>
+  <dt id="fuzzyextendlosslimit_"><a class="permalink" href="#fuzzyextendlosslimit_">--fuzzyextendlosslimit|-Z
+    &lt;D&gt;</a></dt>
+  <dd>Set the cutoff at which to stop extending fuzzy hits (ie. the BLAST X
+      parameter).</dd>
+  <dt id="gappedanchors"><a class="permalink" href="#gappedanchors">--gappedanchors
+    &lt;B&gt;</a></dt>
+  <dd>Use gapped (true) or ungapped (false (default)) anchors.</dd>
+  <dt id="scorebyminimumpair"><a class="permalink" href="#scorebyminimumpair">--scorebyminimumpair
+    &lt;B&gt;</a></dt>
+  <dd>Do anchor scoring by minimum pair when appropriate (default). Alternative
+      is arithmetic mean (seldom useful, but theoretically faster). =item
+      --rifts|-/ &lt;D&gt;
+    <p class="Pp">Allow anchors to skip D sequences (default 0).</p>
+  </dd>
+  <dt id="islands_~2"><a class="permalink" href="#islands_~2">--islands|-%
+    &lt;D&gt;</a></dt>
+  <dd>Same as --rifts=S-D (where S is number of input seqs).</dd>
+  <dt id="fuzzyextend_~2"><a class="permalink" href="#fuzzyextend_~2">--fuzzyextend|-z
+    &lt;B&gt;</a></dt>
+  <dd>Enable (default) or disable fuzzy extension (i.e. ungapped alignment) of
+      anchors.</dd>
+  <dt id="fuzzyextendlosslimit_~2"><a class="permalink" href="#fuzzyextendlosslimit_~2">--fuzzyextendlosslimit|-Z
+    &lt;D&gt;</a></dt>
+  <dd>Set the cutoff at which to stop extending fuzzy hits (ie. the BLAST X
+      parameter).</dd>
+  <dt id="gappedanchors~2"><a class="permalink" href="#gappedanchors~2">--gappedanchors
+    &lt;B&gt;</a></dt>
+  <dd>Use gapped (true) or ungapped (false (default)) anchors.</dd>
+  <dt id="scorebyminimumpair~2"><a class="permalink" href="#scorebyminimumpair~2">--scorebyminimumpair
+    &lt;B&gt;</a></dt>
+  <dd>Do anchor scoring by minimum pair when appropriate (default). Alternative
+      is arithmetic mean (seldom useful, but theoretically faster).</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Output_options"><a class="permalink" href="#Output_options">Output
+  options</a></h2>
+<p class="Pp">These options primarily affect what data is output where.</p>
+<dl class="Bl-tag">
+  <dt id="directory_"><a class="permalink" href="#directory_">--directory|-d
+    &lt;S&gt;</a></dt>
+  <dd>
+    <pre> output directory (default: output)
+    </pre>
+  </dd>
+  <dt id="name_"><a class="permalink" href="#name_">--name|-n &lt;S&gt;</a></dt>
+  <dd>
+    <pre> alignment name (default: test)
+    </pre>
+  </dd>
+  <dt id="repeatmap_"><a class="permalink" href="#repeatmap_">--repeatmap|-i
+    &lt;B&gt;</a></dt>
+  <dd>Toggles keeping of a repeat map when --mergefilter is used (defaults to
+      yes).</dd>
+  <dt id="histogram_"><a class="permalink" href="#histogram_">--histogram|-H
+    &lt;D&gt;</a></dt>
+  <dd>Histogram computation level: (-H alone implies -H1)</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>0 - no histogram (default)</dt>
+  <dd></dd>
+  <dt>1 - basic bucketsize/bucketcount histogram data</dt>
+  <dd></dd>
+  <dt>2 - bucket-based scores to anchors.detils</dt>
+  <dd></dd>
+  <dt>3 - perbucket count data</dt>
+  <dd></dd>
+  <dt>4 - perbucket + perpattern count data</dt>
+  <dd></dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">Any values above 2 are purely explorartory and can result in
+    massive output files.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="tfidf_"><a class="permalink" href="#tfidf_">--tfidf|-k
+    &lt;B&gt;</a></dt>
+  <dd>Perform accurate tfidf scoring from within murasaki (requires extra memory
+      at anchor generation time). Default is no.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Performance/tuning_options"><a class="permalink" href="#Performance/tuning_options">Performance/tuning
+  options</a></h2>
+<p class="Pp">These options primarily affect performance, and don't (in general)
+    impact output.</p>
+<dl class="Bl-tag">
+  <dt id="quickhash_"><a class="permalink" href="#quickhash_">--quickhash|-q
+    &lt;D&gt;</a></dt>
+  <dd>
+    <pre> specify a hashing function:
+    </pre>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>0 - adaptive with S-boxes (default when there's plenty of hash table to
+    spare)</dt>
+  <dd></dd>
+  <dt>1 - don't pack bits to make hash (use first word only)</dt>
+  <dd></dd>
+  <dt>2 - naively use the first hashbits worth of pattern</dt>
+  <dd></dd>
+  <dt>3 - adaptivevely find a good hash (default)</dt>
+  <dd></dd>
+  <dt>**experimental CryptoPP hashes**</dt>
+  <dd></dd>
+  <dt>4 - MD5</dt>
+  <dd></dd>
+  <dt>5 - SHA1</dt>
+  <dd></dd>
+  <dt>6 - Whirlpool</dt>
+  <dd></dd>
+  <dt>7 - CRC-32</dt>
+  <dd></dd>
+  <dt>8 - Adler-32</dt>
+  <dd></dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">Note: 3 and 0 are the only &quot;recommended&quot; hash functions,
+    and the only ones automatically selected. The others are provided merely for
+    reference. 1, 7, and 8 aren't even expected to utilize the entire hash
+    space.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="hashbits_"><a class="permalink" href="#hashbits_">--hashbits|-b
+    &lt;D&gt;</a></dt>
+  <dd>use D bit hashes (for n's of 1 to WORDSIZE. default 26)</dd>
+  <dt id="hashtype_"><a class="permalink" href="#hashtype_">--hashtype|-t
+    &lt;S&gt;</a></dt>
+  <dd>select hash table data structure to use:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="OpenHash"><a class="permalink" href="#OpenHash">OpenHash - open
+    sub-word packing of hashbits (default when there's plenty of hash table to
+    spare)</a></dt>
+  <dd></dd>
+  <dt id="EcoHash"><a class="permalink" href="#EcoHash">EcoHash - chained
+    sub-word packing of hashbits (default)</a></dt>
+  <dd></dd>
+  <dt id="ArrayHash"><a class="permalink" href="#ArrayHash">ArrayHash -
+    malloc/realloc (fast but fragmentation-prone)</a></dt>
+  <dd></dd>
+  <dt id="MSetHash"><a class="permalink" href="#MSetHash">MSetHash - memory
+    exorbanant, almost pointless.</a></dt>
+  <dd></dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="probing"><a class="permalink" href="#probing">--probing
+    &lt;D&gt;</a></dt>
+  <dd>0 - linear, 1 - quadratic (default). Only applicable for
+      --hashtype=OpenHash.</dd>
+  <dt id="hitfilter_"><a class="permalink" href="#hitfilter_">--hitfilter|-h
+    &lt;D&gt;</a></dt>
+  <dd>Minimum number of hits to be outputted as an anchor (default 1). In
+      PatternHunter this is 2.</dd>
+  <dt id="rseed_"><a class="permalink" href="#rseed_">--rseed|-s
+    &lt;D&gt;</a></dt>
+  <dd>Random number seed for non-deterministic algorithms (ie: adative hash
+      function generation). If you're doing any performance comparisons, it's
+      probably imperative that you use the same seed for each run of the same
+      settings. Default is obtained from <i>time()</i> (ie: seconds since
+    1970).</dd>
+  <dt id="memory_"><a class="permalink" href="#memory_">--memory|-M
+    [&lt;F&gt;|&lt;S&gt;]</a></dt>
+  <dd>Set the target amount of total memory (either in gb or as % total
+    memory).</dd>
+  <dt id="reverseotf_"><a class="permalink" href="#reverseotf_">--reverseotf|-o
+    &lt;B&gt;</a></dt>
+  <dd>Generate reverse complement on the fly (defaults to on). Turning this off
+      precomputes the all reverse complement strands and stores them in memory,
+      which rarely provides a measurable performance improvement.</dd>
+  <dt id="binaryseq"><a class="permalink" href="#binaryseq">--binaryseq
+    &lt;B&gt;</a></dt>
+  <dd>Enable (default) or disable binary sequence read/write</dd>
+</dl>
+<p class="Pp"><i>Adaptive hash function related:</i></p>
+<p class="Pp">Performance options related to adaptive hash function
+  generation.</p>
+<dl class="Bl-tag">
+  <dt id="hasherFairEntropy"><a class="permalink" href="#hasherFairEntropy">--hasherFairEntropy
+    &lt;B&gt;</a></dt>
+  <dd>Use more balanced entropy estimation (default: yes).</dd>
+  <dt id="hasherCorrelationAdjust"><a class="permalink" href="#hasherCorrelationAdjust">--hasherCorrelationAdjust
+    &lt;B&gt;</a></dt>
+  <dd>Adjust entropy estimates for nearby sources assuming some correlation
+      (default: yes).</dd>
+  <dt id="hasherTargetGACycles"><a class="permalink" href="#hasherTargetGACycles">--hasherTargetGACycles
+    &lt;D&gt;</a></dt>
+  <dd>Adaptive hash function generation genetic algorithm cycle cutoff.</dd>
+  <dt id="hasherEntropyAgro"><a class="permalink" href="#hasherEntropyAgro">--hasherEntropyAgro
+    &lt;F&gt;</a></dt>
+  <dd>How aggressive to be about pursuing maximum entropy hash functions (takes
+      a real. default is 1).</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss">MPI Specific:</h2>
+<dl class="Bl-tag">
+  <dt id="hashers_"><a class="permalink" href="#hashers_">--hashers|-A
+    [&lt;F&gt;|&lt;D&gt;]</a></dt>
+  <dd>Specify the number of processes to be used as hashers (only applies to
+      MPI. If a number between 0 and 1 it refers to a ratio of np).</dd>
+  <dt id="localhash_"><a class="permalink" href="#localhash_">--localhash|-K
+    &lt;B&gt;</a></dt>
+  <dd>Perform hashing locally on each storage node rather than sending it over
+      the network (helpful for slow networks).</dd>
+  <dt id="mpidistro_"><a class="permalink" href="#mpidistro_">--mpidistro|-L
+    &lt;B&gt;</a></dt>
+  <dd>Toggles use of MPI to distribute sequence data over (if the sequence is
+      available on local disk on each node then turning this off may potentially
+      accerlate the initial sequence loading).</dd>
+  <dt id="waittoanchor_"><a class="permalink" href="#waittoanchor_">--waittoanchor|-w
+    &lt;B&gt;</a></dt>
+  <dd>Postpone actual anchor computation until all location sets have been
+      received (as opposed to trying to work between receiving seed
+    packets).</dd>
+  <dt id="buffers_"><a class="permalink" href="#buffers_">--buffers|-u
+    &lt;D&gt;</a></dt>
+  <dd>Maximum number of unfinished buffers to allow while message passing (0
+      means unlimited). Default is set based on the number of nodes
+      participating. MPI can crash or perform <i>very</i> poorly if this value
+      is too high.</dd>
+  <dt id="nobuffers_"><a class="permalink" href="#nobuffers_">--nobuffers|-U
+    &lt;B&gt;</a></dt>
+  <dd>Same as --buffers=1.</dd>
+  <dt id="bigfirst_"><a class="permalink" href="#bigfirst_">--bigfirst|-I
+    &lt;B&gt;</a></dt>
+  <dd>Assign hashers to large memory nodes first.</dd>
+  <dt id="hostbalance_"><a class="permalink" href="#hostbalance_">--hostbalance|-l
+    &lt;B&gt;</a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="If"><a class="permalink" href="#If">If yes (default): spread out
+    hashers evenly among all nodes.</a></dt>
+  <dd></dd>
+  <dt id="If~2"><a class="permalink" href="#If~2">If no: ignore host name when
+    assigning jobs.</a></dt>
+  <dd></dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="memorybalance_"><a class="permalink" href="#memorybalance_">--memorybalance|-a
+    &lt;B&gt;</a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="If~3"><a class="permalink" href="#If~3">If yes (default): balance hash
+    storage between nodes based on the amount of available ram.</a></dt>
+  <dd></dd>
+  <dt id="If~4"><a class="permalink" href="#If~4">If no: distribute storage
+    evently. This more likely to achieve optimal run times, but might not
+    utilize memory as efficiently.</a></dt>
+  <dd></dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="distmerge_"><a class="permalink" href="#distmerge_">--distmerge|-&lt;
+    &lt;B&gt;</a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="if"><a class="permalink" href="#if">if yes (default): during the merge
+    step, storage nodes send seeds to any available hasher.</a></dt>
+  <dd></dd>
+  <dt id="if~2"><a class="permalink" href="#if~2">if no: send all seeds to one
+    node only.</a></dt>
+  <dd></dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="distcollect_"><a class="permalink" href="#distcollect_">--distcollect|-&gt;
+    &lt;B&gt;</a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="if~3"><a class="permalink" href="#if~3">if yes (default): collect
+    anchor data from all hashers.</a></dt>
+  <dd></dd>
+  <dt id="if~4"><a class="permalink" href="#if~4">if no: send all seeds to the
+    final assembly node only.</a></dt>
+  <dd></dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="mpiredirectoutput"><a class="permalink" href="#mpiredirectoutput">--mpiredirectoutput
+    &lt;B&gt;</a></dt>
+  <dd></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="if~5"><a class="permalink" href="#if~5">if yes (default): each rank
+    redirects its stdout/stderr to a separate file
+    (murasaki-mpiout-<i>N</i>).</a></dt>
+  <dd></dd>
+  <dt id="if~6"><a class="permalink" href="#if~6">if no: do what comes naturally
+    (ie: managed by mpirun (for OpenMPI see --output-filename and --tag-output
+    in <i>mpirun</i>(1))).</a></dt>
+  <dd></dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="keepstdoe"><a class="permalink" href="#keepstdoe">--keepstdoe
+    &lt;B&gt;</a></dt>
+  <dd>Don't erase the murasaki-mpiout files on success.</dd>
+  <dt id="sysvipc_"><a class="permalink" href="#sysvipc_">--sysvipc|-V
+    &lt;B&gt;</a></dt>
+  <dd>Use System V IPC to negotiate shared memory regions (saves memory when one
+      host runs multiple nodes). Default is true.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Universal_options:"><a class="permalink" href="#Universal_options:">Universal
+  options:</a></h2>
+<dl class="Bl-tag">
+  <dt id="verbose_"><a class="permalink" href="#verbose_">--verbose|-v</a></dt>
+  <dd>Increases verbosity.</dd>
+  <dt id="version_"><a class="permalink" href="#version_">--version|-V</a></dt>
+  <dd>Prints version information and quits.</dd>
+  <dt id="help_"><a class="permalink" href="#help_">--help|-?</a></dt>
+  <dd>Prints a help message and quits.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILE_FORMATS"><a class="permalink" href="#FILE_FORMATS">FILE
+  FORMATS</a></h1>
+<p class="Pp">Murasaki has a wide array of output files, the formats of most of
+    which are intended to be intuitive. All output files are prefixed by the
+    value of the --name parameter. The primary output file formats are described
+    here. Files are line based and tab delimited unless otherwise specified.</p>
+<section class="Ss">
+<h2 class="Ss" id=".seqs"><a class="permalink" href="#.seqs">.seqs</a></h2>
+<p class="Pp">The .seqs shows what sequences were used as input, 1 per line.
+    This file gets used by various programs in conjunction with the .anchors
+    file, so it's generally important that the contents reflect the correct
+    sequence files. Moving anchor results between computers might result in a
+    change of paths, requiring the user to update the .seqs file. As an
+    alternative, always using relative paths can alleviate this problem.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id=".anchors_files"><a class="permalink" href="#.anchors_files">.anchors
+  files</a></h2>
+<p class="Pp">These files are 1 anchor per line, with a 3-tuple per sequence.
+    Each tuple represents the start and stop coordinates and strand of the
+    anchored interval on each sequence. The sequence order matches that of the
+    order in the .seqs file. The coordinates are structured such that 1 refers
+    to the first base in the sequence, 2 to the second, etc. Negative values
+    refer to the reverse complement sequence where -1 is the <i>last</i> base of
+    the reverse complement sequence (ie: the complement first base in the
+    forward sequence). The &quot;strand&quot; element is a '+' or '-' that
+    merely matches the sign of the coordinates (this is redundant information,
+    but kept to make parsing or filtering simpler).</p>
+<p class="Pp">For examle:</p>
+<p class="Pp"></p>
+<pre> 1       18     +       -1      -18       -
+</pre>
+<p class="Pp">This line describes an anchor where the first 18 bases of the
+    first sequence match the first 18 bases of the reverse complement of the
+    second sequence.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id=".anchors.details"><a class="permalink" href="#.anchors.details">.anchors.details</a></h2>
+<p class="Pp">This is an antiquated file format, but used by GMV to calculate
+    statistics like TF-IDF scores, and has been kept around for that reason. The
+    .anchors.details file has the same format and information as the .anchors
+    file, however after the anchor tuples are two more terms: a score, and a
+    comma (,) delimited list of term and count pairs (written
+    &quot;term:count&quot;). The score and count data might be varied depending
+    on the <span class="Li">&quot;--histogram&quot;</span> option choices.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id=".anchors.bitscore"><a class="permalink" href="#.anchors.bitscore">.anchors.bitscore</a></h2>
+<p class="Pp">The term &quot;bitscore&quot; here is a misnomer, but maintained
+    for historical reasons. In reality, this file contains the mean number of
+    matching bases and length of each anchor (corresponding line by line to the
+    .anchors file).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id=".stats.tfidf"><a class="permalink" href="#.stats.tfidf">.stats.tfidf</a></h2>
+<p class="Pp">Contains anchor TF-IDF scores (corresponding line by line to the
+    .anchors file).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id=".histogram"><a class="permalink" href="#.histogram">.histogram</a></h2>
+<p class="Pp">Contains a simple histogram of the hash table usage. The first
+    field is the bucket size, and the second is the frequency. For example a
+    .histogram file like this:</p>
+<p class="Pp"></p>
+<pre> 1  24
+ 2  1
+</pre>
+<p class="Pp">Would indicate that there were 24 hash buckets that stored only 1
+    location (i.e. 24 unique seeds), and 1 hash bucket stored 2 locations (i.e.
+    1 seed that matched 2 locations (or 2 non-matching seeds that resulted in a
+    hash collision)).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id=".options"><a class="permalink" href="#.options">.options</a></h2>
+<p class="Pp">Maintains a record of the options used when running Murasaki.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id=".repeats"><a class="permalink" href="#.repeats">.repeats</a></h2>
+<p class="Pp">The .repeats file stores a record of &quot;repeats&quot; as
+    defined by the --mergefilter option (i.e. seeds that would have have induced
+    more anchors than permitted). In this file, each repeat record is separated
+    by a blank line. A repeat record looks like this:</p>
+<p class="Pp"></p>
+<pre> R: G.GCCTTT.T.ACT.CACAA..AT
+ 0: 2145540494 -425039256 -113794380 1998323403
+ 1: 2480929222 -1874514626 2543723555 -2550045172
+</pre>
+<p class="Pp">The first line (always prefixed &quot;R:&quot;) shows the
+    repeating seed itself (where the . are the bases masked by the pattern). The
+    subsequent lines show where these seeds occurred in the input sequences (in
+    the first (0) and second (1) sequences). Note that if there are no hits in a
+    particular sequence, it doesn't include a blank line for that sequence. For
+    example:</p>
+<p class="Pp"></p>
+<pre> R: G.GCCTTT.T.ACT.CACAA..AT
+ 0: 2145540494 -425039256 -113794380 1998323403
+ 2: 2480929222 -1874514626 2543723555 -2550045172
+</pre>
+<p class="Pp">is also a valid .repeats file.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">GNU General Public License, version 3 (GPLv3)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+<p class="Pp">&lt;http://murasaki.sourceforge.net&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Kris Popendorf &lt;krisp@dna.bio.keio.ac.jp&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/mbfa.html"><i>mbfa</i>(1)</a>, <a class="Xr" href="../1/geneparse.html"><i>geneparse</i>(1)</a></p>
+<section class="Ss">
+<h2 class="Ss">RELATED READING</h2>
+<dl class="Bl-tag">
+  <dt id="M."><a class="permalink" href="#M.">M. Csuros and B. Ma, &quot;Rapid
+    Homology Search with Two-Stage Extension and Daughter Seeds&quot;
+    (2005).</a></dt>
+  <dd></dd>
+  <dt id="F."><a class="permalink" href="#F.">F. P. Preparata and L. Zhang and
+    K. W. Choi, &quot;Quick, practical selection of effective seeds for homology
+    search&quot; (2005).</a></dt>
+  <dd></dd>
+  <dt id="KP"><a class="permalink" href="#KP">KP Choi, et. al., &quot;Good
+    spaced seeds for homology search&quot; (2004).</a></dt>
+  <dd></dd>
+</dl>
+</section>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2010-05-31</td>
+    <td class="foot-os">perl v5.10.1</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: murasaki 1.68.6-13build6 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

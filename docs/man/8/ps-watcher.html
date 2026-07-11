@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="monitors various processes based on ps-like information.">
+<title>ps-watcher(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">ps-watcher(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#CONFIGURATION_FILE_FORMAT">CONFIGURATION
+  FILE FORMAT</a></li><li><a href="#EXAMPLE_CONFIGURATION">EXAMPLE
+  CONFIGURATION</a></li><li><a href="#Using_$PROLOG_for_getting_non-ps_information">Using
+  $PROLOG for getting non-ps information</a></li><li><a href="#SECURITY_CONSIDERATIONS">SECURITY
+  CONSIDERATIONS</a></li><li><a href="#TROUBLESHOOTING">TROUBLESHOOTING</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ps-watcher(8)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">ps-watcher(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">ps-watcher - monitors various processes based on ps-like
+    information.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>ps-watcher</b> [<i>options</i>...]
+  <br/>
+   [<span class="Li">&quot;--config&quot;</span>] <i>config-file</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Periodically a list of processes obtained via
+    <span class="Li">&quot;ps&quot;</span>. More precisely each item in the list
+    contains the process name (just what's listed in the &quot;cmd&quot; field,
+    not the full command and arguments) and its process id (pid). A
+    configuration file specifies a list of Perl regular-expression patterns to
+    match the processes against. For each match, a Perl expression specified for
+    that pattern is evaluated. The evaluated expression can refer to variables
+    which are set by ps and pertain to the matched process(es), for example the
+    amount memory consumed by the process, or the total elapsed time. Some other
+    variables are set by the program, such as the number of times the process is
+    running. If the Perl expression for a matched pattern evaluates true, then
+    an action can be run such as killing the program, restarting it, or mailing
+    an alert, or running some arbitrary Perl code.</p>
+<p class="Pp">Some things you might want to watch a daemon or process for:</p>
+<ul class="Bl-bullet">
+  <li>check that it is running (hasn't died)</li>
+  <li>ensure it is not running too many times</li>
+  <li>isn't consuming too much memory (perhaps a memory leak), or I/O</li>
+</ul>
+<p class="Pp">Some actions you might want to take:</p>
+<ul class="Bl-bullet">
+  <li>restart a process</li>
+  <li>kill off rampant processes</li>
+  <li>send an alert about any of the conditions listed above</li>
+</ul>
+<p class="Pp">Depending on options specfied, this program can be run as a
+    daemon, run once (which is suitable as a
+    <span class="Li">&quot;cron&quot;</span> job), or run not as a daemon but
+    still continuously (which may be handy in testing the program or your
+    configuration).</p>
+<section class="Ss">
+<h2 class="Ss">OPTIONS</h2>
+<dl class="Bl-tag">
+  <dt id="help"><a class="permalink" href="#help">--help</a></dt>
+  <dd>Print a usage message on standard error and exit with a return code of
+      100.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="doc"><a class="permalink" href="#doc">--doc</a></dt>
+  <dd>Extact the full documentation that you are reading now, print it and exit
+      with a return code of 101.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="version"><a class="permalink" href="#version">--version</a></dt>
+  <dd>Print the version release on standard output and exit with a return code
+      of 10.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="debug"><a class="permalink" href="#debug">--debug
+    <i>number</i></a></dt>
+  <dd>Give debugging output. The higher the number, the more the output. The
+      default is 0 = none. 2 is the most debugging output.</dd>
+  <dt>[--config] <i>configuration file</i></dt>
+  <dd>Specify configuration file. .
+    <p class="Pp">See &quot;CONFIGURATION FILE FORMAT&quot; below for
+        information on the format of the configuration file and &quot;EXAMPLE
+        CONFIGURATION&quot; for a complete example of a configuration file.</p>
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="log"><a class="permalink" href="#log">--log [<i>log file</i>]</a></dt>
+  <dd>Send or don't send error and debugging output to a log file. If option is
+      given but no logfile is specified, then use STDERR. The default is no
+      error log file. See also --syslog below.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="syslog"><a class="permalink" href="#syslog">--syslog |
+    --nosyslog</a></dt>
+  <dd>Send or don't send error and debugging output to syslog. The default is to
+      syslog error and debug output.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="daemon"><a class="permalink" href="#daemon">--daemon |
+    --nodaemon</a></dt>
+  <dd>Run or don't as a daemon.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="path"><a class="permalink" href="#path">--path
+    <i>search-path</i></a></dt>
+  <dd>Specify the executable search path used in running commands.</dd>
+  <dt id="ps"><a class="permalink" href="#ps">--ps-prog <i>program</i></a></dt>
+  <dd>One can specify the command that gives ps information. By default, the
+      command is <i>/usr/bin/ps</i>.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="run"><a class="permalink" href="#run">--run | --norun</a></dt>
+  <dd>do/don't run actions go through the motions as though we were going to.
+      This may be useful in debugging.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="sleep"><a class="permalink" href="#sleep">--sleep <i>interval in
+    seconds</i></a></dt>
+  <dd>It is expected that one might want to run ps-watcher over and over again.
+      In such instances one can specify the amount of time between iterations
+      with this option.
+    <p class="Pp">If a negative number is specified the program is run only
+        once.</p>
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss">CONFIGURATION FILE MODIFICATION AND SIGNAL HANDLING</h2>
+<p class="Pp">Periodically ps-watcher checks to see if the configuration file
+    that it was run against has changed. If so, the program rereads the
+    configuration file.</p>
+<p class="Pp">More precisely, the checks are done after waking up from a
+    slumber. If the sleep interval is long (or if you are impatient), you can
+    probably force the program to wake up using a HUP signal.</p>
+<p class="Pp">At any time you can increase the level of debug output by sending
+    a USR1 signal to the ps-watcher process. Similarly you can decrease the
+    level of debug output by sending the process a USR2 signal.</p>
+<p class="Pp">It is recommended that you terminate ps-watcher via an INT, TERM,
+    or QUIT signal.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_FILE_FORMAT"><a class="permalink" href="#CONFIGURATION_FILE_FORMAT">CONFIGURATION
+  FILE FORMAT</a></h1>
+<p class="Pp">The format of a configuration file is a series of fully qualified
+    filenames enclosed in square brackets followed by a number of parameter
+    lines. Each parameter line has a parameter name followed by an
+    &quot;equal&quot; sign and finally value. That is:</p>
+<p class="Pp"></p>
+<pre> # This is a comment line
+ ; So is this.
+ [process-pattern1]
+  parameter1 = value1
+  parameter2 = value2
+ [process-pattern2]
+  parameter1 = value3
+  parameter2 = value4
+</pre>
+<p class="Pp">Comments start with # or ; and take effect to the end of the
+  line.</p>
+<p class="Pp">This should be familiar to those who have worked with
+    text-readible Microsoft <span class="Li">&quot;.INI&quot;</span> files.</p>
+<p class="Pp">Note process patterns, (<i>process-pattern1</i> and
+    <i>process-pattern2</i> above) must be unique. If there are times when you
+    may want to refer to the same process, one can be creative to make these
+    unique. e.g. <i>cron</i> and <i>[c]ron</i> which refer to the same process
+    even though they <i>appear</i> to be different.</p>
+<p class="Pp">As quoted directly from the Config::IniFiles documentation:</p>
+<p class="Pp">Multiline or multivalued fields may also be defined ala UNIX
+    &quot;here document&quot; syntax:</p>
+<p class="Pp"></p>
+<pre>  Parameter=&lt;&lt;EOT
+  value/line 1
+  value/line 2
+  EOT
+</pre>
+<p class="Pp">You may use any string you want in place of &quot;EOT&quot;. Note
+    that what follows the &quot;&lt;&lt;&quot; and what appears at the end of
+    the text <i>must</i> match exactly, including any trailing whitespace.</p>
+<p class="Pp">There are two special &quot;process patterns&quot;:
+    <span class="Li">$PROLOG</span> and <span class="Li">$EPILOG</span>, the
+    former should appear first and the latter last.</p>
+<p class="Pp">You can put perl code to initialize variables here and do cleanup
+    actions in these sections using &quot;perl-action.&quot;</p>
+<p class="Pp">A description of parameters names, their meanings and potential
+    values follows.</p>
+<dl class="Bl-tag">
+  <dt id="trigger"><a class="permalink" href="#trigger">trigger</a></dt>
+  <dd>This parameter specifies the condition on which a process action is fired.
+      The condition is evaluated with Perl <b>eval()</b> and should therefore
+      return something which is equivalent to &quot;true&quot; in a Perl
+      expression.
+    <p class="Pp">If no trigger is given in a section, true or 1 is assumed and
+        the action is unconditionally triggered.</p>
+    <p class="Pp">Example:</p>
+    <p class="Pp"></p>
+    <pre>  # Match if httpd has not spawned enough (&lt;4) times. NFS and databases
+  # daemons typically spawn child processes.  Since the program
+  # matches against the command names, not commands and arguments,
+  # something like: ps -ef | grep httpd won't match the below.
+  # If you want to match against the command with arguments, see
+  # the example with $args below.
+  [httpd$]
+  trigger = $count &lt;= 4
+    </pre>
+  </dd>
+  <dt id="occurs"><a class="permalink" href="#occurs">occurs</a></dt>
+  <dd>This parameter specifies how many times an action should be performed on
+      processes matching the section trigger. Acceptable values are
+      &quot;every&quot;, &quot;first&quot;, &quot;first-trigger&quot;, and
+      &quot;none&quot;.
+    <p class="Pp">Setting the occurs value to &quot;none&quot; causes the the
+        trigger to be evaluated when there are no matching processes. Although
+        one might think &quot;$count == 0&quot; in the action expression would
+        do the same thing, currently as coded this does not work.</p>
+    <p class="Pp">Setting the occurs value to &quot;first&quot; causes the
+        process-pattern rule to be finished after handling the first rule that
+        matches, whether or not the trigger evaluated to true.</p>
+    <p class="Pp">Setting the occurs value to &quot;first-trigger&quot; causes
+        the process-pattern rule to be finished after handling the first rule
+        that matches <i>and</i> the trigger evaluates to true.</p>
+    <p class="Pp">If the item parameter is not specified, &quot;first&quot; is
+        assumed.</p>
+    <p class="Pp">Examples:</p>
+    <p class="Pp"></p>
+    <pre>  [.]
+  occurs = first
+  action = echo &quot;You have $count processes running&quot;
+  # Note in the above since there is no trigger specified,
+  #   occurs = first
+  # is the same thing as 
+  #   occurs = first-trigger
+  [.?]
+  trigger = $vsz &gt; 1000
+  occurs  = every
+  action  = echo &quot;Large program $command matches $ps_pat: $vsz KB&quot;
+  # Fire if /usr/sbin/syslogd is not running.
+  # Since the program matches against the command names, not commands and
+  # arguments, something like: 
+  #   ps -ef | grep /usr/sbin/syslogd
+  # won't match the below.
+  [(/usr/sbin/)?syslogd]
+  occurs = none
+  action = /etc/init.d/syslogd start
+    </pre>
+  </dd>
+  <dt id="action"><a class="permalink" href="#action">action</a></dt>
+  <dd>This specifies the action, a command that gets run by the system shell,
+      when the trigger condition is evaluated to be true.
+    <p class="Pp">Example:</p>
+    <p class="Pp"></p>
+    <pre> action = /etc/init.d/market_loader.init restart
+    </pre>
+  </dd>
+  <dt id="perl-action"><a class="permalink" href="#perl-action">perl-action</a></dt>
+  <dd>This specifies Perl statements to be eval'd. This can be especially useful
+      in conjunction with <span class="Li">$PROLOG</span> and
+      <span class="Li">$EPILOG</span> sections to make tests across collections
+      of process and do things which ps-watcher would otherwise not be able to
+      do.
+    <p class="Pp">Example:</p>
+    <p class="Pp"></p>
+    <pre>  # A Perl variable initialization.
+  # Since ps-watcher runs as a daemon it's a good idea
+  # to (re)initialize variables before each run.
+  [$PROLOG]
+    perl-action = $root_procs=0;
+  # Keep track of how many root processes we are running
+  [.*]
+    perl-action = $root_procs++ if $uid == 0
+    occurs  = every
+  # Show this count.
+  [$EPILOG]
+    action  = echo &quot;I counted $root_procs root processes&quot;
+    </pre>
+  </dd>
+</dl>
+<section class="Ss">
+<h2 class="Ss">EXPANDED VARIABLES IN TRIGGER/ACTION CLAUSES</h2>
+<p class="Pp">Any variables defined in the program can be used in pattern or
+    action parameters. For example, <span class="Li">$program</span> can be used
+    to refer to the name of this program ps-watcher.</p>
+<p class="Pp">The following variables can be used in either the pattern or
+    action fields.</p>
+<dl class="Bl-tag">
+  <dt>$action</dt>
+  <dd>A string containing the text of the action to run.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$perl_action</dt>
+  <dd>A string containing the text of the perl_action to run.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$ps_pat</dt>
+  <dd>The Perl regular expression specified in the beginning of the section.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$command</dt>
+  <dd>The command that matched <span class="Li">$ps_pat</span>.
+    <p class="Pp">The Perl regular expression specified in the beginning of the
+        section. Normally processes will not have funny characters in them. Just
+        in case, backticks in <span class="Li">$command</span> are escaped.</p>
+    <p class="Pp">Example:</p>
+    <p class="Pp"></p>
+    <pre>  # List processes other than emacs (which is a known pig) that use lots
+  # of virtual memory
+  [.*]
+  trigger = $command !~ /emacs$/ &amp;&amp; $vsz &gt; 10
+  action  = echo \&quot;Looks like you have a big \$command program: \$vsz KB\&quot;
+    </pre>
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$count</dt>
+  <dd>The number of times the pattern matched. Presumably the number of
+      processes of this class running.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$trigger</dt>
+  <dd>A string containing the text of the trigger.</dd>
+</dl>
+<p class="Pp">A list of variables specific to this program or fields commonly
+    found in <span class="Li">&quot;ps&quot;</span> output is listed below
+    followed by a description of the more common ones. See also
+    <span class="Li">&quot;ps&quot;</span> for a more complete description of
+    the meaning of the field.</p>
+<p class="Pp"></p>
+<pre> uid euid ruid gid egid rgid alarm blocked bsdtime c caught
+cputime drs dsiz egroup eip esp etime euser f fgid
+fgroup flag flags fname fsgid fsgroup fsuid fsuser fuid fuser
+group ignored intpri lim longtname m_drs m_trs maj_flt majflt
+min_flt  minflt ni nice nwchan opri pagein pcpu pending pgid pgrp
+pmem ppid pri rgroup rss rssize rsz ruser s sess session
+sgi_p sgi_rss sgid sgroup sid sig sig_block sig_catch sig_ignore
+sig_pend sigcatch sigignore sigmask stackp start start_stack start_time
+stat state stime suid suser svgid svgroup svuid svuser sz time timeout
+tmout tname tpgid trs trss tsiz tt tty tty4 tty8 uid_hack uname
+user vsize vsz wchan
+</pre>
+<p class="Pp">Beware though, in some situations ps can return multiple lines for
+    a single process and we will use just one of these in the trigger. In
+    particular, Solaris's <span class="Li">&quot;ps&quot;</span> will return a
+    line for each LWP (light-weight process). So on Solaris, if a trigger uses
+    variable lwp, it may or may not match depending on which single line of the
+    multiple <span class="Li">&quot;ps&quot;</span> lines is used.</p>
+<dl class="Bl-tag">
+  <dt>$args</dt>
+  <dd>The command along with its command arguments. It is possible that this is
+      might get truncated at certain length (if ps does likewise as is the case
+      on Solaris).
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$ppid</dt>
+  <dd>The parent process id.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$stime</dt>
+  <dd>The start time of the process.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$etime</dt>
+  <dd>The end time of the process.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$pmem</dt>
+  <dd>The process memory.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$pcpu</dt>
+  <dd>The percent CPU utilization.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$tty</dt>
+  <dd>The controlling tty.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt>$vsz</dt>
+  <dd>Virtual memory size of the process</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss">OTHER THINGS IN TRIGGER CLAUSES</h2>
+<p class="Pp">To make testing against elapsed time easier, a function
+    <span class="Li">&quot;elapse2sec()&quot;</span> has been written to parse
+    and convert elapsed time strings in the format
+    <span class="Li">&quot;dd-hh:mm:ss&quot;</span> and a number of seconds.</p>
+<p class="Pp">Some constants for the number of seconds in a minute, hour, or day
+    have also been defined. These are referred to as
+    <span class="Li">&quot;MINS&quot;</span>,
+    <span class="Li">&quot;HOURS&quot;</span>, and
+    <span class="Li">&quot;DAYS&quot;</span> respectively and they have the
+    expected definitions:</p>
+<p class="Pp"></p>
+<pre>  use constant MINS   =&gt; 60;
+  use constant HOURS  =&gt; 60*60;
+  use constant DAYS   =&gt; HOURS * 24;
+</pre>
+<p class="Pp">Here is an example of the use of
+    <span class="Li">&quot;elapsed2sec()&quot;</span>:</p>
+<p class="Pp"></p>
+<pre>  # Which processes have been running for more than 3 hours?
+  # Also note use of builtin-function elapsed2secs, variable $etime
+  # and builtin-function HOURS
+  [.]
+    trigger = elapsed2secs('$etime') &gt; 1*DAYS
+    action  = echo &quot;$command has been running more than 1 day ($etime)&quot;
+    occurs  = every
+</pre>
+<p class="Pp">Please note the quotes around '$etime'.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE_CONFIGURATION"><a class="permalink" href="#EXAMPLE_CONFIGURATION">EXAMPLE
+  CONFIGURATION</a></h1>
+<pre>  # Comments start with # or ; and go to the end of the line.
+  # The format for each entry is in Microsoft .INI form:
+  # [process-pattern]
+  # trigger = perl-expression
+  # action  = program-and-arguments-to-run
+  [httpd$]
+    trigger = $count &lt; 4
+    action  = echo &quot;$trigger fired -- You have $count httpd sessions.&quot;
+  [.]
+  trigger = $vsz &gt; 10
+  action  = echo &quot;Looks like you have a big $command program: $vsz KB&quot;
+  # Unfortunately we have use a different pattern below. (Here we use
+  # &quot;.?&quot; instead of &quot;.&quot;.) In effect the the two patterns mean
+  # test every process.
+  [.?]
+    trigger = elapsed2secs('$etime') &gt; 2*MINS &amp;&amp; $pcpu &gt; 40
+    occurs  = every
+    action  = &lt;&lt;EOT
+     echo &quot;$command used $pcpu% CPU for the last $etime seconds&quot; | /bin/mail root
+     kill -TERM $pid
+  EOT
+  # Scripts don't show as the script name as the command name on some
+  # operating systems.  Rather the name of the interpreter is listed
+  # (e.g. bash or perl) Here's how you can match against a script.
+  # BSD/OS is an exception: it does give the script name rather than
+  # the interpreter name.
+  [/usr/bin/perl]
+    trigger = \$args !~ /ps-watcher/
+    occurs  = every
+    action  = echo &quot;***found perl program ${pid}:\n $args&quot;
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Using_$PROLOG_for_getting_non-ps_information"><a class="permalink" href="#Using_$PROLOG_for_getting_non-ps_information">Using
+  $PROLOG for getting non-ps information</a></h1>
+<p class="Pp">Here is an example to show how to use ps-watcher to do something
+    not really possible from ps: check to see if a <i>port</i> is active. We
+    make use of lsof to check port 3333 and the <span class="Li">$PROLOG</span>
+    make sure it runs.</p>
+<p class="Pp"></p>
+<pre>  [$PROLOG]
+    occurs  = first
+    trigger = { \$x=`lsof -i :3333 &gt;/dev/null 2&gt;&amp;1`; \$? &gt;&gt; 8 }
+    action  = &lt;&lt;EOT
+    put-your-favorite-command-here arg1 arg2 ...
+  EOT
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY_CONSIDERATIONS"><a class="permalink" href="#SECURITY_CONSIDERATIONS">SECURITY
+  CONSIDERATIONS</a></h1>
+<p class="Pp">Any daemon such as this one which is sufficiently flexible is a
+    security risk. The configuration file allows arbitrary commands to be run.
+    In particular if this daemon is run as root and the configuration file is
+    not protected so that it can't be modified, a bad person could have their
+    programs run as root.</p>
+<p class="Pp">There's nothing in the ps command or ps-watcher, that requires one
+    to run this daemon as root.</p>
+<p class="Pp">So as with all daemons, one needs to take usual security
+    precautions that a careful sysadmin/maintainer of a computer would. If you
+    can run any daemon as an unprivileged user (or with no privileges), do it!
+    If not, set the permissions on the configuration file and the directory it
+    lives in.</p>
+<p class="Pp">This program can also run chrooted and there is a
+    <span class="Li">&quot;--path&quot;</span> option that is available which
+    can be used to set the executable search path. All commands used by
+    ps-watcher are fully qualified, and I generally give a full execution path
+    in my configuration file, so consider using the option
+    <span class="Li">&quot;--path=''&quot;</span>.</p>
+<p class="Pp">Commands that need to be run as root you can run via
+    <span class="Li">&quot;sudo&quot;</span>. I often run process accounting
+    which tracks all commands run. Tripwire may be useful to track changed
+    configuration files.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TROUBLESHOOTING"><a class="permalink" href="#TROUBLESHOOTING">TROUBLESHOOTING</a></h1>
+<p class="Pp">To debug a configuration file the following options are
+  useful:</p>
+<p class="Pp"></p>
+<pre>   ps-watcher --log --nodaemon --sleep -1 --debug 2 *config-file*
+</pre>
+<p class="Pp">For even more information and control try running the above under
+    the perl debugger, e.g.</p>
+<p class="Pp"></p>
+<pre>   perl -d ps-watcher --log --nodaemon --sleep -1 --debug 2 *config-file*
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Well, some of these are not so much a bug in ps-watcher so much as
+    a challenge to getting ps-watcher to do what you want it to do.</p>
+<p class="Pp">One common problem people run in into is understanding exactly
+    what the process variables mean. The manual page <a class="Xr" href="../1/ps.html"><b>ps</b>(1)</a> should be of
+    help, but I've found some of the descriptions either a bit vague or just
+    plain lacking.</p>
+<p class="Pp">Sometimes one will see this error message when debug tracing is
+    turned on:</p>
+<p class="Pp"></p>
+<pre>  ** debug ** Something wrong getting ps variables
+</pre>
+<p class="Pp">This just means that the process died between the time ps-watcher
+    first saw the existence of the process and the time that it queried
+    variables.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">See also <a class="Xr" href="../1/ps.html"><b>ps</b>(1)</a> and <a class="Xr" href="../8/syslogd.html"><b>syslogd</b>(8)</a>.</p>
+<p class="Pp">Another cool program doing ps-like things is
+    <span class="Li">&quot;xps&quot;</span>. Well okay, it's another program I
+    distributed. It shows the process tree dynamically updated using X Motif and
+    tries to display the output &quot;attractively&quot; but fast. You can the
+    find the homepage at &lt;http://motif-pstree.sourceforge.net&gt; and it
+    download via
+    &lt;http://prdownloads.sourceforge.net/motif-pstree?sort_by=date&amp;sort=desc&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Rocky Bernstein (rocky@gnu.org)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<pre>  Copyright (C) 2000, 2002, 2003, 2004, 2005, 2006, 2008
+  Rocky Bernstein, email: rocky@gnu.org.
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+</pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-01-23</td>
+    <td class="foot-os">perl v5.36.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: ps-watcher 1.08-11 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

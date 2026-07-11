@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Collect forensic data about MySQL when problems occur.">
+<title>pt-stalk(1p) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pt-stalk(1p)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#RISKS">RISKS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#CONFIGURING">CONFIGURING</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#SYSTEM_REQUIREMENTS">SYSTEM
+  REQUIREMENTS</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#DOWNLOADING">DOWNLOADING</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#ABOUT_PERCONA_TOOLKIT">ABOUT
+  PERCONA TOOLKIT</a></li><li><a href="#COPYRIGHT,_LICENSE,_AND_WARRANTY">COPYRIGHT,
+  LICENSE, AND WARRANTY</a></li><li><a href="#VERSION">VERSION</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PT-STALK(1p)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">PT-STALK(1p)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pt-stalk - Collect forensic data about MySQL when problems
+  occur.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Usage: pt-stalk [OPTIONS]</p>
+<p class="Pp">pt-stalk waits for a trigger condition to occur, then collects
+    data to help diagnose problems. The tool is designed to run as a daemon with
+    root privileges, so that you can diagnose intermittent problems that you
+    cannot observe directly. You can also use it to execute a custom command, or
+    to collect data on demand without waiting for the trigger to occur.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RISKS"><a class="permalink" href="#RISKS">RISKS</a></h1>
+<p class="Pp">Percona Toolkit is mature, proven in the real world, and well
+    tested, but all database tools can pose a risk to the system and the
+    database server. Before using this tool, please:</p>
+<ul class="Bl-bullet">
+  <li>Read the tool's documentation</li>
+  <li>Review the tool's known &quot;BUGS&quot;</li>
+  <li>Test the tool on a non-production server</li>
+  <li>Backup your production server and verify the backups</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Sometimes a problem happens infrequently and for a short time,
+    giving you no chance to see the system when it happens. How do you solve
+    intermittent MySQL problems when you can't observe them? That's why pt-stalk
+    exists. In addition to using it when there's a known problem on your
+    servers, it is a good idea to run pt-stalk all the time, even when you think
+    nothing is wrong. You will appreciate the data it collects when a problem
+    occurs, because problems such as MySQL lockups or spikes in activity
+    typically leave no evidence to use in root cause analysis.</p>
+<p class="Pp">pt-stalk does two things: it watches a MySQL server and waits for
+    a trigger condition to occur, and it collects diagnostic data when that
+    trigger occurs. To avoid false-positives caused by short-lived problems, the
+    trigger condition must be true at least &quot;--cycles&quot; times before a
+    &quot;--collect&quot; is triggered.</p>
+<p class="Pp">To use pt-stalk effectively, you need to define a good trigger. A
+    good trigger is sensitive enough to fire reliably when a problem occurs, so
+    that you don't miss a chance to solve problems. On the other hand, a good
+    trigger isn't prone to false positives, so you don't gather information when
+    the server is functioning normally.</p>
+<p class="Pp">The most reliable triggers for MySQL tend to be the number of
+    connections to the server, and the number of queries running concurrently.
+    These are available in the SHOW GLOBAL STATUS command as Threads_connected
+    and Threads_running. Sometimes Threads_connected is not a reliable indicator
+    of trouble, but Threads_running usually is. Your job, as the tool's user, is
+    to define an appropriate trigger condition for the tool. Choose carefully,
+    because the quality of your results will depend on the trigger you
+  choose.</p>
+<p class="Pp">You define the trigger with the &quot;--function&quot;,
+    &quot;--variable&quot;, &quot;--threshold&quot;, and &quot;--cycles&quot;
+    options. The default values for these options define a reasonable trigger,
+    but you should adjust or change them to suite your particular system and
+    needs.</p>
+<p class="Pp">By default, pt-stalk tool watches MySQL forever until the trigger
+    occurs, then it collects diagnostic data for a while, and sleeps afterwards
+    to avoid repeatedly collecting data if the trigger remains true. The general
+    order of operations is:</p>
+<p class="Pp"></p>
+<pre>   while true; do
+      if --variable from --function &gt; --threshold; then
+         cycles_true++
+         if cycles_true &gt;= --cycles; then
+            --notify-by-email
+            if --collect; then
+               if --disk-bytes-free and --disk-pct-free ok; then
+                  (--collect for --run-time seconds) &amp;
+               fi
+               rm files in --dest older than --retention-time
+            fi
+            iter++
+            cycles_true=0
+         fi
+         if iter &lt; --iterations; then
+            sleep --sleep seconds
+         else
+            break
+         fi
+      else
+         if iter &lt; --iterations; then
+            sleep --interval seconds
+         else
+            break
+         fi
+      fi
+   done
+   rm old --dest files older than --retention-time
+   if --collect process are still running; then
+      wait up to --run-time * 3 seconds
+      kill any remaining --collect processes 
+   fi
+</pre>
+<p class="Pp">The diagnostic data is written to files whose names begin with a
+    timestamp, so you can distinguish samples from each other in case the tool
+    collects data multiple times. The pt-sift tool is designed to help you
+    browse and analyze the resulting data samples.</p>
+<p class="Pp">Although this sounds simple enough, in practice there are a number
+    of subtleties, such as detecting when the disk is beginning to fill up so
+    that the tool doesn't cause the server to run out of disk space. This tool
+    handles these types of potential problems, so it's a good idea to use this
+    tool instead of writing something from scratch and possibly experiencing
+    some of the hazards this tool is designed to avoid.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURING"><a class="permalink" href="#CONFIGURING">CONFIGURING</a></h1>
+<p class="Pp">You can use standard Percona Toolkit configuration files to set
+    command line options.</p>
+<p class="Pp">You will probably want to run the tool as a daemon and customize
+    at least the &quot;--threshold&quot;. Here's a sample configuration file for
+    triggering when there are more than 20 queries running at once:</p>
+<p class="Pp"></p>
+<pre>  daemonize
+  threshold=20
+</pre>
+<p class="Pp">If you don't run the tool as root, then you will need specify
+    several options, such as &quot;--pid&quot;, &quot;--log&quot;, and
+    &quot;--dest&quot;, else the tool will probably fail to start.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="ask"><a class="permalink" href="#ask">--ask-pass</a></dt>
+  <dd>Prompt for a password when connecting to MySQL.</dd>
+  <dt id="collect"><a class="permalink" href="#collect">--collect</a></dt>
+  <dd>default: yes; negatable: yes
+    <p class="Pp">Collect diagnostic data when the trigger occurs. Specify
+        <span class="Li">&quot;--no-collect&quot;</span> to make the tool watch
+        the system but not collect data.</p>
+    <p class="Pp">See also &quot;--stalk&quot;.</p>
+  </dd>
+  <dt>--collect-gdb</dt>
+  <dd>Collect GDB stacktraces. This is achieved by attaching to MySQL and
+      printing stack traces from all threads. This will freeze the server for
+      some period of time, ranging from a second or so to much longer on very
+      busy systems with a lot of memory and many threads in the server. For this
+      reason, it is disabled by default. However, if you are trying to diagnose
+      a server stall or lockup, freezing the server causes no additional harm,
+      and the stack traces can be vital for diagnosis.
+    <p class="Pp">In addition to freezing the server, there is also some risk of
+        the server crashing or performing badly after GDB detaches from it.</p>
+  </dd>
+  <dt>--collect-oprofile</dt>
+  <dd>Collect oprofile data. This is achieved by starting an oprofile session,
+      letting it run for the collection time, and then stopping and saving the
+      resulting profile data in the system's default location. Please read your
+      system's oprofile documentation to learn more about this.</dd>
+  <dt>--collect-strace</dt>
+  <dd>Collect strace data. This is achieved by attaching strace to the server,
+      which will make it run very slowly until strace detaches. The same
+      cautions apply as those listed in --collect-gdb. You should not enable
+      this option together with --collect-gdb, because GDB and strace can't
+      attach to the server process simultaneously.</dd>
+  <dt>--collect-tcpdump</dt>
+  <dd>Collect tcpdump data. This option causes tcpdump to capture all traffic on
+      all interfaces for the port on which MySQL is listening. You can later use
+      pt-query-digest to decode the MySQL protocol and extract a log of query
+      traffic from it.</dd>
+  <dt id="config"><a class="permalink" href="#config">--config</a></dt>
+  <dd>type: string
+    <p class="Pp">Read this comma-separated list of config files. If specified,
+        this must be the first option on the command line.</p>
+  </dd>
+  <dt id="cycles"><a class="permalink" href="#cycles">--cycles</a></dt>
+  <dd>type: int; default: 5
+    <p class="Pp">How many times &quot;--variable&quot; must be greater than
+        &quot;--threshold&quot; before triggering &quot;--collect&quot;. This
+        helps prevent false positives, and makes the trigger condition less
+        likely to fire when the problem recovers quickly.</p>
+  </dd>
+  <dt id="daemonize"><a class="permalink" href="#daemonize">--daemonize</a></dt>
+  <dd>Daemonize the tool. This causes the tool to fork into the background and
+      log its output as specified in --log.</dd>
+  <dt id="defaults"><a class="permalink" href="#defaults">--defaults-file</a></dt>
+  <dd>short form: -F; type: string
+    <p class="Pp">Only read mysql options from the given file. You must give an
+        absolute pathname.</p>
+  </dd>
+  <dt id="dest"><a class="permalink" href="#dest">--dest</a></dt>
+  <dd>type: string; default: /var/lib/pt-stalk
+    <p class="Pp">Where to save diagnostic data from &quot;--collect&quot;. Each
+        time the tool collects data, it writes to a new set of files, which are
+        named with the current system timestamp.</p>
+  </dd>
+  <dt id="disk"><a class="permalink" href="#disk">--disk-bytes-free</a></dt>
+  <dd>type: size; default: 100M
+    <p class="Pp">Do not &quot;--collect&quot; if the disk has less than this
+        much free space. This prevents the tool from filling up the disk with
+        diagnostic data.</p>
+    <p class="Pp">If the &quot;--dest&quot; directory contains a previously
+        captured sample of data, the tool will measure its size and use that as
+        an estimate of how much data is likely to be gathered this time, too. It
+        will then be even more pessimistic, and will refuse to collect data
+        unless the disk has enough free space to hold the sample and still have
+        the desired amount of free space. For example, if you'd like 100MB of
+        free space and the previous diagnostic sample consumed 100MB, the tool
+        won't collect any data unless the disk has 200MB free.</p>
+    <p class="Pp">Valid size value suffixes are k, M, G, and T.</p>
+  </dd>
+  <dt id="disk~2"><a class="permalink" href="#disk~2">--disk-pct-free</a></dt>
+  <dd>type: int; default: 5
+    <p class="Pp">Do not &quot;--collect&quot; if the disk has less than this
+        percent free space. This prevents the tool from filling up the disk with
+        diagnostic data.</p>
+    <p class="Pp">This option works similarly to &quot;--disk-bytes-free&quot;
+        but specifies a percentage margin of safety instead of a bytes margin of
+        safety. The tool honors both options, and will not collect any data
+        unless both margins are satisfied.</p>
+  </dd>
+  <dt id="function"><a class="permalink" href="#function">--function</a></dt>
+  <dd>type: string; default: status
+    <p class="Pp">What to watch for the trigger. The default value watches
+        <span class="Li">&quot;SHOW GLOBAL STATUS&quot;</span>, but you can also
+        watch <span class="Li">&quot;SHOW PROCESSLIST&quot;</span> and specify a
+        file with your own custom code. This function supplies the value of
+        &quot;--variable&quot;, which is then compared against
+        &quot;--threshold&quot; to see if the the trigger condition is met.
+        Additional options may be required as well; see below. Possible values
+        are:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>status
+    <p class="Pp">Watch <span class="Li">&quot;SHOW GLOBAL STATUS&quot;</span>
+        for the trigger. The value of &quot;--variable&quot; then defines which
+        status counter is the trigger.</p>
+  </li>
+  <li>processlist
+    <p class="Pp">Watch <span class="Li">&quot;SHOW FULL
+        PROCESSLIST&quot;</span> for the trigger. The trigger value is the count
+        of processes whose &quot;--variable&quot; column matches the
+        &quot;--match&quot; option. For example, to trigger
+        &quot;--collect&quot; when more than 10 processes are in the
+        &quot;statistics&quot; state, specify:</p>
+    <p class="Pp"></p>
+    <pre>   --function processlist \
+   --variable State       \
+   --match statistics     \
+   --threshold 10
+    </pre>
+  </li>
+</ul>
+</div>
+<div class="Bd-indent">
+<p class="Pp">In addition, you can specify a file that contains your custom
+    trigger function, written in Unix shell script. This can be a wrapper that
+    executes anything you wish. If the argument to &quot;--function&quot; is a
+    file, then it takes precedence over built-in functions, so if there is a
+    file in the working directory named &quot;status&quot; or
+    &quot;processlist&quot; then the tool will use that file even though are
+    valid built-in values.</p>
+<p class="Pp">The file works by providing a function called
+    <span class="Li">&quot;trg_plugin&quot;</span>, and the tool simply sources
+    the file and executes the function. For example, the file might contain:</p>
+<p class="Pp"></p>
+<pre>   trg_plugin() {
+      mysql $EXT_ARGV -e &quot;SHOW ENGINE INNODB STATUS&quot; \
+        | grep -c &quot;has waited at&quot;
+   }
+</pre>
+<p class="Pp">This snippet will count the number of mutex waits inside InnoDB.
+    It illustrates the general principle: the function must output a number,
+    which is then compared to &quot;--threshold&quot; as usual. The
+    <span class="Li">$EXT_ARGV</span> variable contains the MySQL options
+    mentioned in the &quot;SYNOPSIS&quot; above.</p>
+<p class="Pp">The file should not alter the tool's existing global variables.
+    Prefix any file-specific global variables with
+    <span class="Li">&quot;PLUGIN_&quot;</span> or make them local.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="help"><a class="permalink" href="#help">--help</a></dt>
+  <dd>Print help and exit.</dd>
+  <dt id="host"><a class="permalink" href="#host">--host</a></dt>
+  <dd>short form: -h; type: string
+    <p class="Pp">Host to connect to.</p>
+  </dd>
+  <dt id="interval"><a class="permalink" href="#interval">--interval</a></dt>
+  <dd>type: int; default: 1
+    <p class="Pp">How often to check the if trigger is true, in seconds.</p>
+  </dd>
+  <dt id="iterations"><a class="permalink" href="#iterations">--iterations</a></dt>
+  <dd>type: int
+    <p class="Pp">How many times to &quot;--collect&quot; diagnostic data. By
+        default, the tool runs forever and collects data every time the trigger
+        occurs. Specify &quot;--iterations&quot; to collect data a limited
+        number of times. This option is also useful with
+        <span class="Li">&quot;--no-stalk&quot;</span> to collect data once and
+        exit, for example.</p>
+  </dd>
+  <dt id="log"><a class="permalink" href="#log">--log</a></dt>
+  <dd>type: string; default: /var/log/pt-stalk.log
+    <p class="Pp">Print all output to this file when daemonized.</p>
+  </dd>
+  <dt id="match"><a class="permalink" href="#match">--match</a></dt>
+  <dd>type: string
+    <p class="Pp">The pattern to use when watching SHOW PROCESSLIST. See
+        &quot;--function&quot; for details.</p>
+  </dd>
+  <dt id="notify"><a class="permalink" href="#notify">--notify-by-email</a></dt>
+  <dd>type: string
+    <p class="Pp">Send an email to these addresses for every
+        &quot;--collect&quot;.</p>
+  </dd>
+  <dt id="password"><a class="permalink" href="#password">--password</a></dt>
+  <dd>short form: -p; type: string
+    <p class="Pp">Password to use when connecting. If password contains commas
+        they must be escaped with a backslash: &quot;exam\,ple&quot;</p>
+  </dd>
+  <dt id="pid"><a class="permalink" href="#pid">--pid</a></dt>
+  <dd>type: string; default: /var/run/pt-stalk.pid
+    <p class="Pp">Create the given PID file. The tool won't start if the PID
+        file already exists and the PID it contains is different than the
+        current PID. However, if the PID file exists and the PID it contains is
+        no longer running, the tool will overwrite the PID file with the current
+        PID. The PID file is removed automatically when the tool exits.</p>
+  </dd>
+  <dt id="plugin"><a class="permalink" href="#plugin">--plugin</a></dt>
+  <dd>type: string
+    <p class="Pp">Load a plugin to hook into the tool and extend is
+        functionality. The specified file does not need to be executable, nor
+        does its first line need to be shebang line. It only needs to define one
+        or more of these Bash functions:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="before_stalk"><a class="permalink" href="#before_stalk">before_stalk</a></dt>
+  <dd>Called before stalking.</dd>
+  <dt id="before_collect"><a class="permalink" href="#before_collect">before_collect</a></dt>
+  <dd>Called when the trigger occurs, before running a &quot;--collect&quot;
+      subprocesses in the background.</dd>
+  <dt id="after_collect"><a class="permalink" href="#after_collect">after_collect</a></dt>
+  <dd>Called after running a collector process. The PID of the collector process
+      is passed as the first argument. This hook is called before
+      <span class="Li">&quot;after_collect_sleep&quot;</span>.</dd>
+  <dt id="after_collect_sleep"><a class="permalink" href="#after_collect_sleep">after_collect_sleep</a></dt>
+  <dd>Called after sleeping &quot;--sleep&quot; seconds for the collector
+      process to finish. This hook is called after
+      <span class="Li">&quot;after_collect&quot;</span>.</dd>
+  <dt id="after_interval_sleep"><a class="permalink" href="#after_interval_sleep">after_interval_sleep</a></dt>
+  <dd>Called after sleeping &quot;--interval&quot; seconds after each trigger
+      check.</dd>
+  <dt id="after_stalk"><a class="permalink" href="#after_stalk">after_stalk</a></dt>
+  <dd>Called after stalking. Since pt-stalk stalks forever by default, this hook
+      is only called if &quot;--iterations&quot; is specified.</dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">For example, a very simple plugin that touches a file when
+    &quot;--collect&quot; is triggered:</p>
+<p class="Pp"></p>
+<pre>   before_collect() {
+      touch /tmp/foo
+   }
+</pre>
+<p class="Pp">Since the plugin is completely sourced (imported) into the tool's
+    namespace, be careful not to define other functions or global variables that
+    already exist in the tool. You should prefix all plugin-specific functions
+    and global variables with <span class="Li">&quot;plugin_&quot;</span> or
+    <span class="Li">&quot;PLUGIN_&quot;</span>.</p>
+<p class="Pp">Plugins have access to all command line options but they should
+    not modify them. Each option is a global variable like
+    <span class="Li">$OPT_DEST</span> which corresponds to &quot;--dest&quot;.
+    Therefore, the global variable for each command line option is
+    <span class="Li">&quot;OPT_&quot;</span> plus the option name in all caps
+    with hyphens replaced by underscores.</p>
+<p class="Pp">Plugins can stop the tool by setting the global variable
+    <span class="Li">&quot;OKTORUN&quot;</span> to <span class="Li">1</span>. In
+    this case, the global variable
+    <span class="Li">&quot;EXIT_REASON&quot;</span> should also be set to
+    indicate why the tool was stopped.</p>
+<p class="Pp">Plugin writers should keep in mind that the file destination
+    prefix currently in use should be accessed through the
+    <span class="Li">$prefix</span> variable, rather than
+    <span class="Li">$OPT_PREFIX</span>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="mysql"><a class="permalink" href="#mysql">--mysql-only</a></dt>
+  <dd>Trigger only MySQL related captures, ignoring all others. The only not
+      MySQL related value being collected is the disk space, because it is
+      needed to calculate the available free disk space to write the result
+      files. This option is useful for RDS instances.</dd>
+  <dt id="port"><a class="permalink" href="#port">--port</a></dt>
+  <dd>short form: -P; type: int
+    <p class="Pp">Port number to use for connection.</p>
+  </dd>
+  <dt id="prefix"><a class="permalink" href="#prefix">--prefix</a></dt>
+  <dd>type: string
+    <p class="Pp">The filename prefix for diagnostic samples. By default, all
+        files created by the same &quot;--collect&quot; instance have a
+        timestamp prefix based on the current local time, like
+        <span class="Li">&quot;2011_12_06_14_02_02&quot;</span>, which is
+        December 6, 2011 at 14:02:02.</p>
+  </dd>
+  <dt id="retention"><a class="permalink" href="#retention">--retention-count</a></dt>
+  <dd>type: int; default: 0
+    <p class="Pp">Keep the data for the last N runs. If N &gt; 0, the program
+        will keep the data for the last N runs and will delete the older
+      data.</p>
+  </dd>
+  <dt id="retention~2"><a class="permalink" href="#retention~2">--retention-size</a></dt>
+  <dd>type: int; default: 0
+    <p class="Pp">Keep up to --retention-size MB of data. It will keep at least
+        1 run even if the size is bigger than the specified in this
+      parameter</p>
+  </dd>
+  <dt id="retention~3"><a class="permalink" href="#retention~3">--retention-time</a></dt>
+  <dd>type: int; default: 30
+    <p class="Pp">Number of days to retain collected samples. Any samples that
+        are older will be purged.</p>
+  </dd>
+  <dt id="run"><a class="permalink" href="#run">--run-time</a></dt>
+  <dd>type: int; default: 30
+    <p class="Pp">How long to &quot;--collect&quot; diagnostic data when the
+        trigger occurs. The value is in seconds and should not be longer than
+        &quot;--sleep&quot;. It is usually not necessary to change this; if the
+        default 30 seconds doesn't collect enough data, running longer is not
+        likely to help because the system or MySQL server is probably too busy
+        to respond. In fact, in many cases a shorter collection period is
+        appropriate.</p>
+    <p class="Pp">This value is used two other times. After collecting, the
+        collect subprocess will wait another &quot;--run-time&quot; seconds for
+        its commands to finish. Some commands can take awhile if the system is
+        running very slowly (which can likely be the case given that a
+        collection was triggered). Since empty files are deleted, the extra wait
+        gives commands time to finish and write their data. The value is
+        potentially used again just before the tool exits to wait again for any
+        collect subprocesses to finish. In most cases this won't happen because
+        of the aforementioned extra wait. If it happens, the tool will log
+        &quot;Waiting up to N seconds for subprocesses to finish...&quot; where
+        N is three times &quot;--run-time&quot;. In both cases, after waiting,
+        the tool kills all of its subprocesses.</p>
+  </dd>
+  <dt id="sleep"><a class="permalink" href="#sleep">--sleep</a></dt>
+  <dd>type: int; default: 300
+    <p class="Pp">How long to sleep after &quot;--collect&quot;. This prevents
+        the tool from triggering continuously, which might be a problem if the
+        collection process is intrusive. It also prevents filling up the disk or
+        gathering too much data to analyze reasonably.</p>
+  </dd>
+  <dt>--sleep-collect</dt>
+  <dd>type: int; default: 1
+    <p class="Pp">How long to sleep between collection loop cycles. This is
+        useful with <span class="Li">&quot;--no-stalk&quot;</span> to do long
+        collections. For example, to collect data every minute for an hour,
+        specify: <span class="Li">&quot;--no-stalk --run-time 3600
+        --sleep-collect 60&quot;</span>.</p>
+  </dd>
+  <dt id="socket"><a class="permalink" href="#socket">--socket</a></dt>
+  <dd>short form: -S; type: string
+    <p class="Pp">Socket file to use for connection.</p>
+  </dd>
+  <dt id="stalk"><a class="permalink" href="#stalk">--stalk</a></dt>
+  <dd>default: yes; negatable: yes
+    <p class="Pp">Watch the server and wait for the trigger to occur. Specify
+        <span class="Li">&quot;--no-stalk&quot;</span> to collect diagnostic
+        data immediately, that is, without waiting for the trigger to occur. You
+        probably also want to specify values for &quot;--interval&quot;,
+        &quot;--iterations&quot;, and &quot;--sleep&quot;. For example, to
+        immediately collect data for 1 minute then exit, specify:</p>
+    <p class="Pp"></p>
+    <pre>   --no-stalk --run-time 60 --iterations 1
+    </pre>
+    <p class="Pp">&quot;--cycles&quot;, &quot;--daemonize&quot;,
+        &quot;--log&quot; and &quot;--pid&quot; have no effect with
+        <span class="Li">&quot;--no-stalk&quot;</span>. Safeguard options, like
+        &quot;--disk-bytes-free&quot; and &quot;--disk-pct-free&quot;, are still
+        respected.</p>
+    <p class="Pp">See also &quot;--collect&quot;.</p>
+  </dd>
+  <dt id="threshold"><a class="permalink" href="#threshold">--threshold</a></dt>
+  <dd>type: int; default: 25
+    <p class="Pp">The maximum acceptable value for &quot;--variable&quot;.
+        &quot;--collect&quot; is triggered when the value of
+        &quot;--variable&quot; is greater than &quot;--threshold&quot; for
+        &quot;--cycles&quot; many times. Currently, there is no way to define a
+        lower threshold to check for a &quot;--variable&quot; value that is too
+        low.</p>
+    <p class="Pp">See also &quot;--function&quot;.</p>
+  </dd>
+  <dt id="user"><a class="permalink" href="#user">--user</a></dt>
+  <dd>short form: -u; type: string
+    <p class="Pp">User for login if not current user.</p>
+  </dd>
+  <dt id="variable"><a class="permalink" href="#variable">--variable</a></dt>
+  <dd>type: string; default: Threads_running
+    <p class="Pp">The variable to compare against &quot;--threshold&quot;. See
+        also &quot;--function&quot;.</p>
+  </dd>
+  <dt id="verbose"><a class="permalink" href="#verbose">--verbose</a></dt>
+  <dd>type: int; default: 2
+    <p class="Pp">Print more or less information while running. Since the tool
+        is designed to be a long-running daemon, the default verbosity level
+        only prints the most important information. If you run the tool
+        interactively, you may want to use a higher verbosity level.</p>
+    <p class="Pp"></p>
+    <pre>  LEVEL PRINTS
+  ===== =====================================
+  0     Errors
+  1     Warnings
+  2     Matching triggers and collection info
+  3     Non-matching triggers
+    </pre>
+  </dd>
+  <dt id="version"><a class="permalink" href="#version">--version</a></dt>
+  <dd>Print tool's version and exit.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<p class="Pp">This tool does not require any environment variables for
+    configuration, although it can be influenced to work differently by through
+    several variables. Keep in mind that these are expert settings, and should
+    not be used in most cases.</p>
+<p class="Pp">Specifically, the variables that can be set are:</p>
+<dl class="Bl-tag">
+  <dt id="CMD_GDB"><a class="permalink" href="#CMD_GDB">CMD_GDB</a></dt>
+  <dd></dd>
+  <dt id="CMD_IOSTAT"><a class="permalink" href="#CMD_IOSTAT">CMD_IOSTAT</a></dt>
+  <dd></dd>
+  <dt id="CMD_MPSTAT"><a class="permalink" href="#CMD_MPSTAT">CMD_MPSTAT</a></dt>
+  <dd></dd>
+  <dt id="CMD_MYSQL"><a class="permalink" href="#CMD_MYSQL">CMD_MYSQL</a></dt>
+  <dd></dd>
+  <dt id="CMD_MYSQLADMIN"><a class="permalink" href="#CMD_MYSQLADMIN">CMD_MYSQLADMIN</a></dt>
+  <dd></dd>
+  <dt id="CMD_OPCONTROL"><a class="permalink" href="#CMD_OPCONTROL">CMD_OPCONTROL</a></dt>
+  <dd></dd>
+  <dt id="CMD_OPREPORT"><a class="permalink" href="#CMD_OPREPORT">CMD_OPREPORT</a></dt>
+  <dd></dd>
+  <dt id="CMD_PMAP"><a class="permalink" href="#CMD_PMAP">CMD_PMAP</a></dt>
+  <dd></dd>
+  <dt id="CMD_STRACE"><a class="permalink" href="#CMD_STRACE">CMD_STRACE</a></dt>
+  <dd></dd>
+  <dt id="CMD_SYSCTL"><a class="permalink" href="#CMD_SYSCTL">CMD_SYSCTL</a></dt>
+  <dd></dd>
+  <dt id="CMD_TCPDUMP"><a class="permalink" href="#CMD_TCPDUMP">CMD_TCPDUMP</a></dt>
+  <dd></dd>
+  <dt id="CMD_VMSTAT"><a class="permalink" href="#CMD_VMSTAT">CMD_VMSTAT</a></dt>
+  <dd></dd>
+</dl>
+<p class="Pp">For example, during collection iostat is called with a -dx
+    argument, but because you have an NFS partition, you also need the -n flag
+    there. Instead of editing the source, you can call pt-stalk as</p>
+<p class="Pp"></p>
+<pre>    CMD_IOSTAT=&quot;iostat -n&quot; pt-stalk ...
+</pre>
+<p class="Pp">which will do exactly what you need. Combined with the plugin
+    hooks, this gives you a fine-grained control of what the tool does.</p>
+<p class="Pp">It is possible to enable <span class="Li">&quot;debug&quot;</span>
+    mode in mysqladmin specifying:</p>
+<p class="Pp"><span class="Li">&quot;CMD_MYSQLADMIN='mysqladmin debug' pt-stalk
+    params ...&quot;</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYSTEM_REQUIREMENTS"><a class="permalink" href="#SYSTEM_REQUIREMENTS">SYSTEM
+  REQUIREMENTS</a></h1>
+<p class="Pp">This tool requires Bash v3 or newer. Certain options require other
+    programs:</p>
+<dl class="Bl-tag">
+  <dt>&quot;--collect-gdb&quot; requires &quot;gdb&quot;</dt>
+  <dd></dd>
+  <dt>&quot;--collect-oprofile&quot; requires &quot;opcontrol&quot; and
+    &quot;opreport&quot;</dt>
+  <dd></dd>
+  <dt>&quot;--collect-strace&quot; requires &quot;strace&quot;</dt>
+  <dd></dd>
+  <dt>&quot;--collect-tcpdump&quot; requires &quot;tcpdump&quot;</dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">For a list of known bugs, see
+    &lt;http://www.percona.com/bugs/pt-stalk&gt;.</p>
+<p class="Pp">Please report bugs at
+    &lt;https://jira.percona.com/projects/PT&gt;. Include the following
+    information in your bug report:</p>
+<ul class="Bl-bullet">
+  <li>Complete command-line used to run the tool</li>
+  <li>Tool &quot;--version&quot;</li>
+  <li>MySQL version of all servers involved</li>
+  <li>Output from the tool including STDERR</li>
+  <li>Input files (log/dump/config files, etc.)</li>
+</ul>
+<p class="Pp">If possible, include debugging output by running the tool with
+    <span class="Li">&quot;PTDEBUG&quot;</span>; see
+  &quot;ENVIRONMENT&quot;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DOWNLOADING"><a class="permalink" href="#DOWNLOADING">DOWNLOADING</a></h1>
+<p class="Pp">Visit &lt;http://www.percona.com/software/percona-toolkit/&gt; to
+    download the latest release of Percona Toolkit. Or, get the latest release
+    from the command line:</p>
+<p class="Pp"></p>
+<pre>   wget percona.com/get/percona-toolkit.tar.gz
+   wget percona.com/get/percona-toolkit.rpm
+   wget percona.com/get/percona-toolkit.deb
+</pre>
+<p class="Pp">You can also get individual tools from the latest release:</p>
+<p class="Pp"></p>
+<pre>   wget percona.com/get/TOOL
+</pre>
+<p class="Pp">Replace <span class="Li">&quot;TOOL&quot;</span> with the name of
+    any tool.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Baron Schwartz, Justin Swanhart, Fernando Ipar, Daniel Nichter,
+    and Brian Fraser</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ABOUT_PERCONA_TOOLKIT"><a class="permalink" href="#ABOUT_PERCONA_TOOLKIT">ABOUT
+  PERCONA TOOLKIT</a></h1>
+<p class="Pp">This tool is part of Percona Toolkit, a collection of advanced
+    command-line tools for MySQL developed by Percona. Percona Toolkit was
+    forked from two projects in June, 2011: Maatkit and Aspersa. Those projects
+    were created by Baron Schwartz and primarily developed by him and Daniel
+    Nichter. Visit &lt;http://www.percona.com/software/&gt; to learn about other
+    free, open-source software from Percona.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT,_LICENSE,_AND_WARRANTY"><a class="permalink" href="#COPYRIGHT,_LICENSE,_AND_WARRANTY">COPYRIGHT,
+  LICENSE, AND WARRANTY</a></h1>
+<p class="Pp">This program is copyright 2011-2018 Percona LLC and/or its
+    affiliates, 2010-2011 Baron Schwartz.</p>
+<p class="Pp">THIS PROGRAM IS PROVIDED &quot;AS IS&quot; AND WITHOUT ANY EXPRESS
+    OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES
+    OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.</p>
+<p class="Pp">This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 2; OR the Perl Artistic License. On
+    UNIX and similar systems, you can issue `man perlgpl' or `man perlartistic'
+    to read these licenses.</p>
+<p class="Pp">You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software Foundation,
+    Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
+<p class="Pp">pt-stalk 3.2.1</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2020-08-30</td>
+    <td class="foot-os">perl v5.30.3</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: percona-toolkit 3.2.1-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

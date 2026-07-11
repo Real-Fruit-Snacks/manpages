@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="synchronize maildirs and notmuch databases">
+<title>muchsync(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">muchsync(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Synchronization_algorithm">Synchronization
+  algorithm</a></li><li><a href="#File_deletion">File
+  deletion</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">muchsync(1)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">muchsync(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">muchsync - synchronize maildirs and notmuch databases</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">muchsync <i>options</i></p>
+<p class="Pp">muchsync <i>options</i> <i>server-name</i>
+  <i>server-options</i></p>
+<p class="Pp">muchsync <i>options</i> &#x2013;init <i>maildir</i>
+    <i>server-name</i> <i>server-options</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">muchsync synchronizes the contents of maildirs and notmuch tags
+    across machines. Any given execution runs pairwise between two replicas, but
+    the system scales to an arbitrary number of replicas synchronizing in
+    arbitrary pairs. For efficiency, version vectors and logical timestamps are
+    used to limit synchronization to items a peer may not yet know about.</p>
+<p class="Pp">To use muchsync, both muchsync and notmuch should be installed
+    someplace in your PATH on two machines, and you must be able to access the
+    remote machine via ssh.</p>
+<p class="Pp">In its simplest usage, you have a single notmuch database on some
+    server SERVER and wish to start replicating that database on a client, where
+    the client currently does not have any mailboxes. You can initialize a new
+    replica in $HOME/inbox by running the following command:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+muchsync --init $HOME/inbox SERVER
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">This command may take some time, as it transfers the entire
+    contents of your maildir from the server to the client and creates a new
+    notmuch index on the client. Depending on your setup, you may be either
+    bandwidth limited or CPU limited. (Sadly, the notmuch library on which
+    muchsync is built is non-reentrant and forces all indexing to happen on a
+    single core at a rate of about 10,000 messages per minute.)</p>
+<p class="Pp">From then on, to synchronize the client with the server, just
+  run:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+muchsync SERVER
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">Since muchsync replicates the tags in the notmuch database itself,
+    you should consider disabling maildir flag synchronization by executing:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+notmuch config set maildir.synchronize_flags=false
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">The reason is that the synchronize_flags feature only works on a
+    small subset of pre-defined flags and so is not all that useful. Moreover,
+    it marks flags by renaming files, which is not particularly efficient.
+    muchsync was largely motivated by the need for better flag synchronization.
+    If you are satisfied with the synchronize_flags feature, you might consider
+    a tool such as offlineimap as an alternative to muchsync.</p>
+<section class="Ss">
+<h2 class="Ss" id="Synchronization_algorithm"><a class="permalink" href="#Synchronization_algorithm">Synchronization
+  algorithm</a></h2>
+<p class="Pp">muchsync separately synchronizes two classes of information: the
+    message-to-directory mapping (henceforth link counts) and the
+    message-id-to-tag mapping (henceforth tags). Using logical timestamps, it
+    can detect update conflicts for each type of information. We describe link
+    count and tag synchronization in turn.</p>
+<p class="Pp">Link count synchronization consists of ensuring that any given
+    message (identified by its collision-resistant content hash) appears the
+    same number of times in the same subdirectories on each replica. Generally a
+    message will appear only once in a single subdirectory. However, if the
+    message is moved or deleted on one replica, this will propagate to other
+    replicas.</p>
+<p class="Pp">If two replicas move or copy the same file between synchronization
+    events (or one moves the file and the other deletes it), this constitutes an
+    update conflict. Update conflicts are resolved by storing in each
+    subdirectory a number of copies equal to the maximum of the number of copies
+    in that subdirectory on the two replicas. This is conservative, in the sense
+    that a file will never be deleted after a conflict, though you may get extra
+    copies of files. (muchsync uses hard links, so at least these copies will
+    not use too much disk space.)</p>
+<p class="Pp">For example, if one replica moves a message to subdirectory
+    .box1/cur and another moves the same message to subdirectory .box2/cur, the
+    conflict will be resolved by placing two links to the message on each
+    replica, one in .box1/cur and one in .box2/cur. To respect the structure of
+    maildirs, subdirectories ending new and cur are special-cased; conflicts
+    between sibling new and cur subdirectories are resolved in favor of cur
+    without creating additional copies of messages.</p>
+<p class="Pp">Message tags are synchronized based on notmuch&#x2019;s message-ID
+    (usually the Message-ID header of a message), rather than message contents.
+    On conflict, tags are combined as follows. Any tag in the notmuch
+    configuration parameter muchsync.and_tags is removed from the message unless
+    it appears on both replicas. Any other tag is added if it appears on any
+    replica. In other words, tags in muchsync.and_tags are logically anded,
+    while all other flags are logically ored. (This approach will give the most
+    predictable results if muchsync.and_tags has the same value in all your
+    replicas. The --init option ensures uniform configurations initially, but
+    subsequent changes to muchsync.and_tags must be manually propagated.)</p>
+<p class="Pp">If your configuration file does not specify a value for
+    muchsync.and_tags, the default is to use the set of tags specified in the
+    new.tags configuration option. This should give intuitive results unless you
+    use a two-pass tagging system such as the afew tool, in which case new.tags
+    is used to flag input to the second pass while you likely want
+    muchsync.and_tags to reflect the output of the second pass.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="File_deletion"><a class="permalink" href="#File_deletion">File
+  deletion</a></h2>
+<p class="Pp">Because publishing software that actually deletes people&#x2019;s
+    email is a scary prospect, muchsync for the moment never actually deletes
+    mail files. Though this may change in the future, for the moment muchsync
+    moves any deleted messages to the directory .notmuch/muchsync/trash under
+    your mail directory (naming deleted messages by their content hash). If you
+    really want to delete mail to reclaim disk space or for privacy reasons, you
+    will need to run the following on each replica:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+cd &quot;$(notmuch config get database.path)&quot;
+rm -rf .notmuch/muchsync/trash
+    </pre>
+  </dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="C"><a class="permalink" href="#C"><b>-C <i>file</i>, --config
+    <i>file</i></b></a></dt>
+  <dd>Specify the path of the notmuch configuration file to use. If none is
+      specified, the default is to use the contents of the environment variable
+      $NOTMUCH_CONFIG, or if that variable is unset, the value
+      $HOME/.notmuch-config. (These are the same defaults as the notmuch command
+      itself.)</dd>
+  <dt id="F"><a class="permalink" href="#F"><b>-F</b></a></dt>
+  <dd>Check for modified files. Without this option, muchsync assumes that files
+      in a maildir are never edited. -F disables certain optimizations so as to
+      make muchsync at least check the timestamp on every file, which will
+      detect modified files at the cost of a longer startup time. If muchsync
+      dies with the error &#x201C;message received does not match hash,&#x201D;
+      you likely need to run it with the -F option.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Note that if your software regularly modifies the contents of mail
+    files (e.g., because you are running offlineimap with &#x201C;synclabels =
+    yes&#x201D;), then you will need to use -F each time you run muchsync.
+    Specify it as a server option (after the server name) if the editing happens
+    server-side.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="r"><a class="permalink" href="#r"><b>-r /path/to/muchsync</b></a></dt>
+  <dd>Specifies the path to muchsync on the server. Ordinarily, muchsync should
+      be in the default PATH on the server so this option is not required.
+      However, this option is useful if you have to install muchsync in a
+      non-standard place or wish to test development versions of the code.</dd>
+  <dt id="s"><a class="permalink" href="#s"><b>-s ssh-cmd</b></a></dt>
+  <dd>Specifies a command line to pass to /bin/sh to execute a command on
+      another machine. The default value is &#x201C;ssh -CTaxq&#x201D;. Note
+      that because this string is passed to the shell, special characters
+      including spaces may need to be escaped.</dd>
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b></a></dt>
+  <dd>The -v option increases verbosity. The more times it is specified, the
+      more verbose muchsync will become.</dd>
+  <dt id="help"><a class="permalink" href="#help"><b>--help</b></a></dt>
+  <dd>Print a brief summary of muchsync&#x2019;s command-line options.</dd>
+  <dt id="init"><a class="permalink" href="#init"><b>--init
+    <i>maildir</i></b></a></dt>
+  <dd>This option clones an existing mailbox on a remote server into
+      <i>maildir</i> on the local machine. Neither <i>maildir</i> nor your
+      notmuch configuration file (see --config above) should exist when you run
+      this command, as both will be created. The configuration file is copied
+      from the server (adjusted to reflect the local maildir), while
+      <i>maildir</i> is created as a replica of the maildir you have on the
+      server.</dd>
+  <dt id="nonew"><a class="permalink" href="#nonew"><b>--nonew</b></a></dt>
+  <dd>Ordinarily, muchsync begins by running &#x201C;notmuch new&#x201D;. This
+      option says not to run &#x201C;notmuch new&#x201D; before starting the
+      muchsync operation. It can be passed as either a client or a server
+      option. For example: The command &#x201C;muchsync myserver --nonew&#x201D;
+      will run &#x201C;notmuch new&#x201D; locally but not on myserver.</dd>
+  <dt id="noup,"><a class="permalink" href="#noup,"><b>--noup,
+    --noupload</b></a></dt>
+  <dd>Transfer files from the server to the client, but not vice versa.</dd>
+  <dt id="upbg"><a class="permalink" href="#upbg"><b>--upbg</b></a></dt>
+  <dd>Transfer files from the server to the client in the foreground. Then fork
+      into the background to upload any new files from the client to the server.
+      This option is useful when checking new mail, if you want to begin reading
+      your mail as soon as it has been downloaded while the upload
+    continues.</dd>
+  <dt id="self"><a class="permalink" href="#self"><b>--self</b></a></dt>
+  <dd>Print the 64-bit replica ID of the local maildir replica and exit.
+      Potentially useful in higher-level scripts, such as the emacs
+      notmuch-poll-script variable for identifying on which replica one is
+      running, particularly if network file systems allow a replica to be
+      accessed from multiple machines.</dd>
+  <dt id="newid"><a class="permalink" href="#newid"><b>--newid</b></a></dt>
+  <dd>Muchsync requires every replica to have a unique 64-bit identifier. If you
+      ever copy a notmuch database to another machine, including the muchsync
+      state, bad things will happen if both copies use muchsync, as they will
+      both have the same identifier. Hence, after making such copy and before
+      running muchsync to synchronize mail, run muchsync --newid to change the
+      identifier of one of the copies.</dd>
+  <dt id="version"><a class="permalink" href="#version"><b>--version</b></a></dt>
+  <dd>Report on the muchsync version number</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">To initialize a the muchsync database, you can run:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+muchsync -vv
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">This first executes &#x201C;notmuch new&#x201D;, then builds the
+    initial muchsync database from the contents of your maildir (the directory
+    specified as database.path in your notmuch configuration file). This command
+    may take several minutes the first time it is run, as it must compute a
+    content hash of every message in the database. Note that you do not need to
+    run this command, as muchsync will initialize the database the first time a
+    client tries to synchronize anyway.</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+muchsync --init ~/maildir myserver
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">First run &#x201C;notmuch new&#x201D; on myserver, then create a
+    directory ~/maildir containing a replica of your mailbox on myserver. Note
+    that neither your configuration file (by default ~/.notmuch-config) nor
+    ~/maildir should exist before running this command, as both will be
+  created.</p>
+<p class="Pp">To create a notmuch-poll script that fetches mail from a remote
+    server myserver, but on that server just runs notmuch new, do the following:
+    First, run muchsync --self on the server to get the replica ID. Then take
+    the ID returned (e.g., 1968464194667562615) and embed it in a shell script
+    as follows:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+#!/bin/sh
+self=$($HOME/muchsync --self) || exit 1
+if [ &quot;$self&quot; = 1968464194667562615 ]; then
+<br/>
+    exec notmuch new
+else
+<br/>
+    exec $HOME/muchsync -r ./muchsync --upbg myserver
+fi
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">The path of such a script is a good candidate for the emacs
+    notmuch-poll-script variable.</p>
+<p class="Pp">Alternatively, to have the command notmuch new on a client
+    automatically fetch new mail from server myserver, you can place the
+    following in the file .notmuch/hooks/post-new under your mail directory:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+#!/bin/sh
+muchsync --nonew --upbg myserver
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<p class="Pp">The default notmuch configuration file is
+  $HOME/.notmuch-config.</p>
+<p class="Pp">muchsync keeps all of its state in a subdirectory of your top
+    maildir called .notmuch/muchsync.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">notmuch(1).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">muchsync expects initially to create replicas from scratch. If you
+    have created a replica using another tool such as offlineimap and you try to
+    use muchsync to synchronize them, muchsync will assume every file has an
+    update conflict. This is okay if the two replicas are identical; if they are
+    not, it will result in artifacts such as files deleted in only one replica
+    reappearing. Ideally notmuch needs an option like --clobber that makes a
+    local replica identical to the remote one without touching the remote one,
+    so that an old version of a mail directory can be used as a disposable cache
+    to bootstrap initialization.</p>
+<p class="Pp">muchsync never deletes directories. If you want to remove a
+    subdirectory completely, you must manually execute rmdir on all replicas.
+    Even if you manually delete a subdirectory, it will live on in the notmuch
+    database.</p>
+<p class="Pp">To synchronize deletions and re-creations properly, muchsync never
+    deletes content hashes and their message IDs from its database, even after
+    the last copy of a message has disappeared. Such stale hashes should not
+    consume an inordinate amount of disk space, but could conceivably pose a
+    privacy risk if users believe deleting a message removes all traces of
+  it.</p>
+<p class="Pp">Message tags are synchronized based on notmuch&#x2019;s message-ID
+    (usually the Message-ID header of a message), rather than based on message
+    contents. This is slightly strange because very different messages can have
+    the same Message-ID header, meaning the user will likely only read one of
+    many messages bearing the same Message-ID header. It is conceivable that an
+    attacker could suppress a message from a mailing list by sending another
+    message with the same Message-ID. This bug is in the design of notmuch, and
+    hence not something that muchsync can work around. muchsync itself does not
+    assume Message-ID equivalence, relying instead on content hashes to
+    synchronize link counts. Hence, any tools used to work around the problem
+    should work on all replicas.</p>
+<p class="Pp">Because notmuch and Xapian do not keep any kind of modification
+    time on database entries, every invocation of muchsync requires a complete
+    scan of all tags in the Xapian database to detect any changed tags.
+    Fortunately muchsync heavily optimizes the scan so that it should take well
+    under a second for 100,000 mail messages. However, this means that
+    interfaces such as those used by notmuch-dump are not efficient enough (see
+    the next paragraph).</p>
+<p class="Pp">muchsync makes certain assumptions about the structure of
+    notmuch&#x2019;s private types notmuch_message_t and notmuch_directory_t. In
+    particular, it assumes that the Xapian document ID is the second field of
+    these data structures. Sadly, there is no efficient and clean way to extract
+    this information from the notmuch library interface. muchsync also makes
+    other assumptions about how tokens are named in the Xapian database. These
+    assumptions are necessary because the notmuch library interface and the
+    notmuch dump utility are too slow to support synchronization every time you
+    check mail.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">David Mazieres.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: muchsync 7-1build3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

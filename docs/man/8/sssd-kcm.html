@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="SSSD Kerberos Cache Manager">
+<title>sssd-kcm(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">sssd-kcm(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#USING_THE_KCM_CREDENTIAL_CACHE">USING
+  THE KCM CREDENTIAL CACHE</a></li><li><a href="#THE_CREDENTIAL_CACHE_STORAGE">THE
+  CREDENTIAL CACHE STORAGE</a></li><li><a href="#OBTAINING_DEBUG_LOGS">OBTAINING
+  DEBUG LOGS</a></li><li><a href="#RENEWALS">RENEWALS</a></li><li><a href="#CONFIGURATION_OPTIONS">CONFIGURATION
+  OPTIONS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SSSD-KCM(8)</td>
+    <td class="head-vol">File Formats and Conventions</td>
+    <td class="head-rtitle">SSSD-KCM(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">sssd-kcm - SSSD Kerberos Cache Manager</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This manual page describes the configuration of the SSSD Kerberos
+    Cache Manager (KCM). KCM is a process that stores, tracks and manages
+    Kerberos credential caches. It originates in the Heimdal Kerberos project,
+    although the MIT Kerberos library also provides client side (more details on
+    that below) support for the KCM credential cache.</p>
+<p class="Pp">In a setup where Kerberos caches are managed by KCM, the Kerberos
+    library (typically used through an application, like e.g., <b>kinit</b>(1),
+    is a &#x201C;&quot;KCM client&quot;&#x201D; and the KCM daemon is being
+    referred to as a &#x201C;&quot;KCM server&quot;&#x201D;. The client and
+    server communicate over a UNIX socket.</p>
+<p class="Pp">The KCM server keeps track of each credential caches's owner and
+    performs access check control based on the UID and GID of the KCM client.
+    The root user has access to all credential caches.</p>
+<p class="Pp">The KCM credential cache has several interesting properties:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;since the process runs in userspace, it is
+  subject to UID namespacing, unlike the kernel keyring</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;unlike the kernel keyring-based cache, which is
+  shared between all containers, the KCM server is a separate process whose
+  entry point is a UNIX socket</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;the SSSD implementation stores the ccaches in a
+  database, typically located at <i>/var/lib/sss/secrets</i> allowing the
+  ccaches to survive KCM server restarts or machine reboots.</div>
+<p class="Pp">This allows the system to use a collection-aware credential cache,
+    yet share the credential cache between some or no containers by
+    bind-mounting the socket.</p>
+<p class="Pp">The KCM default client idle timeout is 5 minutes, this allows more
+    time for user interaction with command line tools such as kinit.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USING_THE_KCM_CREDENTIAL_CACHE"><a class="permalink" href="#USING_THE_KCM_CREDENTIAL_CACHE">USING
+  THE KCM CREDENTIAL CACHE</a></h1>
+<p class="Pp">In order to use KCM credential cache, it must be selected as the
+    default credential type in <a class="Xr" href="../5/krb5.conf.html"><b>krb5.conf</b>(5)</a>, The credentials cache name
+    must be only &#x201C;KCM:&#x201D; without any template expansions. For
+    example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>[libdefaults]
+<br/>
+    default_ccache_name = KCM:
+<br/>
+            </pre>
+</div>
+<p class="Pp">Next, make sure the Kerberos client libraries and the KCM server
+    must agree on the UNIX socket path. By default, both use the same path
+    <i>/var/run/.heim_org.h5l.kcm-socket</i>. To configure the Kerberos library,
+    change its &#x201C;kcm_socket&#x201D; option which is described in the
+    <a class="Xr" href="../5/krb5.conf.html"><b>krb5.conf</b>(5)</a> manual page.</p>
+<p class="Pp">Finally, make sure the SSSD KCM server can be contacted. The KCM
+    service is typically socket-activated by <a class="Xr" href="../1/systemd.html"><b>systemd</b>(1)</a>. Unlike other
+    SSSD services, it cannot be started by adding the &#x201C;kcm&#x201D; string
+    to the &#x201C;service&#x201D; directive.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>systemctl start sssd-kcm.socket
+systemctl enable sssd-kcm.socket
+<br/>
+            </pre>
+</div>
+<p class="Pp">Please note your distribution may already configure the units for
+    you.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THE_CREDENTIAL_CACHE_STORAGE"><a class="permalink" href="#THE_CREDENTIAL_CACHE_STORAGE">THE
+  CREDENTIAL CACHE STORAGE</a></h1>
+<p class="Pp">The credential caches are stored in a database, much like SSSD
+    caches user or group entries. The database is typically located at
+    &#x201C;/var/lib/sss/secrets&#x201D;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OBTAINING_DEBUG_LOGS"><a class="permalink" href="#OBTAINING_DEBUG_LOGS">OBTAINING
+  DEBUG LOGS</a></h1>
+<p class="Pp">The sssd-kcm service is typically socket-activated
+    <a class="Xr" href="../1/systemd.html"><b>systemd</b>(1)</a>. To generate debug logs, add the following either to the
+    /etc/sssd/sssd.conf file directly or as a configuration snippet to
+    /etc/sssd/conf.d/ directory:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>[kcm]
+debug_level = 10
+<br/>
+            </pre>
+</div>
+<p class="Pp">Then, restart the sssd-kcm service:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>systemctl restart sssd-kcm.service
+<br/>
+            </pre>
+</div>
+<p class="Pp">Finally, run whatever use-case doesn't work for you. The KCM logs
+    will be generated at /var/log/sssd/sssd_kcm.log. It is recommended to
+    disable the debug logs when you no longer need the debugging to be enabled
+    as the sssd-kcm service can generate quite a large amount of debugging
+    information.</p>
+<p class="Pp">Please note that configuration snippets are, at the moment, only
+    processed if the main configuration file at /etc/sssd/sssd.conf exists at
+    all.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RENEWALS"><a class="permalink" href="#RENEWALS">RENEWALS</a></h1>
+<p class="Pp">The sssd-kcm service can be configured to attempt TGT renewal for
+    renewable TGTs stored in the KCM ccache. Renewals are only attempted when
+    half of the ticket lifetime has been reached. KCM Renewals are configured
+    when the following options are set in the [kcm] section:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>tgt_renewal = true
+krb5_renew_interval = 60m
+<br/>
+            </pre>
+</div>
+<p class="Pp">SSSD can also inherit krb5 options for renewals from an existing
+    domain.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>tgt_renewal = true
+tgt_renewal_inherit = domain-name
+<br/>
+            </pre>
+</div>
+<p class="Pp">The following krb5 options can be configured in the [kcm] section
+    to control renewal behavior, these options are described in detail below</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>krb5_renew_interval
+krb5_renewable_lifetime
+krb5_lifetime
+krb5_validate
+krb5_canonicalize
+krb5_auth_timeout
+<br/>
+            </pre>
+</div>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_OPTIONS"><a class="permalink" href="#CONFIGURATION_OPTIONS">CONFIGURATION
+  OPTIONS</a></h1>
+<p class="Pp">The KCM service is configured in the &#x201C;kcm&#x201D; section
+    of the sssd.conf file. Please note that because the KCM service is typically
+    socket-activated, it is enough to just restart the &#x201C;sssd-kcm&#x201D;
+    service after changing options in the &#x201C;kcm&#x201D; section of
+    sssd.conf:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>systemctl restart sssd-kcm.service
+<br/>
+            </pre>
+</div>
+<p class="Pp">The KCM service is configured in the &#x201C;kcm&#x201D; For a
+    detailed syntax reference, refer to the &#x201C;FILE FORMAT&#x201D; section
+    of the <a class="Xr" href="../5/sssd.conf.html"><b>sssd.conf</b>(5)</a> manual page.</p>
+<p class="Pp">The generic SSSD service options such as
+    &#x201C;debug_level&#x201D; or &#x201C;fd_limit&#x201D; are accepted by the
+    kcm service. Please refer to the <a class="Xr" href="../5/sssd.conf.html"><b>sssd.conf</b>(5)</a> manual page for a
+    complete list. In addition, there are some KCM-specific options as well.</p>
+<p class="Pp">socket_path (string)</p>
+<div class="Bd-indent">The socket the KCM service will listen on.
+<p class="Pp">Default: <i>/var/run/.heim_org.h5l.kcm-socket</i></p>
+<p class="Pp">Note: on platforms where systemd is supported, the socket path is
+    overwritten by the one defined in the sssd-kcm.socket unit file.</p>
+</div>
+<p class="Pp">max_ccaches (integer)</p>
+<div class="Bd-indent">How many credential caches does the KCM database allow
+  for all users.
+<p class="Pp">Default: 0 (unlimited, only the per-UID quota is enforced)</p>
+</div>
+<p class="Pp">max_uid_ccaches (integer)</p>
+<div class="Bd-indent">How many credential caches does the KCM database allow
+  per UID. This is equivalent to &#x201C;with how many principals you can
+  kinit&#x201D;.
+<p class="Pp">Default: 64</p>
+</div>
+<p class="Pp">max_ccache_size (integer)</p>
+<div class="Bd-indent">How big can a credential cache be per ccache. Each
+  service ticket accounts into this quota.
+<p class="Pp">Default: 65536</p>
+</div>
+<p class="Pp">tgt_renewal (bool)</p>
+<div class="Bd-indent">Enables TGT renewals functionality.
+<p class="Pp">Default: False (Automatic renewals disabled)</p>
+</div>
+<p class="Pp">tgt_renewal_inherit (string)</p>
+<div class="Bd-indent">Domain to inherit krb5_* options from, for use with TGT
+  renewals.
+<p class="Pp">Default: NULL</p>
+</div>
+<p class="Pp">krb5_auth_timeout (integer)</p>
+<div class="Bd-indent">Timeout in seconds after an online authentication request
+  or change password request is aborted. If possible, the authentication request
+  is continued offline.
+<p class="Pp">Default: 6</p>
+</div>
+<p class="Pp">krb5_validate (boolean)</p>
+<div class="Bd-indent">Verify with the help of krb5_keytab that the TGT obtained
+  has not been spoofed. The keytab is checked for entries sequentially, and the
+  first entry with a matching realm is used for validation. If no entry matches
+  the realm, the last entry in the keytab is used. This process can be used to
+  validate environments using cross-realm trust by placing the appropriate
+  keytab entry as the last entry or the only entry in the keytab file.
+<p class="Pp">Default: false (IPA and AD provider: true)</p>
+<p class="Pp">Please note that the ticket validation is the first step when
+    checking the PAC (see 'pac_check' in the <a class="Xr" href="../5/sssd.conf.html"><b>sssd.conf</b>(5)</a> manual page for
+    details). If ticket validation is disabled the PAC checks will be skipped as
+    well.</p>
+</div>
+<p class="Pp">krb5_renewable_lifetime (string)</p>
+<div class="Bd-indent">Request a renewable ticket with a total lifetime, given
+  as an integer immediately followed by a time unit:
+<p class="Pp"><i>s</i> for seconds</p>
+<p class="Pp"><i>m</i> for minutes</p>
+<p class="Pp"><i>h</i> for hours</p>
+<p class="Pp"><i>d</i> for days.</p>
+<p class="Pp">If there is no unit given, <i>s</i> is assumed.</p>
+<p class="Pp">NOTE: It is not possible to mix units. To set the renewable
+    lifetime to one and a half hours, use '90m' instead of '1h30m'.</p>
+<p class="Pp">Default: not set, i.e. the TGT is not renewable</p>
+</div>
+<p class="Pp">krb5_lifetime (string)</p>
+<div class="Bd-indent">Request ticket with a lifetime, given as an integer
+  immediately followed by a time unit:
+<p class="Pp"><i>s</i> for seconds</p>
+<p class="Pp"><i>m</i> for minutes</p>
+<p class="Pp"><i>h</i> for hours</p>
+<p class="Pp"><i>d</i> for days.</p>
+<p class="Pp">If there is no unit given <i>s</i> is assumed.</p>
+<p class="Pp">NOTE: It is not possible to mix units. To set the lifetime to one
+    and a half hours please use '90m' instead of '1h30m'.</p>
+<p class="Pp">Default: not set, i.e. the default ticket lifetime configured on
+    the KDC.</p>
+</div>
+<p class="Pp">krb5_renew_interval (string)</p>
+<div class="Bd-indent">The time in seconds between two checks if the TGT should
+  be renewed. TGTs are renewed if about half of their lifetime is exceeded,
+  given as an integer immediately followed by a time unit:
+<p class="Pp"><i>s</i> for seconds</p>
+<p class="Pp"><i>m</i> for minutes</p>
+<p class="Pp"><i>h</i> for hours</p>
+<p class="Pp"><i>d</i> for days.</p>
+<p class="Pp">If there is no unit given, <i>s</i> is assumed.</p>
+<p class="Pp">NOTE: It is not possible to mix units. To set the renewable
+    lifetime to one and a half hours, use '90m' instead of '1h30m'.</p>
+<p class="Pp">If this option is not set or is 0 the automatic renewal is
+    disabled.</p>
+<p class="Pp">Default: not set</p>
+</div>
+<p class="Pp">krb5_canonicalize (boolean)</p>
+<div class="Bd-indent">Specifies if the host and user principal should be
+  canonicalized. This feature is available with MIT Kerberos 1.7 and later
+  versions.
+<p class="Pp">Default: false</p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/sssd.html"><b>sssd</b>(8)</a>, <a class="Xr" href="../5/sssd.conf.html"><b>sssd.conf</b>(5)</a>,</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp"><b>The SSSD upstream - https://github.com/SSSD/sssd/</b></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">05/28/2026</td>
+    <td class="foot-os">SSSD</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: sssd-kcm 2.9.4-1.1ubuntu6.6 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="wrapper for AWK interpreter">
+<title>runawk(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">runawk(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#MOTIVATION">MOTIVATION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#DETAILS/INTERNALS">DETAILS/INTERNALS</a></li><li><a href="#Standalone_script">Standalone
+  script</a></li><li><a href="#Module_search_strategy">Module
+  search strategy</a></li><li><a href="#Program_as_an_argument">Program
+  as an argument</a></li><li><a href="#Selecting_a_preferred_">Selecting
+  a preferred AWK interpreter</a></li><li><a href="#Using_existing_modules_only">Using
+  existing modules only</a></li><li><a href="#Setting_environment">Setting
+  environment</a></li><li><a href="#EXIT_STATUS">EXIT
+  STATUS</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#BUGS/FEEDBACK">BUGS/FEEDBACK</a></li><li><a href="#HOME">HOME</a></li><li><a href="#SEE_ALSO_">SEE ALSO
+  awk(1)</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">runawk(1)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">runawk(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">runawk - wrapper for AWK interpreter</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>runawk</b> <i>[options]</i> <i>program_file</i></p>
+<p class="Pp"><b>runawk</b> <i>-e</i> <i>program</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MOTIVATION"><a class="permalink" href="#MOTIVATION">MOTIVATION</a></h1>
+<p class="Pp">After years of using AWK for programming I've found that despite
+    of its simplicity and limitations AWK is good enough for scripting a wide
+    range of different tasks. AWK is not as poweful as their bigger counterparts
+    like Perl, Ruby, TCL and others but it has their own advantages like
+    compactness, simplicity and availability on almost all UNIX-like systems. I
+    personally also like its data-driven nature and token orientation, very
+    useful techniques for text processing utilities.</p>
+<p class="Pp">Unfortunately awk interpreters lacks some important features and
+    sometimes do not work as good as they could do.</p>
+<p class="Pp">Problems I see (some of them, of course)</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>AWK lacks support for modules. Even if I create small programs, I often
+      want to use functions created earlier and already used in other scripts.
+      That is, it whould great to organise functions into so called libraries
+      (modules).</dd>
+  <dt>2.</dt>
+  <dd>In order to pass arguments to <span class="Li">&quot;#!/usr/bin/awk
+      -f&quot;</span> script (not to awk interpreter), it is necessary to
+      prepend a list of arguments with -- (two minus signes). In my view, this
+      looks badly. Also such behaviour violates POSIX/SUS &quot;Utility Syntax
+      Guidelines&quot;.
+    <p class="Pp">Example:</p>
+    <p class="Pp">awk_program:</p>
+    <p class="Pp"></p>
+    <pre>    #!/usr/bin/awk -f
+    BEGIN {
+       for (i=1; i &lt; ARGC; ++i){
+          printf &quot;ARGV [%d]=%s\n&quot;, i, ARGV [i]
+       }
+    }
+    </pre>
+    <p class="Pp">Shell session:</p>
+    <p class="Pp"></p>
+    <pre>    % awk_program --opt1 --opt2
+    /usr/bin/awk: unknown option --opt1 ignored
+    /usr/bin/awk: unknown option --opt2 ignored
+    % awk_program -- --opt1 --opt2
+    ARGV [1]=--opt1
+    ARGV [2]=--opt2
+    %
+    </pre>
+    <p class="Pp">In my opinion <i>awk_program</i> script should work like
+      this</p>
+    <p class="Pp"></p>
+    <pre>    % awk_program --opt1 --opt2
+    ARGV [1]=--opt1
+    ARGV [2]=--opt2
+    %
+    </pre>
+  </dd>
+  <dt>3.</dt>
+  <dd>When <span class="Li">&quot;#!/usr/bin/awk -f&quot;</span> script handles
+      arguments (options) and wants to read from stdin, it is necessary to add
+      /dev/stdin (or `-') as a last argument explicitly.
+    <p class="Pp">Example:</p>
+    <p class="Pp">awk_program:</p>
+    <p class="Pp"></p>
+    <pre>    #!/usr/bin/awk -f
+    BEGIN {
+       if (ARGV [1] == &quot;--flag&quot;){
+          flag = 1
+          ARGV [1] = &quot;&quot; # to not read file named &quot;--flag&quot;
+       }
+    }
+    {
+       print &quot;flag=&quot; flag &quot; $0=&quot; $0
+    }
+    </pre>
+    <p class="Pp">Shell session:</p>
+    <p class="Pp"></p>
+    <pre>    % echo test | awk_program -- --flag
+    % echo test | awk_program -- --flag /dev/stdin
+    flag=1 $0=test
+    %
+    </pre>
+    <p class="Pp">Ideally <i>awk_program</i> should work like this</p>
+    <p class="Pp"></p>
+    <pre>    % echo test | awk_program --flag
+    flag=1 $0=test
+    %
+    </pre>
+  </dd>
+  <dt>4.</dt>
+  <dd><b>igawk</b>(1) which is shipped with GNU awk can not be used in shebang.
+      On most (all?) UNIXes scripts beginning with
+    <p class="Pp"></p>
+    <pre>    #!/usr/local/bin/igawk -f
+    </pre>
+    <p class="Pp">will not work.</p>
+  </dd>
+</dl>
+<p class="Pp"><b>runawk</b> was created to solve all these problems</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="d"><a class="permalink" href="#d"><b>-d</b></a></dt>
+  <dd>Turn on a debugging mode.</dd>
+  <dt id="e"><a class="permalink" href="#e"><b>-e</b> <i>program</i></a></dt>
+  <dd>Specify program. If <i>-e</i> is not specified, the AWK code is read from
+      <i>program_file</i>.</dd>
+  <dt id="f"><a class="permalink" href="#f"><b>-f</b> <i>awk_module</i></a></dt>
+  <dd>Activate <i>awk_module</i>. This works the same way as
+    <p class="Pp"></p>
+    <pre>    #use &quot;awk_module.awk&quot;
+    </pre>
+    <p class="Pp">directive in the code. Multiple <b>-f</b> options are
+      allowed.</p>
+  </dd>
+  <dt id="F"><a class="permalink" href="#F"><b>-F</b> <i>fs</i></a></dt>
+  <dd>Set the input field separator FS to the regular expression <i>fs</i>.</dd>
+  <dt id="h"><a class="permalink" href="#h"><b>-h</b></a></dt>
+  <dd>Display help information.</dd>
+  <dt id="t"><a class="permalink" href="#t"><b>-t</b></a></dt>
+  <dd>If this option is applied, a temporary directory is created by
+      <b>runawk</b> and path to it is passed to <b>awk</b> child process.
+      Temporary directory is created under ${RUNAWK_TMPDIR} (if it is set), or
+      ${TMPDIR} (if it is set) or /tmp directory otherwise. If <i>#use
+      &quot;tmpfile.awk&quot;</i> is detected in a program this option is
+      activated automatically.</dd>
+  <dt id="T"><a class="permalink" href="#T"><b>-T</b></a></dt>
+  <dd>Set FS to TAB character. This is equivalent to <b>-F'\t'</b></dd>
+  <dt id="V"><a class="permalink" href="#V"><b>-V</b></a></dt>
+  <dd>Display version information.</dd>
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b>
+    <i>var</i>=<i>val</i></a></dt>
+  <dd>Assign the value <i>val</i> to the variable <i>var</i> before execution of
+      the program begins.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DETAILS/INTERNALS"><a class="permalink" href="#DETAILS/INTERNALS">DETAILS/INTERNALS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Standalone_script"><a class="permalink" href="#Standalone_script">Standalone
+  script</a></h2>
+<p class="Pp">Under UNIX-like OS-es you can use <b>runawk</b> by beginning your
+    script with</p>
+<p class="Pp"></p>
+<pre>   #!/usr/local/bin/runawk
+</pre>
+<p class="Pp">line or something like this instead of</p>
+<p class="Pp"></p>
+<pre>   #!/usr/bin/awk -f
+</pre>
+<p class="Pp">or similar.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">AWK modules</h2>
+<p class="Pp">In order to activate modules you should add them into awk script
+    like this</p>
+<p class="Pp"></p>
+<pre>  #use &quot;module1.awk&quot;
+  #use &quot;module2.awk&quot;
+</pre>
+<p class="Pp">that is the line that specifies module name is treated as a
+    comment line by normal AWK interpreter but is processed by <b>runawk</b>
+    especially.</p>
+<p class="Pp">Unless you run <b>runawk</b> with option <b>-e</b>, <i>#use</i>
+    must begin with column 0, that is no spaces or tabs symbols are allowed
+    before it and no symbols are allowed between <i>#</i> and <i>use</i>.</p>
+<p class="Pp">Also note that AWK modules can also &quot;use&quot; another
+    modules and so forth. All them are collected in a depth-first order and each
+    one is added to the list of awk interpreter arguments prepanded with -f
+    option. That is <i>#use</i> directive is *NOT* similar to <i>#include</i> in
+    C programming language, runawk's module code is not inserted into the place
+    of <i>#use</i>. Runawk's modules are closer to Perl's &quot;use&quot;
+    command. In case some module is mentioned more than once, only one -f will
+    be added for it, i.e duplications are removed automatically.</p>
+<p class="Pp">Position of <i>#use</i> directive in a source file does matter,
+    i.e. the earlier module is mentioned, the earlier -f will be generated for
+    it.</p>
+<p class="Pp">Example:</p>
+<p class="Pp"></p>
+<pre>  file prog:
+     #!/usr/local/bin/runawk
+     #use &quot;A.awk&quot;
+     #use &quot;B.awk&quot;
+     #use &quot;E.awk&quot;
+     PROG code
+     ...
+  file B.awk:
+     #use &quot;A.awk&quot;
+     #use &quot;C.awk&quot;
+     B code
+     ...
+  file C.awk:
+     #use &quot;A.awk&quot;
+     #use &quot;D.awk&quot;
+     C code
+     ...
+  A.awk and D.awk don't contain #use directive
+</pre>
+<p class="Pp">If you run</p>
+<p class="Pp"></p>
+<pre>  runawk prog file1 file2
+</pre>
+<p class="Pp">or</p>
+<p class="Pp"></p>
+<pre>  /path/to/prog file1 file2
+</pre>
+<p class="Pp">the following command</p>
+<p class="Pp"></p>
+<pre>  awk -f A.awk -f D.awk -f C.awk -f B.awk -f E.awk -f prog -- file1 file2
+</pre>
+<p class="Pp">will actually run.</p>
+<p class="Pp">You can check this by running</p>
+<p class="Pp"></p>
+<pre>  runawk -d prog file1 file2
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Module_search_strategy"><a class="permalink" href="#Module_search_strategy">Module
+  search strategy</a></h2>
+<p class="Pp">Modules are first searched in a directory where main program (or
+    module in which #use directive is specified) is placed. If it is not found
+    there, then AWKPATH environment variable is checked. AWKPATH keeps a colon
+    separated list of search directories. Finally, module is searched in system
+    runawk modules directory, by default PREFIX/share/runawk but this can be
+    changed at compile time.</p>
+<p class="Pp">An absolute path to the module can also be specified.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Program_as_an_argument"><a class="permalink" href="#Program_as_an_argument">Program
+  as an argument</a></h2>
+<p class="Pp">Like some other interpreters <b>runawk</b> can obtain the script
+    from a command line like this</p>
+<p class="Pp"></p>
+<pre> /path/to/runawk -e '
+ #use &quot;alt_assert.awk&quot;
+ {
+   assert($1 &gt;= 0 &amp;&amp; $1 &lt;= 10, &quot;Bad value: &quot; $1)
+   # your code below
+   ...
+ }'
+</pre>
+<p class="Pp"><b>runawk</b> can also be used for writing oneliners</p>
+<p class="Pp"></p>
+<pre> runawk -f abs.awk -e 'BEGIN {print abs(-1)}'
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Selecting_a_preferred_"><a class="permalink" href="#Selecting_a_preferred_">Selecting
+  a preferred AWK interpreter</a></h2>
+<p class="Pp">For some reason you may prefer one AWK interpreter or another. The
+    reason may be efficiency for a particular task, useful but not standard
+    extensions or enything else. To tell <b>runawk</b> what AWK interpreter to
+    use, one can use <i>#interp</i> directive</p>
+<p class="Pp"></p>
+<pre>  file prog:
+     #!/usr/local/bin/runawk
+     #use &quot;A.awk&quot;
+     #use &quot;B.awk&quot;
+     #interp &quot;/usr/pkg/bin/nbawk&quot;
+     # your code here
+     ...
+</pre>
+<p class="Pp">Note that <i>#interp</i> directive should also begin with column
+    0, no spaces are allowed before it and between <i>#</i> and
+  <i>interp</i>.</p>
+<p class="Pp">Sometimes it also makes sense to give users ability to select
+    their preferred AWK interpreter without changing the source code. In
+    <b>runawk</b> it is possible using special directive <i>#interp-var</i>
+    which sets an environment variable name assignable by user that specifies an
+    AWK interpreter. For example, the following script</p>
+<p class="Pp"></p>
+<pre>  file foobar:
+     #!/usr/bin/env runawk
+     #interp-var &quot;FOOBAR_AWK&quot;
+     BEGIN {
+        print &quot;This is a FooBar application&quot;
+     }
+</pre>
+<p class="Pp">can be run as</p>
+<p class="Pp"></p>
+<pre>     env FOOBAR_AWK=mawk foobar
+</pre>
+<p class="Pp">or just</p>
+<p class="Pp"></p>
+<pre>     foobar
+</pre>
+<p class="Pp">In the former case <b>mawk</b> will be used as AWK interpreter, in
+    the latter -- the default AWK interpreter.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Using_existing_modules_only"><a class="permalink" href="#Using_existing_modules_only">Using
+  existing modules only</a></h2>
+<p class="Pp">In UNIX world it is common practise to write configuration files
+    in a programming language of the application. That is, if application is
+    written in Bourne shell, configuration files for such application are often
+    written in Bourne as well. Using RunAWK one can do the same for applications
+    written in AWK. For example, the following code will use ~/.foobarrc file if
+    it exists otherwise /etc/foobar.conf will be used if it exists.</p>
+<p class="Pp"></p>
+<pre>  file foobar:
+    #!/usr/bin/env runawk
+    #safe-use &quot;~/.foobarrc&quot; &quot;/etc/foobar.conf&quot;
+    BEGIN {
+      print foo, bar, baz
+    }
+  file ~/.foobarrc:
+    BEGIN {
+      foo = &quot;foo10&quot;
+      bar = &quot;bar20&quot;
+      baz = 123
+    }
+</pre>
+<p class="Pp">Of course, <i>#safe-use</i> directive may be used for other
+    purposes as well. <i>#safe-use</i> directive accepts as much modules as you
+    want, but at most one can be included using awk option -f, others are
+    silently ignored, also note that modules are analysed from left to right.
+    Leading tilde in the module name is replaced with user's home directory.
+    Another example:</p>
+<p class="Pp"></p>
+<pre>  file foobar:
+    #!/usr/bin/env runawk
+    #use &quot;/usr/share/foobar/default.conf&quot;
+    #safe-use &quot;~/.foobarrc&quot; &quot;/etc/foobar.conf&quot;
+    your code is here
+</pre>
+<p class="Pp">Here the default settings are set in
+    /usr/share/foobar/default.conf, and configuration files (if any) are used
+    for overriding them.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Setting_environment"><a class="permalink" href="#Setting_environment">Setting
+  environment</a></h2>
+<p class="Pp">In some cases you may want to run AWK interpreter with a specific
+    environment. For example, your script may be oriented to process ASCII text
+    only. In this case you can run AWK with LC_CTYPE=C environment and use
+    regexp ranges.</p>
+<p class="Pp"><b>runawk</b> provides <i>#env</i> directive for this. String
+    inside double quotes is passed to <a class="Xr" href="../3/putenv.html"><b>putenv</b>(3)</a> libc function.</p>
+<p class="Pp">Example:</p>
+<p class="Pp"></p>
+<pre>  file prog:
+     #!/usr/local/bin/runawk
+     #env &quot;LC_ALL=C&quot;
+     $1 ~ /^[A-Z]+$/ { # A-Z is valid if LC_CTYPE=C
+         print $1
+     }
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<p class="Pp">If AWK interpreter exits normally, <b>runawk</b> exits with its
+    exit status. If AWK interpreter was killed by signal, <b>runawk</b> exits
+    with exit status 128+signal.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt id="AWKPATH"><a class="permalink" href="#AWKPATH"><i>AWKPATH</i></a></dt>
+  <dd>Colon separated list of directories where <b>awk</b> modules are
+    searched.</dd>
+  <dt id="RUNAWK_AWKPROG"><a class="permalink" href="#RUNAWK_AWKPROG"><i>RUNAWK_AWKPROG</i></a></dt>
+  <dd>Sets the path to the AWK interpreter, used by default, i.e. this variable
+      overrides the compile-time default. Note that #interp directive overrides
+      this.</dd>
+  <dt id="RUNAWK_KEEPTMP"><a class="permalink" href="#RUNAWK_KEEPTMP"><i>RUNAWK_KEEPTMP</i></a></dt>
+  <dd>If set, temporary files are not deleted.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Copyright (c) 2007-2014 Aleksey Cheusov &lt;vle@gmx.net&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS/FEEDBACK"><a class="permalink" href="#BUGS/FEEDBACK">BUGS/FEEDBACK</a></h1>
+<p class="Pp">Please send any comments, questions, bug reports etc. to me by
+    e-mail or register them at sourceforge project home. Feature requests are
+    also welcomed.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOME"><a class="permalink" href="#HOME">HOME</a></h1>
+<p class="Pp">&lt;http://sourceforge.net/projects/runawk/&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO_"><a class="permalink" href="#SEE_ALSO_">SEE ALSO
+  <a class="Xr" href="../1plan9/awk.html"><b>awk</b>(1)</a></a></h1>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-01-02</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: runawk 1.6.1-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

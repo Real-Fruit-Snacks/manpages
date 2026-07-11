@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Relay Protocol v1">
+<title>syncthing-relay(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">syncthing-relay(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#WHAT_IS_A_RELAY?">WHAT
+  IS A RELAY?</a></li><li><a href="#OPERATION_MODES">OPERATION
+  MODES</a></li><li><a href="#IDENTIFYING_THE_CONNECTION_MODE">IDENTIFYING
+  THE CONNECTION MODE</a></li><li><a href="#PROTOCOL_MODE">PROTOCOL
+  MODE</a></li><li><a href="#Permanent_protocol_submode">Permanent
+  protocol submode</a></li><li><a href="#Temporary_protocol_submode">Temporary
+  protocol submode</a></li><li><a href="#SESSION_MODE">SESSION
+  MODE</a></li><li><a href="#MESSAGES">MESSAGES</a></li><li><a href="#Header_structure">Header
+  structure</a></li><li><a href="#Ping_message_(Type_=_0)">Ping
+  message (Type = 0)</a></li><li><a href="#Pong_message_(Type_=_1)">Pong
+  message (Type = 1)</a></li><li><a href="#JoinRelayRequest_message_(Type_=_2)">JoinRelayRequest
+  message (Type = 2)</a></li><li><a href="#JoinSessionRequest_message_(Type_=_3)">JoinSessionRequest
+  message (Type = 3)</a></li><li><a href="#Response_message_(Type_=_4)">Response
+  message (Type = 4)</a></li><li><a href="#ConnectRequest_message_(Type_=_5)">ConnectRequest
+  message (Type = 5)</a></li><li><a href="#SessionInvitation_message_(Type_=_6)">SessionInvitation
+  message (Type = 6)</a></li><li><a href="#HOW_SYNCTHING_USES_RELAYS,_AND_GENERAL_SECURITY">HOW
+  SYNCTHING USES RELAYS, AND GENERAL SECURITY</a></li><li><a href="#EXAMPLES_OF_STRONG_CIPHER_SUITES">EXAMPLES
+  OF STRONG CIPHER SUITES</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SYNCTHING-RELAY(7)</td>
+    <td class="head-vol">Syncthing</td>
+    <td class="head-rtitle">SYNCTHING-RELAY(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">syncthing-relay - Relay Protocol v1</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WHAT_IS_A_RELAY?"><a class="permalink" href="#WHAT_IS_A_RELAY?">WHAT
+  IS A RELAY?</a></h1>
+<p class="Pp">Relay is a service which relays data between two <i>devices</i>
+    which are not able to connect to each other directly otherwise. This is
+    usually due to both devices being behind a NAT and neither side being able
+    to open a port which would be directly accessible from the internet.</p>
+<p class="Pp">A relay was designed to relay BEP protocol, hence the reliance on
+    device ID&#x2019;s in the protocol spec, but at the same time it is general
+    enough that could be reused by other protocols or applications, as the data
+    transferred between two devices which use a relay is completely obscure and
+    does not affect the relaying.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPERATION_MODES"><a class="permalink" href="#OPERATION_MODES">OPERATION
+  MODES</a></h1>
+<p class="Pp">Relay listens on a single TCP socket, but has two different
+    connection modes, where a connection mode is a predefined set of messages
+    which the relay and the device are expecting to exchange.</p>
+<p class="Pp">The first mode is the <i>protocol</i> mode which allows a client
+    to interact with the relay, for example join the relay, or request to
+    connect to a device, given it is available on the relay. Similarly to BEP,
+    protocol mode requires the device to connect via TLS using a strong suite of
+    ciphers (same as BEP), which allows the relay to verify and derive the
+    identity (Device ID) of the device.</p>
+<p class="Pp">The second mode is the <i>session</i> mode which after a few
+    initial messages connects two devices directly to each other via the relay,
+    and is a plain-text protocol, which for every byte written by one device,
+    sends the same set of bytes to the other device and vica versa.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="IDENTIFYING_THE_CONNECTION_MODE"><a class="permalink" href="#IDENTIFYING_THE_CONNECTION_MODE">IDENTIFYING
+  THE CONNECTION MODE</a></h1>
+<p class="Pp">Because both connection modes operate over the same single socket,
+    a method of detecting the connection mode is required.</p>
+<p class="Pp">When a new client connects to the relay, the relay checks the
+    first byte that the client has sent, and if that matches 0x16, that implies
+    to us that the connection is a protocol mode connection, due to 0x16 being
+    the first byte in the TLS handshake, and only protocol mode connections use
+    TLS.</p>
+<p class="Pp">If the first byte is not 0x16, then we assume that the connection
+    is a session mode connection.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOL_MODE"><a class="permalink" href="#PROTOCOL_MODE">PROTOCOL
+  MODE</a></h1>
+<p class="Pp">Protocol mode uses TLS and protocol name defined by the TLS header
+    should be <i>bep-relay</i>.</p>
+<p class="Pp">Protocol mode has two submodes: 1. Permanent protocol submode -
+    Joining the relay, and waiting for messages from the relay asking to connect
+    to some device which is interested in having a session with you. 2.
+    Temporary protocol submode - Only used to request a session with a device
+    which is connected to the relay using the permanent protocol submode.</p>
+<section class="Ss">
+<h2 class="Ss" id="Permanent_protocol_submode"><a class="permalink" href="#Permanent_protocol_submode">Permanent
+  protocol submode</a></h2>
+<p class="Pp">A permanent protocol submode begins with the client sending a
+    JoinRelayRequest message, which the relay responds to with either a
+    ResponseSuccess or ResponseAlreadyConnected message if a client with the
+    same device ID already exists.</p>
+<p class="Pp">After the client has joined, no more messages are exchanged apart
+    from Ping/Pong messages for general connection keep alive checking.</p>
+<p class="Pp">From this point onwards, the client stand-by&#x2019;s and waits
+    for SessionInvitation messages from the relay, which implies that some other
+    device is trying to connect with you. SessionInvitation message contains the
+    unique session key which then can be used to establish a connection in
+    session mode.</p>
+<p class="Pp">If the client fails to send a JoinSessionRequest message within
+    the first ping interval, the connection is terminated. If the client fails
+    to send a message (even if it&#x2019;s a ping message) every minute (by
+    default), the connection is terminated.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Temporary_protocol_submode"><a class="permalink" href="#Temporary_protocol_submode">Temporary
+  protocol submode</a></h2>
+<p class="Pp">A temporary protocol submode begins with ConnectRequest message,
+    to which the relay responds with either ResponseNotFound if the device the
+    client it is after is not available, or with a SessionInvitation, which
+    contains the unique session key which then can be used to establish a
+    connection in session mode.</p>
+<p class="Pp">The connection is terminated immediately after that.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">Example Exchange</h2>
+<p class="Pp">Client A - Permanent protocol submode Client B - Temporary
+    protocol submode</p>
+<table class="tbl" style="border-top-style: solid;">
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">#</td>
+    <td style="border-right-style: solid;">Client (A)</td>
+    <td style="border-right-style: solid;">Relay</td>
+    <td style="border-right-style: solid;">Client (B)</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">1</td>
+    <td style="border-right-style: solid;">JoinRelayRequest-&gt;</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">2</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">&lt;-ResponseSuccess</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">3</td>
+    <td style="border-right-style: solid;">Ping-&gt;</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">4</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">&lt;-Pong</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">5</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">&lt;-ConnectRequest(A)</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">6</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">SessionInvitation(A)-&gt;</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">7</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">&lt;-SessionInvitation(B)</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">8</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">(Disconnects)</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">9</td>
+    <td style="border-right-style: solid;">Ping-&gt;</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">10</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">&lt;-Pong</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">11</td>
+    <td style="border-right-style: solid;">Ping-&gt;</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">12</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">&lt;-Pong</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+</table>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SESSION_MODE"><a class="permalink" href="#SESSION_MODE">SESSION
+  MODE</a></h1>
+<p class="Pp">The first and only message the client sends in the session mode is
+    the JoinSessionRequest message which contains the session key identifying
+    which session you are trying to join. The relay responds with one of the
+    following Response messages:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>ResponseNotFound - Session key is invalid</dd>
+  <dt>2.</dt>
+  <dd>ResponseAlreadyConnected - Session is full (both sides already
+    connected)</dd>
+  <dt>3.</dt>
+  <dd>ResponseSuccess - You have successfully joined the session</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">After the successful response, all the bytes written and received
+    will be relayed between the two devices in the session directly.</p>
+<section class="Ss">
+<h2 class="Ss">Example Exchange</h2>
+<p class="Pp">Client A - Permanent protocol mode Client B - Temporary protocol
+    mode</p>
+<table class="tbl" style="border-top-style: solid;">
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">#</td>
+    <td style="border-right-style: solid;">Client (A)</td>
+    <td style="border-right-style: solid;">Relay</td>
+    <td style="border-right-style: solid;">Client (B)</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">1</td>
+    <td style="border-right-style: solid;">JoinSessionRequest(A)-&gt;</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">2</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">&lt;-ResponseSuccess</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">3</td>
+    <td style="border-right-style: solid;">Data-&gt;</td>
+    <td style="border-right-style: solid;">(Buffers data)</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">4</td>
+    <td style="border-right-style: solid;">Data-&gt;</td>
+    <td style="border-right-style: solid;">(Buffers data)</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">5</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">&lt;-JoinSessionRequest(B)</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">6</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">ResponseSuccess-&gt;</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">7</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">Relays data -&gt;</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">8</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">Relays data -&gt;</td>
+    <td style="border-right-style: solid;"></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">9</td>
+    <td style="border-right-style: solid;"></td>
+    <td style="border-right-style: solid;">&lt;-Relays data</td>
+    <td style="border-right-style: solid;">&lt;-Data</td>
+  </tr>
+</table>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MESSAGES"><a class="permalink" href="#MESSAGES">MESSAGES</a></h1>
+<p class="Pp">All messages are preceded by a header message. Header message
+    contains the magic value 0x9E79BC40, message type integer, and message
+    length.</p>
+<p class="Pp"><b>WARNING:</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent">Some messages have no content, apart from the implied
+  header which allows us to identify what type of message it is.</div>
+<br/>
+</div>
+<br/>
+<section class="Ss">
+<h2 class="Ss" id="Header_structure"><a class="permalink" href="#Header_structure">Header
+  structure</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+ 0                   1                   2                   3
+<br/>
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Magic                             |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Message Type                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        Message Length                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+struct Header {
+<br/>
+        unsigned int Magic;
+<br/>
+        int MessageType;
+<br/>
+        int MessageLength;
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Ping_message_(Type_=_0)"><a class="permalink" href="#Ping_message_(Type_=_0)">Ping
+  message (Type = 0)</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+ 0                   1                   2                   3
+<br/>
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+struct Ping {
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Pong_message_(Type_=_1)"><a class="permalink" href="#Pong_message_(Type_=_1)">Pong
+  message (Type = 1)</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+ 0                   1                   2                   3
+<br/>
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+struct Pong {
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="JoinRelayRequest_message_(Type_=_2)"><a class="permalink" href="#JoinRelayRequest_message_(Type_=_2)">JoinRelayRequest
+  message (Type = 2)</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+ 0                   1                   2                   3
+<br/>
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+struct JoinRelayRequest {
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="JoinSessionRequest_message_(Type_=_3)"><a class="permalink" href="#JoinSessionRequest_message_(Type_=_3)">JoinSessionRequest
+  message (Type = 3)</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+ 0                   1                   2                   3
+<br/>
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Length of Key                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                     Key (variable length)                     \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+struct JoinSessionRequest {
+<br/>
+        opaque Key&lt;32&gt;;
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>: Key</b></dt>
+  <dd>This is a unique random session key generated by the relay server. It is
+      used to identify which session you are trying to connect to.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Response_message_(Type_=_4)"><a class="permalink" href="#Response_message_(Type_=_4)">Response
+  message (Type = 4)</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+ 0                   1                   2                   3
+<br/>
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                             Code                              |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Length of Message                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                   Message (variable length)                   \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+struct Response {
+<br/>
+        int Code;
+<br/>
+        string Message&lt;&gt;;
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>: Code</b></dt>
+  <dd>An integer representing the status code.</dd>
+  <dt><b>: Message</b></dt>
+  <dd>Message associated with the code.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ConnectRequest_message_(Type_=_5)"><a class="permalink" href="#ConnectRequest_message_(Type_=_5)">ConnectRequest
+  message (Type = 5)</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+ 0                   1                   2                   3
+<br/>
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Length of ID                          |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                     ID (variable length)                      \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+struct ConnectRequest {
+<br/>
+        opaque ID&lt;32&gt;;
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>: ID</b></dt>
+  <dd>Device ID to which the client would like to connect.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="SessionInvitation_message_(Type_=_6)"><a class="permalink" href="#SessionInvitation_message_(Type_=_6)">SessionInvitation
+  message (Type = 6)</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+ 0                   1                   2                   3
+<br/>
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                        Length of From                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                    From (variable length)                     \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                         Length of Key                         |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                     Key (variable length)                     \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                       Length of Address                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/                                                               /
+\                   Address (variable length)                   \
+/                                                               /
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|            0x0000             |             Port              |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                  Server Socket (V=0 or 1)                   |V|
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+struct SessionInvitation {
+<br/>
+        opaque From&lt;32&gt;;
+<br/>
+        opaque Key&lt;32&gt;;
+<br/>
+        opaque Address&lt;32&gt;;
+<br/>
+        unsigned int Port;
+<br/>
+        bool ServerSocket;
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b>: From</b></dt>
+  <dd>Device ID identifying who you will be connecting with.</dd>
+  <dt><b>: Key</b></dt>
+  <dd>A unique random session key generated by the relay server. It is used to
+      identify which session you are trying to connect to.</dd>
+  <dt><b>: Address</b></dt>
+  <dd>An optional IP address on which the relay server is expecting you to
+      connect, in order to start a connection in session mode. Empty/all zero IP
+      should be replaced with the relay&#x2019;s public IP address that was used
+      when establishing the protocol mode connection.</dd>
+  <dt><b>: Port</b></dt>
+  <dd>The port on which the relay server is expecting you to connect, in order
+      to start a connection in session mode.</dd>
+  <dt><b>: Server Socket</b></dt>
+  <dd>Because both sides connecting to the relay use the client side of the
+      socket, and some protocols behave differently depending if the connection
+      starts on the server side or the client side, this boolean indicates which
+      side of the connection this client should assume it&#x2019;s getting. The
+      value is inverted in the invitation which is sent to the other device, so
+      that there is always one client socket, and one server socket.</dd>
+</dl>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOW_SYNCTHING_USES_RELAYS,_AND_GENERAL_SECURITY"><a class="permalink" href="#HOW_SYNCTHING_USES_RELAYS,_AND_GENERAL_SECURITY">HOW
+  SYNCTHING USES RELAYS, AND GENERAL SECURITY</a></h1>
+<p class="Pp">In the case of Syncthing and BEP, when two devices connect via
+    relay, they start their standard TLS connection encapsulated within the
+    relay&#x2019;s plain-text session connection, effectively upgrading the
+    plain-text connection to a TLS connection.</p>
+<p class="Pp">Even though the relay could be used for man-in-the-middle attack,
+    using TLS at the application/BEP level ensures that all the traffic is
+    safely encrypted, and is completely meaningless to the relay. Furthermore,
+    the secure suite of ciphers used by BEP provides forward secrecy, meaning
+    that even if the relay did capture all the traffic, and even if the attacker
+    did get their hands on the device keys, they would still not be able to
+    recover/decrypt any traffic which was transported via the relay.</p>
+<p class="Pp">After establishing a relay session, Syncthing looks at the
+    SessionInvitation message, and depending which side it has received, wraps
+    the raw socket in either a TLS client socket or a TLS server socket
+    depending on the ServerSocket boolean value in the SessionInvitation, and
+    starts the TLS handshake.</p>
+<p class="Pp">From that point onwards it functions exactly the same way as if
+    Syncthing was establishing a direct connection with the other device over
+    the internet, performing device ID validation, and full TLS encryption, and
+    provides the same security properties as it would provide when connecting
+    over the internet.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES_OF_STRONG_CIPHER_SUITES"><a class="permalink" href="#EXAMPLES_OF_STRONG_CIPHER_SUITES">EXAMPLES
+  OF STRONG CIPHER SUITES</a></h1>
+<table class="tbl" style="border-top-style: solid;">
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">ID</td>
+    <td style="border-right-style: solid;">Name</td>
+    <td style="border-right-style: solid;">Description</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">0x009F</td>
+    <td style="border-right-style: solid;">DHE-RSA-AES256-GCM-SHA384</td>
+    <td style="border-right-style: solid;">TLSv1.2 DH RSA AESGCM(256) AEAD</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">0x006B</td>
+    <td style="border-right-style: solid;">DHE-RSA-AES256-SHA256</td>
+    <td style="border-right-style: solid;">TLSv1.2 DH RSA AES(256) SHA256</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">0xC030</td>
+    <td style="border-right-style: solid;">ECDHE-RSA-AES256-GCM-SHA384</td>
+    <td style="border-right-style: solid;">TLSv1.2 ECDH RSA AESGCM(256)
+      AEAD</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">0xC028</td>
+    <td style="border-right-style: solid;">ECDHE-RSA-AES256-SHA384</td>
+    <td style="border-right-style: solid;">TLSv1.2 ECDH RSA AES(256) SHA384</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">0x009E</td>
+    <td style="border-right-style: solid;">DHE-RSA-AES128-GCM-SHA256</td>
+    <td style="border-right-style: solid;">TLSv1.2 DH RSA AESGCM(128) AEAD</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">0x0067</td>
+    <td style="border-right-style: solid;">DHE-RSA-AES128-SHA256</td>
+    <td style="border-right-style: solid;">TLSv1.2 DH RSA AES(128) SHA256</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">0xC02F</td>
+    <td style="border-right-style: solid;">ECDHE-RSA-AES128-GCM-SHA256</td>
+    <td style="border-right-style: solid;">TLSv1.2 ECDH RSA AESGCM(128)
+      AEAD</td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;">0xC027</td>
+    <td style="border-right-style: solid;">ECDHE-RSA-AES128-SHA256</td>
+    <td style="border-right-style: solid;">TLSv1.2 ECDH RSA AES(128) SHA256</td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">The Syncthing Authors</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">2014-2019, The Syncthing Authors</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">December 21, 2023</td>
+    <td class="foot-os">v1.27.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: syncthing 1.27.2~ds4-1ubuntu0.24.04.3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

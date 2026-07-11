@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="parallel executor, distribute tasks over network or CPUs">
+<title>paexec(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">paexec(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#BUGS/FEEDBACK">BUGS/FEEDBACK</a></li><li><a href="#HOME">HOME</a></li><li><a href="#SEE_ALSO_">SEE ALSO
+  ssh(1) rsh(1) select(2) read(2)
+  write(2)</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">paexec(1)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">paexec(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">paexec - parallel executor, distribute tasks over network or
+  CPUs</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>paexec</b> <i>[options]</i></p>
+<p class="Pp"><b>paexec</b> -C <i>[options]</i> <i>command</i>
+  <i>[args...]</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Suppose you have a long list of tasks that need to be done, for
+    example, you want to convert thousands of .wav audio files to .ogg format.
+    Also suppose that multiple CPUs are available, e.g. multi-CPU system or a
+    cluster consisting of individual computers connected to the network or
+    internet. <b>paexec</b> can efficiently do this work, that is, <b>paexec</b>
+    efficiently distributes different tasks to different processors (or
+    computers), receives the results of processing from them and sends these
+    results to stdout.</p>
+<p class="Pp">There are several notions that should be defined: <i>task</i>,
+    <i>command</i>, <i>transport</i>, <i>node</i>.</p>
+<p class="Pp"><i>Tasks</i> are read by <b>paexec</b> from stdin and are
+    represented as one line of text, i.e. one input line - one task.</p>
+<p class="Pp"><i>node</i> identifier - remote computer or CPU identifier, for
+    example CPU ordinal number or computer's DNS name like
+    node12.cluster.company.com.</p>
+<p class="Pp"><i>Command</i> - user's program that reads one-line task from
+    stdin and sends multiline result to stdout ending with an end of task (EOT)
+    marker. EOT marker means &quot;Task is done. I am ready for the next
+    one&quot;. After sending EOT to stdout, stdout MUST be flushed. Remember
+    that EOT marker MUST NOT appears in general result. Otherwise, <b>paexec</b>
+    may hang due to deadlock. The default EOT is an empty line. Command may use
+    environment variable PAEXEC_EOT for the end-of-task marker.</p>
+<p class="Pp"><i>Transport</i> - special program that helps to run
+    <i>command</i> on <i>node</i>. It takes the <i>node</i> identifier as its
+    first argument and <i>command</i> with its arguments as the rest. Good
+    examples for transport are <i>ssh</i> and <i>rsh</i>. Both <i>transport</i>
+    and <i>command</i> may be specified with their arguments, e.g, '/usr/bin/ssh
+    -x' is allowed as a <i>transport</i> program.</p>
+<p class="Pp">How <b>paexec</b> works. <i>Commands</i> are run on each
+    <i>node</i> with a help of <i>transport</i> program. Then, <i>tasks</i> are
+    read from stdin one-by-one and sent to free <i>node</i> (exactly one task
+    per node at a time). At the same time result lines are read from
+    <i>command's</i> stdout and are output to <b>paexec's</b> stdout. When EOT
+    marker is obtained from the <i>node</i>, it is marked as free and becomes
+    ready for the next task. These steps repeat until the end of stdin is
+    reached and all <i>nodes</i> finish their job.</p>
+<p class="Pp">More formally (to better understand how paexec works):</p>
+<p class="Pp"></p>
+<pre>   run_command_on_each_node
+   mark_all_nodes_as_free
+   while not(end_of_stdin) or not(all_nodes_are_free)
+      while there_is_free_node/i and not(end_of_stdin)
+         task = read_task_from_stdin
+         send_task_to_node(task, i)
+         mark_node_as_busy(i)
+      end
+      while result_line_from_node_is_available/i
+         result = read_result_line_from_node(i)
+         send_line_to_stdout(result)
+         if is_EOT(result)
+            mark_node_as_free(i)
+         end
+      end
+   end
+   close_command_on_each_node
+</pre>
+<p class="Pp">Note that <i>command</i>s are run once per node, it is not
+    restarted for every task.</p>
+<p class="Pp">Also note that output contains result lines (obtained from
+    different <i>nodes</i>) in the mixed order. That is, the first line of the
+    output may contain a result line obtain from the first <i>node</i>, the
+    second line of output - from the second <i>node</i>, but the third output
+    line may contain result line from the first <i>node</i> again. It is also
+    not guaranteed that the first line of output will be from the first
+    <i>node</i> or from the first <i>task</i>. All result lines are output as
+    soon as they are read by <b>paexec</b>, i.e as soon as they are ready.
+    <b>paexec</b> works this way for the efficiency reasons. You can play with
+    <i>-l</i>, <i>-r</i> and <i>-p</i> options to see what happens. For
+    reordering output line you can use <b>paexec_reorder</b> utility.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="h"><a class="permalink" href="#h"><b>-h</b></a></dt>
+  <dd>Display help information.</dd>
+  <dt id="V"><a class="permalink" href="#V"><b>-V</b></a></dt>
+  <dd>Display version information.</dd>
+  <dt id="c"><a class="permalink" href="#c"><b>-c</b> <i>command</i></a></dt>
+  <dd>Command with its arguments.</dd>
+  <dt id="C"><a class="permalink" href="#C"><b>-C</b></a></dt>
+  <dd>Command and its arguments are specified by free arguments.</dd>
+  <dt id="t"><a class="permalink" href="#t"><b>-t</b> <i>transport</i></a></dt>
+  <dd>Transport program.</dd>
+  <dt id="n"><a class="permalink" href="#n"><b>-n</b> <i>+number</i></a></dt>
+  <dd>A number of commands to run in parallel.</dd>
+  <dt id="n~2"><a class="permalink" href="#n~2"><b>-n</b> <i>nodes</i></a></dt>
+  <dd>List of nodes separated by space character. The first character must be
+      alphanumeric, `_' or `/'. All other characters are reserved for future
+      extensions.</dd>
+  <dt id="n~3"><a class="permalink" href="#n~3"><b>-n</b>
+    <i>:filename</i></a></dt>
+  <dd>Filename containing list of nodes, one per line.</dd>
+  <dt id="x"><a class="permalink" href="#x"><b>-x</b></a></dt>
+  <dd>Run command specificed by <i>-c</i> for each task. Its stdout is sent to
+      <b>paexec</b>. If both <span class="Li">&quot;-x&quot;</span> and
+      <span class="Li">&quot;-g&quot;</span> are specified, task is considered
+      failed if command's exit status is non-zero.</dd>
+  <dt id="X"><a class="permalink" href="#X"><b>-X</b></a></dt>
+  <dd>Implies <i>-x</i> and ignore command's stdout.</dd>
+  <dt id="r"><a class="permalink" href="#r"><b>-r</b></a></dt>
+  <dd>Include node identifier or node number (0-based) to the output, i.e.
+      id/number of node that produces this particular output line. This
+      identifier or number appears before line number if <i>-l</i> is also
+      applied. Space character is used as a separator.</dd>
+  <dt id="l"><a class="permalink" href="#l"><b>-l</b></a></dt>
+  <dd>Include a 0-based task number (input line number) to the output, i.e. line
+      number from which this particular output line was produced. It appears
+      before pid if <i>-p</i> is also applied. Space character is used as a
+      separator.</dd>
+  <dt id="p"><a class="permalink" href="#p"><b>-p</b></a></dt>
+  <dd>Include pid of paexec's subprocess that communicates with
+      <i>node+command</i> to the output. Pid prepends the actual result line.
+      Space character is used as a separator.</dd>
+  <dt id="e"><a class="permalink" href="#e"><b>-e</b></a></dt>
+  <dd>When end-of-task marker is obtained from node, EOT marker is output to
+      stdout. This option may be useful together with <i>-l</i> and/or
+      <i>-r</i>.</dd>
+  <dt id="E"><a class="permalink" href="#E"><b>-E</b></a></dt>
+  <dd>Imply <b>-e</b> and flushes stdout.</dd>
+  <dt id="d"><a class="permalink" href="#d"><b>-d</b></a></dt>
+  <dd>Turn on a debugging mode (for debugging purposes only)</dd>
+  <dt id="i"><a class="permalink" href="#i"><b>-i</b></a></dt>
+  <dd>Copy input lines (i.e. tasks) to stdout.</dd>
+  <dt id="I"><a class="permalink" href="#I"><b>-I</b></a></dt>
+  <dd>Imply <b>-i</b> and flushes stdout.</dd>
+  <dt id="s"><a class="permalink" href="#s"><b>-s</b>|<b>-g</b></a></dt>
+  <dd>Orgraph of tasks (partially ordered set) is read from stdin.
+    <p class="Pp">Instead of autonomous tasks, graph of the tasks is read from
+        stdin. In this mode every task can either FAIL or SUCCEED. As always an
+        empty line output by <i>command</i> means <i>end of task</i>. The line
+        before it shows an EXIT STATUS of the task. The word &quot;failure&quot;
+        means failure, &quot;success&quot; - success and &quot;fatal&quot; means
+        that the current task is reassigned to another node (and restarted, of
+        course) (see option -z). See examples/1_div_x/cmd for the sample. An
+        input line (paexec's stdin) should contain either single task without
+        spaces inside or two tasks separated by single space character, e.g.
+        task1&lt;SPC&gt;task2. task1&lt;SPC&gt;task2 line means that task1 must
+        be done before task2 and it is mandatory, that is if task1 <i>fail</i>
+        all dependent tasks (including task2) are also failed recursively. Tasks
+        having dependencies are started only after all dependencies are
+        succeeded. When a task succeeds paexec outputs &quot;success&quot; word
+        just before end_of_task marker (see -e or -E), otherwise
+        &quot;failure&quot; word is output followed by a list of tasks failed
+        because of it.</p>
+    <p class="Pp"></p>
+    <pre> Samples:
+   tasks (examples/make_package/tasks file)
+     textproc/dictem
+     devel/autoconf wip/libmaa
+     devel/gmake wip/libmaa
+     wip/libmaa wip/dict-server
+     wip/libmaa wip/dict-client
+     devel/m4 wip/dict-server
+     devel/byacc wip/dict-server
+     devel/byacc wip/dict-client
+     devel/flex wip/dict-server
+     devel/flex wip/dict-client
+     devel/glib2
+     devel/libjudy
+   command (examples/make_package/cmd__flex)
+     #!/usr/bin/awk -f
+     {
+        print $0
+        if ($0 == &quot;devel/flex&quot;)
+           print &quot;failure&quot;
+        else
+           print &quot;success&quot;
+        print &quot;&quot;       # end of task marker
+        fflush()
+     }
+   output of &quot;paexec -s -l -c cmd__flex -n +10 \
+              &lt; tasks&quot;
+     3 devel/autoconf
+     3 success
+     4 devel/gmake
+     4 success
+     7 devel/m4
+     7 success
+     8 devel/byacc
+     8 success
+     9 devel/flex
+     9 failure
+     9 devel/flex wip/dict-server wip/dict-client 
+     10 devel/glib2
+     10 success
+     11 devel/libjudy
+     11 success
+     1 textproc/dictem
+     1 success
+     2 wip/libmaa
+     2 success
+    </pre>
+  </dd>
+  <dt id="z"><a class="permalink" href="#z"><b>-z</b></a></dt>
+  <dd>If applied, read/<a class="Xr" href="../2/write.html"><b>write</b>(2)</a> operations from/to nodes becomes not
+      critical. In case paexec has lost connection to the node, it will reassign
+      failed task to another node and, if -s applied, will output
+      &quot;fatal&quot; string to stdout (&quot;success&quot; +
+      &quot;failure&quot; + &quot;fatal&quot;). This makes paexec resistant to
+      the I/O errors, as a result you can create paexec clusters even over
+      network consisting of unreliable hosts (Internet?). Failed hosts are
+      marked as such and will not be used during the current run of paexec.</dd>
+  <dt id="Z"><a class="permalink" href="#Z"><b>-Z</b> <i>timeout</i></a></dt>
+  <dd>When <i>-z</i> applied, if a <i>command</i> fails, appropriate node is
+      marked as broken and is excluded from the following task distribution. But
+      if <b>-Z</b> applied, every <i>timeout</i> seconds an attempt to rerun a
+      command on a failed node is made. <i>-Z</i> implies <i>-z</i>. This option
+      makes possible to organize clusters over unreliable
+    networks/hardware.</dd>
+  <dt id="w"><a class="permalink" href="#w"><b>-w</b></a></dt>
+  <dd>If <i>-Z</i> option were applied, <b>paexec</b> exits with error if
+      <b>ALL</b> nodes failed. With <b>-w</b> it will not exit and will wait for
+      restoring nodes.</dd>
+  <dt id="m"><a class="permalink" href="#m"><b>-m</b> s=<i>success</i></a></dt>
+  <dd>Set an alternative string for 'success' message.</dd>
+  <dt id="m~2"><a class="permalink" href="#m~2"><b>-m</b>
+    f=<i>failure</i></a></dt>
+  <dd>Set an alternative string for 'failure' message.</dd>
+  <dt id="m~3"><a class="permalink" href="#m~3"><b>-m</b>
+    F=<i>fatal</i></a></dt>
+  <dd>Set an alternative string for 'fatal' message. An empty string for 'fatal'
+      means it will not be output to stdout in case of fatal error.</dd>
+  <dt id="m~4"><a class="permalink" href="#m~4"><b>-m</b> t=<i>eot</i></a></dt>
+  <dd>Set an alternative string for EOT message.</dd>
+  <dt id="m~5"><a class="permalink" href="#m~5"><b>-m</b>
+    d=<i>delimiter</i></a></dt>
+  <dd>Set an alternative string for tasks delimiter (for <i>-g</i> mode).
+      Delimiter should be at most one character. No delimiter means an entire
+      input line is treated as a task.</dd>
+  <dt id="m~6"><a class="permalink" href="#m~6"><b>-m</b>
+    w=<i>weight</i></a></dt>
+  <dd>Set an alternative string for &quot;weight:&quot; message.</dd>
+  <dt id="W"><a class="permalink" href="#W"><b>-W</b> <i>num</i></a></dt>
+  <dd>When multiple machines or CPUs are used for tasks processing, it makes
+      sense to start &quot;heavier&quot; tasks as soon as possible in order to
+      minimize total calculatiion time. If <b>-W</b> is specified, special
+      weight is assigned to each tasks which is used for reordering tasks. If
+      <i>num</i> is 0, weights themselves are used for reordering tasks. The
+      bigger weight is, the more priority of the task is. If <i>num</i> is 1,
+      the total weight of task is a sum of its own weight (specified on input)
+      and weights of all tasks depending on it directly or indirectly. If
+      <i>num</i> is 2, the total weight of task is a maximum value of task's own
+      weight and weights of all tasks depending on it directly or indirectly.
+      Weights are specified with a help of &quot;weight:&quot; keyword (unless
+      <i>-m w=</i> was specified). If weight is not specified, it defaults to 1.
+      The following is the example for input graph of tasks with weights.
+    <p class="Pp"></p>
+    <pre>  weight: gtk2 30
+  weight: glib2 20
+  gtk2 firefox
+  weight: firefox 200
+  glib2 gtk2
+  weight: qt4 200
+  weight: kcachegrind 2
+  qt4 kcachegrind
+  qt4 djview4
+  tiff djview4
+  png djview4
+  weight: twm 1
+  weight: gqview 4
+    </pre>
+  </dd>
+  <dt id="y"><a class="permalink" href="#y"><b>-y</b></a></dt>
+  <dd>If applied, the magic string is used as an end-of-task marker instead of
+      empty line. It is unlikely that this line appears on <i>command</i>'s
+      output. This option has higher priority than PAEXEC_EOT environment
+      variable.</dd>
+  <dt><b>-0</b></dt>
+  <dd>Change paexec to expect NUL character as a line separator instead of
+      newline. This is expected to be used in concert with the -print0 function
+      in <a class="Xr" href="../1/find.html"><b>find</b>(1)</a>.</dd>
+  <dt id="J"><a class="permalink" href="#J"><b>-J</b> <i>replstr</i></a></dt>
+  <dd>Execute <i>command</i> for each <i>task</i>, replacing one or more
+      occurrences of <i>replstr</i> with the entire <i>task</i>. Only
+      2-character <i>replstr</i> is allowed. Tale a note that such replacement
+      works only if shell variable expansion is allowed in appropriate part of
+      command (if <b>-c</b> is applied) or if free argument is exactly a
+      <i>replstr</i> (if <b>-C</b> is applied). This option implies -x.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>
+    <pre> paexec -t '/usr/bin/ssh -x' -n 'host1 host2 host3' \
+        -le -g -c calculate-me &lt; tasks.txt |
+ paexec_reorder -Mf -Sl
+    </pre>
+  </dd>
+  <dt>2.</dt>
+  <dd>
+    <pre> ls -1 *.wav | paexec -x -n +4 -c 'oggenc -Q'
+    </pre>
+  </dd>
+  <dt>3.</dt>
+  <dd>
+    <pre> ls -1 *.wav | paexec -xCil -n+4 flac -f --silent
+    </pre>
+  </dd>
+  <dt>4.</dt>
+  <dd>
+    <pre> { uname -s; uname -r; uname -m; } |
+ paexec -x -lp -n+2 -c banner |
+ paexec_reorder -l
+    </pre>
+  </dd>
+  <dt>5.</dt>
+  <dd>
+    <pre>  find . -name '*.dat' -print0 |
+  paexec -0 -n+10 -C -J// scp // remoteserver:/remote/path
+    </pre>
+  </dd>
+  <dt>6.</dt>
+  <dd>
+    <pre>  ls -1 *.txt | paexec -n+10 -J%% -c 'awk &quot;BEGIN {print toupper(\&quot;%%\&quot;)}&quot;'
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">For more examples see paexec.pdf and examples/ subdirectory in the
+    distribution.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp"><a class="Xr" href="../2/select.html"><b>select</b>(2)</a> system call and non-blocking <a class="Xr" href="../2/read.html"><b>read</b>(2)</a> are
+    used to read result lines from <i>nodes</i>.</p>
+<p class="Pp">At the moment blocking <a class="Xr" href="../2/write.html"><b>write</b>(2)</a> is used to send <i>task</i>
+    to the <i>node</i>. This may slow down an entire processing if <i>tasks</i>
+    are too big. So, it is recommended to use shorter <i>tasks</i>, for example,
+    filename or URI (several tens of bytes in size) instead of multi-megabyte
+    content. Though this may be fixed in the future.</p>
+<p class="Pp">Original paexec tarball contains a number of sample of use in
+    presentation/paexec.pdf file. After installation you can find this file
+    under share/doc/paexec/paexec.pdf or nearby.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt id="PAEXEC_BUFSIZE"><a class="permalink" href="#PAEXEC_BUFSIZE"><i>PAEXEC_BUFSIZE</i></a></dt>
+  <dd>Overrides the compile time <i>initial</i> size for internal buffers used
+      to store tasks and the result lines. Versions of <b>paexec</b> prior to
+      0.9.0 used this value as a <i>maximum</i> buffer size. Now internal
+      buffers are resized automatically. If unsure, do not set PAEXEC_BUFSIZE
+      variable. See the default value in Makefile.</dd>
+  <dt id="PAEXEC_ENV"><a class="permalink" href="#PAEXEC_ENV"><i>PAEXEC_ENV</i></a></dt>
+  <dd>A list of variables passed to <i>command</i>.</dd>
+  <dt id="PAEXEC_EOT"><a class="permalink" href="#PAEXEC_EOT"><i>PAEXEC_EOT</i></a></dt>
+  <dd>This variable sets the end-of-task marker which is an empty line by
+      default. Also, through this variable an end-of-task marker is passed to
+      all <i>command</i>s.</dd>
+  <dt id="PAEXEC_NODES"><a class="permalink" href="#PAEXEC_NODES"><i>PAEXEC_NODES</i></a></dt>
+  <dd>Unless option <b>-n</b> was applied, this variables specifies the
+    nodes.</dd>
+  <dt id="PAEXEC_TRANSPORT"><a class="permalink" href="#PAEXEC_TRANSPORT"><i>PAEXEC_TRANSPORT</i></a></dt>
+  <dd>Unless option <b>-t</b> was applied, this variables specifies the
+      transport.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS/FEEDBACK"><a class="permalink" href="#BUGS/FEEDBACK">BUGS/FEEDBACK</a></h1>
+<p class="Pp">Please send any comments, questions, bug reports etc. to me by
+    e-mail or (even better) register them at sourceforge project home. Feature
+    requests are also welcomed.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOME"><a class="permalink" href="#HOME">HOME</a></h1>
+<p class="Pp">&lt;http://sourceforge.net/projects/paexec&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO_"><a class="permalink" href="#SEE_ALSO_">SEE ALSO
+  <a class="Xr" href="../1/ssh.html"><b>ssh</b>(1)</a> <b>rsh</b>(1) <a class="Xr" href="../2/select.html"><b>select</b>(2)</a> <a class="Xr" href="../2/read.html"><b>read</b>(2)</a>
+  <a class="Xr" href="../2/write.html"><b>write</b>(2)</a></a></h1>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2019-11-24</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: paexec 1.1.1-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

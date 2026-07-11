@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="filtering API for the smtpd daemon">
+<title>smtpd-filters(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">smtpd-filters(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#DESIGN">DESIGN</a></li><li><a href="#REPORT_AND_FILTER">REPORT
+  AND FILTER</a></li><li><a href="#PROTOCOL">PROTOCOL</a></li><li><a href="#CONFIGURATION">CONFIGURATION</a></li><li><a href="#REPORT_EVENTS">REPORT
+  EVENTS</a></li><li><a href="#FILTER_REQUESTS">FILTER
+  REQUESTS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#HISTORY">HISTORY</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SMTPD-FILTERS(7)</td>
+    <td class="head-vol">Miscellaneous Information Manual</td>
+    <td class="head-rtitle">SMTPD-FILTERS(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">smtpd-filters</code> &#x2014;
+    <span class="Nd">filtering API for the smtpd daemon</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> daemon
+    provides a Simple Mail Transfer Protocol (SMTP) implementation, which allows
+    ordinary machines to become Mail eXchangers (MX). Some features that are
+    commonly used by MX, such as delivery reporting or spam filtering, are
+    outside the scope of SMTP and too complex to fit in
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a>.</p>
+<p class="Pp">Because an MX may need to provide these features,
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> provides an API to extend
+    its behavior through <code class="Nm">smtpd-filters</code>.</p>
+<p class="Pp">At runtime, <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> can
+    report events to <code class="Nm">smtpd-filters</code>, querying what it
+    should answer to these events. This allows the decision logic to rely on
+    third-party programs.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESIGN"><a class="permalink" href="#DESIGN">DESIGN</a></h1>
+<p class="Pp"><code class="Nm">smtpd-filters</code> are programs that run as
+    unique standalone processes, they do not share
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> memory space. They are
+    executed by <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> at startup and
+    expected to run in an infinite loop, reading events and filtering requests
+    from <span class="Xr">stdin(4)</span>, writing responses to
+    <span class="Xr">stdout(4)</span> and logging to
+    <span class="Xr">stderr(4)</span>. They are not allowed to
+    terminate.</p>
+<p class="Pp">Because <code class="Nm">smtpd-filters</code> are standalone
+    programs that communicate with
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> through
+    <span class="Xr">fd(4)</span>, they may run as different users
+    than <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> and may be written in
+    any language. <code class="Nm">smtpd-filters</code> must not use blocking
+    I/O, they must support answering asynchronously to
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPORT_AND_FILTER"><a class="permalink" href="#REPORT_AND_FILTER">REPORT
+  AND FILTER</a></h1>
+<p class="Pp">The API relies on two streams, report and filter.</p>
+<p class="Pp">The report stream is a one-way stream which allows
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> to inform
+    <code class="Nm">smtpd-filters</code> in real-time about events. Report
+    events do not expect an answer from <code class="Nm">smtpd-filters</code>;
+    they are just meant to provide information. A filter should be able to
+    replicate the <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> state for a
+    session by gathering information coming from report events. No decision is
+    ever taken by the report stream.</p>
+<p class="Pp">The filter stream is a two-way stream which allows
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> to query
+    <code class="Nm">smtpd-filters</code> about what it should do with a session
+    at a given phase. Filter requests expect an answer from
+    <code class="Nm">smtpd-filters</code>;
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> will not let the session
+    move forward until then. A decision must always be taken by the filter
+    stream.</p>
+<p class="Pp">It is sometimes possible to rely on filter requests to gather
+    information, but because a response is expected by
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a>, this is more costly than
+    using report events. The correct pattern for writing filters is to use
+    report events to create a local state for a session, then use filter
+    requests to take decisions based on this state. The only case when using
+    filter requests instead of report events is correct is when a decision is
+    required for the filter request and there is no need for more information
+    than that of the event itself.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PROTOCOL"><a class="permalink" href="#PROTOCOL">PROTOCOL</a></h1>
+<p class="Pp">The protocol consists of human-readable lines exchanged between
+    <code class="Nm">smtpd-filters</code> and
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a>, through
+    <span class="Xr">fd(4)</span>.</p>
+<p class="Pp">The protocol begins with a handshake. First,
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> provides
+    <code class="Nm">smtpd-filters</code> with general configuration information
+    in the form of key-value lines:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>config|smtpd-version|6.6.1
+config|smtp-session-timeout|300
+config|subsystem|smtp-in
+config|ready</pre>
+</div>
+<p class="Pp">Then, <code class="Nm">smtpd-filters</code> register the stream,
+    subsystem and event they want to handle:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>register|report|smtp-in|link-connect
+register|ready</pre>
+</div>
+<p class="Pp">Finally, <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> emits
+    report events and filter requests, expecting
+    <code class="Nm">smtpd-filters</code> to respond or not depending on the
+    stream:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>report|0.5|1576146008.006099|smtp-in|link-connect|7641df9771b4ed00|mail.openbsd.org|pass|199.185.178.25:33174|45.77.67.80:25
+report|0.5|1576147242.200225|smtp-in|link-connect|7641dfb3798eb5bf|mail.openbsd.org|pass|199.185.178.25:31205|45.77.67.80:25
+report|0.5|1576148447.982572|smtp-in|link-connect|7641dfc063102cbd|mail.openbsd.org|pass|199.185.178.25:24786|45.77.67.80:25</pre>
+</div>
+<p class="Pp">The character &#x201C;|&#x201D; may only appear in the last field
+    of a payload, in which case it should be considered a regular character and
+    not a separator. No other field may contain a &#x201C;|&#x201D;.</p>
+<p class="Pp">The list of subsystems and events, as well as the format of
+    requests and responses, are documented in the sections below.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+<p class="Pp">During the initial handshake,
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> emits a series of
+    configuration keys and values. The list is meant to be ignored by
+    <code class="Nm">smtpd-filters</code> that do not require it and consumed
+    gracefully by filters that do.</p>
+<p class="Pp">There are currently three keys:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>config|smtpd-version|6.6.1
+config|smtp-session-timeout|300
+config|subsystem|smtp-in</pre>
+</div>
+<p class="Pp">When <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> has sent
+    all configuration keys, it emits the following line:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>config|ready</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPORT_EVENTS"><a class="permalink" href="#REPORT_EVENTS">REPORT
+  EVENTS</a></h1>
+<p class="Pp">There is currently only one subsystem supported in the API:
+    smtp-in.</p>
+<p class="Pp">Each report event is generated by
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> as a single line similar
+    to the one below:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>report|0.5|1576146008.006099|smtp-in|link-connect|7641df9771b4ed00|mail.openbsd.org|pass|199.185.178.25:33174|45.77.67.80:25</pre>
+</div>
+<p class="Pp">The format consists of a protocol prefix containing the stream,
+    the protocol version, the timestamp, the subsystem, the event and the unique
+    session identifier, separated by &#x201C;|&#x201D;:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>report|0.5|1576146008.006099|smtp-in|link-connect|7641df9771b4ed00</pre>
+</div>
+<p class="Pp">It is followed by a suffix containing the event-specific
+    parameters, also separated by &#x201C;|&#x201D;:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>mail.openbsd.org|pass|199.185.178.25:33174|45.77.67.80:25</pre>
+</div>
+<p class="Pp">The list of events and event-specific parameters for smtp-in are
+    as follows:</p>
+<dl class="Bl-tag">
+  <dt id="link-connect"><a class="permalink" href="#link-connect"><code class="Ic">link-connect</code></a>:
+    <var class="Ar">rdns fcrdns src dest</var></dt>
+  <dd>This event is generated upon connection.
+    <p class="Pp"><var class="Ar">rdns</var> contains the reverse DNS hostname
+        for the remote end or an empty string if none.</p>
+    <p class="Pp"><var class="Ar">fcrdns</var> contains the string
+        &#x201C;pass&#x201D; or &#x201C;fail&#x201D; depending on if the remote
+        end validates FCrDNS.</p>
+    <p class="Pp"><var class="Ar">src</var> contains either the IP address and
+        port of the source address, in the format &#x201C;address:port&#x201D;,
+        or the path to a UNIX socket in the format
+      &#x201C;unix:/path&#x201D;.</p>
+    <p class="Pp"><var class="Ar">dest</var> holds either the IP address and
+        port of the destination address, in the format
+        &#x201C;address:port&#x201D;, or the path to a UNIX socket in the format
+        &#x201C;unix:/path&#x201D;.</p>
+  </dd>
+  <dt id="link-greeting"><a class="permalink" href="#link-greeting"><code class="Ic">link-greeting</code></a>:
+    <var class="Ar">hostname</var></dt>
+  <dd>This event is generated upon display of the server banner.
+    <p class="Pp"><var class="Ar">hostname</var> contains the hostname displayed
+        in the banner.</p>
+  </dd>
+  <dt id="link-identify"><a class="permalink" href="#link-identify"><code class="Ic">link-identify</code></a>:
+    <var class="Ar">method identity</var></dt>
+  <dd>This event is generated upon &#x201C;HELO&#x201D; or &#x201C;EHLO&#x201D;
+      command from the client.
+    <p class="Pp"><var class="Ar">method</var> contains the string
+        &#x201C;HELO&#x201D; or &#x201C;EHLO&#x201D; indicating the method used
+        by the client.</p>
+    <p class="Pp"><var class="Ar">identity</var> contains the identity provided
+        by the client.</p>
+  </dd>
+  <dt id="link-tls"><a class="permalink" href="#link-tls"><code class="Ic">link-tls</code></a>:
+    <var class="Ar">tls-string</var></dt>
+  <dd>This event is generated upon successful negotiation of TLS.
+    <p class="Pp"><var class="Ar">tls-string</var> contains a colon-separated
+        list of TLS properties including the TLS version, the cipher suite used
+        by the session and the cipher strength in bits.</p>
+  </dd>
+  <dt id="link-disconnect"><a class="permalink" href="#link-disconnect"><code class="Ic">link-disconnect</code></a></dt>
+  <dd>This event is generated upon disconnection of the client.</dd>
+  <dt id="link-auth"><a class="permalink" href="#link-auth"><code class="Ic">link-auth</code></a>:
+    <var class="Ar">result username</var></dt>
+  <dd>This event is generated upon an authentication attempt by the client.
+    <p class="Pp"><var class="Ar">result</var> contains the string
+        &#x201C;pass&#x201D;, &#x201C;fail&#x201D; or &#x201C;error&#x201D;
+        depending on the result of the authentication attempt.</p>
+    <p class="Pp"><var class="Ar">username</var> contains the username used for
+        the authentication attempt.</p>
+  </dd>
+  <dt id="tx-reset"><a class="permalink" href="#tx-reset"><code class="Ic">tx-reset</code></a>:
+    [message-id]</dt>
+  <dd>This event is generated when a transaction is reset.
+    <p class="Pp">If reset took place during a transaction,
+        <var class="Ar">message-id</var> contains the identifier of the
+        transaction being reset.</p>
+  </dd>
+  <dt id="tx-begin"><a class="permalink" href="#tx-begin"><code class="Ic">tx-begin</code></a>:
+    <var class="Ar">message-id</var></dt>
+  <dd>This event is generated when a transaction is initiated.
+    <p class="Pp"><var class="Ar">message-id</var> contains the identifier for
+        the transaction.</p>
+  </dd>
+  <dt id="tx-mail"><a class="permalink" href="#tx-mail"><code class="Ic">tx-mail</code></a>:
+    <var class="Ar">message-id</var> <var class="Ar">result address</var></dt>
+  <dd>This event is generated when client emits &#x201C;MAIL FROM&#x201D;.
+    <p class="Pp"><var class="Ar">message-id</var> contains the identifier for
+        the transaction.</p>
+    <p class="Pp"><var class="Ar">result</var> contains &#x201C;ok&#x201D; if
+        the sender was accepted, &#x201C;permfail&#x201D; if it was rejected or
+        &#x201C;tempfail&#x201D; if it was rejected for a transient error.</p>
+    <p class="Pp"><var class="Ar">address</var> contains the e-mail address of
+        the sender. The address is normalized and sanitized, the characters
+        &#x201C;&lt;&#x201D; and &#x201C;&gt;&#x201D; are removed, along with
+        any parameters to &#x201C;MAIL FROM&#x201D;.</p>
+  </dd>
+  <dt id="tx-rcpt"><a class="permalink" href="#tx-rcpt"><code class="Ic">tx-rcpt</code></a>:
+    <var class="Ar">message-id</var> <var class="Ar">result address</var></dt>
+  <dd>This event is generated when client emits &#x201C;RCPT TO&#x201D;.
+    <p class="Pp"><var class="Ar">message-id</var> contains the identifier for
+        the transaction.</p>
+    <p class="Pp"><var class="Ar">result</var> contains &#x201C;ok&#x201D; if
+        the recipient was accepted, &#x201C;permfail&#x201D; if it was rejected
+        or &#x201C;tempfail&#x201D; if it was rejected for a transient
+      error.</p>
+    <p class="Pp"><var class="Ar">address</var> contains the e-mail address of
+        the recipient. The address is normalized and sanitized, the characters
+        &#x201C;&lt;&#x201D; and &#x201C;&gt;&#x201D; are removed, along with
+        any parameters to &#x201C;RCPT TO&#x201D;.</p>
+  </dd>
+  <dt id="tx-envelope"><a class="permalink" href="#tx-envelope"><code class="Ic">tx-envelope</code></a>:
+    <var class="Ar">message-id</var> <var class="Ar">envelope-id</var></dt>
+  <dd>This event is generated when an envelope is accepted.
+    <p class="Pp"><var class="Ar">envelope-id</var> contains the unique
+        identifier for the envelope.</p>
+  </dd>
+  <dt id="tx-data"><a class="permalink" href="#tx-data"><code class="Ic">tx-data</code></a>:
+    <var class="Ar">message-id</var> <var class="Ar">result</var></dt>
+  <dd>This event is generated when client has emitted &#x201C;DATA&#x201D;.
+    <p class="Pp"><var class="Ar">message-id</var> contains the unique
+        identifier for the transaction.</p>
+    <p class="Pp"><var class="Ar">result</var> contains &#x201C;ok&#x201D; if
+        server accepted the message for processing, &#x201C;permfail&#x201D; if
+        it has not been accepted and &#x201C;tempfail&#x201D; if a transient
+        error prevented message processing.</p>
+  </dd>
+  <dt id="tx-commit"><a class="permalink" href="#tx-commit"><code class="Ic">tx-commit</code></a>:
+    <var class="Ar">message-id</var> <var class="Ar">message-size</var></dt>
+  <dd>This event is generated when a transaction has been accepted by the
+      server.
+    <p class="Pp"><var class="Ar">message-id</var> contains the unique
+        identifier for the SMTP transaction.</p>
+    <p class="Pp"><var class="Ar">message-size</var> contains the size of the
+        message submitted in the &#x201C;DATA&#x201D; phase of the SMTP
+        transaction.</p>
+  </dd>
+  <dt id="tx-rollback"><a class="permalink" href="#tx-rollback"><code class="Ic">tx-rollback</code></a>:
+    <var class="Ar">message-id</var></dt>
+  <dd>This event is generated when a transaction has been rejected by the
+      server.
+    <p class="Pp"><var class="Ar">message-id</var> contains the unique
+        identifier for the SMTP transaction.</p>
+  </dd>
+  <dt id="protocol-client"><a class="permalink" href="#protocol-client"><code class="Ic">protocol-client</code></a>:
+    <var class="Ar">command</var></dt>
+  <dd>This event is generated for every command submitted by the client. It
+      contains the raw command as received by the server.
+    <p class="Pp"><var class="Ar">command</var> contains the command emitted by
+        the client to the server.</p>
+  </dd>
+  <dt id="protocol-server"><a class="permalink" href="#protocol-server"><code class="Ic">protocol-server</code></a>:
+    <var class="Ar">response</var></dt>
+  <dd>This event is generated for every response emitted by the server. It
+      contains the raw response as emitted by the server.
+    <p class="Pp"><var class="Ar">response</var> contains the response emitted
+        by the server to the client.</p>
+  </dd>
+  <dt id="filter-report"><a class="permalink" href="#filter-report"><code class="Ic">filter-report</code></a>:
+    <var class="Ar">filter-kind</var> <var class="Ar">name message</var></dt>
+  <dd>This event is generated when a filter emits a report.
+    <p class="Pp"><var class="Ar">filter-kind may be either</var>
+        &#x201C;builtin&#x201D; or &#x201C;proc&#x201D; depending on if the
+        filter is an <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> builtin
+        filter or a proc filter implementing the API.</p>
+    <p class="Pp"><var class="Ar">name</var> is the name of the filter that
+        generated the report.</p>
+    <p class="Pp"><var class="Ar">message</var> is a filter-specific
+      message.</p>
+  </dd>
+  <dt id="filter-response"><a class="permalink" href="#filter-response"><code class="Ic">filter-response</code></a>:
+    <var class="Ar">phase response</var> [param]</dt>
+  <dd>This event is generated when a filter responds to a filtering request.
+    <p class="Pp"><var class="Ar">phase</var> contains the phase name for the
+        request. The phases are documented in the next section.</p>
+    <p class="Pp"><var class="Ar">response</var> contains the response of the
+        filter to the request, it is either one of &#x201C;proceed&#x201D;,
+        &#x201C;report&#x201D;, &#x201C;reject&#x201D;,
+        &#x201C;disconnect&#x201D;, &#x201C;junk or&#x201D;
+        &#x201C;rewrite&#x201D;.</p>
+    <p class="Pp">If specified, <var class="Ar">param</var> is the parameter to
+        the response.</p>
+  </dd>
+  <dt id="timeout"><a class="permalink" href="#timeout"><code class="Ic">timeout</code></a></dt>
+  <dd>This event is generated when a timeout happens for a session.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILTER_REQUESTS"><a class="permalink" href="#FILTER_REQUESTS">FILTER
+  REQUESTS</a></h1>
+<p class="Pp">There is currently only one subsystem supported in the API:
+    smtp-in.</p>
+<p class="Pp">Filter requests allow
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> to query
+    <code class="Nm">smtpd-filters</code> about what to do with a session at a
+    particular phase. In addition, they allow
+    <code class="Nm">smtpd-filters</code> to alter the content of a message by
+    adding, modifying, or suppressing lines of input in a way that is similar to
+    what program like <a class="Xr" href="../1/sed.html">sed(1)</a> or
+    <a class="Xr" href="../1/grep.html">grep(1)</a> would do.</p>
+<p class="Pp">Each filter request is generated by
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> as a single line similar
+    to the one below. Fields are separated by the &#x201C;|&#x201D;
+  character.</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>filter|0.5|1576146008.006099|smtp-in|connect|7641df9771b4ed00|1ef1c203cc576e5d|mail.openbsd.org|pass|199.185.178.25:33174|45.77.67.80:25</pre>
+</div>
+<p class="Pp">The format consists of a protocol prefix containing the stream,
+    the protocol version, the timestamp, the subsystem, the filtering phase, the
+    unique session identifier and an opaque token that the filter should provide
+    in its response:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>filter|0.5|1576146008.006099|smtp-in|connect|7641df9771b4ed00|1ef1c203cc576e5d</pre>
+</div>
+<p class="Pp">It is followed by a suffix containing the phase-specific
+    parameters of the filter request, also separated by &#x201C;|&#x201D;:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>mail.openbsd.org|pass|199.185.178.25:33174|45.77.67.80:25</pre>
+</div>
+<p class="Pp">Unlike with report events,
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> expects answers from
+    filter requests and will not allow a session to move forward until the
+    filter has instructed <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> how
+    to treat it.</p>
+<p class="Pp">For all phases except &#x201C;data-line&#x201D;, responses must
+    follow the same construct: a message of type &#x201C;filter-result&#x201D;,
+    followed by the unique session id, the opaque token, a decision and optional
+    decision-specific parameters:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>filter-result|7641df9771b4ed00|1ef1c203cc576e5d|proceed
+filter-result|7641df9771b4ed00|1ef1c203cc576e5d|reject|550 nope</pre>
+</div>
+<p class="Pp">The possible decisions for a &#x201C;filter-result&#x201D; message
+    are documented below.</p>
+<p class="Pp">For the &#x201C;data-line&#x201D; phase,
+    <code class="Nm">smtpd-filters</code> are fed a stream of lines
+    corresponding to the message to filter, terminated by a single dot:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>filter|0.5|1576146008.006099|smtp-in|data-line|7641df9771b4ed00|1ef1c203cc576e5d|line 1
+filter|0.5|1576146008.006103|smtp-in|data-line|7641df9771b4ed00|1ef1c203cc576e5d|line 2
+filter|0.5|1576146008.006105|smtp-in|data-line|7641df9771b4ed00|1ef1c203cc576e5d|.</pre>
+</div>
+<p class="Pp">They are expected to return an output stream similarly terminated
+    by a single dot. A filter may add to, suppress, modify or echo back the
+    lines it receives. Ultimately,
+    <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> assumes that the message
+    consists of the output from <code class="Nm">smtpd-filters</code>.</p>
+<p class="Pp">Note that filters may be chained, and the lines that are input
+    into a subsequent filter are the lines that are output from a previous
+    filter.</p>
+<p class="Pp">The response to &#x201C;data-line&#x201D; requests use their own
+    construct. A &#x201C;filter-dataline&#x201D; prefix, followed by the unique
+    session identifier, the opaque token and the output line as follows:</p>
+<div class="Bd Pp Bd-indent Li">
+<pre>filter-dataline|7641df9771b4ed00|1ef1c203cc576e5d|line 1
+filter-dataline|7641df9771b4ed00|1ef1c203cc576e5d|line 2
+filter-dataline|7641df9771b4ed00|1ef1c203cc576e5d|.</pre>
+</div>
+<p class="Pp">The list of events and event-specific parameters for smtp-in are
+    as follows:</p>
+<dl class="Bl-tag">
+  <dt id="connect"><a class="permalink" href="#connect"><code class="Ic">connect</code></a>:
+    <var class="Ar">rdns fcrdns src dest</var></dt>
+  <dd>This request is emitted after connection, before the banner is
+    displayed.</dd>
+  <dt id="helo"><a class="permalink" href="#helo"><code class="Ic">helo</code></a>:
+    <var class="Ar">identity</var></dt>
+  <dd>This request is emitted after the client has emitted
+    &#x201C;HELO&#x201D;.</dd>
+  <dt id="ehlo"><a class="permalink" href="#ehlo"><code class="Ic">ehlo</code></a>:
+    <var class="Ar">identity</var></dt>
+  <dd>This request is emitted after the client has emitted
+    &#x201C;EHLO&#x201D;.</dd>
+  <dt id="starttls"><a class="permalink" href="#starttls"><code class="Ic">starttls</code></a>:
+    <var class="Ar">tls-string</var></dt>
+  <dd>This request is emitted after the client has requested
+      &#x201C;STARTTLS&#x201D;.</dd>
+  <dt id="auth"><a class="permalink" href="#auth"><code class="Ic">auth</code></a>:
+    <var class="Ar">auth</var></dt>
+  <dd>This request is emitted after the client has requested
+      &#x201C;AUTH&#x201D;.</dd>
+  <dt id="mail-from"><a class="permalink" href="#mail-from"><code class="Ic">mail-from</code></a>:
+    <var class="Ar">address</var></dt>
+  <dd>This request is emitted after the client has requested &#x201C;MAIL
+      FROM&#x201D;.</dd>
+  <dt id="rcpt-to"><a class="permalink" href="#rcpt-to"><code class="Ic">rcpt-to</code></a>:
+    <var class="Ar">address</var></dt>
+  <dd>This request is emitted after the client has requested &#x201C;RCPT
+      TO&#x201D;.</dd>
+  <dt id="data"><a class="permalink" href="#data"><code class="Ic">data</code></a></dt>
+  <dd>This request is emitted after the client has requested
+      &#x201C;DATA&#x201D;.</dd>
+  <dt id="data-line"><a class="permalink" href="#data-line"><code class="Ic">data-line</code></a>:
+    <var class="Ar">line</var></dt>
+  <dd>This request is emitted for each line of input in the &#x201C;DATA&#x201D;
+      phase. The lines are raw dot-escaped SMTP DATA input, terminated with a
+      single dot.</dd>
+  <dt id="commit"><a class="permalink" href="#commit"><code class="Ic">commit</code></a></dt>
+  <dd>This request is emitted after the final single dot is received.</dd>
+</dl>
+<p class="Pp">For every filtering phase, excepted &#x201C;data-line&#x201D;, the
+    following decisions may be taken by a filter:</p>
+<dl class="Bl-tag">
+  <dt id="proceed"><a class="permalink" href="#proceed"><code class="Ic">proceed</code></a></dt>
+  <dd>No action is taken, session or transaction may be passed to the next
+      filter.</dd>
+  <dt id="junk"><a class="permalink" href="#junk"><code class="Ic">junk</code></a></dt>
+  <dd>The session or transaction is marked as spam.
+      <a class="Xr" href="../8/smtpd.html">smtpd(8)</a> will prepend an
+      &#x201C;X-Spam&#x201D; header to the message.</dd>
+  <dt id="reject"><a class="permalink" href="#reject"><code class="Ic">reject</code></a>
+    <var class="Ar">error</var></dt>
+  <dd>The command is rejected with the message <var class="Ar">error</var>. The
+      message must be a valid SMTP message including status code, 5xx or 4xx.
+    <p class="Pp">Messages starting with a 5xx status result in a permanent
+        failure, those starting with a 4xx status result in a temporary
+      failure.</p>
+    <p class="Pp">Messages starting with a 421 status will result in a client
+        disconnect.</p>
+  </dd>
+  <dt id="disconnect"><a class="permalink" href="#disconnect"><code class="Ic">disconnect</code></a>
+    <var class="Ar">error</var></dt>
+  <dd>The client is disconnected with the message <var class="Ar">error</var>.
+      The message must be a valid SMTP message including status code, 5xx or
+      4xx.
+    <p class="Pp">Messages starting with a 5xx status result in a permanent
+        failure, those starting with a 4xx status result in a temporary
+      failure.</p>
+  </dd>
+  <dt id="rewrite"><a class="permalink" href="#rewrite"><code class="Ic">rewrite</code></a>
+    <var class="Ar">parameter</var></dt>
+  <dd>The command parameter is rewritten.
+    <p class="Pp">This decision allows a filter to perform a rewrite of
+        client-submitted commands before they are processed by the SMTP engine.
+        <var class="Ar">parameter</var> is expected to be a valid SMTP parameter
+        for the command.</p>
+  </dd>
+  <dt id="report"><a class="permalink" href="#report"><code class="Ic">report</code></a>
+    <var class="Ar">parameter</var></dt>
+  <dd>Generates a report with <var class="Ar">parameter</var> for this
+    filter.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/smtpd.html">smtpd(8)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp"><code class="Nm">smtpd-filters</code> first appeared in
+    <span class="Ux">OpenBSD 6.6</span>.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">July 7, 2023</td>
+    <td class="foot-os">Debian</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: opensmtpd 7.4.0p1-1build4 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="set up NAT and port redirections">
+<title>firehol-nat(5) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">firehol-nat(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#BALANCING">BALANCING</a></li><li><a href="#Round_Robin_distribution">Round
+  Robin distribution</a></li><li><a href="#Weighted_distribution">Weighted
+  distribution</a></li><li><a href="#PERSISTENCE">PERSISTENCE</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">firehol-nat(5)</td>
+    <td class="head-vol">3.1.7</td>
+    <td class="head-rtitle">firehol-nat(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">firehol-nat - set up NAT and port redirections</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">{ nat to-destination | dnat [to] } <i>ipaddr</i>[:<i>port</i>]
+    [random] [persistent] [id <i>id</i>] [at <i>chain</i>]
+  [<i>rule-params</i>]</p>
+<p class="Pp">{ nat to-source | snat [to] } <i>ipaddr</i>[:<i>port</i>] [random]
+    [persistent] [id <i>id</i>] [at <i>chain</i>] [<i>rule-params</i>]</p>
+<p class="Pp">{ nat redirect-to | redirect [to] } <i>port</i>[-<i>range</i>]
+    [random] [id <i>id</i>] [at <i>chain</i>] [<i>rule-params</i>]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Destination NAT is provided by nat to-destination and its synonym
+    dnat.</p>
+<p class="Pp">Source NAT is provided by nat to-source and its synonym snat.</p>
+<p class="Pp">Redirection to a port on the local host is provided by nat
+    redirect-to and its synonym redirect.</p>
+<p class="Pp">The <i>port</i> part of the new address is optional with SNAT and
+    DNAT; if not specified it will not be changed.</p>
+<p class="Pp">When you apply NAT to a packet, the Linux kernel will track the
+    changes it makes, so that when it sees replies the transformation will be
+    applied in the opposite direction. For instance if you changed the
+    destination port of a packet from 80 to 8080, when a reply comes back, its
+    source is set as 80. This means the original sender is not aware a
+    transformation is happening.</p>
+<p class="Pp">This means that NAT is only applied on the first packet of each
+    connection (the nat FireHOL helper always appends state NEW to NAT
+    statements).</p>
+<p class="Pp">The NAT helper can be used to setup load balancing. Check the
+    section BALANCING below.</p>
+<div class="Bd-indent">
+<p class="Pp"><b>Note</b></p>
+<p class="Pp">The <i>rule-params</i> are used only to determine the traffic that
+    will be matched for NAT in these commands, not to permit traffic to
+  flow.</p>
+<p class="Pp">Applying NAT does not automatically create rules to allow the
+    traffic to pass. You will still need to include client or server entries in
+    an interface or router to allow the traffic.</p>
+<p class="Pp">When using dnat or redirect, the transformation is in the
+    PREROUTING chain of the NAT table and happens before normal rules are
+    matched, so your client or server rule should match the
+    &#x201C;modified&#x201D; traffic.</p>
+<p class="Pp">When using snat, the transformation is in the POSTROUTING chain of
+    the NAT table and happens after normal rules are matched, so your client or
+    server rule should match the &#x201C;unmodified&#x201D; traffic.</p>
+<p class="Pp">See the netfilter flow diagram
+    (http://upload.wikimedia.org/wikipedia/commons/3/37/Netfilter-packet-flow.svg)
+    if you would like to see how network packets are processed by the kernel in
+    detail.</p>
+</div>
+<p class="Pp">The at keyword allows setting a different chain to attach the
+    rules. For dnat and redirect the default is PREROUTING, but OUTPUT is also
+    supported. For snat the default is POSTROUTING, but INPUT is also
+  supported.</p>
+<p class="Pp">random will randomise the port mapping involved, to ensure the
+    ports used are not predictable.</p>
+<p class="Pp">persistent is used when the statement is given alternatives (i.e.
+    many destination servers for dnat, many source IPs for snat, many ports for
+    redirect). It will attempt to keep each client on the same nat map. See
+    below for more information about persistence.</p>
+<p class="Pp">The nat helper takes one of the following sub-commands:</p>
+<dl class="Bl-tag">
+  <dt id="to_destination"><a class="permalink" href="#to_destination">to-destination
+    <i>ipaddr</i>[:<i>port</i>]</a></dt>
+  <dd>Defines a Destination NAT (DNAT). Commonly thought of as port-forwarding
+      (where packets destined for the firewall with a given port and protocol
+      are sent to a different IP address and possibly port), DNAT is much more
+      flexible in that any number of parameters can be matched before the
+      destination information is rewritten.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"><i>ipaddr</i>[:<i>port</i>] is the destination address to be set
+    in packets matching <i>rule-params</i>.</p>
+<p class="Pp">If no rules are given, all forwarded traffic will be matched.
+    outface should not be used in DNAT since the information is not available at
+    the time the decision is made.</p>
+<p class="Pp"><i>ipaddr</i>[:<i>port</i>] accepts any --to-destination values
+    that iptables(8) accepts. Run iptables -j DNAT --help for more information.
+    Multiple <i>ipaddr</i>[:<i>port</i>] may be specified by separating with
+    spaces and enclosing with quotes.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="to_source"><a class="permalink" href="#to_source">to-source
+    <i>ipaddr</i>[:<i>port</i>]</a></dt>
+  <dd>Defines a Source NAT (SNAT). SNAT is similar to masquerading but is more
+      efficient for static IP addresses. You can use it to give a public IP
+      address to a host which does not have one behind the firewall. See also
+      firehol-masquerade(5).</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"><i>ipaddr</i>[:<i>port</i>] is the source address to be set in
+    packets matching <i>rule-params</i>.</p>
+<p class="Pp">If no rules are given, all forwarded traffic will be matched.
+    inface should not be used in SNAT since the information is not available at
+    the time the decision is made.</p>
+<p class="Pp"><i>ipaddr</i>[:<i>port</i>] accepts any --to-source values that
+    iptables(8) accepts. Run iptables -j SNAT --help for more information.
+    Multiple <i>ipaddr</i>[:<i>port</i>] may be specified by separating with
+    spaces and enclosing with quotes.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="redirect_to"><a class="permalink" href="#redirect_to">redirect-to
+    <i>port</i>[-<i>range</i>]</a></dt>
+  <dd>Redirect matching traffic to the local machine. This is typically useful
+      if you want to intercept some traffic and process it on the local
+    machine.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"><i>port</i>[-<i>range</i>] is the port range (from-to) or single
+    port that packets matching <i>rule-params</i> will be redirected to.</p>
+<p class="Pp">If no rules are given, all forwarded traffic will be matched.
+    outface should not be used in REDIRECT since the information is not
+    available at the time the decision is made.</p>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BALANCING"><a class="permalink" href="#BALANCING">BALANCING</a></h1>
+<p class="Pp">NAT can balance multiple servers (or IPs in case of snat) when a
+    range is specified. This is handled by the kernel.</p>
+<p class="Pp">Example:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+dnat4 to 10.0.0.1-10.0.0.10 persistent proto tcp dst 1.1.1.1 dport 80
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">In the above example, the Linux kernel will give a persistent
+    server to all the sockets of any single client.</p>
+<p class="Pp">FireHOL can also setup balancing using a round-robin or weighted
+    average distribution of requests. However persistent cannot be used (the
+    Linux kernel applies persistence on a single NAT statement).</p>
+<section class="Ss">
+<h2 class="Ss" id="Round_Robin_distribution"><a class="permalink" href="#Round_Robin_distribution">Round
+  Robin distribution</a></h2>
+<p class="Pp">To enable round robin distribution, give multiple to values, space
+    separated and enclosed in quotes, or comma separated.</p>
+<p class="Pp">Example:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+<br/>
+ dnat4 to 10.0.0.1,10.0.0.2,10.0.0.3 proto tcp dst 1.1.1.1 port 80
+<br/>
+ # or
+<br/>
+ dnat4 to &quot;10.0.0.1 10.0.0.2 10.0.0.3&quot; proto tcp dst 1.1.1.1 port 80
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">Ports can also be given per IP:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+<br/>
+ dnat4 to 10.0.0.1:70,10.0.0.2:80,10.0.0.3:90 proto tcp dst 1.1.1.1 port 80
+<br/>
+ # or
+<br/>
+ dnat4 to &quot;10.0.0.1:70 10.0.0.2:80 10.0.0.3:90&quot; proto tcp dst 1.1.1.1 port 80
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Weighted_distribution"><a class="permalink" href="#Weighted_distribution">Weighted
+  distribution</a></h2>
+<p class="Pp">To enable weighted distribution, append a slash with the weight
+    requested for each entry.</p>
+<p class="Pp">FireHOL adds all the weights given and calculates the percentage
+    of traffic each entry should receive.</p>
+<p class="Pp">Example:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+<br/>
+ dnat4 to 10.0.0.1/30,10.0.0.2/30,10.0.0.3/40 proto tcp dst 1.1.1.1 port 80
+<br/>
+ # or
+<br/>
+ dnat4 to &quot;10.0.0.1/30 10.0.0.2/30 10.0.0.3/40&quot; proto tcp dst 1.1.1.1 port 80
+<br/>
+ # or
+<br/>
+ dnat4 to 10.0.0.1:70/30,10.0.0.2:80/30,10.0.0.3:90/40 proto tcp dst 1.1.1.1 port 80
+<br/>
+ # or
+<br/>
+ dnat4 to &quot;10.0.0.1:70/30 10.0.0.2:80/30 10.0.0.3:90/40&quot; proto tcp dst 1.1.1.1 port 80
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="PERSISTENCE"><a class="permalink" href="#PERSISTENCE">PERSISTENCE</a></h2>
+<p class="Pp">The kernel supports persistence only if the NAT alternatives are
+    contiguous (i.e.&#x00A0;dnat to A-B, snat to A-B, redirect to 1000:1010,
+    etc). If they are contiguous, persistence is left at the kernel. FireHOL
+    does nothing.</p>
+<p class="Pp">If the alternatives are not contiguous, FireHOL will use the
+    <i>recent</i> iptables module to apply persistence itself.</p>
+<p class="Pp">FireHOL supports mixed mode persistence. For example, you can have
+    something like this:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+dnat to A-B/70,C-D/20,F/10 persistence id mybalancer
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">The above is a weighted distribution of persistence. Group A-B
+    will get 70%, C-D 20% and server F 10%.</p>
+<p class="Pp">Using the above, FireHOL will apply its persistence to pick one of
+    the groups A-B, or C-D, or F. Once the group has been picked by FireHOL, the
+    kernel will apply persistence within the group, to pick the server that will
+    handle the request.</p>
+<p class="Pp">The FireHOL persistence works like this:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>A packet is received that should be NATed</dd>
+  <dt>2.</dt>
+  <dd>A lookup is made using the <i>recent</i> module to find if it has been
+      seen before. The source IP of packet is looked up.</dd>
+  <dt>3.</dt>
+  <dd>If it has been seen before, the connection is mapped the same way the last
+      time was mapped. The <i>recent</i> module is updated too.</dd>
+  <dt>4.</dt>
+  <dd>If it has not been seen before, the connection is mapped using the
+      distribution method specified. The <i>recent</i> module is updated too, to
+      be ready for the next connection.</dd>
+</dl>
+<p class="Pp">The <i>recent</i> module has a few limitations:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>It has lookup tables. We need one lookup table for each member of of the
+      NAT. FireHOL uses the id parameter and the definition of each alternative
+      in the NAT statement to form a name for the lookup table. These lookup
+      tables are persistent to firewall restarts, this is why FireHOL requires
+      from you to set an id.</dd>
+  <dt>2.</dt>
+  <dd>It can keep entries in its lookup tables for a given time. FireHOL sets
+      this to 3600 seconds. You can control it by setting
+      FIREHOL_NAT_PERSISTENCE_SECONDS.</dd>
+  <dt>3.</dt>
+  <dd>It has a limit on the number of entries in the lookup tables. FireHOL
+      cannot set this. This is kernel module option. The default is 200
+    entries.</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp">Check this:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+<br/>
+ # modinfo xt_recent
+<br/>
+ filename:       /lib/modules/4.1.12-gentoo/kernel/net/netfilter/xt_recent.ko
+<br/>
+ alias:          ip6t_recent
+<br/>
+ alias:          ipt_recent
+<br/>
+ license:        GPL
+<br/>
+ description:    Xtables: &quot;recently-seen&quot; host matching
+<br/>
+ author:         Jan Engelhardt &lt;jengelh@medozas.de&gt;
+<br/>
+ author:         Patrick McHardy &lt;kaber@trash.net&gt;
+<br/>
+ depends:        x_tables
+<br/>
+ intree:         Y
+<br/>
+ vermagic:       4.1.12-gentoo SMP preempt mod_unload modversions
+<br/>
+ parm:           ip_list_tot:number of IPs to remember per list (uint)
+<br/>
+ parm:           ip_list_hash_size:size of hash table used to look up IPs (uint)
+<br/>
+ parm:           ip_list_perms:permissions on /proc/net/xt_recent/* files (uint)
+<br/>
+ parm:           ip_list_uid:default owner of /proc/net/xt_recent/* files (uint)
+<br/>
+ parm:           ip_list_gid:default owning group of /proc/net/xt_recent/* files (uint)
+<br/>
+ parm:           ip_pkt_list_tot:number of packets per IP address to remember (max. 255) (uint)
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">You have to consult your distribution documentation to set these.
+    You can find their current values by examining files found in
+    /sys/module/xt_recent/parameters/ Unfortunately, these files are not
+    writable, so to change parameters you have unload and reload the module
+    (i.e.&#x00A0;apply a firewall that does not use the <i>recent</i> module,
+    rmmod xt_recent, change the parameter, re-apply a firewall that uses the
+    <i>recent</i> module).</p>
+<p class="Pp">Normally, you will need a line in /etc/modprobe.d/netfitler.conf
+    like this:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+options xt_recent ip_list_tot=16384
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">The number 16384 I used is the max number of unique client IPs I
+    expect to have per hour (FIREHOL_NAT_PERSISTENCE_SECONDS) for this
+  service.</p>
+<p class="Pp">ip_list_hash_size is calculated by kernel when the module is
+    loaded to be bigger and up to twice ip_list_tot.</p>
+</div>
+<p class="Pp">Once you have the balancer running, you can find its lookup tables
+    in /proc/net/xt_recent/. There you will find files starting with the
+    <i>id</i> parameter, one file for every alternative of the NAT rule.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+<br/>
+ # Port forwarding HTTP
+<br/>
+ dnat4 to 192.0.2.2 proto tcp dport 80
+<br/>
+ # Port forwarding HTTPS on to a different port internally
+<br/>
+ dnat4 to 192.0.2.2:4443 proto tcp dport 443
+<br/>
+ # Fix source for traffic leaving the firewall via eth0 with private address
+<br/>
+ snat4 to 198.51.100.1 outface eth0 src 192.168.0.0/24
+<br/>
+ # Transparent squid (running on the firewall) for some hosts
+<br/>
+ redirect4 to 8080 inface eth0 src 198.51.100.0/24 proto tcp dport 80
+<br/>
+ # Send to 192.0.2.1
+<br/>
+ #  - all traffic arriving at or passing through the firewall
+<br/>
+ nat4 to-destination 192.0.2.1
+<br/>
+ # Send to 192.0.2.1
+<br/>
+ #  - all traffic arriving at or passing through the firewall
+<br/>
+ #  - which WAS going to 203.0.113.1
+<br/>
+ nat4 to-destination 192.0.2.1 dst 203.0.113.1
+<br/>
+ # Send to 192.0.2.1
+<br/>
+ #  - TCP traffic arriving at or passing through the firewall
+<br/>
+ #  - which WAS going to 203.0.113.1
+<br/>
+ nat4 to-destination 192.0.2.1 proto tcp dst 203.0.113.1
+<br/>
+ # Send to 192.0.2.1
+<br/>
+ #  - TCP traffic arriving at or passing through the firewall
+<br/>
+ #  - which WAS going to 203.0.113.1, port 25
+<br/>
+ nat4 to-destination 192.0.2.1 proto tcp dport 25 dst 203.0.113.1
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>firehol(1) - FireHOL program</dd>
+  <dt>&#x2022;</dt>
+  <dd>firehol.conf(5) - FireHOL configuration</dd>
+  <dt>&#x2022;</dt>
+  <dd>firehol-interface(5) - interface definition</dd>
+  <dt>&#x2022;</dt>
+  <dd>firehol-router(5) - router definition</dd>
+  <dt>&#x2022;</dt>
+  <dd>firehol-params(5) - optional rule parameters</dd>
+  <dt>&#x2022;</dt>
+  <dd>firehol-masquerade(5) - masquerade helper</dd>
+  <dt>&#x2022;</dt>
+  <dd>FireHOL Website (http://firehol.org/)</dd>
+  <dt>&#x2022;</dt>
+  <dd>FireHOL Online PDF Manual (http://firehol.org/firehol-manual.pdf)</dd>
+  <dt>&#x2022;</dt>
+  <dd>FireHOL Online Documentation (http://firehol.org/documentation/)</dd>
+  <dt>&#x2022;</dt>
+  <dd>NAT HOWTO
+    (http://www.netfilter.org/documentation/HOWTO/NAT-HOWTO-6.html)</dd>
+  <dt>&#x2022;</dt>
+  <dd>netfilter flow diagram
+      (http://upload.wikimedia.org/wikipedia/commons/3/37/Netfilter-packet-flow.svg)</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">FireHOL Team.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Built 24 Jan 2024</td>
+    <td class="foot-os">FireHOL Reference</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: firehol-doc 3.1.7+ds-3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

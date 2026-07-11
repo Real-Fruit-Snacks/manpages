@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="source-nat logging tool">
+<title>natlog(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">natlog(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#MODES_AND_COMMANDS">MODES
+  AND COMMANDS</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#SYSTEMD">SYSTEMD</a></li><li><a href="#RSYSLOG_FILTERING">RSYSLOG
+  FILTERING</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">natlog(1)</td>
+    <td class="head-vol">natlog</td>
+    <td class="head-rtitle">natlog(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">natlog - source-nat logging tool</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>natlog</b> [OPTIONS] <i>command</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Firewalls like <b>iptables</b>(1) may offer <i>POSTROUTING</i>
+    (source network address translation, snat) facilities changing the source
+    address of a host behind the firewall to the address of the host connected
+    to the outer world. With <i>snat</i> the following combinations of IP
+    addresses and port numbers are encountered:</p>
+<dl class="Bl-tag">
+  <dt id="o"><a class="permalink" href="#o">o</a></dt>
+  <dd>the IP address and port number used by the host protected by (i.e.,
+      behind) the firewall initiates a connection to the outer world (the source
+      host, in this manual page referred to as <i>IPsrc, sport</i>);</dd>
+  <dt id="o~2"><a class="permalink" href="#o~2">o</a></dt>
+  <dd>the IP address and port number of the host outside (i.e., before) the
+      firewall that <i>IPsrc</i> connects to (the destination host, in this
+      manual page referred to as <i>IPdst, dport</i>);</dd>
+  <dt id="o~3"><a class="permalink" href="#o~3">o</a></dt>
+  <dd>the IP address and port number of the host where the firewall has been
+      installed. This host performs the source natting, and its IP-address and
+      the port it uses when forwarding <i>IPsrc, sport</i>&#x2019;s requests to
+      <i>IPdst,</i> <i>dport</i> are in this manual page referred to as <i>IPfw,
+      fwport</i>. )</dd>
+</dl>
+<p class="Pp">Source natting usually uses <i>sport</i> for <i>fwport</i>, but
+    <i>fwport</i> may already be in use, in which case the firewalling host must
+    use another, available port to forward communication from <i>IPsrc,
+    sport</i> to <i>IPdst,</i> <i>dport</i>.</p>
+<p class="Pp">The general scheme that applies to source natting, therefore,
+    looks like this:</p>
+<pre>
+<br/>
+    IPsrc:sport is translated by the firewall to IPfw:fwport;
+<br/>
+    IPfw:fwport is used when communicating with IPdst:dport.
+<br/>
+        </pre>
+From the perspective of the destination host the communication originates at
+  <i>IPfw::fwport</i> and consequently all communication (e.g., incident
+  reports) sent by the systems administrator maintaining <i>IPdst</i> to
+  <i>IPfw</i>&#x2019;s systems administrator will refer to <i>IPfw:fwport</i>,
+  rather than to <i>IPsrc::sport</i>.
+<p class="Pp">Relating <i>IPfw:fwport</i> to <i>IPsrc:sport</i> is difficult
+    when merely using the standard log facilities provided by <i>iptables</i>
+    and <i>natlog</i> was developed to fill in that particular niche.</p>
+<p class="Pp"><i>Natlog</i> provides data about source natting in various forms.
+    The standard logging mode consists of messages sent to the syslog daemon
+    (cf., <a class="Xr" href="../8/rsyslogd.html"><b>rsyslogd</b>(8)</a>) and/or to the standard output stream showing the
+    essential characteristics of connections using source natting. Here is an
+    example of a logged message (log-entries occupy single lines; the
+    line-breaks below are to enhance readability):</p>
+<pre>
+<br/>
+    NATLOG: from 1338990672:55588 thru 1338990747:807100 (UTC): tcp
+<br/>
+        192.168.19.72:4467 (via: 129.125.90.132:4467) to 
+<br/>
+        to 200.49.219.180:443; sent: 802, received: 7669
+<br/>
+        </pre>
+The values <i>1338990672:55588</i> and <i>1338990747:807100</i> are time stamps
+  showing the begin- and end-times in seconds:microseconds of a tcp connection
+  since the beginning of the epoch (Jan 1, 1970, 0:00 UTC). <i>Natlog</i> offers
+  the <i>--time</i> option for requesting human-readable time specifications
+  like <i>Nov 2 13:29:11</i> rather than time representations using seconds and
+  micro seconds.
+<p class="Pp">The next value (<i>192.168.19.72:4467</i>) represents
+    <i>IPsrc::sport</i>. This is followed by <i>129.125.90.132:4467</i>,
+    representing <i>IPfw:fwport</i>. The third pair of values
+    (<i>200.49.219.180:443</i>) represents <i>IPdst:dport</i>.</p>
+<p class="Pp">In this example, host <i>192.168.19.72</i>, using port
+    <i>4467</i>, connected to host <i>200.49.219.180</i>, port <i>443</i>. To
+    this latter host the connection appears to have originated from
+    <i>129.125.90.132</i> port <i>4467</i>. The log message allows us to
+    associate this with the `real&#x2019; host and port from which the
+    connection originated: <i>192.168.19.72:4467</i>.</p>
+<p class="Pp">The final entries show the number of bytes that were sent by the
+    source-host (<i>IPsrc</i>) and received from the destination-host
+    (<i>IPdst</i>).</p>
+<p class="Pp">When <i>natlog</i> is terminated it can no longer track
+    connections that are still open. If <i>natlog</i> was terminated (by a
+    <i>SIGINT</i> or <i>SIGTERM</i> signal), then it logs a `terminating&#x2019;
+    line, followed by an overview of all (potentially) still open connections.
+    Those connections are flagged with a trailing &#x2019;(EOP)&#x2019; (end of
+    program) log-element, and their end-times show <i>natlog&#x2019;s</i>
+    termination time. Incomplete connections show <i>(EXPIRED)</i>.</p>
+<p class="Pp">In addition to the standard logs the option <i>--log-data</i> is
+    available. This option requires the path to a file where information is
+    logged in tabular form, which can easily be processed by statistical
+    software like <a class="Xr" href="../1/R.html"><b>R</b>(1)</a>. When specifying this option information will be
+    appended to an existing file. When the log file does not yet exist it is
+    created. The first line of the thus written log files names the columns of
+    the table. The column names are (all on one line):</p>
+<pre>
+<br/>
+    type, srcNr, srcIP, srcPort, dstNr, dstIP, dstPort, 
+<br/>
+        sent, recvd, begin,  end, beginTime, endTime, status 
+<br/>
+    </pre>
+Most column labels will be self-explanatory. <i>Type</i> indicates the
+  connection type, logged as <i>icmp, tcp,</i> or <i>udp</i>; <i>srcNr</i> and
+  <i>dstNr</i> are the 32 bit numeric values of, respectively, the source
+  host&#x2019;s IP address and the destination host&#x2019;s IP address (decimal
+  representations); <i>begin</i> and <i>end</i> are the times in seconds since
+  the beginning of the epoch, corresponding to the times displayed at,
+  respectively, <i>beginTime</i> and <i>endTime</i>; <i>status</i> indicates the
+  status of the logged connection information: <i>ok</i> indicates a connection
+  that was normally completed; <i>expired</i> indicates that the connection was
+  recognized, but was not normally completed; <i>eop</i> is used for connections
+  that were still active by the time <i>natlog</i> terminates. When the status
+  equals <i>expired</i>, the time entries show the times of receiving the first
+  and last packets of that connection; when <i>eop</i>, then the <i>end</i> and
+  <i>endTime</i> entries show <i>natlog&#x2019;s</i> termination time.
+<p class="Pp">Log entries look like this (each entry occupies one line, header
+    line and logged data lines are right-aligned):</p>
+<pre>
+<br/>
+    tcp, 101820608,    192.168.17.6,        48886, 
+<br/>
+        4012145084,  188.121.36.239,           80,       
+<br/>
+               430,            2266,   1517387644,    1517387644, 
+<br/>
+        Jan 31 08:34:04:318340, Jan 31 08:34:04:383170,  ok
+<br/>
+    </pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MODES_AND_COMMANDS"><a class="permalink" href="#MODES_AND_COMMANDS">MODES
+  AND COMMANDS</a></h1>
+<dl class="Bl-tag">
+  <dt id="o~4"><a class="permalink" href="#o~4">o</a></dt>
+  <dd><i>conntrack</i>: the `conntrack&#x2019;-mode. This command can only be
+      used on platforms using <b>iptables</b>(1) where <b>conntrack</b>(1) has
+      also been installed. Information about snat connections is obtained from
+      <b>conntrack</b>(1)&#x2019;s output. In this mode all, or one of the tcp
+      (the protocol used by default), udp, and icmp layer four protocols can be
+      monitored.</dd>
+  <dt></dt>
+  <dd>When using the <i>conntrack</i> mode the <i>conntrack</i> program will
+      report sent and received number of bytes unless the option <i>no-bytes</i>
+      has been specified.</dd>
+  <dt></dt>
+  <dd><i>Conntrack</i> includes the sizes of the IP headers (usually 20 bytes)
+      in reported byte counts. Thus, <i>icmp</i> packets are usually reported as
+      having size 84, even though <a class="Xr" href="../1/ping.html"><b>ping</b>(1)</a> reports a payload of 64 bytes.
+      Since the actual sizes of IP headers cannot be determined from
+      conntrack&#x2019;s output, the sizes reported when using
+      <i>natlog&#x2019;s</i> conntrack mode are as reported by <i>conntrack</i>,
+      and are therefore not corrected for IP header lengths. The option
+      <i>--conntrack-ip-header-size</i> can be used to correct for the (assumed)
+      IP header sizes.</dd>
+  <dt></dt>
+  <dd><i>Conntrack</i> can also be used to track all connections, not just the
+      snat connections. If that&#x2019;s required omit <i>conntrack&#x2019;s</i>
+      option <i>-n</i>, and optionally specify option <i>no-via</i>.</dd>
+  <dt></dt>
+  <dd>See also the <i>conntrack-command</i> option.</dd>
+  <dt id="o~5"><a class="permalink" href="#o~5">o</a></dt>
+  <dd><i>indevice outdevice</i>: the `devices&#x2019;-mode. Here,
+      <i>indevice</i> is the name of the device behind the firewall: addresses
+      living behind the <i>indevice</i> are source-natted to the firewall
+      host&#x2019;s IP address when passed on to the <i>outdevice</i>.</dd>
+  <dt></dt>
+  <dd><i>Outdevice</i> is the name of the device where source-natted packets are
+      forwarded to, and from where replies for source-natted hosts living behind
+      the <i>indevice</i> are received. With this command all, or any
+      combination of the tcp (the protocol monitored by default), udp, and icmp
+      layer four protocols can be monitored.</dd>
+  <dt></dt>
+  <dd>For example, when specifying the arguments
+    <pre>
+<br/>
+    eth1 eth0
+<br/>
+        </pre>
+    thene <i>eth1</i> is the device behind the firewall, and <i>eth0</i> is the
+      device to where source-natted packets are forwared.</dd>
+  <dt></dt>
+  <dd>This command can also be used to track all connections using a single
+      device, instead of merely tracking snat connections. In that case specify
+      the same devices for <i>indevice</i> and <i>outdevice</i>, and optionally
+      specify option <i>no-via</i>. E.g.,
+    <pre>
+<br/>
+    eth0 eth0
+<br/>
+        </pre>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="o~6"><a class="permalink" href="#o~6">o</a></dt>
+  <dd><i>infile in-address in-mask outfile out-address out-mask</i>: the
+      `tcpdump&#x2019;-mode. This command can be used to process
+      <b>tcpdump</b>(1) generated binary files, generated on the source-natting
+      host. If a source natting host uses interface <i>eth1</i> behind the
+      firewall and <i>eth0</i> to connect to the outside world, then the follow
+      <i>tcpdump</i> commands produce the required binary files (these commands
+      will normally be run in the background, hence the trailing <i>&amp;</i>):
+    <pre>
+<br/>
+    tcpdump -wi eth0 /tmp/eth0 &amp;
+<br/>
+    tcpdump -wi eth1 /tmp/eth1 &amp;
+<br/>
+        </pre>
+    To have <i>natlog</i> process these files, end the <i>tcpdump</i> processes,
+      and transfer the files <i>/tmp/eth0</i> and <i>/tmp/eth1</i> to the host
+      where <i>natlog</i> has been installed. The required addresses and masks
+      are shown by the <b>ifconfig</b>(1) command. E.g.,
+    <pre>
+eth0: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+<br/>
+      inet 129.125.1.123  netmask 255.255.0.0  
+<br/>
+                          broadcast 129.125.255.255
+eth1: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+<br/>
+        inet 192.168.1.1  netmask 255.255.255.0  
+<br/>
+                          broadcast 192.168.1255
+<br/>
+        </pre>
+    The relevant info is shown in the lines following the interface&#x2019;s
+      name: the value following <i>inet</i> is the interface&#x2019;s IP
+      address, and the value following <i>netmask</i> is the network&#x2019;s
+      mask.</dd>
+  <dt></dt>
+  <dd>Combining files and addresses, <i>natlog</i> is run as follows (all on one
+      line):
+    <pre>
+<br/>
+    natlog  /tmp/eth0 129.125.1.123  255.255.0.0 
+<br/>
+            /tmp/eth1 192.168.1.1 255.255.255.0
+<br/>
+        </pre>
+    Instead of fully specifying the netmask, netmaks specifications like /24 are
+      also accepted. In that case the number following the slash indicates the
+      number of non-zero bits of the netmask. In practice, each value of the
+      netmask is either 255 (8 bits are set) or 0 (0 bits are set), and so
+      255.255.0.0 can also be specified as /16, while 255.255.255.0 can be
+      specified like /24.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">See also section <i>SYSTEMD</i>.</p>
+<dl class="Bl-tag">
+  <dt id="o~7"><a class="permalink" href="#o~7">o</a></dt>
+  <dd><b>--config</b>=<i>config-path</i> (<b>-c</b>)
+    <br/>
+    The argument <i>config-path</i> defines the path to <i>natlog&#x2019;s</i>
+      configuration file. By default it is <i>/etc/natlog.conf</i>. All
+      configuration options have defaults, which are used when no configuration
+      file and no command-line options were provided.</dd>
+  <dt></dt>
+  <dd>All options, except for <i>config, help, S, terminate, verbose</i> and
+      <i>version</i> can also be specified in the configuration file. The
+      configuration file ignores empty lines and all information on lines
+      beginning with a hash-mark (<i>#</i>). In the configuration file initial
+      hyphens should be omitted, and option names may immediately be followed by
+      a colon. Do not surround option values with quotes. Examples:
+    <pre>
+<br/>
+    stdout
+<br/>
+    syslog-facility: LOCAL0
+<br/>
+        </pre>
+    Command-line options override configuration file options.</dd>
+  <dt id="o~8"><a class="permalink" href="#o~8">o</a></dt>
+  <dd><b>--conntrack-command</b>=<i>path [options]</i>
+    <br/>
+    The path and options to the <b>conntrack</b>(1) program. By default this is
+    <pre>
+<br/>
+    /usr/sbin/conntrack -p tcp -E -n -o timestamp -e NEW,DESTROY
+<br/>
+        </pre>
+    resulting in:
+    <p class="Pp"></p>
+  </dd>
+  <dt></dt>
+  <dd>- Monitoring the tcp layer four protocol;
+    <br/>
+    - Displaying real-time event logs (<i>-E</i>);
+    <br/>
+    - Only use snat connections (<i>-n</i>);
+    <br/>
+    - Displaying time stamps (<i>-o timestamp</i>);
+    <br/>
+    - Logging all new and destroyed (ended) events (<i>-e</i>
+      <i>NEW,DESTROY</i>);
+    <br/>
+    - Reporting the number of bytes sent- and received by connections;
+    <p class="Pp"></p>
+  </dd>
+  <dt></dt>
+  <dd>By default <i>tcp</i> is monitored. Other protocols can be configured
+      using the <i>--protocol</i> option.</dd>
+  <dt></dt>
+  <dd>The <i>conntrack</i> program must be available when requesting
+      <i>natlog</i>&#x2019;s <i>conntrack</i> command. Layer four protocols
+      other than tcp, udp and icmp are currently not supported. A subset of the
+      supported protocols may be requested using <i>conntrack&#x2019;s -p tcp,
+      -p</i> <i>udp</i> or <i>-p icmp</i> options.</dd>
+  <dt></dt>
+  <dd>When all connections should be logged (not just snat connections) then
+      omit <i>conntrack&#x2019;s -n</i> option. See also option <i>--no-via</i>
+      below.</dd>
+  <dt></dt>
+  <dd>Unless option <i>--no-bytes</i> is specified the conntrack program reports
+      the number of sent and received bytes of connections. Conntrack does so
+      when the value 1 has been written to
+      <i>/proc/sys/net/netfilter/nf_conntrack_acct</i>. When <i>natlog</i>
+      starts, and <i>no-bytes</i> has not been specified then <i>natlog</i>
+      writes 1 to <i>nf_conntrack_acct</i>.</dd>
+  <dt></dt>
+  <dd>Note: when specifying the <i>conntrack-command</i> option in the
+      configuration file do not sourround the command with quotes.</dd>
+  <dt id="o~9"><a class="permalink" href="#o~9">o</a></dt>
+  <dd><b>--conntrack-device</b>=<i>dev</i>
+    <br/>
+    By default <i>conntrack</i> monitors the information made available at the
+      <i>/proc/net/nf_conntrack</i> device. When another device should be used,
+      specify it using this option.</dd>
+  <dt id="o~10"><a class="permalink" href="#o~10">o</a></dt>
+  <dd><b>--conntrack-ip-header-size</b>=<i>size</i>
+    <br/>
+    This option is used to correct for the IP header sizes. By default,
+      <i>conntrack</i> includes these sizes in reported byte counts. By
+      specifying this option packet sizes reported by <i>conntrack</i> are
+      reduced by <i>size</i>. Commonly IP headers consist of 20 bytes (so, to
+      correct for this specify <i>--conntrack-ip-header-size 20</i>).</dd>
+  <dt id="o~11"><a class="permalink" href="#o~11">o</a></dt>
+  <dd><b>--conntrack-restart</b>=<i>max</i>
+    <br/>
+    If the conntrack process prematurely ends it is restarted at most <i>max</i>
+      times (these are pure <i>restarts</i>: conntrack&#x2019;s initial startup
+      is not counted for this option). By default 10 restarts are allowed.</dd>
+  <dt id="o~12"><a class="permalink" href="#o~12">o</a></dt>
+  <dd><b>--debug</b>
+    <br/>
+    Write additional info to the log file. Currently, <i>--debug</i> writes
+      information about memory consumption to the log file.</dd>
+  <dt id="o~13"><a class="permalink" href="#o~13">o</a></dt>
+  <dd><b>--help</b> (<b>-h</b>)
+    <br/>
+    Write basic usage information to the standard output stream and
+    terminate.</dd>
+  <dt id="o~14"><a class="permalink" href="#o~14">o</a></dt>
+  <dd><b>--log</b>=<i>argument</i>
+    <br/>
+    By default <i>natlog</i> forwards log messages about <i>natlog</i> and
+      connection information to the syslog daemon using the <i>DAEMON</i>
+      facility with priority <i>NOTICE</i> (see below at the <i>syslog*</i>
+      options). This is identical to specifying the argument <i>syslog</i>.</dd>
+  <dt></dt>
+  <dd>Alternatively, specify the argument <i>off</i> to suppress writing log
+      messages. Any other argument is interpreted as a path-specification to a
+      file to receive the log messages: log-messages are appended to existing
+      files. If the log file does not yet exist it is first created.</dd>
+  <dt></dt>
+  <dd>The <i>stdout</i> option is handled independently from the <i>log</i>
+      option: log messages will appear to the standard output stream if
+      <i>stdout</i> and <i>log: off</i> are both specified.</dd>
+  <dt id="o~15"><a class="permalink" href="#o~15">o</a></dt>
+  <dd><b>--log-data</b>=<i>path</i>
+    <br/>
+    <i>Path</i> specifies the pathname of the file where information about
+      observed connections is written in tabular form. If <i>path</i> does not
+      yet exist it is first created. Refer to the <i>DESCRIPTION</i> section for
+      information about the format of the generated table. Specify
+      <i>&quot;&quot;</i> as command-line option if the configuration file
+      specifies a log data file, but no tabular data should be logged for that
+      <i>natlog</i> run.</dd>
+  <dt></dt>
+  <dd>Like the standard log file (option <i>--log</i>) the <i>log-data</i> file
+      is not rotated if rotation is requested (cf. option <i>log-rotate</i>).
+      For statistical analyses rotated log-data files can be concatenated
+      (usually omitting the first (header) line of rotated log-data files).</dd>
+  <dt id="o~16"><a class="permalink" href="#o~16">o</a></dt>
+  <dd><b>--log-rotate</b>=<i>spec</i>
+    <br/>
+    This option specifies the frequency and the number of log-files that are
+      rotated. By default log-files are not rotated.
+    <br/>
+    To rotate log-files use <i>time[mhd]</i> or <i>time[mhd]nFiles</i>. The
+      &#x2019;time&#x2019; specification is a number, which must be followed by
+      <i>m</i> for minutes, <i>h</i> for hours, and <i>d</i> for days.
+      <i>nFiles</i> specifies the max. number of rotated files. If only
+      <i>time[mhd]</i> is specified, then <i>nFiles</i> is set to 1. By default
+      (or if <i>time</i> or <i>nfiles</i> are specified as zero (0)) log files
+      are not rotated.</dd>
+</dl>
+<p class="Pp">Note: when using <b>rsyslogd</b>(1) for logging (i.e., when
+    specifying <i>--log syslog</i>, see also option <i>syslog-facility</i>
+    below), then it is assumed that the syslog daemon or a log-file rotation
+    program like <a class="Xr" href="../8/logrotate.html"><b>logrotate</b>(8)</a> handles the log file rotations. Rotating
+    the <i>log-data</i> file is not affected by specifying <i>--log
+  syslog</i>.</p>
+<p class="Pp"><i>Natlog</i> uses a built-in minimum rotation interval of 30
+    seconds.</p>
+<dl class="Bl-tag">
+  <dt id="o~17"><a class="permalink" href="#o~17">o</a></dt>
+  <dd><b>--no-bytes</b>
+    <br/>
+    By default log-entries show numbers of sent and received bytes. Specify this
+      option to omit these statistics from log-entries.</dd>
+  <dt id="o~18"><a class="permalink" href="#o~18">o</a></dt>
+  <dd><b>--no-daemon</b>
+    <br/>
+    By default, <i>natlog</i> runs in the background (a daemon). <i>Natlog</i>
+      runs as an ordinary program (i.e., in the foreground when the option
+      <i>no-daemon</i> is specified). When running as a daemon, <i>--stdout</i>
+      (see below) is suppressed, and <i>--verbose</i> messages (see below) are
+      sent to the syslog daemon, unless <i>--no-syslog</i> was specified. When
+      using the tcpdump-mode <i>natlog</i> does not run in the background. In
+      this case, if <i>no-daemon</i> is omitted a warning message is logged, and
+      <i>natlog</i> continues as an ordinary program.</dd>
+  <dt id="o~19"><a class="permalink" href="#o~19">o</a></dt>
+  <dd><b>--no-dst</b>
+    <br/>
+    Normally, when snat connections are logged the destination IP addresses and
+      port numbers are logged as &#x2019;dst&#x2019; entries in log-data files
+      and as &#x2019;to&#x2019; entries in log-files. If these destination items
+      should be omitted specify <i>no-via</i> as configuration parameter or as
+      option.</dd>
+  <dt id="o~20"><a class="permalink" href="#o~20">o</a></dt>
+  <dd><b>--no-via</b>
+    <br/>
+    Normally, when snat connections are logged the host handling the address
+      translations are logged as &#x2019;via&#x2019; entries in log-files. If
+      the &#x2019;via&#x2019; entries should be omitted activate <i>no-via</i>
+      as configuration parameter or as option.</dd>
+  <dt id="o~21"><a class="permalink" href="#o~21">o</a></dt>
+  <dd><b>--pid-file</b>=<i>path</i> (<b>-p</b>)
+    <br/>
+    When <i>natlog</i> runs in the background, then <i>path</i> is the name of
+      the path of the file holding the daemon&#x2019;s process-id. By default
+      this file is <i>/run/natlog.pid</i>. To end the daemon, simply call
+      <i>natlog</i> <i>--terminate</i> (or send a <i>SIGINT</i> or
+      <i>SIGTERM</i> signal to the process id mentioned in the <i>pid-file</i>).
+      <i>Natlog</i> uses <i>SIGHUP</i> and <i>SIGALRM</i> signals for explicit
+      rotations of log-files (see options <i>--rotate</i> and
+      <i>--rotate-data</i> below.</dd>
+  <dt id="o~22"><a class="permalink" href="#o~22">o</a></dt>
+  <dd><b>--protocol</b>=<i>specification</i> (<b>-P</b>)
+    <br/>
+    The protocol(s) to monitor. By default the tcp layer four protocol is
+      monitored. Currently <i>natlog&#x2019;s conntrack</i> command can monitor
+      the tcp, udp, and icmp layer four protocols. Using the <i>protocol</i>
+      option (note: only one <i>protocol</i> option should be specified) any
+      subset of these protocols can be selected by specifying a colon-separated
+      subset of tcp, udp, and icmp (e.g., <i>--protocol</i> <i>udp:tcp</i>). The
+      specification <i>all</i> can be used to monitor all three protocols (tcp,
+      udp, and icmp).</dd>
+  <dt id="o~23"><a class="permalink" href="#o~23">o</a></dt>
+  <dd><b>--rotate</b>
+    <br/>
+    When <i>--log</i> has been used then this option forces rotating the log
+      file independently from the interval specified by <i>--log-rotate</i>.
+      <i>Natlog</i> uses a built-in minimum rotation interval of 30
+    seconds.</dd>
+  <dt id="o~24"><a class="permalink" href="#o~24">o</a></dt>
+  <dd><b>--rotate-data</b>
+    <br/>
+    When <i>--log-data</i> has been used then this option forces rotating the
+      log-data file independently from the interval specified by
+      <i>--log-rotate</i>. <i>Natlog</i> uses a built-in minimum rotation
+      interval of 30 seconds.</dd>
+  <dt id="o~25"><a class="permalink" href="#o~25">o</a></dt>
+  <dd><b>-S</b>
+    <br/>
+    Use this option as first option, immediately following the program name,
+      when starting <i>natlog</i> from a <a class="Xr" href="../1/systemd.html"><b>systemd</b>(1)</a> <i>natlog.service</i>
+      file. See also section <b>SYSTEMD</b> below.</dd>
+  <dt id="o~26"><a class="permalink" href="#o~26">o</a></dt>
+  <dd><b>--stdout</b> (<b>-s</b>)
+    <br/>
+    Syslog-equivalent messages are sent to the standard output. This option is
+      suppressed when <i>natlog</i> runs as a daemon.</dd>
+  <dt id="o~27"><a class="permalink" href="#o~27">o</a></dt>
+  <dd><b>--syslog-facility</b>=<i>facility</i>
+    <br/>
+    The facility that is used to write the syslog messages to. By default this
+      is <i>DAEMON</i>. For an overview of facilities and their meanings, see,
+      e.g., <a class="Xr" href="../3/syslog.html"><b>syslog</b>(3)</a>. With <i>natlog</i> the facilities <i>DAEMON,</i>
+      <i>LOCAL0, LOCAL1, LOCAL2, LOCAL3, LOCAL4, LOCAL5, LOCAL6, LOCAL7</i>, and
+      <i>USER</i> can be used.</dd>
+</dl>
+<p class="Pp">When <i>rsyslog filtering</i> is used (see that section below)
+    then <a class="Xr" href="../8/rsyslogd.html"><b>rsyslogd</b>(8)</a> uses that instead of the specified facility.</p>
+<dl class="Bl-tag">
+  <dt id="o~28"><a class="permalink" href="#o~28">o</a></dt>
+  <dd><b>--syslog-priority</b>=<i>priority</i>
+    <br/>
+    The priority that is used to write the syslog messages to. By default this
+      is <i>NOTICE</i>. For an overview of priorities and their meanings, see,
+      e.g., <a class="Xr" href="../3/syslog.html"><b>syslog</b>(3)</a>. With <i>natlog</i> all defined priorities can be
+      used. E.g., <i> EMERG, ALERT, CRIT, ERR, WARNING, NOTICE, INFO</i> and
+      <i>DEBUG</i>.</dd>
+  <dt id="o~29"><a class="permalink" href="#o~29">o</a></dt>
+  <dd><b>--syslog-tag</b>=<i>tag</i>
+    <br/>
+    When syslog messages are generated they can be provided with a <i>tag</i>,
+      which can be used to filter <i>natlog</i>&#x2019;s syslog messages from
+      the log-files. By default the tag <i>NATLOG</i> is used. See also section
+      <i>RSYSLOG FILTERING</i> below.</dd>
+  <dt id="o~30"><a class="permalink" href="#o~30">o</a></dt>
+  <dd><b>--terminate</b>
+    <br/>
+    When <i>natlog</i> runs as a daemon, the command <i>natlog --terminate</i>
+      can be issued to terminate the daemon. By default it reads the
+      daemon&#x2019;s process ID from <i>natlog&#x2019;s</i> pid-file (cf.
+      option <i>pid-file</i>) <i>/run/natlog.pid</i>). If another pid-file holds
+      the process ID of the <i>natlog</i> program to terminate then specify the
+      location of the pid-file to use using a command like
+    <pre>
+<br/>
+    natlog --terminate --pid-file=/path/to/the/pid-file
+<br/>
+       </pre>
+    When the daemon could be terminated 0 is returned. Otherwise, an error
+      message is displayed and 1 is returned.</dd>
+  <dt id="o~31"><a class="permalink" href="#o~31">o</a></dt>
+  <dd><b>--time</b>=<i>spec</i> (<b>-t</b>)
+    <br/>
+    By default time stamps written by <i>natlog</i> are in raw, numeric form.
+      E.g.,
+    <pre>
+<br/>
+    NATLOG: From 1338990672:55588 thru 1338990747:807100
+<br/>
+       </pre>
+    These time stamps indicate times in seconds:microseconds since the beginning
+      of the epoch, January 1, 1970, 0:00 UTC. This option can be used to change
+      the seconds part of the time stamps to more conventional representations.
+    <br/>
+    Specify <i>raw</i> (the default) for the default representation in seconds
+      since the epoch;
+    <br/>
+    specify <i>utc</i> for a representation like <i>Jun 6 13:29:11</i>, using
+      Universal Time Coordinated;
+    <br/>
+    specify <i>local</i> for a representation like <i>Jun 6 13:29:11</i>, using
+      the local time zone defined by the computer running <i>natlog</i>.</dd>
+  <dt id="o~32"><a class="permalink" href="#o~32">o</a></dt>
+  <dd><b>--ttl</b>=<i>secs[ui]</i> (<b>-T</b>)
+    <br/>
+    time-to-live for received connections. At most two time-to-live
+      specifications can be provided: for udp/icmp connections a letter <i>u</i>
+      must be appended to the specified seconds. By default <i>60u</i> is used.
+      For tcp connections a letter <i>t</i> must be appended to the specified
+      seconds. By default <i>3000t</i> is used. Both time-to-live specifications
+      may be combined: <i>--ttl 120u1800t</i> specifies a time-to-live of two
+      minutes for udp/icmp connections and a time-to-live of half an hour for
+      tcp connections. Time-to-live is not used in conntrack-mode.</dd>
+  <dt id="o~33"><a class="permalink" href="#o~33">o</a></dt>
+  <dd><b>--verbose</b> (<b>-V</b>)
+    <br/>
+    Additional messages about <i>natlog</i>&#x2019;s mode of operation are sent
+      to the standard output stream. When <i>natlog</i> runs as a daemon these
+      messages are sent to the syslog daemon, unless <i>--no-syslog</i> was
+      specified.</dd>
+</dl>
+<p class="Pp">When <i>--verbose</i> is specified twice then all actual
+    configuration parameters are shown just before <i>natlog</i> starts.</p>
+<p class="Pp">When <i>--verbose</i> is specified more often then <i>natlog</i>
+    ends after reporting the configuration parameters.</p>
+<dl class="Bl-tag">
+  <dt id="o~34"><a class="permalink" href="#o~34">o</a></dt>
+  <dd><b>--version</b> (<b>-v</b>)
+    <br/>
+    Write <i>natlog</i>&#x2019;s version number to the standard output stream
+      and terminate.</dd>
+</dl>
+<p class="Pp">)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYSTEMD"><a class="permalink" href="#SYSTEMD">SYSTEMD</a></h1>
+<p class="Pp">An annoying characteristic of <a class="Xr" href="../1/systemd.html"><b>systemd</b>(1)</a> is that
+    environment variables containing blanks are passed as single arguments to
+    the program being called by their <i>.service</i> files. As a consequence,
+    it is very hard to provide an environment variable in, e.g.,
+    <i>/etc/default/natlog</i> specifying <i>natlog&#x2019;s</i> arguments: in
+    practice the number of arguments varies, and so even constructions like
+    <i>ARG1=value1, ARG2=value2</i>, etc. are awkward at best.</p>
+<p class="Pp">As a stopgap for this unwelcome characteristic of <i>systemd</i>
+    the option <i>-S</i> is provided. When used it <i>must</i> be specified as
+    <i>natlog&#x2019;s</i> first argument. <i>Natlog</i> will then inspect all
+    remaining arguments, splitting arguments containing blanks into separate
+    arguments, which are then processed by <i>natlog</i> as intended. Be aware
+    that, to limit the complexity of the splitting-procedure, it is not
+    full-proof: double- or single-quote delimited string-arguments will also be
+    split into separate arguments. Unless filenames themselves containing blanks
+    are passed as arguments to <i>natlog</i> this limitation is probably not
+    very serious.</p>
+<p class="Pp">As an example, here is an example of <i>systemd&#x2019;s</i>
+    <i>ExecStart</i> specification:</p>
+<pre>
+<br/>
+    ExecStart=/usr/bin/natlog -S -p ${PIDFILE} ${DAEMON_ARGS}
+<br/>
+        </pre>
+where <i>DAEMON_ARGS</i> might have been specified in <i>/etc/default/natlog</i>
+  as
+<pre>
+<br/>
+    DAEMON_ARGS=--log /tmp/natlog.log --log-data /dev/null conntrack
+<br/>
+        </pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RSYSLOG_FILTERING"><a class="permalink" href="#RSYSLOG_FILTERING">RSYSLOG
+  FILTERING</a></h1>
+<p class="Pp">When using <a class="Xr" href="../8/rsyslogd.html"><b>rsyslogd</b>(8)</a> property based filters may be used
+    to filter syslog messages and write them to a file of your choice. E.g., to
+    filter messages starting with the syslog message tag (e.g., <i>NATLOG</i>)
+    use</p>
+<pre>
+:syslogtag, isequal, &quot;NATLOG:&quot;   /var/log/natlog.log
+:syslogtag, isequal, &quot;NATLOG:&quot;   stop
+<br/>
+        </pre>
+<p class="Pp">Note that the colon is part of the tag, but is not specified with
+    the <i>syslog-tag</i> option.</p>
+<p class="Pp">This causes all messages having the <i>NATLOG:</i> tag to be
+    written on <i>/var/log/natlog.log</i> after which they are discarded. More
+    extensive filtering is also supported, see, e.g.,
+    <i>http://www.rsyslog.com/doc/rsyslog_conf_filter.html</i> and
+    <i>http://www.rsyslog.com/doc/property_replacer.html</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Examples of <i>natlog</i> activations:</p>
+<dl class="Bl-tag">
+  <dt id="o~35"><a class="permalink" href="#o~35">o</a></dt>
+  <dd><i>natlog --no-daemon --no-syslog -s br0 eth0</i>
+    <br/>
+    <i>Natlog</i> remains active as a foreground process, no syslog messages are
+      written, syslog-equivalent message are written to the standard output.
+      <i>Natlog</i> uses the pcap library to capture packets from the <i>br0</i>
+      device, which is active behind the firewall, and to capture packets from
+      the <i>eth0</i> device, which is the device to where source-natted
+      packages are sent.</dd>
+  <dt id="o~36"><a class="permalink" href="#o~36">o</a></dt>
+  <dd><i>natlog conntrack</i>
+    <br/>
+    Depending on the options specified in <i>/etc/natlog.conf</i> (or, if not
+      available, <i>natlog</i>&#x2019;s default options) source-natted
+      connections are obtained from <b>conntrack</b>(1). By default
+      <i>natlog</i> continues as a daemon process, generating syslog messages
+      using syslog tags <i>NATLOG:</i>, and containing information about
+      source-natted connections.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">Here is <i>natlog</i>&#x2019;s default configuration file. Empty
+    lines and lines starting with hash-marks (#) are ignored. Options adhere to
+    the following syntax:</p>
+<pre>
+option  value 
+<br/>
+    </pre>
+Option and value are separated by white space, a colon may be appended to option
+  names:
+<p class="Pp"></p>
+<pre># This configuration file shows the default option values. 
+#   Options that are *not* active by default have an extra comment-line
+#   showing &#x2019;not by default:&#x2019;
+# all options and values are case sensitive
+# see `man natlog&#x2019; for further details
+<br/>
+    # the path and options of the conntrack program:
+<br/>
+    # when no filtering options are specified, the tcp
+<br/>
+    # protocol is monitored
+<br/>
+    # the default command is shown. 
+<br/>
+    # Note: do not surround the conntrack command specification with quotes
+#conntrack-command:  /usr/sbin/conntrack -E -n -o timestamp -e NEW,DESTROY
+<br/>
+    # the device used by conntrack
+#conntrack-device:  /proc/net/nf_conntrack
+<br/>
+    # correction for the IP header size 
+<br/>
+    # (standard IP header size is 20 bytes)
+#conntrack-ip-header-size:  0
+<br/>
+    # max. number of conntrack restarts
+#conntrack-restart: 10
+<br/>
+    # write additional info to the log file
+# not by default:
+#debug
+<br/>
+    # log messages are written to &#x2019;pathname&#x2019;; use &#x2019;log: off&#x2019; to suppress log
+<br/>
+    # messages
+# not by default:
+#log: pathname
+<br/>
+    # data file containing tabular logs
+# not by default:
+#log-data:  pathname
+<br/>
+    # tmespec: time[mhd]nFiles - specification for rotating log-files
+# not by default:
+#log-rotate: timespec
+<br/>
+    # do not log the sent/received byte counts (default: counts are logged)
+# not by default:
+#no-bytes
+<br/>
+    # do not run as a daemon
+# not by default:
+#no-daemon
+<br/>
+    # do not log the destination entries
+# not by default:
+#no-dst
+<br/>
+    # do not log the via: entries
+# not by default:
+#no-via
+<br/>
+    # the path to the pid-file of natlog&#x2019;s daemon process
+#pid-file: /run/natlog.pid
+<br/>
+    # the protocols that are scanned with the &#x2019;conntrack&#x2019; command:
+<br/>
+    #   protocol: all       - monitors tcp, udp, icmp
+<br/>
+    #   protocol: udp:tcp   - monitors upd and tcp (any non-empty subset, 
+<br/>
+    #                         possibly including icmp is OK)
+#protocol: tcp
+<br/>
+    # write messages to stdout (ignored by daemons)
+# not by default:
+#stdout
+<br/>
+    # the default syslog facility:
+#syslog-facility: DAEMON
+<br/>
+    # the default syslog priority:
+#syslog-priority: NOTICE
+<br/>
+    # the default syslog tag:
+#syslog-tag: NATLOG
+<br/>
+    # the default time specification (alternatives: utc, local):
+#time: raw
+<br/>
+    # ttl: time to live (seconds) for udp/icmp connections
+#ttl: 60
+# end of the configuration file
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt id="o~37"><a class="permalink" href="#o~37">o</a></dt>
+  <dd><i>/etc/natlog.conf</i>: default configuration file location;</dd>
+  <dt id="o~38"><a class="permalink" href="#o~38">o</a></dt>
+  <dd><i>/etc/default/natlog</i>: arguments for startup scripts;</dd>
+  <dt id="o~39"><a class="permalink" href="#o~39">o</a></dt>
+  <dd><i>/etc/init.d/natlog</i>: SysV startup script;</dd>
+  <dt id="o~40"><a class="permalink" href="#o~40">o</a></dt>
+  <dd><i>/etc/systemd/system/natlog.service</i>: systemd startup script (calling
+      <i>/etc/init.d/natlog</i>).
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>conntrack</b>(1), <b>ifconfig</b>(1), <b>iptables</b>(1),
+    <a class="Xr" href="../8/logrotate.html"><b>logrotate</b>(8)</a>, <a class="Xr" href="../7/pcap-filter.html"><b>pcap-filter</b>(7)</a>, <a class="Xr" href="../1/ping.html"><b>ping</b>(1)</a>, <a class="Xr" href="../1/R.html"><b>R</b>(1)</a>,
+    <a class="Xr" href="../8/rsyslogd.html"><b>rsyslogd</b>(8)</a>, <a class="Xr" href="../3/syslog.html"><b>syslog</b>(3)</a>, <a class="Xr" href="../1/systemd.html"><b>systemd</b>(1)</a>,
+  <b>tcpdump</b>(1)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp"><i>Natlog</i> currently can process tcp, udp and icmp layer four
+    protocols.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Frank B. Brokken (f.b.brokken@rug.nl).</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2012-2022</td>
+    <td class="foot-os">natlog.3.00.01</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: natlog 3.00.01-1build2 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

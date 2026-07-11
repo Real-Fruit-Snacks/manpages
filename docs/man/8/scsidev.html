@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="populate /dev/scsi with device names that are persistent against SCSI configuration changes.">
+<title>scsidev(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">scsidev(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#ALIASES">ALIASES</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#AVAILABILITY">AVAILABILITY</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SCSIDEV(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">SCSIDEV(8)</td>
+  </tr>
+</table>
+<div class="manual-text"># # $Id: scsidev.8,v 1.11.2.8 2004/02/18 10:08:59
+  garloff Exp $ #
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">scsidev - populate /dev/scsi with device names that are persistent
+    against SCSI configuration changes.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>scsidev</b> [ <b>-f</b> ] [ <b>-n</b> ] [ <b>-d</b> ] [
+    <b>-l</b> ] [ <b>-L</b> ] [ <b>-m mode</b> ] [ <b>-c mxms</b> ] [ <b>-A
+    aliasfile</b> ] [ <b>-r</b> ] [ <b>-M</b> ] [ <b>-e</b> ] [ <b>-o</b> ] [
+    <b>-s</b> ] [ <b>-v</b> ] [ <b>-q</b> ] [ <b>-h</b> ]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>scsidev</b> is a utility that is used to guarantee that the
+    same device node can be used for the same scsi device, no matter what other
+    scsi devices are added or removed from the scsi chain. The need for this
+    tool arose because device numbers are assigned dynamically at boot time, and
+    if a new disk were added to the system (or if some disk didn't spin up),
+    then fixed device nodes would cause the wrong filesystems to be mounted,
+    checked, etc. This can also result in security holes, as some device nodes
+    may have permissions that allow general users access to the raw device, and
+    if the mappings were to change, users would be able to access different
+    devices.</p>
+<p class="Pp"><b>scsidev</b> is designed to be used once each time the system
+    boots. It will scan all of the detected devices on the system, and determine
+    a immutable name that will represent the device. It first checks to see if a
+    node by this name already exists - if this is the case, then it checks to
+    see if the major/minor numbers are correct. If a change in the minor number
+    is required, then a new device is created with the correct major/minor
+    numbers, and in addition, any ownership and permissions for the old device
+    are applied to the new device.</p>
+<p class="Pp">Once this process is complete, then <b>scsidev</b> will scan all
+    of the entries in the /dev/scsi directory, and see if any of them are for
+    devices nodes which were added for devices that are not active. The
+    permissions of inactive devices are stored in a .shadow. file and the device
+    node is removed as a security precaution, since these might have permissions
+    that would allow people to access devices that they should not be able to
+    access. This is the default behaviour and is considered ideal for most
+    cases, as it preserves the ownership and permissions of the files and is
+    secure.</p>
+<p class="Pp">The so called sanitizing can be influenced by the options <b>-f -d
+    -n.</b></p>
+<p class="Pp">When you rescan the bus by using the <b>rescan-scsi-bus.sh</b>
+    script or manually by using commands like</p>
+<pre>echo &quot;scsi add-single-device C B T U&quot; &gt;/proc/scsi/scsi</pre>
+(C = Controller (host) no., B = Bus (Channel), T = Target (SCSI ID), U = Unit
+  (SCSI LUN)) after the system is booted, then you will have to rerun scsidev so
+  that the device nodes for the newly detected devices are properly updated.
+<p class="Pp">The device nodes that <b>scsidev</b> creates look something like
+    &quot;sdh4-334c0i0l0p1&quot;. In this case, the various components of the
+    name represent physical attributes about the device or the host adapter to
+    which it is connected. To begin with, the &quot;h4&quot; indicates that it
+    is connected to an Adaptec 1542. The &quot;-334&quot; is a means of
+    identifying which 1542 the device is attached to (since linux supports more
+    than one 1542 in the system at the same time) and (in this case) corresponds
+    to the IO Port number (hex) of the controller (this is the host adapter id
+    number). The &quot;c0&quot; represents the channel number (since some host
+    adapters can drive multiple scsi busses). The &quot;i0l0&quot; indicates
+    that this device is scsi ID 0, with lun 0. Finally the &quot;p1&quot;
+    indicated partition number 1.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="f"><a class="permalink" href="#f"><i>-f</i></a></dt>
+  <dd>Flush everything from /dev/scsi prior to scanning the detected devices.
+      This means that new device nodes will be created even if the old ones were
+      OK.</dd>
+  <dt id="d"><a class="permalink" href="#d"><i>-d</i></a></dt>
+  <dd>Sanitize by deletion. The .shadow. backup files will not be created, so
+      you loose all non-default ownership/permissions that may have been
+    set.</dd>
+  <dt id="n"><a class="permalink" href="#n"><i>-n</i></a></dt>
+  <dd>Don't touch device nodes for non-existing SCSI devices. This might have
+      security implications and is therefore not recommended.</dd>
+  <dt id="l"><a class="permalink" href="#l"><i>-l</i></a></dt>
+  <dd>Symbolic link mode. Instead of creating nodes, symbolic links are created
+      which point to the older /dev/sda1 types of device nodes. When using this
+      option, the permissions of the /dev/XXX device nodes will be changed to
+      match the ones stored in /dev/scsi/YYY file, if present.</dd>
+  <dt id="L"><a class="permalink" href="#L"><i>-L</i></a></dt>
+  <dd>Use symbolic names for the aliases assigned through the
+      <b>/etc/scsi.alias</b> settings (see below).</dd>
+  <dt id="m"><a class="permalink" href="#m"><i>-m mode</i></a></dt>
+  <dd>Specifies the mode (permissions) for new entries that need to be
+    created.</dd>
+  <dt id="c"><a class="permalink" href="#c"><i>-c maxmiss</i></a></dt>
+  <dd>Normally, if <b>scsidev</b> fails to open a generic scsi device, it
+      finishes its scan for devices. With this option, it goes on until maxmiss
+      missing devices were found. This is only used, if you don't have the
+      /proc/scsi/scsi extensions for large disks.</dd>
+  <dt id="A"><a class="permalink" href="#A"><i>-A aliasfile</i></a></dt>
+  <dd>Use an alternative file instead of the default /etc/scsi.alias (see
+      below).</dd>
+  <dt id="r"><a class="permalink" href="#r"><i>-r</i></a></dt>
+  <dd><b>scsidev</b> does first probe the generic and then -- if appropriate --
+      the other highlevel devices (st, sd, sr). For removable devices (sd, sr,
+      osst), this will fail, if no medium is inserted, so <b>scsidev</b> can not
+      ensure, that the device actually corresponds to the one reported by the sg
+      interface. After the first device scan, the situation is clear and
+      <b>scsidev</b> will do the right guesses. So using -r in bootup scripts is
+      safe. After you removed devices from your SCSI config, it isn't safe any
+      longer. This is only needed, if you don't have the /proc/scsi/scsi
+      extensions for large disks.</dd>
+  <dt id="M"><a class="permalink" href="#M"><i>-M</i></a></dt>
+  <dd>Multipath support. <b>scsidev</b> normally does complain if a line in
+      scsi.alias matches more than one device and does not create an alias then.
+      With multipatch support on, it just creates the alias for the first device
+      found matching the description in the scsi.alias description.</dd>
+  <dt id="e"><a class="permalink" href="#e"><i>-e</i></a></dt>
+  <dd>Instructs <b>scsidev</b> to use devfs like names, i.e. using the cbtu
+      (controller, bus, target unit) characters instead of hcil (host, channel,
+      scsi Id, scsi Lun) to build the device name.</dd>
+  <dt id="o"><a class="permalink" href="#o"><i>-o</i></a></dt>
+  <dd>Instructs <b>scsidev</b> to use scd instead of sr for the old names of
+      CD-ROM devices (relevant for symlink mode).</dd>
+  <dt id="s"><a class="permalink" href="#s"><i>-s</i></a></dt>
+  <dd>Tells <b>scsidev</b>
+    <br/>
+     to print out the device serial numbers of all detected devices on the
+      system. This string can be useful for forming aliases. If supported, also
+      the WWID is printed.</dd>
+  <dt id="v"><a class="permalink" href="#v"><i>-v</i></a></dt>
+  <dd>Verbosity. Mainly used for debugging purposes. Use multiple times for more
+      verbosity.</dd>
+  <dt id="q"><a class="permalink" href="#q"><i>-q</i></a></dt>
+  <dd>Be Quiet. Only produce output, if there are errors.</dd>
+  <dt id="h"><a class="permalink" href="#h"><i>-h</i></a></dt>
+  <dd>Output short usage summary and copyright info and exit.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ALIASES"><a class="permalink" href="#ALIASES">ALIASES</a></h1>
+<p class="Pp">It was intended that <b>scsidev</b> be useful without any
+    configuration at all. There are times when it is much more convenient to
+    have symbolic names for various devices. These symbolic names should track
+    devices as they get moved from controller to another, or even if the SCSI id
+    number is changed.</p>
+<p class="Pp">The general idea is that there is a configuration file
+    <b>/etc/scsi.alias</b> which lists the aliases that <b>scsidev</b> will
+    attempt to create. Each line represents a separate alias, and consists of a
+    series of tokens. Here are a couple of example entries:</p>
+<pre>serial_number=&quot;DX908FK&quot;, devtype=disk, alias=fourgig
+manufacturer=WANGTEK, devtype=tape, alias=qictape
+id=2, devtype=generic, alias=cdwriter</pre>
+The minimum requirements are that each line have a alias and a devtype field.
+  The alias will be used to build the pathnames, and the devtype must be one of
+  disk, tape, osst, cdrom or generic.
+<p class="Pp">The additional qualifiers are optional, and you must specify a
+    sufficient number of them such that the alias will match only one device.
+    The allowable qualifiers are:</p>
+<dl class="Bl-tag">
+  <dt id="manufacturer="><a class="permalink" href="#manufacturer="><i>manufacturer=</i></a></dt>
+  <dd>Specifies the name of the manufacturer. This is the same string that is
+      printed at boot time, and is also available through /proc/scsi.</dd>
+  <dt id="model="><a class="permalink" href="#model="><i>model=</i></a></dt>
+  <dd>Specifies the model number of the device. This is the same string that is
+      printed at boot time, and is also available through /proc/scsi.</dd>
+  <dt id="rev="><a class="permalink" href="#rev="><i>rev=</i></a></dt>
+  <dd>Specifies the revision string of the device. This is the same string that
+      is printed at boot time, and is also available through /proc/scsi.</dd>
+  <dt id="serial_number="><a class="permalink" href="#serial_number="><i>serial_number=</i></a></dt>
+  <dd>Specifies the serial number of the device. Not all devices implement this,
+      but for those that do it provides a convenient mechanism to uniquely
+      identify a device no matter where it is found on the scsi chain. The
+      serial number is the one reported in INQUIRY page 0x80 with EVPD=1. It is
+      displayed by <b>scsidev -s .</b></dd>
+  <dt id="wwid="><a class="permalink" href="#wwid="><i>wwid=</i></a></dt>
+  <dd>Specifies the WWID number of a device. This is a 64bit world wide unique
+      number, which is supported by SCSI-3 devices and reported via INQUIRY page
+      0x83 with EVPD=1. If supported, it's displayed by <b>scsidev -s .</b></dd>
+  <dt id="id="><a class="permalink" href="#id="><i>id=</i></a></dt>
+  <dd>Specifies the scsi id number for the device.</dd>
+  <dt id="lun="><a class="permalink" href="#lun="><i>lun=</i></a></dt>
+  <dd>Specifies the lun for the device. Most devices have a lun of 0, and it is
+      only special devices such as cd changers that implement multiple lun
+      devices.</dd>
+  <dt id="chan="><a class="permalink" href="#chan="><i>chan=</i></a></dt>
+  <dd>Specifies which channel (i.e. which bus) for host adapters that drive
+      multiple channels.</dd>
+  <dt id="partition="><a class="permalink" href="#partition="><i>partition=</i></a></dt>
+  <dd>Specifies the partition number for disk drives. If unspecified, the alias
+      will match all partitions on the disk.</dd>
+  <dt id="hostid="><a class="permalink" href="#hostid="><i>hostid=</i></a></dt>
+  <dd>Specifies the host adapter id number (0x334 part of sdh4-334c0i0l0p1 for
+      example).</dd>
+  <dt id="hostnum="><a class="permalink" href="#hostnum="><i>hostnum=</i></a></dt>
+  <dd>Specifies the unique number that each host adpater driver returns.
+      Generally this number is always 0 except for cases where the driver
+      supports more than one device of a given type on the system.</dd>
+  <dt id="hostname="><a class="permalink" href="#hostname="><i>hostname=</i></a></dt>
+  <dd>Specifies the host adapter driver name. (Only the given chars need to
+      match, so you may omit the version number.)</dd>
+</dl>
+<p class="Pp">Note that the specifiers which take string arguments can be quoted
+    if the string contains whitespace.</p>
+<p class="Pp">For disks, aliases for all partitions will be created (unless
+    partition= is specified). The names get a <b>-pN</b> suffix (N indicating
+    the number of the partition. For tapes (st and osst type), the non-rewinding
+    variant with an <b>n</b> prepended will be created automatically.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<pre><b>scsidev</b>
+<br/>
+ ... was written by Eric Youngdale &lt;eric@aib.com&gt;
+<br/>
+ ... was enhanced by Kurt Garloff &lt;garloff@suse.de&gt;</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Probably there are ...</p>
+<p class="Pp">The BIOS and LILO do not have the knowledge about the SCSI devices
+    at boot time, so you still have to ensure, your kernel can be loaded when
+    you insert a new disk.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">This program is free software. You can use it under the terms of
+    the <b>GNU GPL</b> (General Public License) Version 2 (or any later version,
+    at your option). Note, that the GNU GPL implies, that there is <b>NO
+    WARRANTY</b> at all. Full text of the GPL can be found in
+    /usr/share/common-licenses/GPL file.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AVAILABILITY"><a class="permalink" href="#AVAILABILITY">AVAILABILITY</a></h1>
+<p class="Pp"><b>scsidev</b> is available from</p>
+<pre><b>http://www.suse.de/~garloff/linux/scsidev/</b>
+and
+<b>http://www.garloff.de/kurt/linux/scsidev/</b>
+and will also be put on standard anonymous ftp servers.
+The old version is available from 
+<b>ftp://tsx-11.mit.edu/pub/linux/BETA/scsi/</b></pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">June 2003</td>
+    <td class="foot-os">Version 2.29</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: scsitools 0.12-4ubuntu1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

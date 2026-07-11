@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="tutorial for package maintainers, using a workflow centered around git-debrebase(1)">
+<title>dgit-maint-debrebase(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">dgit-maint-debrebase(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#INTRODUCTION">INTRODUCTION</a></li><li><a href="#INITIAL_DEBIANISATION">INITIAL
+  DEBIANISATION</a></li><li><a href="#When_upstream_tags_releases_in_git">When
+  upstream tags releases in git</a></li><li><a href="#When_upstream_releases_only_tarballs">When
+  upstream releases only tarballs</a></li><li><a href="#CONVERTING_AN_EXISTING_PACKAGE">CONVERTING
+  AN EXISTING PACKAGE</a></li><li><a href="#GIT_CONFIGURATION">GIT
+  CONFIGURATION</a></li><li><a href="#IMPORTING_NEW_UPSTREAM_RELEASES">IMPORTING
+  NEW UPSTREAM RELEASES</a></li><li><a href="#Obtaining_the_release">Obtaining
+  the release</a></li><li><a href="#Importing_the_release">Importing
+  the release</a></li><li><a href="#EDITING_THE_DEBIAN_PACKAGING">EDITING
+  THE DEBIAN PACKAGING</a></li><li><a href="#EDITING_THE_DELTA_QUEUE">EDITING
+  THE DELTA QUEUE</a></li><li><a href="#Adding_new_patches">Adding
+  new patches</a></li><li><a href="#Editing_patches:_starting_a_debrebase">Editing
+  patches: starting a debrebase</a></li><li><a href="#Editing_patches:_finishing_a_debrebase">Editing
+  patches: finishing a debrebase</a></li><li><a href="#BUILDING_AND_UPLOADING">BUILDING
+  AND UPLOADING</a></li><li><a href="#HANDLING_DFSG-NON-FREE_MATERIAL">HANDLING
+  DFSG-NON-FREE MATERIAL</a></li><li><a href="#Illegal_material">Illegal
+  material</a></li><li><a href="#DFSG-non-free:_When_upstream_tags_releases_in_git">DFSG-non-free:
+  When upstream tags releases in git</a></li><li><a href="#DFSG-non-free:_When_upstream_releases_only_tarballs">DFSG-non-free:
+  When upstream releases only tarballs</a></li><li><a href="#INCORPORATING_NMUS">INCORPORATING
+  NMUS</a></li><li><a href="#Rebasing_your_work_onto_the_NMU">Rebasing
+  your work onto the NMU</a></li><li><a href="#Manually_applying_the_debdiff">Manually
+  applying the debdiff</a></li><li><a href="#HINTS_AND_TIPS">HINTS
+  AND TIPS</a></li><li><a href="#Minimising_pseudomerges">Minimising
+  pseudomerges</a></li><li><a href="#The_debian/patches_directory">The
+  debian/patches directory</a></li><li><a href="#Upstream_branches">Upstream
+  branches</a></li><li><a href="#The_first_ever_dgit_push">The
+  first ever dgit push</a></li><li><a href="#Inspecting_the_history">Inspecting
+  the history</a></li><li><a href="#Alternative_ways_to_start_a_debrebase">Alternative
+  ways to start a debrebase</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">dgit-maint-debrebase(7)</td>
+    <td class="head-vol">dgit</td>
+    <td class="head-rtitle">dgit-maint-debrebase(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">dgit - tutorial for package maintainers, using a workflow centered
+    around git-debrebase(1)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INTRODUCTION"><a class="permalink" href="#INTRODUCTION">INTRODUCTION</a></h1>
+<p class="Pp">This document describes elements of a workflow for maintaining a
+    non-native Debian package using <b>dgit</b>. We maintain the Debian delta as
+    a series of git commits on our master branch. We use <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a>
+    to shuffle our branch such that this series of git commits appears at the
+    end of the branch. All the public git history is fast-forwarding, i.e., we
+    do not rewrite and force-push.</p>
+<p class="Pp">Some advantages of this workflow:</p>
+<ul class="Bl-bullet">
+  <li>Manipulate the delta queue using the full power of <a class="Xr" href="../1/git-rebase.html"><b>git-rebase</b>(1)</a>,
+      instead of relying on <a class="Xr" href="../1/quilt.html"><b>quilt</b>(1)</a>, and without having to switch back
+      and forth between patches-applied and patches-unapplied branches when
+      committing changes and trying to build, as with <a class="Xr" href="../1/gbp-pq.html"><b>gbp-pq</b>(1)</a>.</li>
+  <li>If you are using 3.0 (quilt), provide your delta queue as a properly
+      separated series of quilt patches in the source package that you upload to
+      the archive (unlike with <a class="Xr" href="../7/dgit-maint-merge.html"><b>dgit-maint-merge</b>(7)</a>).</li>
+  <li>Avoid the git tree being dirtied by the application or unapplication of
+      patches, as they are always applied.</li>
+  <li>Benefit from dgit's safety catches. In particular, ensure that your upload
+      always matches exactly your git HEAD.</li>
+  <li>Provide your full git history in a standard format on <b>dgit-repos</b>,
+      where it can benefit downstream dgit users, such as people using dgit to
+      do an NMU (see <a class="Xr" href="../7/dgit-nmu-simple.html"><b>dgit-nmu-simple</b>(7)</a> and <a class="Xr" href="../7/dgit-user.html"><b>dgit-user</b>(7)</a>).</li>
+  <li>Minimise the amount you need to know about 3.0 (quilt) in order to
+      maintain Debian source packages which use that format.</li>
+</ul>
+<p class="Pp">This workflow is appropriate for packages where the Debian delta
+    contains multiple pieces which interact, or which you don't expect to be
+    able to upstream soon. For packages with simple and/or short-lived Debian
+    deltas, use of <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a> introduces unneeded complexity. For
+    such packages, consider the workflow described in
+    <a class="Xr" href="../7/dgit-maint-merge.html"><b>dgit-maint-merge</b>(7)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INITIAL_DEBIANISATION"><a class="permalink" href="#INITIAL_DEBIANISATION">INITIAL
+  DEBIANISATION</a></h1>
+<p class="Pp">This section explains how to start using this workflow with a new
+    package. It should be skipped when converting an existing package to this
+    workflow.</p>
+<section class="Ss">
+<h2 class="Ss" id="When_upstream_tags_releases_in_git"><a class="permalink" href="#When_upstream_tags_releases_in_git">When
+  upstream tags releases in git</a></h2>
+<p class="Pp">Suppose that the latest stable upstream release is 1.2.2, and this
+    has been tagged '1.2.2' by upstream.</p>
+<p class="Pp"></p>
+<pre>    % git clone -oupstream https://some.upstream/foo.git
+    % cd foo
+    % git verify-tag 1.2.2
+    % git reset --hard 1.2.2
+    % git branch --unset-upstream
+</pre>
+<p class="Pp">The final command detaches your master branch from the upstream
+    remote, so that git doesn't try to push anything there, or merge unreleased
+    upstream commits. To maintain a copy of your packaging branch on
+    <b>salsa.debian.org</b> in addition to <b>dgit-repos</b>, you can do
+    something like this:</p>
+<p class="Pp"></p>
+<pre>    % git remote add -f origin salsa.debian.org:Debian/foo.git
+    % git push --follow-tags -u origin master
+</pre>
+<p class="Pp">Now go ahead and Debianise your package. Make commits on the
+    master branch, adding things in the <i>debian/</i> directory, or patching
+    the upstream source. For technical reasons, <b>it is essential that your</b>
+    <b>first commit introduces the debian/ directory containing at least one</b>
+    <b>file, and does nothing else.</b> In other words, make a commit
+    introducing <i>debian/</i> before patching the upstream source.</p>
+<p class="Pp">Finally, you need an orig tarball:</p>
+<p class="Pp"></p>
+<pre>    % git deborig
+</pre>
+<p class="Pp">See <a class="Xr" href="../1/git-deborig.html"><b>git-deborig</b>(1)</a> if this fails.</p>
+<p class="Pp">This tarball is ephemeral and easily regenerated, so we don't
+    commit it anywhere (e.g. with tools like <a class="Xr" href="../1/pristine-tar.html"><b>pristine-tar</b>(1)</a>).</p>
+<p class="Pp"><i>Comparing upstream's tarball releases</i></p>
+<p class="Pp"></p>
+<div class="Bd-indent">The above assumes that you know how to build the package
+  from git and that doing so is straightforward.
+<p class="Pp">If, as a user of the upstream source, you usually build from
+    upstream tarball releases, rather than upstream git tags, you will sometimes
+    find that the git tree doesn't contain everything that is in the
+  tarball.</p>
+<p class="Pp">Additional build steps may be needed. For example, you may need
+    your <i>debian/rules</i> to run autotools.</p>
+<p class="Pp">You can compare the upstream tarball release, and upstream git
+    tag, within git, by importing the tarball into git as described in the next
+    section, using a different value for 'upstream-tag', and then using
+    <a class="Xr" href="../1/git-diff.html"><b>git-diff</b>(1)</a> to compare the imported tarball to the release tag.</p>
+</div>
+<p class="Pp"><i>Using untagged upstream commits</i></p>
+<p class="Pp"></p>
+<div class="Bd-indent">Sometimes upstream does not tag their releases, or you
+  want to package an unreleased git snapshot. In such a case you can create your
+  own upstream release tag, of the form <b>upstream/</b><i>ver</i>, where
+  <i>ver</i> is the upstream version you plan to put in <i>debian/changelog</i>.
+  The <b>upstream/</b> prefix ensures that your tag will not clash with any tags
+  upstream later creates.
+<p class="Pp">For example, suppose that the latest upstream release is 1.2.2 and
+    you want to package git commit ab34c21 which was made on 2013-12-11. A
+    common convention is to use the upstream version number
+    1.2.2+git20131211.ab34c21 and so you could use</p>
+<p class="Pp"></p>
+<pre>    % git tag -s upstream/1.2.2+git20131211.ab34c21 ab34c21
+</pre>
+</div>
+<div class="Bd-indent">
+<p class="Pp">to obtain a release tag, and then proceed as above.</p>
+<p class="Pp">One can generate such a versioned tag using git show's --pretty
+    option. e.g.:</p>
+<p class="Pp"></p>
+<pre>    % git tag -s upstream/$(git show --date=format:%Y%m%d --pretty=format:&quot;1.2.2+git%cd.%h&quot; --quiet upstream/main) upstream/main
+</pre>
+</div>
+<div class="Bd-indent"></div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="When_upstream_releases_only_tarballs"><a class="permalink" href="#When_upstream_releases_only_tarballs">When
+  upstream releases only tarballs</a></h2>
+<p class="Pp">Because we want to work in git, we need a virtual upstream branch
+    with virtual release tags. <a class="Xr" href="../1/gbp-import-orig.html"><b>gbp-import-orig</b>(1)</a> can manage this for us.
+    To begin</p>
+<p class="Pp"></p>
+<pre>    % mkdir foo
+    % cd foo
+    % git init
+    % git checkout -b upstream
+    % gbp import-orig \
+        --upstream-branch=upstream --debian-branch=master \
+        --upstream-tag='upstream/%(version)s' \
+        --sign-tags --no-pristine-tar \
+        ../foo_1.2.2.orig.tar.xz
+    % git branch -f upstream
+</pre>
+<p class="Pp">This should leave you on the master branch. Next, our upstream
+    branch cannot be pushed to <b>dgit-repos</b>, but since we will need it
+    whenever we import a new upstream version, we must push it somewhere. The
+    usual choice is <b>salsa.debian.org</b>:</p>
+<p class="Pp"></p>
+<pre>    % git remote add -f origin salsa.debian.org:Debian/foo.git
+    % git push --follow-tags -u origin master upstream
+</pre>
+<p class="Pp">You are now ready to proceed as above, making commits to the
+    <i>debian/</i> directory and to the upstream source. As above, for technical
+    reasons, <b>it is essential that your first commit introduces</b> <b>the
+    debian/ directory containing at least one file, and does nothing</b>
+    <b>else.</b> In other words, make a commit introducing <i>debian/</i> before
+    patching the upstream source.</p>
+<p class="Pp">A convenient way to ensure this requirement is satisfied is to
+    start by creating <i>debian/gbp.conf</i>:</p>
+<p class="Pp"></p>
+<pre>    [DEFAULT]
+    upstream-branch = upstream
+    debian-branch = master
+    upstream-tag = upstream/%(version)s
+    sign-tags = True
+    pristine-tar = False
+    pristine-tar-commit = False
+    [import-orig]
+    merge = False
+</pre>
+<p class="Pp">and commit that:</p>
+<p class="Pp"></p>
+<pre>    % git add debian/gbp.conf &amp;&amp; git commit -m &quot;create gbp.conf&quot;
+</pre>
+<p class="Pp">Note that we couldn't create <i>debian/gbp.conf</i> before now for
+    the same technical reasons which require our first commit to introduce
+    <i>debian/</i> without patching the upstream source. That's why we had to
+    pass a lot of options to our first call to <a class="Xr" href="../1/gbp-import-orig.html"><b>gbp-import-orig</b>(1)</a>.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONVERTING_AN_EXISTING_PACKAGE"><a class="permalink" href="#CONVERTING_AN_EXISTING_PACKAGE">CONVERTING
+  AN EXISTING PACKAGE</a></h1>
+<p class="Pp">This section explains how to convert an existing Debian package to
+    this workflow. It should be skipped when debianising a new package.</p>
+<p class="Pp">If you have an existing git history that you have pushed to an
+    ordinary git server like <b>salsa.debian.org</b>, we start with that. If you
+    don't already have it locally, you'll need to clone it, and obtain the
+    corresponding orig.tar from the archive:</p>
+<p class="Pp"></p>
+<pre>    % git clone salsa.debian.org:Debian/foo
+    % cd foo
+    % dgit setup-new-tree
+    % origtargz
+</pre>
+<p class="Pp">If you don't have any existing git history, or you have history
+    only on the special <b>dgit-repos</b> server, we start with <b>dgit
+    clone</b>:</p>
+<p class="Pp"></p>
+<pre>    % dgit clone foo
+    % cd foo
+</pre>
+<p class="Pp">Then we make new upstream tags available:</p>
+<p class="Pp"></p>
+<pre>    % git remote add -f upstream https://some.upstream/foo.git
+</pre>
+<p class="Pp">We now use a <b>git debrebase convert-from-*</b> command to
+    convert your existing history to the <a class="Xr" href="../5/git-debrebase.html"><b>git-debrebase</b>(5)</a> data model.
+    Which command you should use depends on some facts about your
+  repository:</p>
+<dl class="Bl-tag">
+  <dt>(A) There is no delta queue.</dt>
+  <dd>If there do not exist any Debian patches, use</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>    % git debrebase convert-from-gbp
+</pre>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt>(B) There is a delta queue, and patches are unapplied.</dt>
+  <dd>This is the standard <a class="Xr" href="../1/gbp.html"><b>git-buildpackage</b>(1)</a> workflow: there are Debian
+      patches, but the upstream source is committed to git without those patches
+      applied. Use</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>    % git debrebase convert-from-gbp
+</pre>
+</div>
+<div class="Bd-indent">
+<p class="Pp">If you were not previously using dgit to upload your package (i.e.
+    you were not using the workflow described in <a class="Xr" href="../7/dgit-maint-gbp.html"><b>dgit-maint-gbp</b>(7)</a>), and
+    you happen to have run <b>dgit fetch sid</b> in this clone of the
+    repository, you will need to pass <i>--fdiverged</i> to this command.</p>
+</div>
+<dl class="Bl-tag">
+  <dt>(C) There is a delta queue, and patches are applied.</dt>
+  <dd>Use</dd>
+</dl>
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>    % git debrebase convert-from-dgit-view
+</pre>
+</div>
+<div class="Bd-indent"></div>
+<p class="Pp">Finally, you need to ensure that your git HEAD is dgit-compatible,
+    i.e., it is exactly what you would get if you deleted .git, invoked
+    <b>dpkg-buildpackage -S</b>, and then unpacked the resultant source
+  package.</p>
+<p class="Pp">To achieve this, you might need to delete
+    <i>debian/source/local-options</i>. One way to have dgit check your progress
+    is to run <b>dgit build-source</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GIT_CONFIGURATION"><a class="permalink" href="#GIT_CONFIGURATION">GIT
+  CONFIGURATION</a></h1>
+<p class="Pp"><a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a> does not yet support using <b>git
+    merge</b> to merge divergent branches of development (see &quot;OTHER
+    MERGES&quot; in <a class="Xr" href="../5/git-debrebase.html"><b>git-debrebase</b>(5)</a>). You should configure git such that
+    <b>git pull</b> does not try to merge:</p>
+<p class="Pp"></p>
+<pre>    % git config --local pull.rebase true
+</pre>
+<p class="Pp">Now when you pull work from other Debian contributors, git will
+    rebase your work on top of theirs.</p>
+<p class="Pp">If you use this clone for upstream development in addition to
+    Debian packaging work, you may not want to set this global setting. Instead,
+    see the <b>branch.autoSetupRebase</b> and <b>branch.&lt;name&gt;.rebase</b>
+    settings in <b>git-config</b>(5).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="IMPORTING_NEW_UPSTREAM_RELEASES"><a class="permalink" href="#IMPORTING_NEW_UPSTREAM_RELEASES">IMPORTING
+  NEW UPSTREAM RELEASES</a></h1>
+<p class="Pp">There are two steps: obtaining git refs that correspond to the new
+    release, and importing that release using <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a>.</p>
+<section class="Ss">
+<h2 class="Ss" id="Obtaining_the_release"><a class="permalink" href="#Obtaining_the_release">Obtaining
+  the release</a></h2>
+<p class="Pp"><i>When upstream tags releases in git</i></p>
+<p class="Pp"></p>
+<pre>    % git fetch --tags upstream
+</pre>
+<p class="Pp">If you want to package an untagged upstream commit (because
+    upstream does not tag releases or because you want to package an upstream
+    development snapshot), see &quot;Using untagged upstream commits&quot;
+    above.</p>
+<p class="Pp"><i>When upstream releases only tarballs</i></p>
+<p class="Pp">You will need the <i>debian/gbp.conf</i> from &quot;When upstream
+    releases only tarballs&quot;, above. You will also need your upstream
+    branch. Above, we pushed this to <b>salsa.debian.org</b>. You will need to
+    clone or fetch from there, instead of relying on <b>dgit clone</b>/<b>dgit
+    fetch</b> alone.</p>
+<p class="Pp">Then, either</p>
+<p class="Pp"></p>
+<pre>    % gbp import-orig ../foo_1.2.3.orig.tar.xz
+</pre>
+<p class="Pp">or if you have a working watch file</p>
+<p class="Pp"></p>
+<pre>    % gbp import-orig --uscan
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Importing_the_release"><a class="permalink" href="#Importing_the_release">Importing
+  the release</a></h2>
+<pre>    % git debrebase new-upstream 1.2.3
+</pre>
+<p class="Pp">This invocation of <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a> involves a git rebase.
+    You may need to resolve conflicts if the Debian delta queue does not apply
+    cleanly to the new upstream source.</p>
+<p class="Pp">If all went well, you can now review the merge of the new upstream
+    release:</p>
+<p class="Pp"></p>
+<pre>    git diff debian/1.2.2-1..HEAD -- . ':!debian'
+</pre>
+<p class="Pp">Also, diff with <i>--name-status</i> and <i>--diff-filter=ADR</i>
+    to see just the list of added or removed files, which is useful to determine
+    whether there are any new or deleted files that may need accounting for in
+    your copyright file.</p>
+<p class="Pp">If you obtained a tarball from upstream, you are ready to try a
+    build. If you merged a git tag from upstream, you will first need to
+    generate a tarball:</p>
+<p class="Pp"></p>
+<pre>    % git deborig
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EDITING_THE_DEBIAN_PACKAGING"><a class="permalink" href="#EDITING_THE_DEBIAN_PACKAGING">EDITING
+  THE DEBIAN PACKAGING</a></h1>
+<p class="Pp">Just make commits on master that change the contents of
+    <i>debian/</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EDITING_THE_DELTA_QUEUE"><a class="permalink" href="#EDITING_THE_DELTA_QUEUE">EDITING
+  THE DELTA QUEUE</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Adding_new_patches"><a class="permalink" href="#Adding_new_patches">Adding
+  new patches</a></h2>
+<p class="Pp">Adding new patches is straightforward: just make commits touching
+    only files outside of the <i>debian/</i> directory. You can also use tools
+    like <a class="Xr" href="../1/git-revert.html"><b>git-revert</b>(1)</a>, <a class="Xr" href="../1/git-am.html"><b>git-am</b>(1)</a> and
+  <a class="Xr" href="../1/git-cherry-pick.html"><b>git-cherry-pick</b>(1)</a>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Editing_patches:_starting_a_debrebase"><a class="permalink" href="#Editing_patches:_starting_a_debrebase">Editing
+  patches: starting a debrebase</a></h2>
+<p class="Pp"><a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a> is a wrapper around <a class="Xr" href="../1/git-rebase.html"><b>git-rebase</b>(1)</a>
+    which allows us to edit, re-order and delete patches. Run</p>
+<p class="Pp"></p>
+<pre>    % git debrebase -i
+</pre>
+<p class="Pp">to start an interactive rebase. You can edit, re-order and delete
+    commits just as you would during <b>git rebase -i</b>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Editing_patches:_finishing_a_debrebase"><a class="permalink" href="#Editing_patches:_finishing_a_debrebase">Editing
+  patches: finishing a debrebase</a></h2>
+<p class="Pp">After completing the git rebase, your branch will not be a
+    fast-forward of the git HEAD you had before the rebase. This means that we
+    cannot push the branch anywhere. If you are ready to upload, <b>dgit
+    push-source</b> (or <b>dgit push-built</b>) will take care of fixing this up
+    for you.</p>
+<p class="Pp">If you are not yet ready to upload, and want to push your branch
+    to a git remote such as <b>salsa.debian.org</b>,</p>
+<p class="Pp"></p>
+<pre>    % git debrebase conclude
+</pre>
+<p class="Pp">Note that each time you conclude a debrebase you introduce a
+    pseudomerge into your git history, which may make it harder to read. Try to
+    do all of the editing of the delta queue that you think will be needed for
+    this editing session in a single debrebase, so that there is a single
+    debrebase stitch.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUILDING_AND_UPLOADING"><a class="permalink" href="#BUILDING_AND_UPLOADING">BUILDING
+  AND UPLOADING</a></h1>
+<p class="Pp">You can use <a class="Xr" href="../1/dpkg-buildpackage.html"><b>dpkg-buildpackage</b>(1)</a> for test builds. When you
+    are ready to build for an upload, use <b>dgit sbuild</b>, <b>dgit
+    pbuilder</b> or <b>dgit</b> <b>cowbuilder</b>.</p>
+<p class="Pp">Upload with <b>dgit push-source</b> or <b>dgit push-built</b>.
+    Remember to pass <i>--new</i> if the package is new in the target suite.</p>
+<p class="Pp">In some cases where you used <b>git debrebase convert-from-gbp</b>
+    since the last upload, it is not possible for dgit to make your history
+    fast-forwarding from the history on <b>dgit-repos</b>. In such cases you
+    will have to pass <i>--trust-changelog</i> to dgit. git-debrebase will
+    normally tell you if this will be needed.</p>
+<p class="Pp">If you want to upload with <a class="Xr" href="../1/git-debpush.html"><b>git-debpush</b>(1)</a>, for the first
+    upload you should pass the <b>--quilt=linear</b> quilt mode option (see
+    <a class="Xr" href="../1/git-debpush.html"><b>git-debpush</b>(1)</a>).</p>
+<p class="Pp">Right before uploading, if you did not just already do so, you
+    might want to have <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a> shuffle your branch such that the
+    Debian delta queue appears right at the tip of the branch you will push:</p>
+<p class="Pp"></p>
+<pre>    % git debrebase
+    % dgit push-source
+</pre>
+<p class="Pp">Note that this will introduce a new pseudomerge.</p>
+<p class="Pp">After dgit pushing, be sure to git push to
+    <b>salsa.debian.org</b>, if you're using that.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HANDLING_DFSG-NON-FREE_MATERIAL"><a class="permalink" href="#HANDLING_DFSG-NON-FREE_MATERIAL">HANDLING
+  DFSG-NON-FREE MATERIAL</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Illegal_material"><a class="permalink" href="#Illegal_material">Illegal
+  material</a></h2>
+<p class="Pp">Here we explain how to handle material that is merely
+    DFSG-non-free. Material which is legally dangerous (for example, files which
+    are actually illegal) cannot be handled this way.</p>
+<p class="Pp">If you encounter possibly-legally-dangerous material in the
+    upstream source code you should seek advice. It is often best not to make a
+    fuss on a public mailing list (at least, not at first). Instead, email your
+    archive administrators. For Debian that is
+  <br/>
+   To: dgit-owner@debian.org, ftpmaster@ftp-master.debian.org</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="DFSG-non-free:_When_upstream_tags_releases_in_git"><a class="permalink" href="#DFSG-non-free:_When_upstream_tags_releases_in_git">DFSG-non-free:
+  When upstream tags releases in git</a></h2>
+<p class="Pp">Our approach is to maintain a DFSG-clean upstream branch, and
+    create tags on this branch for each release that we want to import. We then
+    import those tags per &quot;Importing the release&quot;, above. In the case
+    of a new package, we base our initial Debianisation on our first DFSG-clean
+    tag.</p>
+<p class="Pp">For the first upstream release that requires DFSG filtering:</p>
+<p class="Pp"></p>
+<pre>    % git checkout -b upstream-dfsg 1.2.3
+    % git rm evil.bin
+    % git commit -m &quot;upstream version 1.2.3 DFSG-cleaned&quot;
+    % git tag -s 1.2.3+dfsg
+    % git checkout master
+</pre>
+<p class="Pp">Now either proceed with &quot;Importing the release&quot; on the
+    1.2.3+dfsg tag, or in the case of a new package,</p>
+<p class="Pp"></p>
+<pre>    % git branch --unset-upstream
+    % git reset --hard 1.2.3+dfsg
+</pre>
+<p class="Pp">and proceed with &quot;INITIAL DEBIANISATION&quot;.</p>
+<p class="Pp">For subsequent releases (whether or not they require additional
+    filtering):</p>
+<p class="Pp"></p>
+<pre>    % git checkout upstream-dfsg
+    % git merge 1.2.4
+    % git rm further-evil.bin # if needed
+    % git commit -m &quot;upstream version 1.2.4 DFSG-cleaned&quot; # if needed
+    % git tag -s 1.2.4+dfsg
+    % git checkout master
+    % # proceed with &quot;Importing the release&quot; on 1.2.4+dfsg tag
+</pre>
+<p class="Pp">Our upstream-dfsg branch cannot be pushed to <b>dgit-repos</b>,
+    but since we will need it whenever we import a new upstream version, we must
+    push it somewhere. Assuming that you have already set up an origin remote
+    per the above,</p>
+<p class="Pp"></p>
+<pre>    % git push --follow-tags -u origin master upstream-dfsg
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="DFSG-non-free:_When_upstream_releases_only_tarballs"><a class="permalink" href="#DFSG-non-free:_When_upstream_releases_only_tarballs">DFSG-non-free:
+  When upstream releases only tarballs</a></h2>
+<p class="Pp">The easiest way to handle this is to add a <b>Files-Excluded</b>
+    field to <i>debian/copyright</i>, and a <b>uversionmangle</b> setting in
+    <i>debian/watch</i>. See <a class="Xr" href="../1/uscan.html"><b>uscan</b>(1)</a>. Alternatively, see the
+    <i>--filter</i> option detailed in <a class="Xr" href="../1/gbp-import-orig.html"><b>gbp-import-orig</b>(1)</a>.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INCORPORATING_NMUS"><a class="permalink" href="#INCORPORATING_NMUS">INCORPORATING
+  NMUS</a></h1>
+<p class="Pp">In the simplest case,</p>
+<p class="Pp"></p>
+<pre>    % dgit fetch
+    % git merge --ff-only dgit/dgit/sid
+</pre>
+<p class="Pp">If that fails, because your branch and the NMUers' work represent
+    divergent branches of development, you have a number of options. Here we
+    describe the two simplest.</p>
+<p class="Pp">Note that you should not try to resolve the divergent branches by
+    editing files in <i>debian/patches</i>. Changes there would either cause
+    trouble, or be overwritten by <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a>.</p>
+<section class="Ss">
+<h2 class="Ss" id="Rebasing_your_work_onto_the_NMU"><a class="permalink" href="#Rebasing_your_work_onto_the_NMU">Rebasing
+  your work onto the NMU</a></h2>
+<pre>    % git rebase dgit/dgit/sid
+</pre>
+<p class="Pp">If the NMUer added new commits modifying the upstream source, you
+    will probably want to debrebase before your next upload to tidy those
+  up.</p>
+<p class="Pp">For example, the NMUer might have used <a class="Xr" href="../1/git-revert.html"><b>git-revert</b>(1)</a> to
+    unapply one of your patches. A debrebase can be used to strip both the patch
+    and the reversion from the delta queue.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Manually_applying_the_debdiff"><a class="permalink" href="#Manually_applying_the_debdiff">Manually
+  applying the debdiff</a></h2>
+<p class="Pp">If you cannot rebase because you have already pushed to
+    <b>salsa.debian.org</b>, say, you can manually apply the NMU debdiff, commit
+    and debrebase. The next <b>dgit push</b> will require
+    <i>--trust-changelog</i>.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HINTS_AND_TIPS"><a class="permalink" href="#HINTS_AND_TIPS">HINTS
+  AND TIPS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Minimising_pseudomerges"><a class="permalink" href="#Minimising_pseudomerges">Minimising
+  pseudomerges</a></h2>
+<p class="Pp">Above we noted that each time you conclude a debrebase, you
+    introduce a pseudomerge into your git history, which may make it harder to
+    read.</p>
+<p class="Pp">A simple convention you can use to minimise the number of
+    pseudomerges is to <b>git debrebase conclude</b> only right before you
+    upload or push to <b>salsa.debian.org</b>.</p>
+<p class="Pp">It is possible, though much less convenient, to reduce the number
+    of pseudomerges yet further. We debrebase only (i) when importing a new
+    release, and (ii) right before uploading. Instead of editing the existing
+    delta queue, you append fixup commits (and reversions of commits) that alter
+    the upstream source to the required state. You can push and pull to and from
+    <b>salsa.debian.org</b> during this. Just before uploading, you debrebase,
+    once, to tidy everything up.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_debian/patches_directory"><a class="permalink" href="#The_debian/patches_directory">The
+  debian/patches directory</a></h2>
+<p class="Pp">In this workflow, <i>debian/patches</i> is purely an output of
+    <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a>. You should not make changes there. They will either
+    cause trouble, or be ignored and overwritten by <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a>.</p>
+<p class="Pp"><i>debian/patches</i> will often be out-of-date because
+    <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a> will only regenerate it when it needs to. So you
+    should not rely on the information in that directory. When preparing patches
+    to forward upstream, you should use <a class="Xr" href="../1/git-format-patch.html"><b>git-format-patch</b>(1)</a> on git
+    commits, rather than sending files from <i>debian/patches</i>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Upstream_branches"><a class="permalink" href="#Upstream_branches">Upstream
+  branches</a></h2>
+<p class="Pp">In this workflow, we specify upstream tags rather than any
+    branches.</p>
+<p class="Pp">Except when (i) upstream releases only tarballs, (ii) we require
+    DFSG filtering, or (iii) you also happen to be involved in upstream
+    development, we do not maintain any local branch corresponding to upstream,
+    except temporary branches used to prepare patches for forwarding, and the
+    like.</p>
+<p class="Pp">The idea here is that from Debian's point of view, upstream
+    releases are immutable points in history. We want to make sure that we are
+    basing our Debian package on a properly identified upstream version, rather
+    than some arbitrary commit on some branch. Tags are more useful for
+  this.</p>
+<p class="Pp">Upstream's branches remain available as the git remote tracking
+    branches for your upstream remote, e.g. <i>remotes/upstream/master</i>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="The_first_ever_dgit_push"><a class="permalink" href="#The_first_ever_dgit_push">The
+  first ever dgit push</a></h2>
+<p class="Pp">If this is the first ever dgit push of the package, consider
+    passing <i>--deliberately-not-fast-forward</i> instead of
+    <i>--trust-changelog</i>. This avoids introducing a new origin commit into
+    your git history. (This origin commit would represent the most recent
+    non-dgit upload of the package, but this should already be represented in
+    your git history.)</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Inspecting_the_history"><a class="permalink" href="#Inspecting_the_history">Inspecting
+  the history</a></h2>
+<p class="Pp">The git history made by git-debrebase can seem complicated. Here
+    are some suggestions for helpful invocations of gitk and git. They can be
+    adapted for other tools like <a class="Xr" href="../1/tig.html"><b>tig</b>(1)</a>, <a class="Xr" href="../1/git-log.html"><b>git-log</b>(1)</a>, magit,
+  etc.</p>
+<p class="Pp">History of package in Debian, disregarding history from
+  upstream:</p>
+<p class="Pp"></p>
+<pre>    % gitk --first-parent
+</pre>
+<p class="Pp"></p>
+<div class="Bd-indent">In a laundered branch, the delta queue is at the
+  top.</div>
+<p class="Pp">History of the packaging, excluding the delta queue:</p>
+<p class="Pp"></p>
+<pre>    % gitk :/debian :!/debian/patches
+</pre>
+<p class="Pp">Just the delta queue (i.e. Debian's changes to upstream):</p>
+<p class="Pp"></p>
+<pre>    % gitk --first-parent -- :/ :!/debian
+</pre>
+<p class="Pp">Full history including old versions of the delta queue:</p>
+<p class="Pp"></p>
+<pre>    % gitk --date-order
+</pre>
+<p class="Pp"></p>
+<div class="Bd-indent">The &quot;Declare fast forward&quot; commits you see have
+  an older history (usually, an older delta queue) as one parent, and a newer
+  history as the other. --date-order makes gitk show the delta queues in the
+  right order.</div>
+<p class="Pp">Complete diff since the last upload:</p>
+<p class="Pp"></p>
+<pre>    % git diff dgit/dgit/sid..HEAD -- :/ :!/debian/patches
+</pre>
+<p class="Pp"></p>
+<div class="Bd-indent">This includes changes to upstream files.</div>
+<p class="Pp">Interdiff of delta queue since last upload, if you really want
+  it:</p>
+<p class="Pp"></p>
+<pre>    % git debrebase make-patches
+    % git diff dgit/dgit/sid..HEAD -- debian/patches
+</pre>
+<p class="Pp">And of course there is:</p>
+<p class="Pp"></p>
+<pre>    % git debrebase status
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Alternative_ways_to_start_a_debrebase"><a class="permalink" href="#Alternative_ways_to_start_a_debrebase">Alternative
+  ways to start a debrebase</a></h2>
+<p class="Pp">Above we started an interactive debrebase by invoking
+    <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a> like this:</p>
+<p class="Pp"></p>
+<pre>    % git debrebase -i
+</pre>
+<p class="Pp">It is also possible to perform a non-interactive rebase, like
+    this:</p>
+<p class="Pp"></p>
+<pre>    % git debrebase -- [git-rebase options...]
+</pre>
+<p class="Pp">A third alternative is to have <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a> shuffle all
+    the Debian changes to the end of your branch, and then manipulate them
+    yourself using <a class="Xr" href="../1/git-rebase.html"><b>git-rebase</b>(1)</a> directly. For example,</p>
+<p class="Pp"></p>
+<pre>    % git debrebase
+    % git rebase -i HEAD~5      # there are 4 Debian patches
+</pre>
+<p class="Pp">If you take this approach, you should be very careful not to start
+    the rebase too early, including before the most recent pseudomerge.
+    git-rebase without a base argument will often start the rebase too early,
+    and should be avoided. Run git-debrebase instead. See also &quot;ILLEGAL
+    OPERATIONS&quot; in <a class="Xr" href="../5/git-debrebase.html"><b>git-debrebase</b>(5)</a>.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/dgit.html"><b>dgit</b>(1)</a>, <a class="Xr" href="../7/dgit.html"><b>dgit</b>(7)</a>, <a class="Xr" href="../1/git-debrebase.html"><b>git-debrebase</b>(1)</a>,
+    <a class="Xr" href="../5/git-debrebase.html"><b>git-debrebase</b>(5)</a>, <a class="Xr" href="../7/gitrevisions.html"><b>gitrevisions</b>(7)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">This tutorial was written and is maintained by Sean Whitton
+    &lt;spwhitton@spwhitton.name&gt;. It contains contributions from other dgit
+    contributors too - see the dgit copyright file.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Debian Project</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: dgit 11.8 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

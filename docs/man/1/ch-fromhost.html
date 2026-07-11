@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Inject files from the host into an image directory, with various magic">
+<title>ch-fromhost(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">ch-fromhost(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Arbitrary_files">Arbitrary
+  files</a></li><li><a href="#Libfabric">Libfabric</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#To_specify_which_files_to_inject">To
+  specify which files to inject</a></li><li><a href="#To_specify_the_destination_within_the_image">To
+  specify the destination within the image</a></li><li><a href="#Additional_arguments">Additional
+  arguments</a></li><li><a href="#WHEN_TO_USE_CH-FROMHOST">WHEN
+  TO USE CH-FROMHOST</a></li><li><a href="#LIBFABRIC_USAGE_AND_QUIRKS">LIBFABRIC
+  USAGE AND QUIRKS</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#libfabric">libfabric</a></li><li><a href="#Arbitrary">Arbitrary</a></li><li><a href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></li><li><a href="#REPORTING_BUGS">REPORTING
+  BUGS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CH-FROMHOST(1)</td>
+    <td class="head-vol">Charliecloud</td>
+    <td class="head-rtitle">CH-FROMHOST(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">ch-fromhost - Inject files from the host into an image directory,
+    with various magic</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ ch-fromhost [OPTION ...] [FILE_OPTION ...] IMGDIR
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>NOTE:</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent">This command is experimental. Features may be incomplete
+  and/or buggy. Please report any issues you find, so we can fix them!</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Inject files from the host into the Charliecloud image directory
+    <b>IMGDIR</b>.</p>
+<p class="Pp">The purpose of this command is to inject arbitrary host files into
+    a container necessary to access host specific resources; usually GPU or
+    proprietary interconnects. <b>It is not a general copy-to-image tool</b>;
+    see further discussion on use cases below.</p>
+<p class="Pp">It should be run after:code:<i>ch-convert</i> and before
+    <b>ch-run</b>. After invocation, the image is no longer portable to other
+    hosts.</p>
+<p class="Pp">Injection is not atomic; if an error occurs partway through
+    injection, the image is left in an undefined state and should be re-unpacked
+    from storage. Injection is currently implemented using a simple file copy,
+    but that may change in the future.</p>
+<p class="Pp">Arbitrary file and libfabric injection are handled
+  differently.</p>
+<section class="Ss">
+<h2 class="Ss" id="Arbitrary_files"><a class="permalink" href="#Arbitrary_files">Arbitrary
+  files</a></h2>
+<p class="Pp">Arbitrary file paths that contain the strings <b>/bin</b> or
+    <b>/sbin</b> are assumed to be executables and placed in <b>/usr/bin</b>
+    within the container. Paths that are not loadable libfabric providers and
+    contain the strings <b>/lib</b> or <b>.so</b> are assumed to be shared
+    libraries and are placed in the first-priority directory reported by
+    <b>ldconfig</b> (see <b>--lib-path</b> below). Other files are placed in the
+    directory specified by <b>--dest</b>.</p>
+<p class="Pp">If any shared libraries are injected, run <b>ldconfig</b> inside
+    the container (using <b>ch-run -w</b>) after injection.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Libfabric"><a class="permalink" href="#Libfabric">Libfabric</a></h2>
+<p class="Pp">MPI implementations have numerous ways of communicating messages
+    over interconnects. We use libfabric (OFI), an OpenFabric framework that
+    exports fabric communication services to applications, to manage these
+    communications with built-in, or loadable, fabric providers.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><i>https://ofiwg.github.io/libfabric</i></li>
+  <li><i>https://ofiwg.github.io/libfabric/v1.14.0/man/fi_provider.3.html</i></li>
+</ul>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Using OFI, we can (a) uniformly manage fabric communication
+    services for both OpenMPI and MPICH, and (b) use simplified methods of
+    accessing proprietary host hardware, e.g., Cray&#x2019;s Gemini/Aries and
+    Slingshot (CXI).</p>
+<p class="Pp">OFI providers implement the application facing software interfaces
+    needed to access network specific protocols, drivers, and hardware. Loadable
+    providers, i.e., compiled OFI libraries that end in <b>-fi.so</b>, for
+    example, Cray&#x2019;s <b>libgnix-fi.so</b>, can be copied into, and used,
+    by an image with a MPI configured against OFI. Alternatively, the
+    image&#x2019;s <b>libfabric.so</b> can be overwritten with the
+    host&#x2019;s. See details and quirks below.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="To_specify_which_files_to_inject"><a class="permalink" href="#To_specify_which_files_to_inject">To
+  specify which files to inject</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="c"><a class="permalink" href="#c"><b><b>-c</b>, <b>--cmd
+    CMD</b></b></a></dt>
+  <dd>Inject files listed in the standard output of command <b>CMD</b>.</dd>
+  <dt id="f"><a class="permalink" href="#f"><b><b>-f</b>, <b>--file
+    FILE</b></b></a></dt>
+  <dd>Inject files listed in the file <b>FILE</b>.</dd>
+  <dt id="p"><a class="permalink" href="#p"><b><b>-p</b>, <b>--path
+    PATH</b></b></a></dt>
+  <dd>Inject the file at <b>PATH</b>.</dd>
+  <dt id="cray"><a class="permalink" href="#cray"><b><b>--cray-cxi</b></b></a></dt>
+  <dd>Inject cray-libfabric for slingshot. This is equivalent to <b>--path
+      $CH_FROMHOST_OFI_CXI</b>, where <b>$CH_FROMHOST_OFI_CXI</b> is the path
+      the Cray host libfabric <b>libfabric.so</b>.</dd>
+  <dt id="cray~2"><a class="permalink" href="#cray~2"><b><b>--cray-gni</b></b></a></dt>
+  <dd>Inject cray gemini/aries GNI libfabric provider <b>libgnix-fi.so</b>. This
+      is equivalent to <b>--fi-provider $CH_FROMHOST_OFI_GNI</b>, where
+      <b>CH_FROMHOST_OFI_GNI</b> is the path to the Cray host ugni provider
+      <b>libgnix-fi.so</b>.</dd>
+  <dt id="nvidia"><a class="permalink" href="#nvidia"><b><b>--nvidia</b></b></a></dt>
+  <dd>Use <b>nvidia-container-cli list</b> (from <b>libnvidia-container</b>) to
+      find executables and libraries to inject.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">These can be repeated, and at least one must be specified.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="To_specify_the_destination_within_the_image"><a class="permalink" href="#To_specify_the_destination_within_the_image">To
+  specify the destination within the image</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="d"><a class="permalink" href="#d"><b><b>-d</b>, <b>--dest
+    DST</b></b></a></dt>
+  <dd>Place files specified later in directory <b>IMGDIR/DST</b>, overriding the
+      inferred destination, if any. If a file&#x2019;s destination cannot be
+      inferred and <b>--dest</b> has not been specified, exit with an error.
+      This can be repeated to place files in varying destinations.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Additional_arguments"><a class="permalink" href="#Additional_arguments">Additional
+  arguments</a></h2>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="print"><a class="permalink" href="#print"><b><b>--print-cray-fi</b></b></a></dt>
+  <dd>Print inferred destination for libfabric replacement.</dd>
+  <dt id="print~2"><a class="permalink" href="#print~2"><b><b>--print-fi</b></b></a></dt>
+  <dd>Print the guest destination path for libfabric provider(s).</dd>
+  <dt id="print~3"><a class="permalink" href="#print~3"><b><b>--print-lib</b></b></a></dt>
+  <dd>Print the guest destination path for shared libraries inferred as
+      described above.</dd>
+  <dt id="no"><a class="permalink" href="#no"><b><b>--no-ldconfig</b></b></a></dt>
+  <dd>Don&#x2019;t run <b>ldconfig</b> even if we appear to have injected shared
+      libraries.</dd>
+  <dt id="h"><a class="permalink" href="#h"><b><b>-h</b>,
+    <b>--help</b></b></a></dt>
+  <dd>Print help and exit.</dd>
+  <dt id="v"><a class="permalink" href="#v"><b><b>-v</b>,
+    <b>--verbose</b></b></a></dt>
+  <dd>Be more verbose about what is going on. Can be repeated.</dd>
+  <dt id="version"><a class="permalink" href="#version"><b><b>--version</b></b></a></dt>
+  <dd>Print version and exit.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><b>WARNING:</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent"><b>ldconfig</b> often prints scary-looking warnings on
+  stderr even everything is going well. By default, we suppress these, but you
+  can see them with sufficient verbosity. For example:
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ ch-fromhost --print-lib /var/tmp/bullseye
+/usr/local/lib
+$ ch-fromhost -v --print-lib /var/tmp/bullseye
+asking ldconfig for inferred shared library destination
+inferred shared library destination: /var/tmp/bullseye//usr/local/lib
+/usr/local/lib
+$ ch-fromhost -v -v --print-lib /var/tmp/bullseye
+asking ldconfig for inferred shared library destination
+/sbin/ldconfig: Can't stat /usr/local/lib/x86_64-linux-gnu: No such file or directory
+/sbin/ldconfig: Path `/lib/x86_64-linux-gnu' given more than once
+/sbin/ldconfig: Path `/usr/lib/x86_64-linux-gnu' given more than once
+/sbin/ldconfig: /lib/x86_64-linux-gnu/ld-2.31.so is the dynamic linker, ignoring
+inferred shared library destination: /var/tmp/bullseye//usr/local/lib
+/usr/local/lib
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">See <i>issue #732</i> for an example of how this was confusing for
+    users.</p>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WHEN_TO_USE_CH-FROMHOST"><a class="permalink" href="#WHEN_TO_USE_CH-FROMHOST">WHEN
+  TO USE CH-FROMHOST</a></h1>
+<p class="Pp">This command does a lot of heuristic magic; while it <i>can</i>
+    copy arbitrary files into an image, this usage is discouraged and prone to
+    error. Here are some use cases and the recommended approach:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd><i>I have some files on my build host that I want to include in the
+      image.</i> Use the <b>COPY</b> instruction within your Dockerfile. Note
+      that it&#x2019;s OK to build an image that meets your specific needs but
+      isn&#x2019;t generally portable, e.g., only runs on specific
+      micro-architectures you&#x2019;re using.</dd>
+  <dt>2.</dt>
+  <dd><i>I have an already built image and want to install a program I
+      compiled</i> <i>separately into the image.</i> Consider whether a building
+      a new derived image with a Dockerfile is appropriate. Another good option
+      is to bind-mount the directory containing your program at run time. A less
+      good option is to <b>cp(1)</b> the program into your image, because this
+      permanently alters the image in a non-reproducible way.</dd>
+  <dt>3.</dt>
+  <dd><i>I have some shared libraries that I need in the image for functionality
+      or</i> <i>performance, and they aren&#x2019;t available in a place where I
+      can use</i> <b>COPY</b>. This is the intended use case of
+      <b>ch-fromhost</b>. You can use <b>--cmd</b>, <b>--file</b>, <b>--ofi</b>,
+      and/or <b>--path</b> to put together a custom solution. But, please
+      consider filing an issue so we can package your functionality with a tidy
+      option like <b>--nvidia</b>.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LIBFABRIC_USAGE_AND_QUIRKS"><a class="permalink" href="#LIBFABRIC_USAGE_AND_QUIRKS">LIBFABRIC
+  USAGE AND QUIRKS</a></h1>
+<p class="Pp">The implementation of libfabric provider injection and replacement
+    is experimental and has a couple quirks.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>Containers must have the following software installed:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="a."><a class="permalink" href="#a.">a.</a></dt>
+  <dd>libfabric (<i>https://ofiwg.github.io/libfabric/</i>). See
+      <b>charliecloud/examples/Dockerfile.libfabric</b>.</dd>
+  <dt id="b."><a class="permalink" href="#b.">b.</a></dt>
+  <dd>Corresponding open source MPI implementation configured and built against
+      the container libfabric, e.g., - <i>MPICH</i>, or - <i>OpenMPI</i>. See
+      <b>charliecloud/examples/Dockerfile.mpich</b> and
+      <b>charliecloud/examples/Dockerfile.openmpi</b>.</dd>
+</dl>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>2.</dt>
+  <dd>At run time, a libfabric provider can be specified with the variable
+      <b>FI_PROVIDER</b>. The path to search for shared providers can be
+      specified with <b>FI_PROVIDER_PATH</b>. These variables can be inherited
+      from the host or explicitly set with the container&#x2019;s environment
+      file <b>/ch/environent</b> via <b>--set-env</b>.
+    <p class="Pp">To avoid issues and reduce complexity, the inferred injection
+        destination for libfabric providers and replacement will always at the
+        path in the image where <b>libfabric.so</b> is found.</p>
+  </dd>
+  <dt>3.</dt>
+  <dd>The Cray GNI loadable provider, <b>libgnix-fi.so</b>, will link to
+      compiler(s) in the programming environment by default. For example, if it
+      is built under the <b>PrgEnv-intel</b> programming environment, it will
+      have links to files at paths <b>/opt/gcc</b> and <b>/opt/intel</b> that
+      <b>ch-run</b> will not bind automatically.
+    <p class="Pp">Managing all possible bind mount paths is untenable. Thus,
+        this experimental implementation injects libraries linked to a
+        <b>libgnix-fi.so</b> built with the minimal modules necessary to
+        compile, i.e.:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>modules</li>
+  <li>craype-network-aries</li>
+  <li>eproxy</li>
+  <li>slurm</li>
+  <li>cray-mpich</li>
+  <li>craype-haswell</li>
+  <li>craype-hugepages2M</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">A Cray GNI provider linked against more complicated PE&#x2019;s
+    will still work, assuming 1) the user explicitly bind-mounts missing
+    libraries listed from its <b>ldd</b> output, and 2) all such libraries do
+    not conflict with container functionality, e.g., <b>glibc.so</b>, etc.</p>
+<dl class="Bl-tag">
+  <dt>4.</dt>
+  <dd>At the time of this writing, a Cray Slingshot optimized provider is not
+      available; however, recent libfabric source acitivity indicates there may
+      be at some point, see:
+      <i>https://github.com/ofiwg/libfabric/pull/7839We</i>.
+    <p class="Pp">For now, on Cray systems with Slingshot, CXI, we need
+        overwrite the container&#x2019;s <b>libfabric.so</b> with the hosts
+        using <b>--path</b>. See examples for details.</p>
+  </dd>
+  <dt>5.</dt>
+  <dd>Tested only for C programs compiled with GCC. Additional bind mount or
+      kludging may be needed for untested use cases. If you&#x2019;d like to use
+      another compiler or programming environment, please get in touch so we can
+      implement the necessary support.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">Please file a bug if we missed anything above or if you know how
+    to make the code better.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">Symbolic links are dereferenced, i.e., the files pointed to are
+    injected, not the links themselves.</p>
+<p class="Pp">As a corollary, do not include symlinks to shared libraries. These
+    will be re-created by <b>ldconfig</b>.</p>
+<p class="Pp">There are two alternate approaches for nVidia GPU libraries:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>Link <b>libnvidia-containers</b> into <b>ch-run</b> and call the library
+      functions directly. However, this would mean that Charliecloud would
+      either (a) need to be compiled differently on machines with and without
+      nVidia GPUs or (b) have <b>libnvidia-containers</b> available even on
+      machines without nVidia GPUs. Neither of these is consistent with
+      Charliecloud&#x2019;s philosophies of simplicity and minimal
+    dependencies.</dd>
+  <dt>2.</dt>
+  <dd>Use <b>nvidia-container-cli configure</b> to do the injecting. This would
+      require that containers have a half-started state, where the namespaces
+      are active and everything is mounted but <b>pivot_root(2)</b> has not been
+      performed. This is not feasible because Charliecloud has no notion of a
+      half-started container.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Further, while these alternate approaches would simplify or
+    eliminate this script for nVidia GPUs, they would not solve the problem for
+    other situations.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">File paths may not contain colons or newlines.</p>
+<p class="Pp"><b>ldconfig</b> tends to print <b>stat</b> errors; these are
+    typically non-fatal and occur when trying to probe common library paths. See
+    <i>issue #732</i>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="libfabric"><a class="permalink" href="#libfabric">libfabric</a></h2>
+<p class="Pp">Cray Slingshot CXI injection.</p>
+<p class="Pp">Replace image libabfric, i.e., <b>libfabric.so</b>, with Cray
+    host&#x2019;s libfabric at host path
+    <b>/opt/cray-libfabric/lib64/libfabric.so</b>.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ ch-fromhost -v --path /opt/cray-libfabric/lib64/libfabric.so /tmp/ompi
+[ debug ] queueing files
+[ debug ]    cray libfabric: /opt/cray-libfabric/lib64/libfabric.so
+[ debug ] searching image for inferred libfabric destiation
+[ debug ]    found /tmp/ompi/usr/local/lib/libfabric.so
+[ debug ] adding cray libfabric libraries
+[ debug ]    skipping /lib64/libcom_err.so.2
+[...]
+[ debug ] queueing files
+[ debug ]    shared library: /usr/lib64/libcxi.so.1
+[ debug ] queueing files
+[ debug ]    shared library: /usr/lib64/libcxi.so.1.2.1
+[ debug ] queueing files
+[ debug ]    shared library: /usr/lib64/libjson-c.so.3
+[ debug ] queueing files
+[ debug ]    shared library: /usr/lib64/libjson-c.so.3.0.1
+[...]
+[ debug ] queueing files
+[ debug ]    shared library: /usr/lib64/libssh.so.4
+[ debug ] queueing files
+[ debug ]    shared library: /usr/lib64/libssh.so.4.7.4
+[...]
+[ debug ] inferred shared library destination: /tmp/ompi//usr/local/lib
+[ debug ] injecting into image: /tmp/ompi/
+[ debug ]    mkdir -p /tmp/ompi//var/lib/hugetlbfs
+[ debug ]    mkdir -p /tmp/ompi//var/spool/slurmd
+[ debug ]    echo '/usr/lib64' &gt;&gt; /tmp/ompi//etc/ld.so.conf.d/ch-ofi.conf
+[ debug ]    /opt/cray-libfabric/lib64/libfabric.so -&gt; /usr/local/lib (inferred)
+[ debug ]    /usr/lib64/libcxi.so.1 -&gt; /usr/local/lib (inferred)
+[ debug ]    /usr/lib64/libcxi.so.1.2.1 -&gt; /usr/local/lib (inferred)
+[ debug ]    /usr/lib64/libjson-c.so.3 -&gt; /usr/local/lib (inferred)
+[ debug ]    /usr/lib64/libjson-c.so.3.0.1 -&gt; /usr/local/lib (inferred)
+[ debug ]    /usr/lib64/libssh.so.4 -&gt; /usr/local/lib (inferred)
+[ debug ]    /usr/lib64/libssh.so.4.7.4 -&gt; /usr/local/lib (inferred)
+[ debug ] running ldconfig
+[ debug ]    ch-run -w /tmp/ompi/ -- /sbin/ldconfig
+[ debug ] validating ldconfig cache
+done
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Same as above, except also inject Cray&#x2019;s <b>fi_info</b> to
+    verify Slingshot provider access.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ ch-fromhost -v --path /opt/cray/libfabric/1.15.0.0/lib64/libfabric.so \
+<br/>
+              -d /usr/local/bin \
+<br/>
+              --path /opt/cray/libfabric/1.15.0.0/lib64/libfabric.so \
+<br/>
+              /tmp/ompi
+[...]
+$ ch-run /tmp/ompi/ -- fi_info -p cxi
+provider: cxi
+<br/>
+  fabric: cxi
+<br/>
+  [...]
+<br/>
+  type: FI_EP_RDM
+<br/>
+  protocol: FI_PROTO_CXI
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Cray GNI shared provider injection.</p>
+<p class="Pp">Add Cray host built GNI provider <b>libgnix-fi.so</b> to the image
+    and verify with <b>fi_info</b>.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ ch-fromhost -v --path /home/ofi/libgnix-fi.so /tmp/ompi
+[ debug ] queueing files
+[ debug ]    libfabric shared provider: /home/ofi/libgnix-fi.so
+[ debug ] searching /tmp/ompi for libfabric shared provider destination
+[ debug ]    found: /tmp/ompi/usr/local/lib/libfabric.so
+[ debug ] inferred provider destination: //usr/local/lib/libfabric
+[ debug ] injecting into image: /tmp/ompi
+[ debug ]    mkdir -p /tmp/ompi//usr/local/lib/libfabric
+[ debug ]    mkdir -p /tmp/ompi/var/lib/hugetlbfs
+[ debug ]    mkdir -p /tmp/ompi/var/opt/cray/alps/spool
+[ debug ]    mkdir -p /tmp/ompi/opt/cray/wlm_detect
+[ debug ]    mkdir -p /tmp/ompi/etc/opt/cray/wlm_detect
+[ debug ]    mkdir -p /tmp/ompi/opt/cray/udreg
+[ debug ]    mkdir -p /tmp/ompi/opt/cray/xpmem
+[ debug ]    mkdir -p /tmp/ompi/opt/cray/ugni
+[ debug ]    mkdir -p /tmp/ompi/opt/cray/alps
+[ debug ]    echo '/lib64' &gt;&gt; /tmp/ompi/etc/ld.so.conf.d/ch-ofi.conf
+[ debug ]    echo '/opt/cray/alps/lib64' &gt;&gt; /tmp/ompi/etc/ld.so.conf.d/ch-ofi.conf
+[ debug ]    echo '/opt/cray/udreg/lib64' &gt;&gt; /tmp/ompi/etc/ld.so.conf.d/ch-ofi.conf
+[ debug ]    echo '/opt/cray/ugni/lib64' &gt;&gt; /tmp/ompi/etc/ld.so.conf.d/ch-ofi.conf
+[ debug ]    echo '/opt/cray/wlm_detect/lib64' &gt;&gt; /tmp/ompi/etc/ld.so.conf.d/ch-ofi.conf
+[ debug ]    echo '/opt/cray/xpmem/lib64' &gt;&gt; /tmp/ompi/etc/ld.so.conf.d/ch-ofi.conf
+[ debug ]    echo '/usr/lib64' &gt;&gt; /tmp/ompi/etc/ld.so.conf.d/ch-ofi.conf
+[ debug ]    /home/ofi/libgnix-fi.so -&gt; //usr/local/lib/libfabric (inferred)
+[ debug ] running ldconfig
+[ debug ]    ch-run -w /tmp/ompi -- /sbin/ldconfig
+[ debug ] validating ldconfig cache
+done
+$ ch-run /tmp/ompi -- fi_info -p gni
+provider: gni
+<br/>
+  fabric: gni
+<br/>
+  [...]
+<br/>
+  type: FI_EP_RDM
+<br/>
+  protocol: FI_PROTO_GNI
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Arbitrary"><a class="permalink" href="#Arbitrary">Arbitrary</a></h2>
+<p class="Pp">Place shared library <b>/usr/lib64/libfoo.so</b> at path
+    <b>/usr/lib/libfoo.so</b> (assuming <b>/usr/lib</b> is the first directory
+    searched by the dynamic loader in the image), within the image
+    <b>/var/tmp/baz</b> and executable <b>/bin/bar</b> at path
+    <b>/usr/bin/bar</b>. Then, create appropriate symlinks to <b>libfoo</b> and
+    update the <b>ld.so</b> cache.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ cat qux.txt
+/bin/bar
+/usr/lib64/libfoo.so
+$ ch-fromhost --file qux.txt /var/tmp/baz
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Same as above:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ ch-fromhost --cmd 'cat qux.txt' /var/tmp/baz
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Same as above:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ ch-fromhost --path /bin/bar --path /usr/lib64/libfoo.so /var/tmp/baz
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Same as above, but place the files into <b>/corge</b> instead (and
+    the shared library will not be found by <b>ldconfig</b>):</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ ch-fromhost --dest /corge --file qux.txt /var/tmp/baz
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Same as above, and also place file <b>/etc/quux</b> at
+    <b>/etc/quux</b> within the container:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ ch-fromhost --file qux.txt --dest /etc --path /etc/quux /var/tmp/baz
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Inject the executables and libraries recommended by nVidia into
+    the image, and then run <b>ldconfig</b>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ ch-fromhost --nvidia /var/tmp/baz
+asking ldconfig for shared library destination
+/sbin/ldconfig: Can&#x2019;t stat /libx32: No such file or directory
+/sbin/ldconfig: Can&#x2019;t stat /usr/libx32: No such file or directory
+shared library destination: /usr/lib64//bind9-export
+injecting into image: /var/tmp/baz
+<br/>
+  /usr/bin/nvidia-smi -&gt; /usr/bin (inferred)
+<br/>
+  /usr/bin/nvidia-debugdump -&gt; /usr/bin (inferred)
+<br/>
+  /usr/bin/nvidia-persistenced -&gt; /usr/bin (inferred)
+<br/>
+  /usr/bin/nvidia-cuda-mps-control -&gt; /usr/bin (inferred)
+<br/>
+  /usr/bin/nvidia-cuda-mps-server -&gt; /usr/bin (inferred)
+<br/>
+  /usr/lib64/libnvidia-ml.so.460.32.03 -&gt; /usr/lib64//bind9-export (inferred)
+<br/>
+  /usr/lib64/libnvidia-cfg.so.460.32.03 -&gt; /usr/lib64//bind9-export (inferred)
+[...]
+<br/>
+  /usr/lib64/libGLESv2_nvidia.so.460.32.03 -&gt; /usr/lib64//bind9-export (inferred)
+<br/>
+  /usr/lib64/libGLESv1_CM_nvidia.so.460.32.03 -&gt; /usr/lib64//bind9-export (inferred)
+running ldconfig
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGEMENTS"><a class="permalink" href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></h1>
+<p class="Pp">This command was inspired by the similar <i>Shifter</i> feature
+    that allows Shifter containers to use the Cray Aries network. We
+    particularly appreciate the help provided by Shane Canon and Doug Jacobsen
+    during our implementation of <b>--cray-mpi</b>.</p>
+<p class="Pp">We appreciate the advice of Ryan Olson at nVidia on implementing
+    <b>--nvidia</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPORTING_BUGS"><a class="permalink" href="#REPORTING_BUGS">REPORTING
+  BUGS</a></h1>
+<p class="Pp">If Charliecloud was obtained from your Linux distribution, use
+    your distribution&#x2019;s bug reporting procedures.</p>
+<p class="Pp">Otherwise, report bugs to:
+    <i>https://github.com/hpc/charliecloud/issues</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">charliecloud(7)</p>
+<p class="Pp">Full documentation at:
+    &lt;<i>https://hpc.github.io/charliecloud</i>&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">2014&#x2013;2023, Triad National Security, LLC and others</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-04-01 05:37 UTC</td>
+    <td class="foot-os">0.37</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: charliecloud-builders 0.37-1build1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

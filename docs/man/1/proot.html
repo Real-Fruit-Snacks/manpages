@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="chroot, mount --bind, and binfmt_misc without privilege/setup">
+<title>proot(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">proot(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#Regular_options">Regular
+  options</a></li><li><a href="#Extension_options">Extension
+  options</a></li><li><a href="#Alias_options">Alias
+  options</a></li><li><a href="#EXIT_STATUS">EXIT
+  STATUS</a></li><li><a href="#FILES">FILES</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#DOWNLOADS">DOWNLOADS</a></li><li><a href="#PRoot">PRoot</a></li><li><a href="#Rootfs">Rootfs</a></li><li><a href="#QEMU_user">QEMU
+  user-mode</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COLOPHON">COLOPHON</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PROOT(1)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">PROOT(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">PRoot - chroot, mount --bind, and binfmt_misc without
+    privilege/setup</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>proot</b> [<i>option</i>] ... [<i>command</i>]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">PRoot is a user-space implementation of <b>chroot</b>, <b>mount
+    --bind</b>, and <b>binfmt_misc</b>. This means that users don't need any
+    privileges or setup to do things like using an arbitrary directory as the
+    new root filesystem, making files accessible somewhere else in the
+    filesystem hierarchy, or executing programs built for another CPU
+    architecture transparently through QEMU user-mode. Also, developers can use
+    PRoot as a generic Linux process instrumentation engine thanks to its
+    extension mechanism, see <i>CARE</i> for an example. Technically PRoot
+    relies on <b>ptrace</b>, an unprivileged system-call available in every
+    Linux kernel.</p>
+<p class="Pp">The new root file-system, a.k.a <i>guest rootfs</i>, typically
+    contains a Linux distribution. By default PRoot confines the execution of
+    programs to the guest rootfs only, however users can use the built-in
+    <i>mount/bind</i> mechanism to access files and directories from the actual
+    root file-system, a.k.a <i>host rootfs</i>, just as if they were part of the
+    guest rootfs.</p>
+<p class="Pp">When the guest Linux distribution is made for a CPU architecture
+    incompatible with the host one, PRoot uses the CPU emulator QEMU user-mode
+    to execute transparently guest programs. It's a convenient way to develop,
+    to build, and to validate any guest Linux packages seamlessly on users'
+    computer, just as if they were in a <i>native</i> guest environment. That
+    way all of the cross-compilation issues are avoided.</p>
+<p class="Pp">PRoot can also <i>mix</i> the execution of host programs and the
+    execution of guest programs emulated by QEMU user-mode. This is useful to
+    use host equivalents of programs that are missing from the guest rootfs and
+    to speed up build-time by using cross-compilation tools or CPU-independent
+    programs, like interpreters.</p>
+<p class="Pp">It is worth noting that the guest kernel is never involved,
+    regardless of whether QEMU user-mode is used or not. Technically, when guest
+    programs perform access to system resources, PRoot translates their requests
+    before sending them to the host kernel. This means that guest programs can
+    use host resources (devices, network, ...) just as if they were
+    &quot;normal&quot; host programs.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">The command-line interface is composed of two parts: first PRoot's
+    options (optional), then the command to launch (<b>/bin/sh</b> if not
+    specified). This section describes the options supported by PRoot, that is,
+    the first part of its command-line interface.</p>
+<section class="Ss">
+<h2 class="Ss" id="Regular_options"><a class="permalink" href="#Regular_options">Regular
+  options</a></h2>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="r"><a class="permalink" href="#r"><b>-r</b><i>&#x00A0;path<b>,</b><b></b></i><b><b>&#x00A0;--rootfs</b><b>=</b></b><i><b>path</b></i></a></dt>
+  <dd>Use <i>path</i> as the new guest root file-system, default is <b>/</b>.
+    <p class="Pp">The specified <i>path</i> typically contains a Linux
+        distribution where all new programs will be confined. The default rootfs
+        is <b>/</b> when none is specified, this makes sense when the bind
+        mechanism is used to relocate host files and directories, see the
+        <b>-b</b> option and the <b>Examples</b> section for details.</p>
+    <p class="Pp">It is recommended to use the <b>-R</b> or <b>-S</b> options
+        instead.</p>
+  </dd>
+  <dt id="b"><a class="permalink" href="#b"><b>-b</b><i>&#x00A0;path<b>,</b><b></b></i><b><b>&#x00A0;--bind</b><b>=</b></b><i><b>path</b><b>,</b><b></b></i><b><b>&#x00A0;-m</b></b><i><b>&#x00A0;path</b><b>,</b><b></b></i><b><b>&#x00A0;--mount</b><b>=</b></b><i><b>path</b></i></a></dt>
+  <dd>Make the content of <i>path</i> accessible in the guest rootfs.
+    <p class="Pp">This option makes any file or directory of the host rootfs
+        accessible in the confined environment just as if it were part of the
+        guest rootfs. By default the host path is bound to the same path in the
+        guest rootfs but users can specify any other location with the syntax:
+        <b>-b *host_path*:*guest_location*</b>. If the guest location is a
+        symbolic link, it is dereferenced to ensure the new content is
+        accessible through all the symbolic links that point to the overlaid
+        content. In most cases this default behavior shouldn't be a problem,
+        although it is possible to explicitly not dereference the guest location
+        by appending it the <b>!</b> character: <b>-b
+        *host_path*:*guest_location!*</b>.</p>
+  </dd>
+  <dt id="q"><a class="permalink" href="#q"><b>-q</b><i>&#x00A0;command<b>,</b><b></b></i><b><b>&#x00A0;--qemu</b><b>=</b></b><i><b>command</b></i></a></dt>
+  <dd>Execute guest programs through QEMU as specified by <i>command</i>.
+    <p class="Pp">Each time a guest program is going to be executed, PRoot
+        inserts the QEMU user-mode <i>command</i> in front of the initial
+        request. That way, guest programs actually run on a virtual guest CPU
+        emulated by QEMU user-mode. The native execution of host programs is
+        still effective and the whole host rootfs is bound to
+        <b>/host-rootfs</b> in the guest environment.</p>
+  </dd>
+  <dt id="w"><a class="permalink" href="#w"><b>-w</b><i>&#x00A0;path<b>,</b><b></b></i><b><b>&#x00A0;--pwd</b><b>=</b></b><i><b>path</b><b>,</b><b></b></i><b><b>&#x00A0;--cwd</b><b>=</b></b><i><b>path</b></i></a></dt>
+  <dd>Set the initial working directory to <i>path</i>.
+    <p class="Pp">Some programs expect to be launched from a given directory but
+        do not perform any <b>chdir</b> by themselves. This option avoids the
+        need for running a shell and then entering the directory manually.</p>
+  </dd>
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b><i>&#x00A0;value<b>,</b><b></b></i><b><b>&#x00A0;--verbose</b><b>=</b></b><i><b>value</b></i></a></dt>
+  <dd>Set the level of debug information to <i>value</i>.
+    <p class="Pp">The higher the integer <i>value</i> is, the more detailed
+        debug information is printed to the standard error stream. A negative
+        <i>value</i> makes PRoot quiet except on fatal errors.</p>
+  </dd>
+  <dt id="V"><a class="permalink" href="#V"><b>-V<i>,</i><b>
+    --version</b><i>,</i><b> --about</b></b></a></dt>
+  <dd>Print version, copyright, license and contact, then exit.</dd>
+  <dt id="h"><a class="permalink" href="#h"><b>-h<b>,</b><b>
+    --help</b><b>,</b><b> --usage</b></b></a></dt>
+  <dd>Print the version and the command-line usage, then exit.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Extension_options"><a class="permalink" href="#Extension_options">Extension
+  options</a></h2>
+<p class="Pp">The following options enable built-in extensions. Technically
+    developers can add their own features to PRoot or use it as a Linux process
+    instrumentation engine thanks to its extension mechanism, see the sources
+    for further details.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="k"><a class="permalink" href="#k"><b>-k</b><i>&#x00A0;string<b>,</b><b></b></i><b><b>&#x00A0;--kernel-release</b><b>=</b></b><i><b>string</b></i></a></dt>
+  <dd>Make current kernel appear as kernel release <i>string</i>.
+    <p class="Pp">If a program is run on a kernel older than the one expected by
+        its GNU C library, the following error is reported: &quot;FATAL: kernel
+        too old&quot;. To be able to run such programs, PRoot can emulate some
+        of the features that are available in the kernel release specified by
+        <i>string</i> but that are missing in the current kernel.</p>
+  </dd>
+  <dt><b>-0<i>,</i><b> --root-id</b></b></dt>
+  <dd>Make current user appear as &quot;root&quot; and fake its privileges.
+    <p class="Pp">Some programs will refuse to work if they are not run with
+        &quot;root&quot; privileges, even if there is no technical reason for
+        that. This is typically the case with package managers. This option
+        allows users to bypass this kind of limitation by faking the user/group
+        identity, and by faking the success of some operations like changing the
+        ownership of files, changing the root directory to <b>/</b>, ... Note
+        that this option is quite limited compared to <b>fakeroot</b>.</p>
+  </dd>
+  <dt id="i"><a class="permalink" href="#i"><b>-i</b><i>&#x00A0;string<b>,</b><b></b></i><b><b>&#x00A0;--change-id</b><b>=</b></b><i><b>string</b></i></a></dt>
+  <dd>Make current user and group appear as <i>string</i> &quot;uid:gid&quot;.
+    <p class="Pp">This option makes the current user and group appear as
+        <i>uid</i> and <i>gid</i>. Likewise, files actually owned by the current
+        user and group appear as if they were owned by <i>uid</i> and <i>gid</i>
+        instead. Note that the <b>-0</b> option is the same as <b>-i
+      0:0</b>.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Alias_options"><a class="permalink" href="#Alias_options">Alias
+  options</a></h2>
+<p class="Pp">The following options are aliases for handy sets of options.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="R"><a class="permalink" href="#R"><b>-R</b><i>&#x00A0;path</i></a></dt>
+  <dd>Alias: <b>-r *path*</b> + a couple of recommended <b>-b</b>.
+    <p class="Pp">Programs isolated in <i>path</i>, a guest rootfs, might still
+        need to access information about the host system, as it is illustrated
+        in the <b>Examples</b> section of the manual. These host information are
+        typically: user/group definition, network setup, run-time information,
+        users' files, ... On all Linux distributions, they all lie in a couple
+        of host files and directories that are automatically bound by this
+        option:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>/etc/host.conf</li>
+  <li>/etc/hosts</li>
+  <li>/etc/hosts.equiv</li>
+  <li>/etc/mtab</li>
+  <li>/etc/netgroup</li>
+  <li>/etc/networks</li>
+  <li>/etc/passwd</li>
+  <li>/etc/group</li>
+  <li>/etc/nsswitch.conf</li>
+  <li>/etc/resolv.conf</li>
+  <li>/etc/localtime</li>
+  <li>/dev/</li>
+  <li>/sys/</li>
+  <li>/proc/</li>
+  <li>/tmp/</li>
+  <li>/run/</li>
+  <li>/var/run/dbus/system_bus_socket</li>
+  <li>$HOME</li>
+  <li><i>path</i></li>
+</ul>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt id="S"><a class="permalink" href="#S"><b>-S</b><i>&#x00A0;path</i></a></dt>
+  <dd>Alias: <b>-0 -r *path*</b> + a couple of recommended <b>-b</b>.
+    <p class="Pp">This option is useful to safely create and install packages
+        into the guest rootfs. It is similar to the <b>-R</b> option expect it
+        enables the <b>-0</b> option and binds only the following minimal set of
+        paths to avoid unexpected changes on host files:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>/etc/host.conf</li>
+  <li>/etc/hosts</li>
+  <li>/etc/nsswitch.conf</li>
+  <li>/etc/resolv.conf</li>
+  <li>/dev/</li>
+  <li>/sys/</li>
+  <li>/proc/</li>
+  <li>/tmp/</li>
+  <li>/run/shm</li>
+  <li>$HOME</li>
+  <li><i>path</i></li>
+</ul>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<p class="Pp">If an internal error occurs, <b>proot</b> returns a non-zero exit
+    status, otherwise it returns the exit status of the last terminated program.
+    When an error has occurred, the only way to know if it comes from the last
+    terminated program or from <b>proot</b> itself is to have a look at the
+    error message.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<p class="Pp">PRoot reads links in <b>/proc/&lt;pid&gt;/fd/</b> to support
+    <i>openat(2)</i>-like syscalls made by the guest programs.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">In the following examples the directories
+    <b>/mnt/slackware-8.0</b> and <b>/mnt/armslack-12.2/</b> contain a Linux
+    distribution respectively made for x86 CPUs and ARM CPUs.</p>
+<section class="Ss">
+<h2 class="Ss"><b>chroot</b> equivalent</h2>
+<p class="Pp">To execute a command inside a given Linux distribution, just give
+    <b>proot</b> the path to the guest rootfs followed by the desired command.
+    The example below executes the program <b>cat</b> to print the content of a
+    file:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -r /mnt/slackware-8.0/ cat /etc/motd
+Welcome to Slackware Linux 8.0
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The default command is <b>/bin/sh</b> when none is specified. Thus
+    the shortest way to confine an interactive shell and all its sub-programs
+    is:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -r /mnt/slackware-8.0/
+$ cat /etc/motd
+Welcome to Slackware Linux 8.0
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>mount</b> <b>--bind</b> equivalent</h2>
+<p class="Pp">The bind mechanism enables one to relocate files and directories.
+    This is typically useful to trick programs that perform access to hard-coded
+    locations, like some installation scripts:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -b /tmp/alternate_opt:/opt
+$ cd to/sources
+$ make install
+[...]
+install -m 755 prog &quot;/opt/bin&quot;
+[...] # prog is installed in &quot;/tmp/alternate_opt/bin&quot; actually
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">As shown in this example, it is possible to bind over files not
+    even owned by the user. This can be used to <i>overlay</i> system
+    configuration files, for instance the DNS setting:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>ls -l /etc/hosts
+-rw-r--r-- 1 root root 675 Mar  4  2011 /etc/hosts
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -b ~/alternate_hosts:/etc/hosts
+$ echo '1.2.3.4 google.com' &gt; /etc/hosts
+$ resolveip google.com
+IP address of google.com is 1.2.3.4
+$ echo '5.6.7.8 google.com' &gt; /etc/hosts
+$ resolveip google.com
+IP address of google.com is 5.6.7.8
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Another example: on most Linux distributions <b>/bin/sh</b> is a
+    symbolic link to <b>/bin/bash</b>, whereas it points to <b>/bin/dash</b> on
+    Debian and Ubuntu. As a consequence a <b>#!/bin/sh</b> script tested with
+    Bash might not work with Dash. In this case, the binding mechanism of PRoot
+    can be used to set non-disruptively <b>/bin/bash</b> as the default
+    <b>/bin/sh</b> on these two Linux distributions:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -b /bin/bash:/bin/sh [...]
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Because <b>/bin/sh</b> is initially a symbolic link to
+    <b>/bin/dash</b>, the content of <b>/bin/bash</b> is actually bound over
+    this latter:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -b /bin/bash:/bin/sh
+$ md5sum /bin/sh
+089ed56cd74e63f461bef0fdfc2d159a  /bin/sh
+$ md5sum /bin/bash
+089ed56cd74e63f461bef0fdfc2d159a  /bin/bash
+$ md5sum /bin/dash
+089ed56cd74e63f461bef0fdfc2d159a  /bin/dash
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">In most cases this shouldn't be a problem, but it is still
+    possible to strictly bind <b>/bin/bash</b> over <b>/bin/sh</b> -- without
+    dereferencing it -- by specifying the <b>!</b> character at the end:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -b '/bin/bash:/bin/sh!'
+$ md5sum /bin/sh
+089ed56cd74e63f461bef0fdfc2d159a  /bin/sh
+$ md5sum /bin/bash
+089ed56cd74e63f461bef0fdfc2d159a  /bin/bash
+$ md5sum /bin/dash
+c229085928dc19e8d9bd29fe88268504  /bin/dash
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>chroot</b> + <b>mount</b> <b>--bind</b> equivalent</h2>
+<p class="Pp">The two features above can be combined to make any file from the
+    host rootfs accessible in the confined environment just as if it were
+    initially part of the guest rootfs. It is sometimes required to run programs
+    that rely on some specific files:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -r /mnt/slackware-8.0/
+$ ps -o tty,command
+Error, do this: mount -t proc none /proc
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">works better with:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -r /mnt/slackware-8.0/ -b /proc
+$ ps -o tty,command
+TT       COMMAND
+?        -bash
+?        proot -b /proc /mnt/slackware-8.0/
+?        -
+?        ps -o tty,command
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Actually there's a bunch of such specific files, that's why PRoot
+    provides the option <b>-R</b> to bind automatically a pre-defined list of
+    recommended paths:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -R /mnt/slackware-8.0/
+$ ps -o tty,command
+TT       COMMAND
+pts/6    -bash
+pts/6    proot -R /mnt/slackware-8.0/
+pts/6    -
+pts/6    ps -o tty,command
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>chroot</b> + <b>mount</b> <b>--bind</b> + <b>su</b>
+  equivalent</h2>
+<p class="Pp">Some programs will not work correctly if they are not run by the
+    &quot;root&quot; user, this is typically the case with package managers.
+    PRoot can fake the root identity and its privileges when the <b>-0</b>
+    (zero) option is specified:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -r /mnt/slackware-8.0/ -0
+# id
+uid=0(root) gid=0(root) [...]
+# mkdir /tmp/foo
+# chmod a-rwx /tmp/foo
+# echo 'I bypass file-system permissions.' &gt; /tmp/foo/bar
+# cat /tmp/foo/bar
+I bypass file-system permissions.
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">This option is typically required to create or install packages
+    into the guest rootfs. Note it is <i>not</i> recommended to use the
+    <b>-R</b> option when installing packages since they may try to update bound
+    system files, like <b>/etc/group</b>. Instead, it is recommended to use the
+    <b>-S</b> option. This latter enables the <b>-0</b> option and binds only
+    paths that are known to not be updated by packages:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -S /mnt/slackware-8.0/
+# installpkg perl.tgz
+Installing package perl...
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss"><b>chroot</b> + <b>mount</b> <b>--bind</b> + <b>binfmt_misc</b>
+  equivalent</h2>
+<p class="Pp">PRoot uses QEMU user-mode to execute programs built for a CPU
+    architecture incompatible with the host one. From users' point-of-view,
+    guest programs handled by QEMU user-mode are executed transparently, that
+    is, just like host programs. To enable this feature users just have to
+    specify which instance of QEMU user-mode they want to use with the option
+    <b>-q</b>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -R /mnt/armslack-12.2/ -q qemu-arm
+$ cat /etc/motd
+Welcome to ARMedSlack Linux 12.2
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The parameter of the <b>-q</b> option is actually a whole QEMU
+    user-mode command, for instance to enable its GDB server on port 1234:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -R /mnt/armslack-12.2/ -q &quot;qemu-arm -g 1234&quot; emacs
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">PRoot allows one to mix transparently the emulated execution of
+    guest programs and the native execution of host programs in the same
+    file-system namespace. It's typically useful to extend the list of available
+    programs and to speed up build-time significantly. This mixed-execution
+    feature is enabled by default when using QEMU user-mode, and the content of
+    the host rootfs is made accessible through <b>/host-rootfs</b>:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -R /mnt/armslack-12.2/ -q qemu-arm
+$ file /bin/echo
+[...] ELF 32-bit LSB executable, ARM [...]
+$ /bin/echo 'Hello world!'
+Hello world!
+$ file /host-rootfs/bin/echo
+[...] ELF 64-bit LSB executable, x86-64 [...]
+$ /host-rootfs/bin/echo 'Hello mixed world!'
+Hello mixed world!
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Since both host and guest programs use the guest rootfs as
+    <b>/</b>, users may want to deactivate explicitly cross-filesystem support
+    found in most GNU cross-compilation tools. For example with GCC configured
+    to cross-compile to the ARM target:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -R /mnt/armslack-12.2/ -q qemu-arm
+$ export CC=/host-rootfs/opt/cross-tools/arm-linux/bin/gcc
+$ export CFLAGS=&quot;--sysroot=/&quot;   # could be optional indeed
+$ ./configure; make
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">As with regular files, a host instance of a program can be bound
+    over its guest instance. Here is an example where the guest binary of
+    <b>make</b> is overlaid by the host one:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>proot -R /mnt/armslack-12.2/ -q qemu-arm -b /usr/bin/make
+$ which make
+/usr/bin/make
+$ make --version # overlaid
+GNU Make 3.82
+Built for x86_64-slackware-linux-gnu
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">It's worth mentioning that even when mixing the native execution
+    of host programs and the emulated execution of guest programs, they still
+    believe they are running in a native guest environment. As a demonstration,
+    here is a partial output of a typical <b>./configure</b> script:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>checking whether the C compiler is a cross-compiler... no
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DOWNLOADS"><a class="permalink" href="#DOWNLOADS">DOWNLOADS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="PRoot"><a class="permalink" href="#PRoot">PRoot</a></h2>
+<p class="Pp">The latest release of PRoot is packaged on
+    <i>http://packages.proot.me</i> and sources are hosted on
+    <i>http://github.proot.me</i>. It is also available as highly compatible
+    static binaries:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>for x86_64: <i>http://static.proot.me/proot-x86_64</i></li>
+  <li>for x86: <i>http://static.proot.me/proot-x86</i></li>
+  <li>for ARM: <i>http://static.proot.me/proot-arm</i></li>
+  <li>other architectures: on demand.</li>
+</ul>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Rootfs"><a class="permalink" href="#Rootfs">Rootfs</a></h2>
+<p class="Pp">Here follows a couple of URLs where some rootfs archives can be
+    freely downloaded. Note that <b>mknod</b> errors reported by <b>tar</b> when
+    extracting these archives can be safely ignored since special files are
+    typically bound (see <b>-R</b> option for details).</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><i>http://download.openvz.org/template/precreated/</i></li>
+  <li><i>https://images.linuxcontainers.org/images/</i></li>
+  <li><i>http://distfiles.gentoo.org/releases/</i></li>
+  <li><i>http://cdimage.ubuntu.com/ubuntu-core/releases/</i></li>
+  <li><i>http://archlinuxarm.org/developers/downloads</i></li>
+</ul>
+</div>
+<br/>
+<p class="Pp">Technically such rootfs archive can be created by running the
+    following command on the expected Linux distribution:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>tar --one-file-system --create --gzip --file my_rootfs.tar.gz /
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="QEMU_user"><a class="permalink" href="#QEMU_user">QEMU
+  user-mode</a></h2>
+<p class="Pp">QEMU user-mode is required only if the guest rootfs was made for a
+    CPU architecture incompatible with the host one, for instance when using a
+    ARM rootfs on a x86_64 computer. This package can be installed either from
+    <i>http://qemu.proot.me</i> or from the host package manager under the name
+    of &quot;qemu-user&quot; on most Linux distro. In case one would like to
+    build QEMU user-mode from sources, the <b>--enable-linux-user</b> option has
+    to be specified to the <b>./configure</b> script.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">chroot(1), mount(8), binfmt_misc, ptrace(2), qemu(1), sb2(1),
+    bindfs(1), fakeroot(1), fakechroot(1)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COLOPHON"><a class="permalink" href="#COLOPHON">COLOPHON</a></h1>
+<p class="Pp">Visit <i>http://proot.me</i> for help, bug reports, suggestions,
+    patches, ... Copyright (C) 2014 STMicroelectronics, licensed under GPL v2 or
+    later.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>
+<br/>
+ _____ _____              ___
+|  __ \  __ \_____  _____|   |_
+|   __/     /  _  \/  _  \    _|
+|__|  |__|__\_____/\_____/\____|
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2014-12-12</td>
+    <td class="foot-os">5.1.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: proot 5.1.0-1.3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

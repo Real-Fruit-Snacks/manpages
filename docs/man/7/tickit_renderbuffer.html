@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="store display content to be drawn to the terminal">
+<title>tickit_renderbuffer(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">tickit_renderbuffer(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#VIRTUAL_CURSOR">VIRTUAL
+  CURSOR</a></li><li><a href="#PEN">PEN</a></li><li><a href="#TRANSLATION">TRANSLATION</a></li><li><a href="#CLIPPING_AND_MASKING">CLIPPING
+  AND MASKING</a></li><li><a href="#SAVE_STACK">SAVE
+  STACK</a></li><li><a href="#FUNCTIONS">FUNCTIONS</a></li><li><a href="#DRAWING_OPERATIONS">DRAWING
+  OPERATIONS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">TICKIT_RENDERBUFFER(7)</td>
+    <td class="head-vol">Miscellaneous Information Manual</td>
+    <td class="head-rtitle">TICKIT_RENDERBUFFER(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">TickitRenderBuffer - store display content to be drawn to the
+    terminal</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre><b>#include &lt;tickit.h&gt;</b>
+
+<b>typedef struct </b><i>TickitRenderBuffer</i><b>;</b>
+</pre>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">A <b>TickitRenderBuffer</b> instance stores content waiting to be
+    drawn to the terminal. It provides an efficient place to build the eventual
+    display, by applying drawing operations to it that can alter and overwrite
+    the pending content, before eventually flushing it directly to the terminal
+    in an efficient transfer of state. The buffer stores plain text content
+    along with rendering attributes, and also stores line drawing information,
+    allowing line segments to be merged correctly and rendered using Unicode
+    characters.</p>
+<p class="Pp">The primary purpose for the render buffer is the storage of
+    pending content to be displayed. The buffer consists of a grid of cells of
+    the given size. Each cell has a state; neighbouring cells in the same state
+    constitute a region. Each region is either in a skip state (where it will
+    not affect the terminal display when it is flushed), or has either textual
+    content or an instruction to erase the display. In both of these cases, the
+    region has an associated <b>TickitPen</b> instance to give its display
+    attributes. Text regions can be given either by <small>UTF-8</small>
+    strings, individual Unicode codepoint numbers, or are created as Unicode
+    line-drawing characters by merging one or more effective line segments.</p>
+<p class="Pp">There are several advantages to using a <b>TickitRenderBuffer</b>
+    over plain drawing requests directly to the terminal. Firstly, because the
+    content is simply stored in memory until it is flushed to the terminal, it
+    doesn't have to be rendered in screen order. It can be built up in any order
+    that makes sense within the application, and when flushed to the terminal it
+    will be performed in an efficient top-to-bottom, left-to-right order.</p>
+<p class="Pp">Secondly, the buffer understands horizontal and vertical line
+    drawing using Unicode characters. While content is being built up, it will
+    keep track of what kinds of lines meet in every cell in the buffer, so that
+    when it is flushed to the terminal it can pick the appropriate Unicode
+    line-drawing characters to render these with.</p>
+<p class="Pp">Thirdly, several features of the buffer are designed to easily
+    support applications that divide the screen area into several
+    possibly-overlapping regions that are managed by different parts of the
+    application. Clipping, translation and masking support the concept of
+    independent areas of the buffer, and stored pens and the state stack support
+    the concept that these areas might be nested within each other, allowing
+    rendering attributes to be inherited from outer regions into inner ones.</p>
+<section class="Ss">
+<h2 class="Ss" id="VIRTUAL_CURSOR"><a class="permalink" href="#VIRTUAL_CURSOR">VIRTUAL
+  CURSOR</a></h2>
+<p class="Pp">A <b>TickitRenderBuffer</b> instance maintains a virtual cursor
+    position, that application code can use to render at. This is a virtual
+    cursor, because it doesn't relate to the actual cursor in use on the
+    terminal instance; it is simply a position stored by the buffer state.</p>
+<p class="Pp">Most of the content drawing functions come in pairs; one using and
+    updating the cursor position, and a second that operates directly on the
+    buffer contents, without regard to the virtual cursor. Functions of this
+    latter form can be identified by the <b>_at</b> suffix on their name.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="PEN"><a class="permalink" href="#PEN">PEN</a></h2>
+<p class="Pp">A <b>TickitPen</b> instance can be set on a
+    <b>TickitRenderBuffer</b>, acting as a default pen for subsequent drawing
+    functions. This is optionally combined with a pen instance given to
+    individual drawing functions; if both are present then the attributes are
+    combined, with those of the given pen taking precedence over the ones in the
+    stored pen.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="TRANSLATION"><a class="permalink" href="#TRANSLATION">TRANSLATION</a></h2>
+<p class="Pp">A translation offset can be applied to have the drawing functions
+    store their output at some other location within the buffer. This
+    translation only affects the drawing functions; the actual operation to
+    flush the contents to the terminal is not affected.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="CLIPPING_AND_MASKING"><a class="permalink" href="#CLIPPING_AND_MASKING">CLIPPING
+  AND MASKING</a></h2>
+<p class="Pp">All of the drawing functions are also subject to restriction of
+    their output, to apply within a clipping region. Initially the entire buffer
+    is available for drawing, but the area can be restricted to a smaller
+    rectangular area at any time. Requests to draw content outside of this
+    region will be ignored.</p>
+<p class="Pp">In addition to clipping, a buffer can also mask out arbitrary
+    additional rectangular areas within the clipping region. These areas act
+    with the clipping region by ignoring requests to draw inside them while
+    preserving any existing content within them.</p>
+<p class="Pp">Masking and clipping are related but separate concepts. Both place
+    restrictions on where output functions can alter the pending content.
+    Whereas the clipping region is the rectangular area within which all drawing
+    occurs, masking regions are areas in which drawing does <i>not</i>
+  occur.</p>
+<p class="Pp">When combined with translation, these two features allow
+    possibly-overlapping regions of content to be independently managed by
+    separate pieces of code. To render each region of the screen, a render
+    buffer can be set up with a translation offset and clipping rectangle to
+    suit that region, thus avoiding the rendering code having to care about the
+    exact on-screen geometry. By using masking regions, additionally these areas
+    can be managed even when they overlap, by ensuring that areas already drawn
+    by &quot;higher&quot; regions are masked off to ensure that
+    &quot;lower&quot; regions do not overwrite them.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="SAVE_STACK"><a class="permalink" href="#SAVE_STACK">SAVE
+  STACK</a></h2>
+<p class="Pp">As a further assistance to applications wishing to divide the
+    screen area into nested regions, a set of functions exist to store the
+    current auxiliary state of the buffer (that is, all of the mutable
+    attributes listed above, but without the actual pending content) and later
+    restore that state to its original values.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FUNCTIONS"><a class="permalink" href="#FUNCTIONS">FUNCTIONS</a></h1>
+<p class="Pp">A new <b>TickitRenderBuffer</b> instance is created using
+    <b>tickit_renderbuffer_new</b>(3). A render buffer instance stores a
+    reference count to make it easier for applications to manage the lifetime of
+    buffers. A new buffer starts with a count of one, and it can be adjusted
+    using <b>tickit_renderbuffer_ref</b>(3) and
+    <b>tickit_renderbuffer_unref</b>(3). When the count reaches zero the
+    instance is destroyed.</p>
+<p class="Pp">Its size is fixed after creation and can be queried using
+    <b>tickit_renderbuffer_get_size</b>(3). Its contents can be entirely reset
+    back to its original state using <b>tickit_renderbuffer_reset</b>(3).</p>
+<p class="Pp">A translation offset can be set using
+    <b>tickit_renderbuffer_translate</b>(3), and the clipping region restricted
+    using <b>tickit_renderbuffer_clip</b>(3). Masks can be placed within the
+    current clipping region using <b>tickit_renderbuffer_mask</b>(3).</p>
+<p class="Pp">The virtual cursor position can be set using
+    <b>tickit_renderbuffer_goto</b>(3) and unset using
+    <b>tickit_renderbuffer_ungoto</b>(3). It can be queried using
+    <b>tickit_renderbuffer_has_cursorpos</b>(3) to determine if it is set, and
+    <b>tickit_renderbuffer_get_cursorpos</b>(3) to return its position. A
+    <b>TickitPen</b> instance can be set using
+    <b>tickit_renderbuffer_setpen</b>(3).</p>
+<p class="Pp">The auxiliary state can be saved to the state stack using
+    <b>tickit_renderbuffer_save</b>(3) and later restored using
+    <b>tickit_renderbuffer_restore</b>(3). A stack state consisting of just the
+    pen with no other state can be saved using
+    <b>tickit_renderbuffer_savepen</b>(3).</p>
+<p class="Pp">The stored content of a buffer can be copied to another buffer
+    using <b>tickit_renderbuffer_blit</b>(3). This is useful for allowing a
+    window to maintain a backing buffer that can be drawn to at any time and
+    then copied to a destination buffer for display.</p>
+<p class="Pp">The stored content can be flushed to a <b>TickitTerm</b> instance
+    using <b>tickit_renderbuffer_flush_to_term</b>(3).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DRAWING_OPERATIONS"><a class="permalink" href="#DRAWING_OPERATIONS">DRAWING
+  OPERATIONS</a></h1>
+<p class="Pp">The following functions all affect the stored content within the
+    buffer, taking into account the clipping, translation, masking, stored pen,
+    and optionally the virtual cursor position.</p>
+<p class="Pp"><b>tickit_renderbuffer_skip_at</b>(3),
+    <b>tickit_renderbuffer_skip</b>(3), <b>tickit_renderbuffer_skip_to</b>(3)
+    and <b>tickit_renderbuffer_skiprect</b>(3) create a skipping region; a place
+    where no output will be drawn.</p>
+<p class="Pp"><b>tickit_renderbuffer_text_at</b>(3) and
+    <b>tickit_renderbuffer_text</b>(3) create a text region; a place where
+    normal text is output.</p>
+<p class="Pp"><b>tickit_renderbuffer_erase_at</b>(3),
+    <b>tickit_renderbuffer_erase</b>(3) and
+    <b>tickit_renderbuffer_erase_to</b>(3) create an erase region; a place where
+    existing terminal content will be erased.
+    <b>tickit_renderbuffer_eraserect</b>(3) is a convenient shortcut that erases
+    a rectangle, and <b>tickit_renderbuffer_clear</b>(3) erases the entire
+    buffer area.</p>
+<p class="Pp"><b>tickit_renderbuffer_char_at</b>(3) and
+    <b>tickit_renderbuffer_char</b>(3) place a single Unicode character
+    directly.</p>
+<p class="Pp"><b>tickit_renderbuffer_hline_at</b>(3) and
+    <b>tickit_renderbuffer_vline_at</b>(3) create horizontal and vertical line
+    segments.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../7/tickit.html"><b>tickit</b>(7)</a>, <a class="Xr" href="../7/tickit_pen.html"><b>tickit_pen</b>(7)</a>, <a class="Xr" href="../7/tickit_rect.html"><b>tickit_rect</b>(7)</a>
+    <a class="Xr" href="../7/tickit_term.html"><b>tickit_term</b>(7)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: libtickit-dev 0.4.3-1.1build1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

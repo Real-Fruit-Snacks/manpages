@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Xen PV Channels">
+<title>xen-pv-channel(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">xen-pv-channel(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#How_to_use_channels:_an_example">How
+  to use channels: an example</a></li><li><a href="#Design_recommendations_and_pitfalls">Design
+  recommendations and pitfalls</a></li><li><a href="#Limitations">Limitations</a></li><li><a href="#Channel_name_registry">Channel
+  name registry</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">xen-pv-channel(7)</td>
+    <td class="head-vol">Xen</td>
+    <td class="head-rtitle">xen-pv-channel(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">xen-pv-channel - Xen PV Channels</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">A channel is a low-bandwidth private byte stream similar to a
+    serial link. Typical uses of channels are</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>to provide initial configuration information to a VM on boot (example use:
+      CloudStack's cloud-early-config service)</dd>
+  <dt>2.</dt>
+  <dd>to signal/query an in-guest agent (example use: oVirt's guest agent)</dd>
+</dl>
+<p class="Pp">Channels are similar to virtio-serial devices and emulated serial
+    links. Channels are intended to be used in the implementation of libvirt s
+    when running on Xen.</p>
+<p class="Pp">Note: if an application requires a high-bandwidth link then it
+    should use vchan instead.</p>
+<section class="Ss">
+<h2 class="Ss" id="How_to_use_channels:_an_example"><a class="permalink" href="#How_to_use_channels:_an_example">How
+  to use channels: an example</a></h2>
+<p class="Pp">Consider a cloud deployment where VMs are cloned from pre-made
+    templates, and customised on first boot by an in-guest agent which sets the
+    IP address, hostname, ssh keys etc. To install the system the cloud
+    administrator would first:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>Install a guest as normal (no channel configuration necessary)</dd>
+  <dt>2.</dt>
+  <dd>Install the in-guest agent specific to the cloud software. This will
+      prepare the guest to communicate over the channel, and also prepare the
+      guest to be cloned safely (sometimes known as
+    &quot;sysprepping&quot;)</dd>
+  <dt>3.</dt>
+  <dd>Shutdown the guest</dd>
+  <dt>4.</dt>
+  <dd>Register the guest as a template with the cloud orchestration
+    software</dd>
+  <dt>5.</dt>
+  <dd>Install the cloud orchestration agent in dom0</dd>
+</dl>
+<p class="Pp">At runtime, when a cloud tenant requests that a VM is created from
+    the template, the sequence of events would be: (assuming a Linux domU)</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>A VM is &quot;cloned&quot; from the template</dd>
+  <dt>2.</dt>
+  <dd>A unique Unix domain socket path in dom0 is allocated (e.g.
+      /my/cloud/software/talk/to/domain/)</dd>
+  <dt>3.</dt>
+  <dd>Domain configuration is created for the VM, listing the channel name
+      expected by the in-guest agent. In xl syntax this would be:
+    <p class="Pp">channel = [ &quot;connection=socket,
+        name=org.my.cloud.software.agent.version1, path =
+        /my/cloud/software/talk/to/domain/&quot; ]</p>
+  </dd>
+  <dt>4.</dt>
+  <dd>The VM is started</dd>
+  <dt>5.</dt>
+  <dd>In dom0 the cloud orchestration agent connects to the Unix domain socket,
+      writes a handshake message and waits for a reply</dd>
+  <dt>6.</dt>
+  <dd>Assuming the guest kernel has CONFIG_HVC_XEN_FRONTEND set then the console
+      driver will generate a hotplug event</dd>
+  <dt>7.</dt>
+  <dd>A udev rule is activated by the hotplug event.
+    <p class="Pp">The udev rule would look something like:</p>
+    <p class="Pp">SUBSYSTEM==&quot;xen&quot;,
+        DEVPATH==&quot;/devices/console-[0-9]&quot;,
+        RUN+=&quot;xen-console-setup&quot;</p>
+    <p class="Pp">where the &quot;xen-console-setup&quot; script would read the
+        channel name and make a symlink in
+        /dev/xen-channel/org.my.cloud.software.agent.version1 pointing to
+        /dev/hvcN. N is the same number as the number in
+        &quot;/devices/console-[0-9]&quot;. In other words,
+        &quot;/devices/console-2&quot; maps to /dev/hvc2.</p>
+  </dd>
+  <dt>8.</dt>
+  <dd>The in-guest agent uses inotify to see the creation of the
+      /dev/xen-channel symlink and opens the device.</dd>
+  <dt>9.</dt>
+  <dd>The in-guest agent completes the handshake with the dom0 agent</dd>
+  <dt>10.</dt>
+  <dd>The dom0 agent transmits the unique VM configuration: hostname, IP
+      address, ssh keys etc etc</dd>
+  <dt>11.</dt>
+  <dd>The in-guest agent receives the configuration and applies it.</dd>
+</dl>
+<p class="Pp">Using channels avoids having to use a temporary disk device or
+    network connection.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Design_recommendations_and_pitfalls"><a class="permalink" href="#Design_recommendations_and_pitfalls">Design
+  recommendations and pitfalls</a></h2>
+<p class="Pp">It's necessary to install channel-specific software (an
+    &quot;agent&quot;) into the guest before you can use a channel. By default a
+    channel will appear as a device which could be mistaken for a serial port or
+    regular console. It is known that some software will proactively seek out
+    serial ports and issue AT commands at them; make sure such software is
+    disabled!</p>
+<p class="Pp">Since channels are identified by names, application authors must
+    ensure their channel names are unique to avoid clashes. We recommend that
+    channel names include parts unique to the application such as a domain
+    names. To assist prevent clashes we recommend authors add their names to our
+    global channel registry at the end of this document.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Limitations"><a class="permalink" href="#Limitations">Limitations</a></h2>
+<p class="Pp">Hotplug and unplug of channels is not currently implemented.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Channel_name_registry"><a class="permalink" href="#Channel_name_registry">Channel
+  name registry</a></h2>
+<p class="Pp">It is important that channel names are globally unique. To help
+    ensure that no-one's name clashes with yours, please add yours to this
+  list.</p>
+<p class="Pp"></p>
+<pre>    Key:
+    N: Name
+    C: Contact
+    D: Short description of use, possibly including a URL to your software or API
+    N: org.xenproject.guest.clipboard.0.1
+    C: David Scott &lt;dave.scott@citrix.com&gt;
+    D: Share clipboard data via an in-guest agent. See:
+       https://wiki.xenproject.org/wiki/Clipboard_sharing_protocol
+</pre>
+</section>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-04-01</td>
+    <td class="foot-os">4.17.4-pre</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: xen-utils-common 4.17.3+10-g091466ba55-1.1ubuntu3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

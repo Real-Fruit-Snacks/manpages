@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Xen virtual TPM stubdomain">
+<title>xen-vtpmmgr(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">xen-vtpmmgr(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#Authors">Authors</a></li><li><a href="#Overview">Overview</a></li><li><a href="#Boot_Configurations_and_TPM_Groups">Boot
+  Configurations and TPM Groups</a></li><li><a href="#Initial_Provisioning">Initial
+  Provisioning</a></li><li><a href="#Command_Line_Arguments">Command
+  Line Arguments</a></li><li><a href="#Platform_Security_Assumptions">Platform
+  Security Assumptions</a></li><li><a href="#Appendix:_unsecured_migration_process_for_vtpmmgr_domain_upgrade">Appendix:
+  unsecured migration process for vtpmmgr domain upgrade</a></li><li><a href="#Appendix_B:_vtpmmgr_on_TPM_2.0">Appendix
+  B: vtpmmgr on TPM 2.0</a></li><li><a href="#WARNING:_Incomplete_">WARNING:
+  Incomplete - cannot persist data</a></li><li><a href="#Manager_disk_image_setup:">Manager
+  disk image setup:</a></li><li><a href="#Manager_config_file:">Manager
+  config file:</a></li><li><a href="#Key_Hierarchy">Key
+  Hierarchy</a></li><li><a href="#Design_Overview">Design
+  Overview</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">xen-vtpmmgr(7)</td>
+    <td class="head-vol">Xen</td>
+    <td class="head-rtitle">xen-vtpmmgr(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">xen-vtpmgr - Xen virtual TPM stubdomain</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Authors"><a class="permalink" href="#Authors">Authors</a></h1>
+<dl class="Bl-tag">
+  <dt id="Daniel"><a class="permalink" href="#Daniel">Daniel De Graaf
+    &lt;dgdegra@tycho.nsa.gov&gt;</a></dt>
+  <dd></dd>
+  <dt id="Quan"><a class="permalink" href="#Quan">Quan Xu
+    &lt;quan.xu@intel.com&gt;</a></dt>
+  <dd></dd>
+</dl>
+<p class="Pp">This document describes the operation and command line interface
+    of vtpmmgr-stubdom. See <a class="Xr" href="../7/xen-vtpm.html"><b>xen-vtpm</b>(7)</a> for details on the vTPM subsystem
+    as a whole.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Overview"><a class="permalink" href="#Overview">Overview</a></h1>
+<p class="Pp">The TPM Manager has three primary functions:</p>
+<dl class="Bl-tag">
+  <dt>1. Securely store the encryption keys for vTPMs</dt>
+  <dd></dd>
+  <dt>2. Provide a single controlled path of access to the physical TPM</dt>
+  <dd></dd>
+  <dt>3. Provide evidence (via TPM Quotes) of the current configuration</dt>
+  <dd></dd>
+</dl>
+<p class="Pp">When combined with a platform that provides a trusted method for
+    creating domains, the TPM Manager provides assurance that the private keys
+    in a vTPM are only available in specific trusted configurations.</p>
+<p class="Pp">The manager accepts commands from the vtpm-stubdom domains via the
+    mini-os TPM backend driver. The vTPM manager communicates directly with
+    hardware TPM using the mini-os tpm_tis driver.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Boot_Configurations_and_TPM_Groups"><a class="permalink" href="#Boot_Configurations_and_TPM_Groups">Boot
+  Configurations and TPM Groups</a></h1>
+<p class="Pp">The TPM Manager's data is secured by using the physical TPM's seal
+    operation, which allows data to be bound to specific PCRs. These PCRs are
+    populated in the physical TPM during the boot process, either by the
+    firmware/BIOS or by a dynamic launch environment such as TBOOT. In order to
+    provide assurance of the system's security, the PCRs used to seal the TPM
+    manager's data must contain measurements for domains used to bootstrap the
+    TPM Manager and vTPMs.</p>
+<p class="Pp">Because these measurements are based on hashes, they will change
+    any time that any component of the system is upgraded. Since it is not
+    possible to construct a list of all possible future good measurements, the
+    job of approving configurations is delegated to a third party, referred to
+    here as the system approval agent (SAA). The SAA is identified by its public
+    (RSA) signature key, which is used to sign lists of valid configurations. A
+    single TPM manager can support multiple SAAs via the use of vTPM groups.
+    Each group is associated with a single SAA; this allows the creation of a
+    multi-tenant environment where tenants may not all choose to trust the same
+    SAA.</p>
+<p class="Pp">Each vTPM is bound to a vTPM group at the time of its creation.
+    Each vTPM group has its own AIK in the physical TPM for quotes of the
+    hardware TPM state; when used with a conforming Privacy CA, this allows each
+    group on the system to form the basis of a distinct identity.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Initial_Provisioning"><a class="permalink" href="#Initial_Provisioning">Initial
+  Provisioning</a></h1>
+<p class="Pp">When the TPM Manager first boots up, it will create a stub vTPM
+    group along with entries for any vTPMs that communicate with it. This stub
+    group must be provisioned with an SAA and a boot configuration in order to
+    survive a reboot.</p>
+<p class="Pp">When a vTPM is connected to the TPM Manager using a UUID that is
+    not recognized, a slot will be created in group 0 for it. In the future,
+    this auto-creation may be restricted to specific UUIDs (such as the all-zero
+    UUID) to enforce the use of the TPM manager as the generator of the UUID.
+    The first vTPM to be connected is given administrative privileges for the
+    TPM Manager, and should be attached to dom0 or a control domain in order to
+    send provisioning commands.</p>
+<p class="Pp">Provisioning a vTPM group for the system requires the public key
+    of the SAA and privacy CA data used to certify the AIK (see the TPM spec for
+    details). Once the group is created, a signed list of boot measurements can
+    be installed. The initial group controls the ability to boot the system as a
+    whole, and cannot be deleted once provisioned.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Command_Line_Arguments"><a class="permalink" href="#Command_Line_Arguments">Command
+  Line Arguments</a></h1>
+<p class="Pp">Command line arguments are passed to the domain via the 'extra'
+    parameter in the VM config file. Each parameter is separated by white space.
+    For example:</p>
+<p class="Pp"></p>
+<pre>    extra=&quot;foo=bar baz&quot;
+</pre>
+<p class="Pp">Valid arguments:</p>
+<dl class="Bl-tag">
+  <dt id="srk_handle=_HANDLE_"><a class="permalink" href="#srk_handle=_HANDLE_">srk_handle=&lt;HANDLE&gt;</a></dt>
+  <dd>Specify a srk_handle for TPM 2.0. TPM 2.0 uses a key hierarchy, and this
+      allow specifying the parent handle for vtpmmgr to create its own key
+      under. Using this option bypasses vtpmmgr trying to take ownership of the
+      TPM.</dd>
+  <dt id="owner_auth=_AUTHSPEC_"><a class="permalink" href="#owner_auth=_AUTHSPEC_">owner_auth=&lt;AUTHSPEC&gt;</a></dt>
+  <dd></dd>
+  <dt id="srk_auth=_AUTHSPEC_"><a class="permalink" href="#srk_auth=_AUTHSPEC_">srk_auth=&lt;AUTHSPEC&gt;</a></dt>
+  <dd>Set the owner and SRK authdata for the TPM. If not specified, the default
+      is 160 zero bits (the well-known auth value). Valid values of
+      &lt;AUTHSPEC&gt; are:</dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="well-known"><a class="permalink" href="#well-known">well-known</a></dt>
+  <dd>Use the well known auth (default)</dd>
+  <dt id="hash:_HASH_"><a class="permalink" href="#hash:_HASH_">hash:&lt;HASH&gt;</a></dt>
+  <dd>Use the given 40-character ASCII hex string</dd>
+  <dt id="text:_STR_"><a class="permalink" href="#text:_STR_">text:&lt;STR&gt;</a></dt>
+  <dd>Use sha1 hash of &lt;STR&gt;.</dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="tpmdriver=_DRIVER_"><a class="permalink" href="#tpmdriver=_DRIVER_">tpmdriver=&lt;DRIVER&gt;</a></dt>
+  <dd>Choose the driver used for communication with the hardware TPM. Values
+      other than tpm_tis should only be used for testing.
+    <p class="Pp">The possible values of &lt;DRIVER&gt; are:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="tpm_tis"><a class="permalink" href="#tpm_tis">tpm_tis</a></dt>
+  <dd>Direct communication with a hardware TPM 1.2. The domain must have access
+      to TPM IO memory. (default)</dd>
+  <dt id="tpmfront"><a class="permalink" href="#tpmfront">tpmfront</a></dt>
+  <dd>Use the Xen tpmfront interface to talk to another domain which provides
+      access to the TPM.</dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<p class="Pp">The following options only apply to the tpm_tis driver:</p>
+<dl class="Bl-tag">
+  <dt id="tpmiomem=_ADDR_"><a class="permalink" href="#tpmiomem=_ADDR_">tpmiomem=&lt;ADDR&gt;</a></dt>
+  <dd>The base address of the hardware memory pages of the TPM. The default is
+      0xfed40000, as defined by the TCG's PC Client spec.</dd>
+  <dt id="tpmirq=_IRQ_"><a class="permalink" href="#tpmirq=_IRQ_">tpmirq=&lt;IRQ&gt;</a></dt>
+  <dd>The irq of the hardware TPM if using interrupts. A value of
+      &quot;probe&quot; can be set to probe for the irq. A value of 0 disables
+      interrupts and uses polling (default 0).</dd>
+  <dt id="tpmlocality=_LOC_"><a class="permalink" href="#tpmlocality=_LOC_">tpmlocality=&lt;LOC&gt;</a></dt>
+  <dd>Attempt to use locality &lt;LOC&gt; of the hardware TPM. For full
+      functionality of the TPM Manager, this should be set to
+    &quot;2&quot;.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Platform_Security_Assumptions"><a class="permalink" href="#Platform_Security_Assumptions">Platform
+  Security Assumptions</a></h1>
+<p class="Pp">While the TPM Manager has the ability to check the hash of the
+    vTPM requesting a key, there is currently no trusted method to inform the
+    TPM Manager of the hash of each new domain. Because of this, the TPM Manager
+    trusts the UUID key in Xenstore to identify a vTPM in a trusted manner. The
+    XSM policy may be used to strengthen this assumption if the creation of
+    vTPM-labeled domains is more constrained (for example, only permitted to a
+    domain builder service): the only grants mapped by the TPM Manager should
+    belong to vTPM domains, so restricting the ability to map other domain's
+    granted pages will prevent other domains from directly requesting keys from
+    the TPM Manager. The TPM Manager uses the hash of the XSM label of the
+    attached vTPM as the kernel hash, so vTPMs with distinct labels may be
+    further partitioned using vTPM groups.</p>
+<p class="Pp">A domain with direct access to the hardware TPM will be able to
+    decrypt the TPM Manager's disk image if the haredware TPM's PCR values are
+    in a permitted configuration. To protect the TPM Manager's data, the list of
+    permitted configurations should be chosen to include PCRs that measure the
+    hypervisor, domain 0, the TPM Manager, and other critical configuration such
+    as the XSM policy. If the TPM Manager is configured to use locality 2 as
+    recommended, it is safe to permit the hardware domain to access locality 0
+    (the default in Linux), although concurrent use of the TPM should be avoided
+    as it can result in unexpected busy errors from the TPM driver. The ability
+    to access locality 2 of the TPM should be enforced using IO memory labeling
+    in the XSM policy; the physical address 0xFED42xxx is always locality 2 for
+    TPMs using the TIS driver.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Appendix:_unsecured_migration_process_for_vtpmmgr_domain_upgrade"><a class="permalink" href="#Appendix:_unsecured_migration_process_for_vtpmmgr_domain_upgrade">Appendix:
+  unsecured migration process for vtpmmgr domain upgrade</a></h1>
+<p class="Pp">There is no direct upgrade supported from previous versions of the
+    vtpmmgr domain due to changes in the on-disk format and the method used to
+    seal data. If a vTPM domain supports migration, this feature should be used
+    to migrate the vTPM's data; however, the vTPM packaged with Xen does not yet
+    support migration.</p>
+<p class="Pp">If adding migration support to the vTPM is not desired, a simpler
+    migration domain usable only for local migration can be constructed. The
+    migration process would look like the following:</p>
+<dl class="Bl-tag">
+  <dt>1. Start the old vtpmmgr</dt>
+  <dd></dd>
+  <dt>2. Start the vTPM migration domain</dt>
+  <dd></dd>
+  <dt>3. Attach the vTPM migration domain's vtpm/0 device to the old
+    vtpmmgr</dt>
+  <dd></dd>
+  <dt>4. Migration domain executes vtpmmgr_LoadHashKey on vtpm/0</dt>
+  <dd></dd>
+  <dt>5. Start the new vtpmmgr, possibly shutting down the old one first</dt>
+  <dd></dd>
+  <dt>6. Attach the vTPM migration domain's vtpm/1 device to the new
+    vtpmmgr</dt>
+  <dd></dd>
+  <dt>7. Migration domain executes vtpmmgr_SaveHashKey on vtpm/1</dt>
+  <dd></dd>
+</dl>
+<p class="Pp">This requires the migration domain to be added to the list of
+    valid vTPM kernel hashes. In the current version of the vtpmmgr domain, this
+    is the hash of the XSM label, not the kernel.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Appendix_B:_vtpmmgr_on_TPM_2.0"><a class="permalink" href="#Appendix_B:_vtpmmgr_on_TPM_2.0">Appendix
+  B: vtpmmgr on TPM 2.0</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="WARNING:_Incomplete_"><a class="permalink" href="#WARNING:_Incomplete_">WARNING:
+  Incomplete - cannot persist data</a></h2>
+<p class="Pp">TPM 2.0 support for vTPM manager is incomplete. There is no
+    support for persisting an encryption key, so vTPM manager regenerates
+    primary and secondary key handles each boot.</p>
+<p class="Pp">Also, the vTPM manger group command implementation hardcodes TPM
+    1.2 commands. This means running manage-vtpmmgr.pl fails when the TPM 2.0
+    hardware rejects the TPM 1.2 commands. vTPM manager with TPM 2.0 cannot
+    create groups and therefore cannot persist vTPM contents.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Manager_disk_image_setup:"><a class="permalink" href="#Manager_disk_image_setup:">Manager
+  disk image setup:</a></h2>
+<p class="Pp">The vTPM Manager requires a disk image to store its encrypted
+    data. The image does not require a filesystem and can live anywhere on the
+    host disk. The image is not large; the Xen 4.5 vtpmmgr is limited to using
+    the first 2MB of the image but can support more than 20,000 vTPMs.</p>
+<p class="Pp"></p>
+<pre>    dd if=/dev/zero of=/home/vtpm2/vmgr bs=16M count=1
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Manager_config_file:"><a class="permalink" href="#Manager_config_file:">Manager
+  config file:</a></h2>
+<p class="Pp">The vTPM Manager domain (vtpmmgr-stubdom) must be started like any
+    other Xen virtual machine and requires a config file. The manager requires a
+    disk image for storage and permission to access the hardware memory pages
+    for the TPM. The disk must be presented as &quot;hda&quot;, and the TPM
+    memory pages are passed using the iomem configuration parameter. The TPM TIS
+    uses 5 pages of IO memory (one per locality) that start at physical address
+    0xfed40000. By default, the TPM manager uses locality 0 (so only the page at
+    0xfed40 is needed).</p>
+<p class="Pp">Add:</p>
+<p class="Pp"></p>
+<pre>     extra=&quot;tpm2=1&quot;
+</pre>
+<p class="Pp">extra option to launch vtpmmgr-stubdom domain on TPM 2.0, and
+    ignore it on TPM 1.x. for example:</p>
+<p class="Pp"></p>
+<pre>    kernel=&quot;/usr/lib/xen/boot/vtpmmgr-stubdom.gz&quot;
+    memory=128
+    disk=[&quot;file:/home/vtpm2/vmgr,hda,w&quot;]
+    name=&quot;vtpmmgr&quot;
+    iomem=[&quot;fed40,5&quot;]
+    extra=&quot;tpm2=1&quot;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Key_Hierarchy"><a class="permalink" href="#Key_Hierarchy">Key
+  Hierarchy</a></h2>
+<pre>    +------------------+
+    |  vTPM's secrets  | ...
+    +------------------+
+            |  ^
+            |  |(Bind / Unbind)
+- - - - -  -v  |- - - - - - - - TPM 2.0
+    +------------------+
+    |        SK        +
+    +------------------+
+            |  ^
+            v  |
+    +------------------+
+    |       SRK        |
+    +------------------+
+            |  ^
+            v  |
+    +------------------+
+    | TPM 2.0 Storage  |
+    |   Primary Seed   |
+    +------------------+
+</pre>
+<p class="Pp">Now the secrets for the vTPMs are only being bound to the presence
+    of thephysical TPM 2.0. Since using PCRs to seal the data can be an
+    important security feature that users of the vtpmmgr rely on. I will replace
+    TPM2_Bind/TPM2_Unbind with TPM2_Seal/TPM2_Unseal to provide as much security
+    as it did for TPM 1.2 in later series of patch.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Design_Overview"><a class="permalink" href="#Design_Overview">Design
+  Overview</a></h2>
+<p class="Pp">The architecture of vTPM subsystem on TPM 2.0 is described
+  below:</p>
+<p class="Pp"></p>
+<pre>    +------------------+
+    |    Linux DomU    | ...
+    |       |  ^       |
+    |       v  |       |
+    |   xen-tpmfront   |
+    +------------------+
+            |  ^
+            v  |
+    +------------------+
+    | mini-os/tpmback  |
+    |       |  ^       |
+    |       v  |       |
+    |  vtpm-stubdom    | ...
+    |       |  ^       |
+    |       v  |       |
+    | mini-os/tpmfront |
+    +------------------+
+            |  ^
+            v  |
+    +------------------+
+    | mini-os/tpmback  |
+    |       |  ^       |
+    |       v  |       |
+    | vtpmmgr-stubdom  |
+    |       |  ^       |
+    |       v  |       |
+    | mini-os/tpm2_tis |
+    +------------------+
+            |  ^
+            v  |
+    +------------------+
+    | Hardware TPM 2.0 |
+    +------------------+
+</pre>
+<dl class="Bl-tag">
+  <dt id="Linux"><a class="permalink" href="#Linux">Linux DomU</a></dt>
+  <dd>The Linux based guest that wants to use a vTPM. There many be more than
+      one of these.</dd>
+  <dt id="xen"><a class="permalink" href="#xen">xen-tpmfront.ko</a></dt>
+  <dd>Linux kernel virtual TPM frontend driver. This driver provides vTPM access
+      to a para-virtualized Linux based DomU.</dd>
+  <dt id="mini"><a class="permalink" href="#mini">mini-os/tpmback</a></dt>
+  <dd>Mini-os TPM backend driver. The Linux frontend driver connects to this
+      backend driver to facilitate communications between the Linux DomU and its
+      vTPM. This driver is also used by vtpmmgr-stubdom to communicate with
+      vtpm-stubdom.</dd>
+  <dt id="vtpm-stubdom"><a class="permalink" href="#vtpm-stubdom">vtpm-stubdom</a></dt>
+  <dd>A mini-os stub domain that implements a vTPM. There is a one to one
+      mapping between running vtpm-stubdom instances and logical vtpms on the
+      system. The vTPM Platform Configuration Registers (PCRs) are all
+      initialized to zero.</dd>
+  <dt id="mini~2"><a class="permalink" href="#mini~2">mini-os/tpmfront</a></dt>
+  <dd>Mini-os TPM frontend driver. The vTPM mini-os domain vtpm-stubdom uses
+      this driver to communicate with vtpmmgr-stubdom. This driver could also be
+      used separately to implement a mini-os domain that wishes to use a vTPM of
+      its own.</dd>
+  <dt id="vtpmmgr-stubdom"><a class="permalink" href="#vtpmmgr-stubdom">vtpmmgr-stubdom</a></dt>
+  <dd>A mini-os domain that implements the vTPM manager. There is only one vTPM
+      manager and it should be running during the entire lifetime of the
+      machine. This domain regulates access to the physical TPM on the system
+      and secures the persistent state of each vTPM.</dd>
+  <dt id="mini~3"><a class="permalink" href="#mini~3">mini-os/tpm2_tis</a></dt>
+  <dd>Mini-os TPM version 2.0 TPM Interface Specification (TIS) driver. This
+      driver used by vtpmmgr-stubdom to talk directly to the hardware TPM 2.0.
+      Communication is facilitated by mapping hardware memory pages into
+      vtpmmgr-stubdom.</dd>
+  <dt id="Hardware"><a class="permalink" href="#Hardware">Hardware TPM
+    2.0</a></dt>
+  <dd>The physical TPM 2.0 that is soldered onto the motherboard.</dd>
+</dl>
+<p class="Pp">Noted:
+  <br/>
+   functionality for a virtual guest operating system (a DomU) is still TPM
+  1.2.</p>
+</section>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-04-01</td>
+    <td class="foot-os">4.17.4-pre</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: xen-utils-common 4.17.3+10-g091466ba55-1.1ubuntu3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

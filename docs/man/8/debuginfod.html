@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="debuginfo-related http file-server daemon">
+<title>debuginfod(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">debuginfod(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#WEBAPI">WEBAPI</a></li><li><a href="#/buildid/">/buildid/BUILDID/debuginfo</a></li><li><a href="#/buildid/~2">/buildid/BUILDID/executable</a></li><li><a href="#/buildid/~3">/buildid/BUILDID/source/SOURCE/FILE</a></li><li><a href="#/buildid/~4">/buildid/BUILDID/section/SECTION</a></li><li><a href="#/metrics">/metrics</a></li><li><a href="#DATA_MANAGEMENT">DATA
+  MANAGEMENT</a></li><li><a href="#SECURITY">SECURITY</a></li><li><a href="#ADDITIONAL_FILES">ADDITIONAL
+  FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">DEBUGINFOD(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">DEBUGINFOD(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<p class="Pp"></p>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">debuginfod - debuginfo-related http file-server daemon</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>debuginfod</b> [<i>OPTION</i>]... [<i>PATH</i>]...</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>debuginfod</b> serves debuginfo-related artifacts over HTTP. It
+    periodically scans a set of directories for ELF/DWARF files and their
+    associated source code, as well as archive files containing the above, to
+    build an index by their buildid. This index is used when remote clients use
+    the HTTP webapi, to fetch these files by the same buildid.</p>
+<p class="Pp">If a debuginfod cannot service a given buildid artifact request
+    itself, and it is configured with information about upstream debuginfod
+    servers, it queries them for the same information, just as
+    <b>debuginfod-find</b> would. If successful, it locally caches then relays
+    the file content to the original requester.</p>
+<p class="Pp">Indexing the given PATHs proceeds using multiple threads. One
+    thread periodically traverses all the given PATHs logically or physically
+    (see the <b>-L</b> option). Duplicate PATHs are ignored. You may use a file
+    name for a PATH, but source code indexing may be incomplete; prefer using a
+    directory that contains the binaries. The traversal thread enumerates all
+    matching files (see the <b>-I</b> and <b>-X</b> options) into a work queue.
+    A collection of scanner threads (see the <b>-c</b> option) wait at the work
+    queue to analyze files in parallel.</p>
+<p class="Pp">If the <b>-F</b> option is given, each file is scanned as an
+    ELF/DWARF file. Source files are matched with DWARF files based on the
+    AT_comp_dir (compilation directory) attributes inside it. Caution: source
+    files listed in the DWARF may be a path <i>anywhere</i> in the file system,
+    and debuginfod will readily serve their content on demand. (Imagine a
+    doctored DWARF file that lists <i>/etc/passwd</i> as a source file.) If this
+    is a concern, audit your binaries with tools such as:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>% eu-readelf -wline BINARY | sed -n '/^Directory.table/,/^File.name.table/p'
+or
+% eu-readelf -wline BINARY | sed -n '/^Directory.table/,/^Line.number/p'
+or even use debuginfod itself:
+% debuginfod -vvv -d :memory: -F BINARY 2&gt;&amp;1 | grep 'recorded.*source'
+^C</pre>
+</div>
+<p class="Pp">If any of the <b>-R</b>, <b>-U</b>, or <b>-Z</b> options is given,
+    each file is scanned as an archive file that may contain ELF/DWARF/source
+    files. Archive files are recognized by extension. If -R is given,
+    &quot;.rpm&quot; files are scanned; if -U is given, &quot;.deb&quot; and
+    &quot;.ddeb&quot; files are scanned; if -Z is given, the listed extensions
+    are scanned. Because of complications such as DWZ-compressed debuginfo, may
+    require <i>two</i> traversal passes to identify all source code. Source
+    files for RPMs are only served from other RPMs, so the caution for -F does
+    not apply. Note that due to Debian/Ubuntu packaging policies &amp;
+    mechanisms, debuginfod cannot resolve source files for DEB/DDEB at all.</p>
+<p class="Pp">If no PATH is listed, or none of the scanning options is given,
+    then <b>debuginfod</b> will simply serve content that it accumulated into
+    its index in all previous runs, periodically groom the database, and
+    federate to any upstream debuginfod servers. In <i>passive</i> mode,
+    <b>debuginfod</b> will only serve content from a read-only index and
+    federated upstream servers, but will not scan or groom.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="F"><a class="permalink" href="#F"><b>-F</b></a></dt>
+  <dd>Activate ELF/DWARF file scanning. The default is off.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="Z"><a class="permalink" href="#Z"><b>-Z EXT -Z EXT=CMD</b></a></dt>
+  <dd>Activate an additional pattern in archive scanning. Files with name
+      extension EXT (include the dot) will be processed. If CMD is given, it is
+      invoked with the file name added to its argument list, and should produce
+      a common archive on its standard output. Otherwise, the file is read as if
+      CMD were &quot;cat&quot;. Since debuginfod internally uses
+      <b>libarchive</b> to read archive files, it can accept a wide range of
+      archive formats and compression modes. The default is no additional
+      patterns. This option may be repeated.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="R"><a class="permalink" href="#R"><b>-R</b></a></dt>
+  <dd>Activate RPM patterns in archive scanning. The default is off. Equivalent
+      to <b>-Z&#x00A0;.rpm=cat</b>, since libarchive can natively process RPM
+      archives. If your version of libarchive is much older than 2020, be aware
+      that some distributions have switched to an incompatible zstd compression
+      for their payload. You may experiment with
+      <b>-Z&#x00A0;.rpm='(rpm2cpio|zstdcat)&lt;'</b> instead of <b>-R</b>.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="U"><a class="permalink" href="#U"><b>-U</b></a></dt>
+  <dd>Activate DEB/DDEB patterns in archive scanning. The default is off.
+      Equivalent to <b>-Z&#x00A0;.deb='dpkg-deb&#x00A0;--fsys-tarfile</b>'
+      <b>-Z&#x00A0;.ddeb='dpkg-deb&#x00A0;--fsys-tarfile'</b>.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="d"><a class="permalink" href="#d"><b>-d FILE
+    --database=FILE</b></a></dt>
+  <dd>Set the path of the sqlite database used to store the index. This file is
+      disposable in the sense that a later rescan will repopulate data. It will
+      contain absolute file path names, so it may not be portable across
+      machines. It may be frequently read/written, so it should be on a fast
+      filesystem. It should not be shared across machines or users, to maximize
+      sqlite locking performance. For quick testing the magic string
+      &quot;:memory:&quot; can be used to use an one-time memory-only database.
+      The default database file is $HOME/.debuginfod.sqlite.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="passive"><a class="permalink" href="#passive"><b>--passive</b></a></dt>
+  <dd>Set the server to passive mode, where it only services webapi requests,
+      including participating in federation. It performs no scanning, no
+      grooming, and so only opens the sqlite database read-only. This way a
+      database can be safely shared between a active scanner/groomer server and
+      multiple passive ones, thereby sharing service load. Archive pattern
+      options must still be given, so debuginfod can recognize file name
+      extensions for unpacking.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="D"><a class="permalink" href="#D"><b>-D SQL --ddl=SQL</b></a></dt>
+  <dd>Execute given sqlite statement after the database is opened and
+      initialized as extra DDL (SQL data definition language). This may be
+      useful to tune performance-related pragmas or indexes. May be repeated.
+      The default is nothing extra.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="p"><a class="permalink" href="#p"><b>-p NUM --port=NUM</b></a></dt>
+  <dd>Set the TCP port number (0 &lt; NUM &lt; 65536) on which debuginfod should
+      listen, to service HTTP requests. Both IPv4 and IPV6 sockets are opened,
+      if possible. The webapi is documented below. The default port number is
+      8002.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="I"><a class="permalink" href="#I"><b>-I REGEX --include=REGEX -X REGEX
+    --exclude=REGEX</b></a></dt>
+  <dd>Govern the inclusion and exclusion of file names under the search paths.
+      The regular expressions are interpreted as unanchored POSIX extended REs,
+      thus may include alternation. They are evaluated against the full path of
+      each file, based on its <b>realpath(3)</b> canonicalization. By default,
+      all files are included and none are excluded. A file that matches both
+      include and exclude REGEX is excluded. (The <i>contents</i> of archive
+      files are not subject to inclusion or exclusion filtering: they are all
+      processed.) Only the last of each type of regular expression given is
+      used.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="t"><a class="permalink" href="#t"><b>-t SECONDS
+    --rescan-time=SECONDS</b></a></dt>
+  <dd>Set the rescan time for the file and archive directories. This is the
+      amount of time the traversal thread will wait after finishing a scan,
+      before doing it again. A rescan for unchanged files is fast (because the
+      index also stores the file mtimes). A time of zero is acceptable, and
+      means that only one initial scan should performed. The default rescan time
+      is 300 seconds. Receiving a SIGUSR1 signal triggers a new scan,
+      independent of the rescan time (including if it was zero), interrupting a
+      groom pass (if any).
+    <p class="Pp"></p>
+  </dd>
+  <dt id="r"><a class="permalink" href="#r"><b>-r</b></a></dt>
+  <dd>Apply the -I and -X during groom cycles, so that most content related to
+      files excluded by the regexes are removed from the index. Not all content
+      can be practically removed, so eventually a &quot;-G&quot;
+      &quot;maximal-groom&quot; operation may be needed.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="g"><a class="permalink" href="#g"><b>-g SECONDS
+    --groom-time=SECONDS</b></a></dt>
+  <dd>Set the groom time for the index database. This is the amount of time the
+      grooming thread will wait after finishing a grooming pass before doing it
+      again. A groom operation quickly rescans all previously scanned files,
+      only to see if they are still present and current, so it can deindex
+      obsolete files. See also the <i>DATA MANAGEMENT</i> section. The default
+      groom time is 86400 seconds (1 day). A time of zero is acceptable, and
+      means that only one initial groom should be performed. Receiving a SIGUSR2
+      signal triggers a new grooming pass, independent of the groom time
+      (including if it was zero), interrupting a rescan pass (if any)..
+    <p class="Pp"></p>
+  </dd>
+  <dt id="G"><a class="permalink" href="#G"><b>-G</b></a></dt>
+  <dd>Run an extraordinary maximal-grooming pass at debuginfod startup. This
+      pass can take considerable time, because it tries to remove any
+      debuginfo-unrelated content from the archive-related parts of the index.
+      It should not be run if any recent archive-related indexing operations
+      were aborted early. It can take considerable space, because it finishes up
+      with an sqlite &quot;vacuum&quot; operation, which repacks the database
+      file by triplicating it temporarily. The default is not to do
+      maximal-grooming. See also the <i>DATA MANAGEMENT</i> section.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="c"><a class="permalink" href="#c"><b>-c NUM
+    --concurrency=NUM</b></a></dt>
+  <dd>Set the concurrency limit for the scanning queue threads, which work
+      together to process archives &amp; files located by the traversal thread.
+      This important for controlling CPU-intensive operations like parsing an
+      ELF file and especially decompressing archives. The default is related to
+      the number of processors on the system and other constraints; the minimum
+      is 1.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="C"><a class="permalink" href="#C"><b>-C -C=NUM --connection-pool
+    --connection-pool=NUM</b></a></dt>
+  <dd>Set the size of the pool of threads serving webapi queries. The following
+      table summarizes the interpretaton of this option and its optional NUM
+      parameter.
+    <table class="tbl">
+      <tr>
+        <td>no option, -C</td>
+        <td>use a fixed thread pool sized automatically</td>
+      </tr>
+      <tr>
+        <td>-C=NUM</td>
+        <td>use a fixed thread pool sized NUM, minimum 2</td>
+      </tr>
+    </table>
+    <p class="Pp">The first mode is a simple and safe configuration related to
+        the number of processors and other constraints. The second mode is
+        suitable for tuned load-limiting configurations facing unruly
+      traffic.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="L"><a class="permalink" href="#L"><b>-L</b></a></dt>
+  <dd>Traverse symbolic links encountered during traversal of the PATHs,
+      including across devices - as in <i>find&#x00A0;-L</i>. The default is to
+      traverse the physical directory structure only, stay on the same device,
+      and ignore symlinks - as in <i>find&#x00A0;-P&#x00A0;-xdev</i>. Caution: a
+      loops in the symbolic directory tree might lead to <i>infinite</i>
+      <i>traversal</i>.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="fdcache"><a class="permalink" href="#fdcache"><b>--fdcache-fds=NUM
+    --fdcache-mbs=MB</b></a></dt>
+  <dd>Configure limits on a cache that keeps recently extracted files from
+      archives. Up to NUM requested files and up to a total of MB megabytes will
+      be kept extracted, in order to avoid having to decompress their archives
+      over and over again. The default NUM and MB values depend on the
+      concurrency of the system, and on the available disk space on the $TMPDIR
+      or <b>/tmp</b> filesystem. This is because that is where the most recently
+      used extracted files are kept. Grooming cleans out this cache.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="fdcache~2"><a class="permalink" href="#fdcache~2"><b>--fdcache-prefetch-fds=NUM
+    --fdcache-prefetch-mbs=MB</b></a></dt>
+  <dd><b>--fdcache-prefetch=NUM2</b>
+    <p class="Pp">In addition to the main fdcache, up to NUM2 other files from
+        an archive may be prefetched into another cache before they are even
+        requested. Configure how many file descriptors (fds) and megabytes (mbs)
+        are allocated to the prefetch fdcache. If unspecified, these values
+        depend on concurrency of the system and on the available disk space on
+        the $TMPDIR. Allocating more to the prefetch cache will improve
+        performance in environments where different parts of several large
+        archives are being accessed. This cache is also cleaned out during
+        grooming.</p>
+    <p class="Pp"></p>
+  </dd>
+  <dt id="fdcache~3"><a class="permalink" href="#fdcache~3"><b>--fdcache-mintmp=NUM</b></a></dt>
+  <dd>Configure a disk space threshold for emergency flushing of the caches. The
+      filesystem holding the caches is checked periodically. If the available
+      space falls below the given percentage, the caches are flushed, and the
+      fdcaches will stay disabled until the next groom cycle. This mechanism,
+      along a few associated /metrics on the webapi, are intended to give an
+      operator notice about storage scarcity - which can translate to RAM
+      scarcity if the disk happens to be on a RAM virtual disk. The default
+      threshold is 25%.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="forwarded"><a class="permalink" href="#forwarded"><b>--forwarded-ttl-limit=NUM</b></a></dt>
+  <dd>Configure limits of X-Forwarded-For hops. if X-Forwarded-For exceeds N
+      hops, it will not delegate a local lookup miss to upstream debuginfods.
+      The default limit is 8.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="disable"><a class="permalink" href="#disable"><b>--disable-source-scan</b></a></dt>
+  <dd>Disable scan of the dwarf source info of debuginfo sections. If a setup
+      has no access to source code, the source info is not required.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="scan"><a class="permalink" href="#scan"><b>--scan-checkpoint=NUM</b></a></dt>
+  <dd>Run a synchronized SQLITE WAL checkpoint operation after every NUM
+      completed archive or file scans. This may slow down parallel scanning
+      phase somewhat, but generate much smaller &quot;-wal&quot; temporary files
+      on busy servers. The default is 256. Disabled if 0.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b></a></dt>
+  <dd>Increase verbosity of logging to the standard error file descriptor. May
+      be repeated to increase details. The default verbosity is 0.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WEBAPI"><a class="permalink" href="#WEBAPI">WEBAPI</a></h1>
+<p class="Pp">debuginfod's webapi resembles ordinary file service, where a GET
+    request with a path containing a known buildid results in a file. Unknown
+    buildid / request combinations result in HTTP error codes. This file service
+    resemblance is intentional, so that an installation can take advantage of
+    standard HTTP management infrastructure.</p>
+<p class="Pp">For most queries, some custom http headers are added to the
+    response, providing additional metadata about the buildid-related response.
+    For example:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>% debuginfod-find -v debuginfo /bin/ls |&amp; grep -i x-debuginfo
+x-debuginfod-size: 502024
+x-debuginfod-archive: /mnt/fedora_koji_prod/koji/packages/coreutils/9.3/4.fc39/x86_64/coreutils-debuginfo-9.3-4.fc39.x86_64.rpm
+x-debuginfod-file: /usr/lib/debug/usr/bin/ls-9.3-4.fc39.x86_64.debug</pre>
+</div>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="X_DEBUGINFOD_SIZE"><a class="permalink" href="#X_DEBUGINFOD_SIZE">X-DEBUGINFOD-SIZE</a></dt>
+  <dd>The size of the file, in bytes. This may differ from the http
+      Content-Length: field (if present), due to compression in transit.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="X_DEBUGINFOD_FILE"><a class="permalink" href="#X_DEBUGINFOD_FILE">X-DEBUGINFOD-FILE</a></dt>
+  <dd>The full path name of the file related to the given buildid.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="X_DEBUGINFOD_ARCHIVE"><a class="permalink" href="#X_DEBUGINFOD_ARCHIVE">X-DEBUGINFOD-ARCHIVE</a></dt>
+  <dd>The full path name of the archive that contained the above file, if any.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+    <p class="Pp">There are a handful of buildid-related requests. In each case,
+        the buildid is encoded as a lowercase hexadecimal string. For example,
+        for a program <i>/bin/ls</i>, look at the ELF note GNU_BUILD_ID:</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<pre>% readelf -n /bin/ls | grep -A4 build.id
+Note section [ 4] '.note.gnu.buildid' of 36 bytes at offset 0x340:
+Owner          Data size  Type
+GNU                   20  GNU_BUILD_ID
+Build ID: 8713b9c3fb8a720137a4a08b325905c7aaf8429d</pre>
+</div>
+<p class="Pp">Then the hexadecimal BUILDID is simply:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>8713b9c3fb8a720137a4a08b325905c7aaf8429d</pre>
+</div>
+<p class="Pp"></p>
+<section class="Ss">
+<h2 class="Ss" id="/buildid/"><a class="permalink" href="#/buildid/">/buildid/<i>BUILDID</i>/debuginfo</a></h2>
+<p class="Pp">If the given buildid is known to the server, this request will
+    result in a binary object that contains the customary <b>.*debug_*</b>
+    sections. This may be a split debuginfo file as created by <b>strip</b>, or
+    it may be an original unstripped executable.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="/buildid/~2"><a class="permalink" href="#/buildid/~2">/buildid/<i>BUILDID</i>/executable</a></h2>
+<p class="Pp">If the given buildid is known to the server, this request will
+    result in a binary object that contains the normal executable segments. This
+    may be a executable stripped by <b>strip</b>, or it may be an original
+    unstripped executable. <b>ET_DYN</b> shared libraries are considered to be a
+    type of executable.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="/buildid/~3"><a class="permalink" href="#/buildid/~3">/buildid/<i>BUILDID</i>/source<i>/SOURCE/FILE</i></a></h2>
+<p class="Pp">If the given buildid is known to the server, this request will
+    result in a binary object that contains the source file mentioned. The path
+    should be absolute. Relative path names commonly appear in the DWARF file's
+    source directory, but these paths are relative to individual compilation
+    unit AT_comp_dir paths, and yet an executable is made up of multiple CUs.
+    Therefore, to disambiguate, debuginfod expects source queries to prefix
+    relative path names with the CU compilation-directory, followed by a
+    mandatory &quot;/&quot;.</p>
+<p class="Pp">Note: the caller may or may not elide <b>../</b> or <b>/./</b> or
+    extraneous <b>///</b> sorts of path components in the directory names.
+    debuginfod accepts both forms. Specifically, debuginfod canonicalizes path
+    names according to RFC3986 section 5.2.4 (Remove Dot Segments), plus
+    reducing any <b>//</b> to <b>/</b> in the path.</p>
+<p class="Pp">For example:</p>
+<table class="tbl">
+  <tr>
+    <td>#include &lt;stdio.h&gt;</td>
+    <td>/buildid/BUILDID/source/usr/include/stdio.h</td>
+  </tr>
+  <tr>
+    <td>/path/to/foo.c</td>
+    <td>/buildid/BUILDID/source/path/to/foo.c</td>
+  </tr>
+  <tr>
+    <td>AT_comp_dir=/zoo/</td>
+    <td>/buildid/BUILDID/source/zoo//../bar/foo.c</td>
+  </tr>
+</table>
+<p class="Pp">Note: the client should %-escape characters in /SOURCE/FILE that
+    are not shown as &quot;unreserved&quot; in section 2.3 of RFC3986. Some
+    characters that will be escaped include &quot;+&quot;, &quot;\&quot;,
+    &quot;$&quot;, &quot;!&quot;, the 'space' character, and &quot;;&quot;.
+    RFC3986 includes a more comprehensive list of these characters.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="/buildid/~4"><a class="permalink" href="#/buildid/~4">/buildid/<i>BUILDID</i>/section<i>/SECTION</i></a></h2>
+<p class="Pp">If the given buildid is known to the server, the server will
+    attempt to extract the contents of an ELF/DWARF section named SECTION from
+    the debuginfo file matching BUILDID. If the debuginfo file can't be found or
+    the section has type SHT_NOBITS, then the server will attempt to extract the
+    section from the executable matching BUILDID. If the section is successfully
+    extracted then this request results in a binary object of the section's
+    contents. Note that this result is the raw binary contents of the section,
+    not an ELF file.</p>
+<p class="Pp"></p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="/metrics"><a class="permalink" href="#/metrics">/metrics</a></h2>
+<p class="Pp">This endpoint returns a Prometheus formatted text/plain dump of a
+    variety of statistics about the operation of the debuginfod server. The
+    exact set of metrics and their meanings may change in future versions.</p>
+<p class="Pp"></p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DATA_MANAGEMENT"><a class="permalink" href="#DATA_MANAGEMENT">DATA
+  MANAGEMENT</a></h1>
+<p class="Pp">debuginfod stores its index in an sqlite database in a densely
+    packed set of interlinked tables. While the representation is as efficient
+    as we have been able to make it, it still takes a considerable amount of
+    data to record all debuginfo-related data of potentially a great many files.
+    This section offers some advice about the implications.</p>
+<p class="Pp">As a general explanation for size, consider that debuginfod
+    indexes ELF/DWARF files, it stores their names and referenced source file
+    names, and buildids will be stored. When indexing archives, it stores every
+    file name <i>of or in</i> an archive, every buildid, plus every source file
+    name referenced from a DWARF file. (Indexing archives takes more space
+    because the source files often reside in separate subpackages that may not
+    be indexed at the same pass, so extra metadata has to be kept.)</p>
+<p class="Pp">Getting down to numbers, in the case of Fedora RPMs (essentially,
+    gzip-compressed cpio files), the sqlite index database tends to be from 0.5%
+    to 3% of their size. It's larger for binaries that are assembled out of a
+    great many source files, or packages that carry much debuginfo-unrelated
+    content. It may be even larger during the indexing phase due to temporary
+    sqlite write-ahead-logging files; these are checkpointed (cleaned out and
+    removed) at shutdown. It may be helpful to apply tight -I or -X
+    regular-expression constraints to exclude files from scanning that you know
+    have no debuginfo-relevant content.</p>
+<p class="Pp">As debuginfod runs in normal <i>active</i> mode, it periodically
+    rescans its target directories, and any new content found is added to the
+    database. Old content, such as data for files that have disappeared or that
+    have been replaced with newer versions is removed at a periodic
+    <i>grooming</i> pass. This means that the sqlite files grow fast during
+    initial indexing, slowly during index rescans, and periodically shrink
+    during grooming. There is also an optional one-shot <i>maximal grooming</i>
+    pass is available. It removes information debuginfo-unrelated data from the
+    archive content index such as file names found in archives (&quot;archive
+    sdef&quot; records) that are not referred to as source files from any
+    binaries find in archives (&quot;archive sref&quot; records). This can save
+    considerable disk space. However, it is slow and temporarily requires up to
+    twice the database size as free space. Worse: it may result in missing
+    source-code info if the archive traversals were interrupted, so that not all
+    source file references were known. Use it rarely to polish a complete
+  index.</p>
+<p class="Pp">You should ensure that ample disk space remains available. (The
+    flood of error messages on -ENOSPC is ugly and nagging. But, like for most
+    other errors, debuginfod will resume when resources permit.) If necessary,
+    debuginfod can be stopped, the database file moved or removed, and
+    debuginfod restarted.</p>
+<p class="Pp">sqlite offers several performance-related options in the form of
+    pragmas. Some may be useful to fine-tune the defaults plus the debuginfod
+    extras. The -D option may be useful to tell debuginfod to execute the given
+    bits of SQL after the basic schema creation commands. For example, the
+    &quot;synchronous&quot;, &quot;cache_size&quot;, &quot;auto_vacuum&quot;,
+    &quot;threads&quot;, &quot;journal_mode&quot; pragmas may be fun to tweak
+    via -D, if you're searching for peak performance. The &quot;optimize&quot;,
+    &quot;wal_checkpoint&quot; pragmas may be useful to run periodically,
+    outside debuginfod. The default settings are performance- rather than
+    reliability-oriented, so a hardware crash might corrupt the database. In
+    these cases, it may be necessary to manually delete the sqlite database and
+    start over.</p>
+<p class="Pp">As debuginfod changes in the future, we may have no choice but to
+    change the database schema in an incompatible manner. If this happens, new
+    versions of debuginfod will issue SQL statements to <i>drop</i> all prior
+    schema &amp; data, and start over. So, disk space will not be wasted for
+    retaining a no-longer-useable dataset.</p>
+<p class="Pp">In summary, if your system can bear a 0.5%-3%
+    index-to-archive-dataset size ratio, and slow growth afterwards, you should
+    not need to worry about disk space. If a system crash corrupts the database,
+    or you want to force debuginfod to reset and start over, simply erase the
+    sqlite file before restarting debuginfod.</p>
+<p class="Pp">In contrast, in <i>passive</i> mode, all scanning and grooming is
+    disabled, and the index database remains read-only. This makes the database
+    more suitable for sharing between servers or sites with simple one-way
+    replication, and data management considerations are generally moot.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURITY"><a class="permalink" href="#SECURITY">SECURITY</a></h1>
+<p class="Pp">debuginfod <b>does not</b> include any particular security
+    features. While it is robust with respect to inputs, some abuse is possible.
+    It forks a new thread for each incoming HTTP request, which could lead to a
+    denial-of-service in terms of RAM, CPU, disk I/O, or network I/O. If this is
+    a problem, users are advised to install debuginfod with a HTTPS
+    reverse-proxy front-end that enforces site policies for firewalling,
+    authentication, integrity, authorization, and load control.</p>
+<p class="Pp">Front-end proxies may elide sensitive path name components in
+    X-DEBUGINFOD-FILE/ARCHIVE response headers. For example, using Apache
+    httpd's <b>mod_headers</b>, you can remove the entire directory name
+  prefix:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>Header edit x-debuginfod-archive &quot;.*/&quot; &quot;&quot;</pre>
+</div>
+<p class="Pp">When relaying queries to upstream debuginfods, debuginfod <b>does
+    not</b> include any particular security features. It trusts that the
+    binaries returned by the debuginfods are accurate. Therefore, the list of
+    servers should include only trustworthy ones. If accessed across HTTP rather
+    than HTTPS, the network should be trustworthy. Authentication information
+    through the internal <i>libcurl</i> library is not currently enabled.</p>
+<p class="Pp"></p>
+<p class="Pp">See the file man7/debuginfod-client-config.7.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ADDITIONAL_FILES"><a class="permalink" href="#ADDITIONAL_FILES">ADDITIONAL
+  FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><b>$HOME/.debuginfod.sqlite</b></dt>
+  <dd>Default database file.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><i>debuginfod-find(1)</i> <i>sqlite3(1)</i>
+    <i>https://prometheus.io/docs/instrumenting/exporters/</i></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: debuginfod 0.190-1.1ubuntu0.1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

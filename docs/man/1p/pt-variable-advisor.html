@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Analyze MySQL variables and advise on possible problems.">
+<title>pt-variable-advisor(1p) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pt-variable-advisor(1p)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#RISKS">RISKS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#RULES">RULES</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#DSN_OPTIONS">DSN
+  OPTIONS</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#SYSTEM_REQUIREMENTS">SYSTEM
+  REQUIREMENTS</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#DOWNLOADING">DOWNLOADING</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#ABOUT_PERCONA_TOOLKIT">ABOUT
+  PERCONA TOOLKIT</a></li><li><a href="#COPYRIGHT,_LICENSE,_AND_WARRANTY">COPYRIGHT,
+  LICENSE, AND WARRANTY</a></li><li><a href="#VERSION">VERSION</a></li><li><a href="#POD_ERRORS">POD
+  ERRORS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PT-VARIABLE-ADVISOR(1p)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">PT-VARIABLE-ADVISOR(1p)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pt-variable-advisor - Analyze MySQL variables and advise on
+    possible problems.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Usage: pt-variable-advisor [OPTIONS] [DSN]</p>
+<p class="Pp">pt-variable-advisor analyzes variables and advises on possible
+    problems.</p>
+<p class="Pp">Get SHOW VARIABLES from localhost:</p>
+<p class="Pp"></p>
+<pre>  pt-variable-advisor localhost
+</pre>
+<p class="Pp">Get SHOW VARIABLES output saved in vars.txt:</p>
+<p class="Pp"></p>
+<pre>  pt-variable-advisor --source-of-variables vars.txt
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RISKS"><a class="permalink" href="#RISKS">RISKS</a></h1>
+<p class="Pp">Percona Toolkit is mature, proven in the real world, and well
+    tested, but all database tools can pose a risk to the system and the
+    database server. Before using this tool, please:</p>
+<ul class="Bl-bullet">
+  <li>Read the tool's documentation</li>
+  <li>Review the tool's known &quot;BUGS&quot;</li>
+  <li>Test the tool on a non-production server</li>
+  <li>Backup your production server and verify the backups</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">pt-variable-advisor examines <span class="Li">&quot;SHOW
+    VARIABLES&quot;</span> for bad values and settings according to the
+    &quot;RULES&quot; described below. It reports on variables that match the
+    rules, so you can find bad settings in your MySQL server.</p>
+<p class="Pp">At the time of this release, pt-variable-advisor only examples
+    <span class="Li">&quot;SHOW VARIABLES&quot;</span>, but other input sources
+    are planned like <span class="Li">&quot;SHOW STATUS&quot;</span> and
+    <span class="Li">&quot;SHOW SLAVE STATUS&quot;</span>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RULES"><a class="permalink" href="#RULES">RULES</a></h1>
+<p class="Pp">These are the rules that pt-variable-advisor will apply to SHOW
+    VARIABLES. Each rule has three parts: an ID, a severity, and a
+  description.</p>
+<p class="Pp">The rule's ID is a short, unique name for the rule. It usually
+    relates to the variable that the rule examines. If a variable is examined by
+    several rules, then the rules' IDs are numbered like &quot;-1&quot;,
+    &quot;-2&quot;, &quot;-N&quot;.</p>
+<p class="Pp">The rule's severity is an indication of how important it is that
+    this rule matched a query. We use NOTE, WARN, and CRIT to denote these
+    levels.</p>
+<p class="Pp">The rule's description is a textual, human-readable explanation of
+    what it means when a variable matches this rule. Depending on the verbosity
+    of the report you generate, you will see more of the text in the
+    description. By default, you'll see only the first sentence, which is sort
+    of a terse synopsis of the rule's meaning. At a higher verbosity, you'll see
+    subsequent sentences.</p>
+<dl class="Bl-tag">
+  <dt id="auto_increment"><a class="permalink" href="#auto_increment">auto_increment</a></dt>
+  <dd>severity: note
+    <p class="Pp">Are you trying to write to more than one server in a
+        dual-master or ring replication configuration? This is potentially very
+        dangerous and in most cases is a serious mistake. Most people's reasons
+        for doing this are actually not valid at all.</p>
+  </dd>
+  <dt id="concurrent_insert"><a class="permalink" href="#concurrent_insert">concurrent_insert</a></dt>
+  <dd>severity: note
+    <p class="Pp">Holes (spaces left by deletes) in MyISAM tables might never be
+        reused.</p>
+  </dd>
+  <dt id="connect_timeout"><a class="permalink" href="#connect_timeout">connect_timeout</a></dt>
+  <dd>severity: note
+    <p class="Pp">A large value of this setting can create a denial of service
+        vulnerability.</p>
+  </dd>
+  <dt id="debug"><a class="permalink" href="#debug">debug</a></dt>
+  <dd>severity: crit
+    <p class="Pp">Servers built with debugging capability should not be used in
+        production because of the large performance impact.</p>
+  </dd>
+  <dt id="delay_key_write"><a class="permalink" href="#delay_key_write">delay_key_write</a></dt>
+  <dd>severity: warn
+    <p class="Pp">MyISAM index blocks are never flushed until necessary. If
+        there is a server crash, data corruption on MyISAM tables can be much
+        worse than usual.</p>
+  </dd>
+  <dt id="flush"><a class="permalink" href="#flush">flush</a></dt>
+  <dd>severity: warn
+    <p class="Pp">This option might decrease performance greatly.</p>
+  </dd>
+  <dt id="flush_time"><a class="permalink" href="#flush_time">flush_time</a></dt>
+  <dd>severity: warn
+    <p class="Pp">This option might decrease performance greatly.</p>
+  </dd>
+  <dt id="have_bdb"><a class="permalink" href="#have_bdb">have_bdb</a></dt>
+  <dd>severity: note
+    <p class="Pp">The BDB engine is deprecated. If you aren't using it, you
+        should disable it with the skip_bdb option.</p>
+  </dd>
+  <dt id="init_connect"><a class="permalink" href="#init_connect">init_connect</a></dt>
+  <dd>severity: note
+    <p class="Pp">The init_connect option is enabled on this server.</p>
+  </dd>
+  <dt id="init_file"><a class="permalink" href="#init_file">init_file</a></dt>
+  <dd>severity: note
+    <p class="Pp">The init_file option is enabled on this server.</p>
+  </dd>
+  <dt id="init_slave"><a class="permalink" href="#init_slave">init_slave</a></dt>
+  <dd>severity: note
+    <p class="Pp">The init_slave option is enabled on this server.</p>
+  </dd>
+  <dt id="innodb_additional_mem_pool_size"><a class="permalink" href="#innodb_additional_mem_pool_size">innodb_additional_mem_pool_size</a></dt>
+  <dd>severity: warn
+    <p class="Pp">This variable generally doesn't need to be larger than
+      20MB.</p>
+  </dd>
+  <dt id="innodb_buffer_pool_size"><a class="permalink" href="#innodb_buffer_pool_size">innodb_buffer_pool_size</a></dt>
+  <dd>severity: warn
+    <p class="Pp">The InnoDB buffer pool size is unconfigured. In a production
+        environment it should always be configured explicitly, and the default
+        10MB size is not good.</p>
+  </dd>
+  <dt id="innodb_checksums"><a class="permalink" href="#innodb_checksums">innodb_checksums</a></dt>
+  <dd>severity: warn
+    <p class="Pp">InnoDB checksums are disabled. Your data is not protected from
+        hardware corruption or other errors!</p>
+  </dd>
+  <dt id="innodb_doublewrite"><a class="permalink" href="#innodb_doublewrite">innodb_doublewrite</a></dt>
+  <dd>severity: warn
+    <p class="Pp">InnoDB doublewrite is disabled. Unless you use a filesystem
+        that protects against partial page writes, your data is not safe!</p>
+  </dd>
+  <dt id="innodb_fast_shutdown"><a class="permalink" href="#innodb_fast_shutdown">innodb_fast_shutdown</a></dt>
+  <dd>severity: warn
+    <p class="Pp">InnoDB's shutdown behavior is not the default. This can lead
+        to poor performance, or the need to perform crash recovery upon
+      startup.</p>
+  </dd>
+  <dt id="innodb_flush_log_at_trx_commit"><a class="permalink" href="#innodb_flush_log_at_trx_commit">innodb_flush_log_at_trx_commit-1</a></dt>
+  <dd>severity: warn
+    <p class="Pp">InnoDB is not configured in strictly ACID mode. If there is a
+        crash, some transactions can be lost.</p>
+  </dd>
+  <dt id="innodb_flush_log_at_trx_commit~2"><a class="permalink" href="#innodb_flush_log_at_trx_commit~2">innodb_flush_log_at_trx_commit-2</a></dt>
+  <dd>severity: warn
+    <p class="Pp">Setting innodb_flush_log_at_trx_commit to 0 has no performance
+        benefits over setting it to 2, and more types of data loss are possible.
+        If you are trying to change it from 1 for performance reasons, you
+        should set it to 2 instead of 0.</p>
+  </dd>
+  <dt id="innodb_force_recovery"><a class="permalink" href="#innodb_force_recovery">innodb_force_recovery</a></dt>
+  <dd>severity: warn
+    <p class="Pp">InnoDB is in forced recovery mode! This should be used only
+        temporarily when recovering from data corruption or other bugs, not for
+        normal usage.</p>
+  </dd>
+  <dt id="innodb_lock_wait_timeout"><a class="permalink" href="#innodb_lock_wait_timeout">innodb_lock_wait_timeout</a></dt>
+  <dd>severity: warn
+    <p class="Pp">This option has an unusually long value, which can cause
+        system overload if locks are not being released.</p>
+  </dd>
+  <dt id="innodb_log_buffer_size"><a class="permalink" href="#innodb_log_buffer_size">innodb_log_buffer_size</a></dt>
+  <dd>severity: warn
+    <p class="Pp">The InnoDB log buffer size generally should not be set larger
+        than 16MB. If you are doing large BLOB operations, InnoDB is not really
+        a good choice of engines anyway.</p>
+  </dd>
+  <dt id="innodb_log_file_size"><a class="permalink" href="#innodb_log_file_size">innodb_log_file_size</a></dt>
+  <dd>severity: warn
+    <p class="Pp">The InnoDB log file size is set to its default value, which is
+        not usable on production systems.</p>
+  </dd>
+  <dt id="innodb_max_dirty_pages_pct"><a class="permalink" href="#innodb_max_dirty_pages_pct">innodb_max_dirty_pages_pct</a></dt>
+  <dd>severity: note
+    <p class="Pp">The innodb_max_dirty_pages_pct is lower than the default. This
+        can cause overly aggressive flushing and add load to the I/O system.</p>
+  </dd>
+  <dt id="flush_time~2"><a class="permalink" href="#flush_time~2">flush_time</a></dt>
+  <dd>severity: warn
+    <p class="Pp">This setting is likely to cause very bad performance every
+        flush_time seconds.</p>
+  </dd>
+  <dt id="key_buffer_size"><a class="permalink" href="#key_buffer_size">key_buffer_size</a></dt>
+  <dd>severity: warn
+    <p class="Pp">The key buffer size is set to its default value, which is not
+        good for most production systems. In a production environment,
+        key_buffer_size should be larger than the default 8MB size.</p>
+  </dd>
+  <dt id="large_pages"><a class="permalink" href="#large_pages">large_pages</a></dt>
+  <dd>severity: note
+    <p class="Pp">Large pages are enabled.</p>
+  </dd>
+  <dt id="locked_in_memory"><a class="permalink" href="#locked_in_memory">locked_in_memory</a></dt>
+  <dd>severity: note
+    <p class="Pp">The server is locked in memory with --memlock.</p>
+  </dd>
+  <dt id="log_warnings"><a class="permalink" href="#log_warnings">log_warnings-1</a></dt>
+  <dd>severity: note
+    <p class="Pp">Log_warnings is disabled, so unusual events such as statements
+        unsafe for replication and aborted connections will not be logged to the
+        error log.</p>
+  </dd>
+  <dt id="log_warnings~2"><a class="permalink" href="#log_warnings~2">log_warnings-2</a></dt>
+  <dd>severity: note
+    <p class="Pp">Log_warnings must be set greater than 1 to log unusual events
+        such as aborted connections.</p>
+  </dd>
+  <dt id="low_priority_updates"><a class="permalink" href="#low_priority_updates">low_priority_updates</a></dt>
+  <dd>severity: note
+    <p class="Pp">The server is running with non-default lock priority for
+        updates. This could cause update queries to wait unexpectedly for read
+        queries.</p>
+  </dd>
+  <dt id="max_binlog_size"><a class="permalink" href="#max_binlog_size">max_binlog_size</a></dt>
+  <dd>severity: note
+    <p class="Pp">The max_binlog_size is smaller than the default of 1GB.</p>
+  </dd>
+  <dt id="max_connect_errors"><a class="permalink" href="#max_connect_errors">max_connect_errors</a></dt>
+  <dd>severity: note
+    <p class="Pp">max_connect_errors should probably be set as large as your
+        platform allows.</p>
+  </dd>
+  <dt id="max_connections"><a class="permalink" href="#max_connections">max_connections</a></dt>
+  <dd>severity: warn
+    <p class="Pp">If the server ever really has more than a thousand threads
+        running, then the system is likely to spend more time scheduling threads
+        than really doing useful work. This variable's value should be
+        considered in light of your workload.</p>
+  </dd>
+  <dt id="myisam_repair_threads"><a class="permalink" href="#myisam_repair_threads">myisam_repair_threads</a></dt>
+  <dd>severity: note
+    <p class="Pp">myisam_repair_threads &gt; 1 enables multi-threaded repair,
+        which is relatively untested and is still listed as beta-quality code in
+        the official documentation.</p>
+  </dd>
+  <dt id="old_passwords"><a class="permalink" href="#old_passwords">old_passwords</a></dt>
+  <dd>severity: warn
+    <p class="Pp">Old-style passwords are insecure. They are sent in plain text
+        across the wire.</p>
+  </dd>
+  <dt id="optimizer_prune_level"><a class="permalink" href="#optimizer_prune_level">optimizer_prune_level</a></dt>
+  <dd>severity: warn
+    <p class="Pp">The optimizer will use an exhaustive search when planning
+        complex queries, which can cause the planning process to take a long
+        time.</p>
+  </dd>
+  <dt id="port"><a class="permalink" href="#port">port</a></dt>
+  <dd>severity: note
+    <p class="Pp">The server is listening on a non-default port.</p>
+  </dd>
+  <dt id="query_cache_size"><a class="permalink" href="#query_cache_size">query_cache_size-1</a></dt>
+  <dd>severity: note
+    <p class="Pp">The query cache does not scale to large sizes and can cause
+        unstable performance when larger than 128MB, especially on multi-core
+        machines.</p>
+  </dd>
+  <dt id="query_cache_size~2"><a class="permalink" href="#query_cache_size~2">query_cache_size-2</a></dt>
+  <dd>severity: warn
+    <p class="Pp">The query cache can cause severe performance problems when it
+        is larger than 256MB, especially on multi-core machines.</p>
+  </dd>
+  <dt id="read_buffer_size"><a class="permalink" href="#read_buffer_size">read_buffer_size-1</a></dt>
+  <dd>severity: note
+    <p class="Pp">The read_buffer_size variable should generally be left at its
+        default unless an expert determines it is necessary to change it.</p>
+  </dd>
+  <dt id="read_buffer_size~2"><a class="permalink" href="#read_buffer_size~2">read_buffer_size-2</a></dt>
+  <dd>severity: warn
+    <p class="Pp">The read_buffer_size variable should not be larger than 8MB.
+        It should generally be left at its default unless an expert determines
+        it is necessary to change it. Making it larger than 2MB can hurt
+        performance significantly, and can make the server crash, swap to death,
+        or just become extremely unstable.</p>
+  </dd>
+  <dt id="read_rnd_buffer_size"><a class="permalink" href="#read_rnd_buffer_size">read_rnd_buffer_size-1</a></dt>
+  <dd>severity: note
+    <p class="Pp">The read_rnd_buffer_size variable should generally be left at
+        its default unless an expert determines it is necessary to change
+      it.</p>
+  </dd>
+  <dt id="read_rnd_buffer_size~2"><a class="permalink" href="#read_rnd_buffer_size~2">read_rnd_buffer_size-2</a></dt>
+  <dd>severity: warn
+    <p class="Pp">The read_rnd_buffer_size variable should not be larger than
+        4M. It should generally be left at its default unless an expert
+        determines it is necessary to change it.</p>
+  </dd>
+  <dt id="relay_log_space_limit"><a class="permalink" href="#relay_log_space_limit">relay_log_space_limit</a></dt>
+  <dd>severity: warn
+    <p class="Pp">Setting relay_log_space_limit can cause replicas to stop
+        fetching binary logs from their master immediately. This could increase
+        the risk that your data will be lost if the master crashes. If the
+        replicas have encountered a limit on relay log space, then it is
+        possible that the latest transactions exist only on the master and no
+        replica has retrieved them.</p>
+  </dd>
+  <dt id="slave_net_timeout"><a class="permalink" href="#slave_net_timeout">slave_net_timeout</a></dt>
+  <dd>severity: warn
+    <p class="Pp">This variable is set too high. This is too long to wait before
+        noticing that the connection to the master has failed and retrying. This
+        should probably be set to 60 seconds or less. It is also a good idea to
+        use pt-heartbeat to ensure that the connection does not appear to time
+        out when the master is simply idle.</p>
+  </dd>
+  <dt id="slave_skip_errors"><a class="permalink" href="#slave_skip_errors">slave_skip_errors</a></dt>
+  <dd>severity: crit
+    <p class="Pp">You should not set this option. If replication is having
+        errors, you need to find and resolve the cause of that; it is likely
+        that your slave's data is different from the master. You can find out
+        with pt-table-checksum.</p>
+  </dd>
+  <dt id="sort_buffer_size"><a class="permalink" href="#sort_buffer_size">sort_buffer_size-1</a></dt>
+  <dd>severity: note
+    <p class="Pp">The sort_buffer_size variable should generally be left at its
+        default unless an expert determines it is necessary to change it.</p>
+  </dd>
+  <dt id="sort_buffer_size~2"><a class="permalink" href="#sort_buffer_size~2">sort_buffer_size-2</a></dt>
+  <dd>severity: note
+    <p class="Pp">The sort_buffer_size variable should generally be left at its
+        default unless an expert determines it is necessary to change it. Making
+        it larger than a few MB can hurt performance significantly, and can make
+        the server crash, swap to death, or just become extremely unstable.</p>
+  </dd>
+  <dt id="sql_notes"><a class="permalink" href="#sql_notes">sql_notes</a></dt>
+  <dd>severity: note
+    <p class="Pp">This server is configured not to log Note level warnings to
+        the error log.</p>
+  </dd>
+  <dt id="sync_frm"><a class="permalink" href="#sync_frm">sync_frm</a></dt>
+  <dd>severity: warn
+    <p class="Pp">It is best to set sync_frm so that .frm files are flushed
+        safely to disk in case of a server crash.</p>
+  </dd>
+  <dt id="tx_isolation"><a class="permalink" href="#tx_isolation">tx_isolation-1</a></dt>
+  <dd>severity: note
+    <p class="Pp">This server's transaction isolation level is non-default.</p>
+  </dd>
+  <dt id="tx_isolation~2"><a class="permalink" href="#tx_isolation~2">tx_isolation-2</a></dt>
+  <dd>severity: warn
+    <p class="Pp">Most applications should use the default REPEATABLE-READ
+        transaction isolation level, or in a few cases READ-COMMITTED.</p>
+  </dd>
+  <dt id="expire_logs_days"><a class="permalink" href="#expire_logs_days">expire_logs_days</a></dt>
+  <dd>severity: warn
+    <p class="Pp">Binary logs are enabled, but automatic purging is not enabled.
+        If you do not purge binary logs, your disk will fill up. If you delete
+        binary logs externally to MySQL, you will cause unwanted behaviors.
+        Always ask MySQL to purge obsolete logs, never delete them
+      externally.</p>
+  </dd>
+  <dt id="innodb_file_io_threads"><a class="permalink" href="#innodb_file_io_threads">innodb_file_io_threads</a></dt>
+  <dd>severity: note
+    <p class="Pp">This option is useless except on Windows.</p>
+  </dd>
+  <dt id="innodb_data_file_path"><a class="permalink" href="#innodb_data_file_path">innodb_data_file_path</a></dt>
+  <dd>severity: note
+    <p class="Pp">Auto-extending InnoDB files can consume a lot of disk space
+        that is very difficult to reclaim later. Some people prefer to set
+        innodb_file_per_table and allocate a fixed-size file for ibdata1.</p>
+  </dd>
+  <dt id="innodb_flush_method"><a class="permalink" href="#innodb_flush_method">innodb_flush_method</a></dt>
+  <dd>severity: note
+    <p class="Pp">Most production database servers that use InnoDB should set
+        innodb_flush_method to O_DIRECT to avoid double-buffering, unless the
+        I/O system is very low performance.</p>
+  </dd>
+  <dt id="innodb_locks_unsafe_for_binlog"><a class="permalink" href="#innodb_locks_unsafe_for_binlog">innodb_locks_unsafe_for_binlog</a></dt>
+  <dd>severity: warn
+    <p class="Pp">This option makes point-in-time recovery from binary logs, and
+        replication, untrustworthy if statement-based logging is used.</p>
+  </dd>
+  <dt id="innodb_support_xa"><a class="permalink" href="#innodb_support_xa">innodb_support_xa</a></dt>
+  <dd>severity: warn
+    <p class="Pp">MySQL's internal XA transaction support between InnoDB and the
+        binary log is disabled. The binary log might not match InnoDB's state
+        after crash recovery, and replication might drift out of sync due to
+        out-of-order statements in the binary log.</p>
+  </dd>
+  <dt id="log_bin"><a class="permalink" href="#log_bin">log_bin</a></dt>
+  <dd>severity: warn
+    <p class="Pp">Binary logging is disabled, so point-in-time recovery and
+        replication are not possible.</p>
+  </dd>
+  <dt id="log_output"><a class="permalink" href="#log_output">log_output</a></dt>
+  <dd>severity: warn
+    <p class="Pp">Directing log output to tables has a high performance
+      impact.</p>
+  </dd>
+  <dt id="max_relay_log_size"><a class="permalink" href="#max_relay_log_size">max_relay_log_size</a></dt>
+  <dd>severity: note
+    <p class="Pp">A custom max_relay_log_size is defined.</p>
+  </dd>
+  <dt id="myisam_recover_options"><a class="permalink" href="#myisam_recover_options">myisam_recover_options</a></dt>
+  <dd>severity: warn
+    <p class="Pp">myisam_recover_options should be set to some value such as
+        BACKUP,FORCE to ensure that table corruption is noticed.</p>
+  </dd>
+  <dt id="storage_engine"><a class="permalink" href="#storage_engine">storage_engine</a></dt>
+  <dd>severity: note
+    <p class="Pp">The server is using a non-standard storage engine as
+      default.</p>
+  </dd>
+  <dt id="sync_binlog"><a class="permalink" href="#sync_binlog">sync_binlog</a></dt>
+  <dd>severity: warn
+    <p class="Pp">Binary logging is enabled, but sync_binlog isn't configured so
+        that every transaction is flushed to the binary log for durability.</p>
+  </dd>
+  <dt id="tmp_table_size"><a class="permalink" href="#tmp_table_size">tmp_table_size</a></dt>
+  <dd>severity: note
+    <p class="Pp">The effective minimum size of in-memory implicit temporary
+        tables used internally during query execution is min(tmp_table_size,
+        max_heap_table_size), so max_heap_table_size should be at least as large
+        as tmp_table_size.</p>
+  </dd>
+  <dt id="old"><a class="permalink" href="#old">old mysql version</a></dt>
+  <dd>severity: warn
+    <p class="Pp">These are the recommended minimum version for each major
+        release: 3.23, 4.1.20, 5.0.37, 5.1.30.</p>
+  </dd>
+  <dt id="end-of-life"><a class="permalink" href="#end-of-life">end-of-life
+    mysql version</a></dt>
+  <dd>severity: note
+    <p class="Pp">Every release older than 5.1 is now officially
+      end-of-life.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">This tool accepts additional command-line arguments. Refer to the
+    &quot;SYNOPSIS&quot; and usage information for details.</p>
+<dl class="Bl-tag">
+  <dt id="ask"><a class="permalink" href="#ask">--ask-pass</a></dt>
+  <dd>Prompt for a password when connecting to MySQL.</dd>
+  <dt id="charset"><a class="permalink" href="#charset">--charset</a></dt>
+  <dd>short form: -A; type: string
+    <p class="Pp">Default character set. If the value is utf8, sets Perl's
+        binmode on STDOUT to utf8, passes the mysql_enable_utf8 option to
+        DBD::mysql, and runs SET NAMES UTF8 after connecting to MySQL. Any other
+        value sets binmode on STDOUT without the utf8 layer, and runs SET NAMES
+        after connecting to MySQL.</p>
+  </dd>
+  <dt id="config"><a class="permalink" href="#config">--config</a></dt>
+  <dd>type: Array
+    <p class="Pp">Read this comma-separated list of config files; if specified,
+        this must be the first option on the command line.</p>
+  </dd>
+  <dt id="daemonize"><a class="permalink" href="#daemonize">--daemonize</a></dt>
+  <dd>Fork to the background and detach from the shell. POSIX operating systems
+      only.</dd>
+  <dt id="database"><a class="permalink" href="#database">--database</a></dt>
+  <dd>short form: -D; type: string
+    <p class="Pp">Connect to this database.</p>
+  </dd>
+  <dt id="defaults"><a class="permalink" href="#defaults">--defaults-file</a></dt>
+  <dd>short form: -F; type: string
+    <p class="Pp">Only read mysql options from the given file. You must give an
+        absolute pathname.</p>
+  </dd>
+  <dt id="help"><a class="permalink" href="#help">--help</a></dt>
+  <dd>Show help and exit.</dd>
+  <dt id="host"><a class="permalink" href="#host">--host</a></dt>
+  <dd>short form: -h; type: string
+    <p class="Pp">Connect to host.</p>
+  </dd>
+  <dt id="ignore"><a class="permalink" href="#ignore">--ignore-rules</a></dt>
+  <dd>type: hash
+    <p class="Pp">Ignore these rule IDs.</p>
+    <p class="Pp">Specify a comma-separated list of rule IDs (e.g.
+        LIT.001,RES.002,etc.) to ignore.</p>
+  </dd>
+  <dt id="password"><a class="permalink" href="#password">--password</a></dt>
+  <dd>short form: -p; type: string
+    <p class="Pp">Password to use when connecting. If password contains commas
+        they must be escaped with a backslash: &quot;exam\,ple&quot;</p>
+  </dd>
+  <dt id="pid"><a class="permalink" href="#pid">--pid</a></dt>
+  <dd>type: string
+    <p class="Pp">Create the given PID file. The tool won't start if the PID
+        file already exists and the PID it contains is different than the
+        current PID. However, if the PID file exists and the PID it contains is
+        no longer running, the tool will overwrite the PID file with the current
+        PID. The PID file is removed automatically when the tool exits.</p>
+  </dd>
+  <dt id="port~2"><a class="permalink" href="#port~2">--port</a></dt>
+  <dd>short form: -P; type: int
+    <p class="Pp">Port number to use for connection.</p>
+  </dd>
+  <dt id="set"><a class="permalink" href="#set">--set-vars</a></dt>
+  <dd>type: Array
+    <p class="Pp">Set the MySQL variables in this comma-separated list of
+        <span class="Li">&quot;variable=value&quot;</span> pairs.</p>
+    <p class="Pp">By default, the tool sets:</p>
+    <p class="Pp"></p>
+    <pre>   wait_timeout=10000
+    </pre>
+    <p class="Pp">Variables specified on the command line override these
+        defaults. For example, specifying <span class="Li">&quot;--set-vars
+        wait_timeout=500&quot;</span> overrides the defaultvalue of
+        <span class="Li">10000</span>.</p>
+    <p class="Pp">The tool prints a warning and continues if a variable cannot
+        be set.</p>
+  </dd>
+  <dt id="socket"><a class="permalink" href="#socket">--socket</a></dt>
+  <dd>short form: -S; type: string
+    <p class="Pp">Socket file to use for connection.</p>
+  </dd>
+  <dt id="source"><a class="permalink" href="#source">--source-of-variables</a></dt>
+  <dd>type: string; default: mysql
+    <p class="Pp">Read <span class="Li">&quot;SHOW VARIABLES&quot;</span> from
+        this source. Possible values are &quot;mysql&quot;, &quot;none&quot; or
+        a file name. If &quot;mysql&quot; is specified then you must also
+        specify a DSN on the command line.</p>
+  </dd>
+  <dt id="user"><a class="permalink" href="#user">--user</a></dt>
+  <dd>short form: -u; type: string
+    <p class="Pp">User for login if not current user.</p>
+  </dd>
+  <dt id="verbose"><a class="permalink" href="#verbose">--verbose</a></dt>
+  <dd>short form: -v; cumulative: yes; default: 1
+    <p class="Pp">Increase verbosity of output. At the default level of
+        verbosity, the program prints only the first sentence of each rule's
+        description. At higher levels, the program prints more of the
+        description.</p>
+  </dd>
+  <dt id="version"><a class="permalink" href="#version">--version</a></dt>
+  <dd>Show version and exit.</dd>
+  <dt>--[no]version-check</dt>
+  <dd>default: yes
+    <p class="Pp">Check for the latest version of Percona Toolkit, MySQL, and
+        other programs.</p>
+    <p class="Pp">This is a standard &quot;check for updates automatically&quot;
+        feature, with two additional features. First, the tool checks its own
+        version and also the versions of the following software: operating
+        system, Percona Monitoring and Management (PMM), MySQL, Perl, MySQL
+        driver for Perl (DBD::mysql), and Percona Toolkit. Second, it checks for
+        and warns about versions with known problems. For example, MySQL 5.5.25
+        had a critical bug and was re-released as 5.5.25a.</p>
+    <p class="Pp">A secure connection to Percona&#x2019;s Version Check database
+        server is done to perform these checks. Each request is logged by the
+        server, including software version numbers and unique ID of the checked
+        system. The ID is generated by the Percona Toolkit installation script
+        or when the Version Check database call is done for the first time.</p>
+    <p class="Pp">Any updates or known problems are printed to STDOUT before the
+        tool's normal output. This feature should never interfere with the
+        normal operation of the tool.</p>
+    <p class="Pp">For more information, visit
+        &lt;https://www.percona.com/doc/percona-toolkit/LATEST/version-check.html&gt;.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DSN_OPTIONS"><a class="permalink" href="#DSN_OPTIONS">DSN
+  OPTIONS</a></h1>
+<p class="Pp">These DSN options are used to create a DSN. Each option is given
+    like <span class="Li">&quot;option=value&quot;</span>. The options are
+    case-sensitive, so P and p are not the same option. There cannot be
+    whitespace before or after the <span class="Li">&quot;=&quot;</span> and if
+    the value contains whitespace it must be quoted. DSN options are
+    comma-separated. See the percona-toolkit manpage for full details.</p>
+<ul class="Bl-bullet">
+  <li>A
+    <p class="Pp">dsn: charset; copy: yes</p>
+    <p class="Pp">Default character set.</p>
+  </li>
+  <li>D
+    <p class="Pp">dsn: database; copy: yes</p>
+    <p class="Pp">Default database.</p>
+  </li>
+  <li>F
+    <p class="Pp">dsn: mysql_read_default_file; copy: yes</p>
+    <p class="Pp">Only read default options from the given file</p>
+  </li>
+  <li>h
+    <p class="Pp">dsn: host; copy: yes</p>
+    <p class="Pp">Connect to host.</p>
+  </li>
+  <li>p
+    <p class="Pp">dsn: password; copy: yes</p>
+    <p class="Pp">Password to use when connecting. If password contains commas
+        they must be escaped with a backslash: &quot;exam\,ple&quot;</p>
+  </li>
+  <li>P
+    <p class="Pp">dsn: port; copy: yes</p>
+    <p class="Pp">Port number to use for connection.</p>
+  </li>
+  <li>S
+    <p class="Pp">dsn: mysql_socket; copy: yes</p>
+    <p class="Pp">Socket file to use for connection.</p>
+  </li>
+  <li>u
+    <p class="Pp">dsn: user; copy: yes</p>
+    <p class="Pp">User for login if not current user.</p>
+  </li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<p class="Pp">The environment variable
+    <span class="Li">&quot;PTDEBUG&quot;</span> enables verbose debugging output
+    to STDERR. To enable debugging and capture all output to a file, run the
+    tool like:</p>
+<p class="Pp"></p>
+<pre>   PTDEBUG=1 pt-variable-advisor ... &gt; FILE 2&gt;&amp;1
+</pre>
+<p class="Pp">Be careful: debugging output is voluminous and can generate
+    several megabytes of output.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYSTEM_REQUIREMENTS"><a class="permalink" href="#SYSTEM_REQUIREMENTS">SYSTEM
+  REQUIREMENTS</a></h1>
+<p class="Pp">You need Perl, DBI, DBD::mysql, and some core packages that ought
+    to be installed in any reasonably new version of Perl.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">For a list of known bugs, see
+    &lt;http://www.percona.com/bugs/pt-variable-advisor&gt;.</p>
+<p class="Pp">Please report bugs at
+    &lt;https://jira.percona.com/projects/PT&gt;. Include the following
+    information in your bug report:</p>
+<ul class="Bl-bullet">
+  <li>Complete command-line used to run the tool</li>
+  <li>Tool &quot;--version&quot;</li>
+  <li>MySQL version of all servers involved</li>
+  <li>Output from the tool including STDERR</li>
+  <li>Input files (log/dump/config files, etc.)</li>
+</ul>
+<p class="Pp">If possible, include debugging output by running the tool with
+    <span class="Li">&quot;PTDEBUG&quot;</span>; see
+  &quot;ENVIRONMENT&quot;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DOWNLOADING"><a class="permalink" href="#DOWNLOADING">DOWNLOADING</a></h1>
+<p class="Pp">Visit &lt;http://www.percona.com/software/percona-toolkit/&gt; to
+    download the latest release of Percona Toolkit. Or, get the latest release
+    from the command line:</p>
+<p class="Pp"></p>
+<pre>   wget percona.com/get/percona-toolkit.tar.gz
+   wget percona.com/get/percona-toolkit.rpm
+   wget percona.com/get/percona-toolkit.deb
+</pre>
+<p class="Pp">You can also get individual tools from the latest release:</p>
+<p class="Pp"></p>
+<pre>   wget percona.com/get/TOOL
+</pre>
+<p class="Pp">Replace <span class="Li">&quot;TOOL&quot;</span> with the name of
+    any tool.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Baron Schwartz and Daniel Nichter</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ABOUT_PERCONA_TOOLKIT"><a class="permalink" href="#ABOUT_PERCONA_TOOLKIT">ABOUT
+  PERCONA TOOLKIT</a></h1>
+<p class="Pp">This tool is part of Percona Toolkit, a collection of advanced
+    command-line tools for MySQL developed by Percona. Percona Toolkit was
+    forked from two projects in June, 2011: Maatkit and Aspersa. Those projects
+    were created by Baron Schwartz and primarily developed by him and Daniel
+    Nichter. Visit &lt;http://www.percona.com/software/&gt; to learn about other
+    free, open-source software from Percona.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT,_LICENSE,_AND_WARRANTY"><a class="permalink" href="#COPYRIGHT,_LICENSE,_AND_WARRANTY">COPYRIGHT,
+  LICENSE, AND WARRANTY</a></h1>
+<p class="Pp">This program is copyright 2010-2018 Percona LLC and/or its
+    affiliates.</p>
+<p class="Pp">THIS PROGRAM IS PROVIDED &quot;AS IS&quot; AND WITHOUT ANY EXPRESS
+    OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES
+    OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.</p>
+<p class="Pp">This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 2; OR the Perl Artistic License. On
+    UNIX and similar systems, you can issue `man perlgpl' or `man perlartistic'
+    to read these licenses.</p>
+<p class="Pp">You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software Foundation,
+    Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
+<p class="Pp">pt-variable-advisor 3.2.1</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="POD_ERRORS"><a class="permalink" href="#POD_ERRORS">POD
+  ERRORS</a></h1>
+<p class="Pp">Hey! <b>The above document had some coding errors, which are
+    explained below:</b></p>
+<dl class="Bl-tag">
+  <dt id="Around"><a class="permalink" href="#Around">Around line 6095:</a></dt>
+  <dd>Non-ASCII character seen before =encoding in 'Percona&#x2019;s'. Assuming
+      UTF-8</dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2020-08-30</td>
+    <td class="foot-os">perl v5.30.3</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: percona-toolkit 3.2.1-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

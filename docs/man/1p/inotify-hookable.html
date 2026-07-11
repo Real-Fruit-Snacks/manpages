@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="blocking command-line interface to inotify">
+<title>inotify-hookable(1p) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">inotify-hookable(1p)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#ACKNOWLEDGMENT">ACKNOWLEDGMENT</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">HOOKABLE(1p)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">HOOKABLE(1p)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">inotify-hookable - blocking command-line interface to inotify</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Watch a directory, tell us when things change in it:</p>
+<p class="Pp"></p>
+<pre>    inotify-hookable --watch-directories /tmp/watch-this
+</pre>
+<p class="Pp">Watch a git tree, some configs, and a repository of static assets,
+    restart the webserver or compress those assets if anything changes:</p>
+<p class="Pp"></p>
+<pre>    inotify-hookable \
+        --watch-directories /etc/uwsgi \
+        --watch-directories /git_tree/central \
+        --watch-directories /etc/app-config \
+        --watch-directories /git_tree/static_assets \
+        --on-modify-path-command &quot;^(/etc/uwsgi|/git_tree/central|/etc/app-config)=sudo /etc/init.d/uwsgi restart&quot; \
+        --on-modify-path-command &quot;^/git_tree/static_assets=(cd /git_tree/static_assets &amp;&amp; compress_static_assets)&quot;
+</pre>
+<p class="Pp">Or watch specific files:</p>
+<p class="Pp"></p>
+<pre>    inotify-hookable \
+        --watch-files /var/www/cgi-bin/mod_perl_handler \
+        --on-modify-command &quot;apachectl restart&quot;
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This simple command-line program is my replacement for the
+    functionality offered by Plack's Filesys::Notify::Simple. I found that on
+    very large git trees Plack would spend an inordinate amount watching the
+    filesystem for changes.</p>
+<p class="Pp">This program uses Linux::Inotify2, so the kernel will notify it
+    <b>instantly</b> when something changes (actually it's so fast that we have
+    to work around how fast it sends us events).</p>
+<p class="Pp">The result is that you can run this e.g. in a screen session and
+    have it watch your development environment, and your webserver will have
+    begun restarting before your finger leaves the <i>save</i> button.</p>
+<p class="Pp">vim and emacs temporary files are ignored by default (see
+    <span class="Li">&quot;--ignore-paths&quot;</span>.) so you can edit your
+    files without your server restarting unnecessarily.</p>
+<p class="Pp">Currently the command-line interface for this is the only one that
+    really makes sense, this module is entirely blocking (although it could
+    probably run in another process via POE or something). Patches welcome.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">Note that boolean options can be negated with
+    <span class="Li">&quot;--no-OPTION&quot;</span>, e.g.
+    <span class="Li">&quot;--no-r&quot;</span> or
+    <span class="Li">&quot;--no-recursive&quot;</span> to turn off the
+    <span class="Li">&quot;--recursive&quot;</span> option which is on by
+    default.</p>
+<section class="Ss">
+<h2 class="Ss">&quot;-w&quot; or &quot;--watch-directories&quot;</h2>
+<p class="Pp">Specify this to watch a directory, you can give this however many
+    times you like to watch lots of directories.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">&quot;-f&quot; or &quot;--watch-files&quot;</h2>
+<p class="Pp">Watch a file, specify multiple times for multiple files. You can
+    watch files and directories in the same command.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">&quot;-r&quot; or &quot;--recursive&quot;</h2>
+<p class="Pp">If you supply this any directory you give will be recursively
+    watched. This is on by default.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">&quot;-c&quot; or &quot;--on-modify-command&quot;</h2>
+<p class="Pp">A command that will be run when something is modified.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">&quot;-C&quot; or &quot;--on-modify-path-command&quot;</h2>
+<p class="Pp">A key-value pair where the key is a regex that'll be matched
+    against a modified path, and the value is a command that'll be run. See the
+    &quot;SYNOPSIS&quot; for an example.</p>
+<p class="Pp">Useful for e.g. restarting a webserver if you modify directory
+    <i>A</i> but compressing some static assets if you modify directory
+    <i>B</i>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">&quot;-t&quot; or &quot;--buffer-time&quot;</h2>
+<p class="Pp">Linux will send you inotify events <b>really</b> fast, so fast
+    that if you run something like:</p>
+<p class="Pp"></p>
+<pre>    touch foo bar
+</pre>
+<p class="Pp">You might get an event for <i>foo</i> in one batch, followed by an
+    event for <i>bar</i> later on.</p>
+<p class="Pp">To deal with this we enter a loop when we start getting events and
+    sleep for a default of 100 microseconds, as long as we keep getting events
+    we keep sleeping for 100 microseconds, but as soon as we haven't received
+    anything new we fire off our event handlers.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">&quot;-i&quot; or &quot;--ignore-paths&quot;</h2>
+<p class="Pp">Regexes for files/directories to ignore events for. By default
+    this is set to regexes for vim and emacs temporary files,
+    <span class="Li">&quot;qr{\..*sw.\z}&quot;</span> and
+    <span class="Li">&quot;qr{\.\#[^/]+\z}&quot;</span> respectively.</p>
+<p class="Pp">The regexes match after any <span class="Li">&quot;/&quot;</span>
+    in the path or the beginning of the string.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">&quot;-d&quot; or &quot;--debug&quot;</h2>
+<p class="Pp">Spew out some verbose debug output while running.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">&quot;-q&quot; or &quot;--[no-]quiet&quot;</h2>
+<p class="Pp">Don't log noisy information</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGMENT"><a class="permalink" href="#ACKNOWLEDGMENT">ACKNOWLEDGMENT</a></h1>
+<p class="Pp">This module was originally developed at and for Booking.com. With
+    approval from Booking.com, this module was generalized and put on CPAN, for
+    which the authors would like to express their gratitude.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">&#x00C6;var Arnfj&#x00F6;r&#x00F0; Bjarmason
+  &lt;avar@cpan.org&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2021-03-07</td>
+    <td class="foot-os">perl v5.32.1</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: inotify-hookable 0.09-2 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="gammu-smsd(1) backend using PostgreSQL database server as a message storage">
+<title>gammu-smsd-pgsql(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">gammu-smsd-pgsql(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#CONFIGURATION">CONFIGURATION</a></li><li><a href="#CREATING_TABLES_FOR_POSTGRESQL">CREATING
+  TABLES FOR POSTGRESQL</a></li><li><a href="#UPGRADING_TABLES">UPGRADING
+  TABLES</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GAMMU-SMSD-PGSQL(7)</td>
+    <td class="head-vol">Gammu</td>
+    <td class="head-rtitle">GAMMU-SMSD-PGSQL(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gammu-smsd-pgsql - gammu-smsd(1) backend using PostgreSQL database
+    server as a message storage</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">PGSQL backend stores all data in a <i>PostgreSQL</i> database
+    server, which parameters are defined by configuration (see gammu-smsdrc for
+    description of configuration options).</p>
+<p class="Pp">For tables description see gammu-smsd-tables.</p>
+<p class="Pp">This backend is based on gammu-smsd-sql.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+<p class="Pp">Before running gammu-smsd you need to create necessary tables in
+    the database, which is described below.</p>
+<p class="Pp">The configuration file then can look like:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>[smsd]
+service = sql
+driver = native_pgsql
+host = localhost
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><b>SEE ALSO:</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent">gammu-smsdrc</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CREATING_TABLES_FOR_POSTGRESQL"><a class="permalink" href="#CREATING_TABLES_FOR_POSTGRESQL">CREATING
+  TABLES FOR POSTGRESQL</a></h1>
+<p class="Pp">SQL script for creating tables in PostgreSQL database:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>-- 
+-- Database: &quot;smsd&quot;
+-- 
+-- CREATE USER &quot;smsd&quot; WITH NOCREATEDB NOCREATEUSER;
+-- CREATE DATABASE &quot;smsd&quot; WITH OWNER = &quot;smsd&quot; ENCODING = 'UTF8';
+-- \connect &quot;smsd&quot; &quot;smsd&quot;
+-- COMMENT ON DATABASE &quot;smsd&quot; IS 'Gammu SMSD Database';
+-- --------------------------------------------------------
+--
+-- Function declaration for updating timestamps
+--
+CREATE LANGUAGE plpgsql;
+CREATE OR REPLACE FUNCTION update_timestamp() RETURNS trigger AS $update_timestamp$
+<br/>
+  BEGIN
+<br/>
+    NEW.&quot;UpdatedInDB&quot; := LOCALTIMESTAMP(0);
+<br/>
+    RETURN NEW;
+<br/>
+  END;
+$update_timestamp$ LANGUAGE plpgsql;
+-- --------------------------------------------------------
+--
+-- Sequence declarations for tables' primary keys
+--
+--CREATE SEQUENCE inbox_ID_seq;
+--CREATE SEQUENCE outbox_ID_seq;
+--CREATE SEQUENCE outbox_multipart_ID_seq;
+--CREATE SEQUENCE sentitems_ID_seq;
+-- --------------------------------------------------------
+--
+-- Index declarations for tables' primary keys
+--
+--CREATE UNIQUE INDEX inbox_pkey ON inbox USING btree (&quot;ID&quot;);
+--CREATE UNIQUE INDEX outbox_pkey ON outbox USING btree (&quot;ID&quot;);
+--CREATE UNIQUE INDEX outbox_multipart_pkey ON outbox_multipart USING btree (&quot;ID&quot;);
+--CREATE UNIQUE INDEX sentitems_pkey ON sentitems USING btree (&quot;ID&quot;);
+-- --------------------------------------------------------
+-- 
+-- Table structure for table &quot;gammu&quot;
+-- 
+CREATE TABLE gammu (
+<br/>
+  &quot;Version&quot; smallint NOT NULL DEFAULT '0' PRIMARY KEY
+);
+-- 
+-- Dumping data for table &quot;gammu&quot;
+-- 
+INSERT INTO gammu (&quot;Version&quot;) VALUES (17);
+-- --------------------------------------------------------
+-- 
+-- Table structure for table &quot;inbox&quot;
+-- 
+CREATE TABLE inbox (
+<br/>
+  &quot;UpdatedInDB&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;ReceivingDateTime&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;Text&quot; text NOT NULL,
+<br/>
+  &quot;SenderNumber&quot; varchar(20) NOT NULL DEFAULT '',
+<br/>
+  &quot;Coding&quot; varchar(255) NOT NULL DEFAULT 'Default_No_Compression',
+<br/>
+  &quot;UDH&quot; text NOT NULL,
+<br/>
+  &quot;SMSCNumber&quot; varchar(20) NOT NULL DEFAULT '',
+<br/>
+  &quot;Class&quot; integer NOT NULL DEFAULT '-1',
+<br/>
+  &quot;TextDecoded&quot; text NOT NULL DEFAULT '',
+<br/>
+  &quot;ID&quot; serial PRIMARY KEY,
+<br/>
+  &quot;RecipientID&quot; text NOT NULL,
+<br/>
+  &quot;Processed&quot; boolean NOT NULL DEFAULT 'false',
+<br/>
+  &quot;Status&quot; integer NOT NULL DEFAULT '-1',
+<br/>
+  CHECK (&quot;Coding&quot; IN 
+<br/>
+  ('Default_No_Compression','Unicode_No_Compression','8bit','Default_Compression','Unicode_Compression')) 
+);
+-- 
+-- Dumping data for table &quot;inbox&quot;
+-- 
+-- --------------------------------------------------------
+--
+-- Create trigger for table &quot;inbox&quot;
+--
+CREATE TRIGGER update_timestamp BEFORE UPDATE ON inbox FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
+-- --------------------------------------------------------
+-- 
+-- Table structure for table &quot;outbox&quot;
+-- 
+CREATE TABLE outbox (
+<br/>
+  &quot;UpdatedInDB&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;InsertIntoDB&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;SendingDateTime&quot; timestamp NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;SendBefore&quot; time NOT NULL DEFAULT '23:59:59',
+<br/>
+  &quot;SendAfter&quot; time NOT NULL DEFAULT '00:00:00',
+<br/>
+  &quot;Text&quot; text,
+<br/>
+  &quot;DestinationNumber&quot; varchar(20) NOT NULL DEFAULT '',
+<br/>
+  &quot;Coding&quot; varchar(255) NOT NULL DEFAULT 'Default_No_Compression',
+<br/>
+  &quot;UDH&quot; text,
+<br/>
+  &quot;Class&quot; integer DEFAULT '-1',
+<br/>
+  &quot;TextDecoded&quot; text NOT NULL DEFAULT '',
+<br/>
+  &quot;ID&quot; serial PRIMARY KEY,
+<br/>
+  &quot;MultiPart&quot; boolean NOT NULL DEFAULT 'false',
+<br/>
+  &quot;RelativeValidity&quot; integer DEFAULT '-1',
+<br/>
+  &quot;SenderID&quot; varchar(255),
+<br/>
+  &quot;SendingTimeOut&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;DeliveryReport&quot; varchar(10) DEFAULT 'default',
+<br/>
+  &quot;CreatorID&quot; text NOT NULL,
+<br/>
+  &quot;Retries&quot; integer DEFAULT '0',
+<br/>
+  &quot;Priority&quot; integer DEFAULT '0',
+<br/>
+  &quot;Status&quot; varchar(255) NOT NULL DEFAULT 'Reserved',
+<br/>
+  &quot;StatusCode&quot; integer NOT NULL DEFAULT '-1',
+<br/>
+  CHECK (&quot;Coding&quot; IN 
+<br/>
+  ('Default_No_Compression','Unicode_No_Compression','8bit','Default_Compression','Unicode_Compression')),
+<br/>
+  CHECK (&quot;DeliveryReport&quot; IN ('default','yes','no')),
+<br/>
+  CHECK (&quot;Status&quot; IN 
+<br/>
+  ('SendingOK','SendingOKNoReport','SendingError','DeliveryOK','DeliveryFailed','DeliveryPending',
+<br/>
+  'DeliveryUnknown','Error','Reserved'))
+);
+CREATE INDEX outbox_date ON outbox(&quot;SendingDateTime&quot;, &quot;SendingTimeOut&quot;);
+CREATE INDEX outbox_sender ON outbox(&quot;SenderID&quot;);
+-- 
+-- Dumping data for table &quot;outbox&quot;
+-- 
+-- --------------------------------------------------------
+--
+-- Create trigger for table &quot;outbox&quot;
+--
+CREATE TRIGGER update_timestamp BEFORE UPDATE ON outbox FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
+-- --------------------------------------------------------
+-- 
+-- Table structure for table &quot;outbox_multipart&quot;
+-- 
+CREATE TABLE outbox_multipart (
+<br/>
+  &quot;Text&quot; text,
+<br/>
+  &quot;Coding&quot; varchar(255) NOT NULL DEFAULT 'Default_No_Compression',
+<br/>
+  &quot;UDH&quot; text,
+<br/>
+  &quot;Class&quot; integer DEFAULT '-1',
+<br/>
+  &quot;TextDecoded&quot; text DEFAULT NULL,
+<br/>
+  &quot;ID&quot; serial,
+<br/>
+  &quot;SequencePosition&quot; integer NOT NULL DEFAULT '1',
+<br/>
+  &quot;Status&quot; varchar(255) NOT NULL DEFAULT 'Reserved',
+<br/>
+  &quot;StatusCode&quot; integer NOT NULL DEFAULT '-1',
+<br/>
+  PRIMARY KEY (&quot;ID&quot;, &quot;SequencePosition&quot;),
+<br/>
+  CHECK (&quot;Coding&quot; IN 
+<br/>
+  ('Default_No_Compression','Unicode_No_Compression','8bit','Default_Compression','Unicode_Compression')),
+<br/>
+  CHECK (&quot;Status&quot; IN 
+<br/>
+  ('SendingOK','SendingOKNoReport','SendingError','DeliveryOK','DeliveryFailed','DeliveryPending',
+<br/>
+  'DeliveryUnknown','Error','Reserved'))
+);
+-- 
+-- Dumping data for table &quot;outbox_multipart&quot;
+-- 
+-- --------------------------------------------------------
+-- 
+-- Table structure for table &quot;phones&quot;
+-- 
+CREATE TABLE phones (
+<br/>
+  &quot;ID&quot; text NOT NULL,
+<br/>
+  &quot;UpdatedInDB&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;InsertIntoDB&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;TimeOut&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;Send&quot; boolean NOT NULL DEFAULT 'no',
+<br/>
+  &quot;Receive&quot; boolean NOT NULL DEFAULT 'no',
+<br/>
+  &quot;IMEI&quot; varchar(35) PRIMARY KEY NOT NULL,
+<br/>
+  &quot;IMSI&quot; varchar(35) NOT NULL,
+<br/>
+  &quot;NetCode&quot; varchar(10) DEFAULT 'ERROR',
+<br/>
+  &quot;NetName&quot; varchar(35) DEFAULT 'ERROR',
+<br/>
+  &quot;Client&quot; text NOT NULL,
+<br/>
+  &quot;Battery&quot; integer NOT NULL DEFAULT -1,
+<br/>
+  &quot;Signal&quot; integer NOT NULL DEFAULT -1,
+<br/>
+  &quot;Sent&quot; integer NOT NULL DEFAULT 0,
+<br/>
+  &quot;Received&quot; integer NOT NULL DEFAULT 0
+);
+-- 
+-- Dumping data for table &quot;phones&quot;
+-- 
+-- --------------------------------------------------------
+--
+-- Create trigger for table &quot;phones&quot;
+--
+CREATE TRIGGER update_timestamp BEFORE UPDATE ON phones FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
+-- --------------------------------------------------------
+-- 
+-- Table structure for table &quot;sentitems&quot;
+-- 
+CREATE TABLE sentitems (
+<br/>
+  &quot;UpdatedInDB&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;InsertIntoDB&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;SendingDateTime&quot; timestamp(0) WITHOUT time zone NOT NULL DEFAULT LOCALTIMESTAMP(0),
+<br/>
+  &quot;DeliveryDateTime&quot; timestamp(0) WITHOUT time zone NULL,
+<br/>
+  &quot;Text&quot; text NOT NULL,
+<br/>
+  &quot;DestinationNumber&quot; varchar(20) NOT NULL DEFAULT '',
+<br/>
+  &quot;Coding&quot; varchar(255) NOT NULL DEFAULT 'Default_No_Compression',
+<br/>
+  &quot;UDH&quot; text NOT NULL,
+<br/>
+  &quot;SMSCNumber&quot; varchar(20) NOT NULL DEFAULT '',
+<br/>
+  &quot;Class&quot; integer NOT NULL DEFAULT '-1',
+<br/>
+  &quot;TextDecoded&quot; text NOT NULL DEFAULT '',
+<br/>
+  &quot;ID&quot; serial,
+<br/>
+  &quot;SenderID&quot; varchar(255) NOT NULL,
+<br/>
+  &quot;SequencePosition&quot; integer NOT NULL DEFAULT '1',
+<br/>
+  &quot;Status&quot; varchar(255) NOT NULL DEFAULT 'SendingOK',
+<br/>
+  &quot;StatusError&quot; integer NOT NULL DEFAULT '-1',
+<br/>
+  &quot;TPMR&quot; integer NOT NULL DEFAULT '-1',
+<br/>
+  &quot;RelativeValidity&quot; integer NOT NULL DEFAULT '-1',
+<br/>
+  &quot;CreatorID&quot; text NOT NULL,
+<br/>
+  &quot;StatusCode&quot; integer NOT NULL DEFAULT '-1',
+<br/>
+  CHECK (&quot;Status&quot; IN 
+<br/>
+  ('SendingOK','SendingOKNoReport','SendingError','DeliveryOK','DeliveryFailed','DeliveryPending',
+<br/>
+  'DeliveryUnknown','Error')),
+<br/>
+  CHECK (&quot;Coding&quot; IN 
+<br/>
+  ('Default_No_Compression','Unicode_No_Compression','8bit','Default_Compression','Unicode_Compression')),
+<br/>
+  PRIMARY KEY (&quot;ID&quot;, &quot;SequencePosition&quot;)
+);
+CREATE INDEX sentitems_date ON sentitems(&quot;DeliveryDateTime&quot;);
+CREATE INDEX sentitems_tpmr ON sentitems(&quot;TPMR&quot;);
+CREATE INDEX sentitems_dest ON sentitems(&quot;DestinationNumber&quot;);
+CREATE INDEX sentitems_sender ON sentitems(&quot;SenderID&quot;);
+-- 
+-- Dumping data for table &quot;sentitems&quot;
+-- 
+-- --------------------------------------------------------
+--
+-- Create trigger for table &quot;sentitems&quot;
+--
+CREATE TRIGGER update_timestamp BEFORE UPDATE ON sentitems FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"><b>NOTE:</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent">You can find the script in <b>docs/sql/pgsql.sql</b> as
+  well.</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="UPGRADING_TABLES"><a class="permalink" href="#UPGRADING_TABLES">UPGRADING
+  TABLES</a></h1>
+<p class="Pp">The easiest way to upgrade database structure is to backup old one
+    and start with creating new one based on example above.</p>
+<p class="Pp">For upgrading existing database, you can use changes described in
+    smsd-tables-history and then manually update <b>Version</b> field in
+    <b>gammu</b> table.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Michal &#x010C;iha&#x0159; &lt;michal@cihar.com&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">2009-2015, Michal &#x010C;iha&#x0159; &lt;michal@cihar.com&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">October 3, 2020</td>
+    <td class="foot-os">1.42.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: gammu-smsd 1.42.0-8.1ubuntu2 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

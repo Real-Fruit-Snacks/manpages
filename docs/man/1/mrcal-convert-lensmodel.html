@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Converts a camera model from one lens model to another">
+<title>mrcal-convert-lensmodel(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">mrcal-convert-lensmodel(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#POSITIONAL_ARGUMENTS">POSITIONAL
+  ARGUMENTS</a></li><li><a href="#OPTIONAL_ARGUMENTS">OPTIONAL
+  ARGUMENTS</a></li><li><a href="#REPOSITORY">REPOSITORY</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#LICENSE_AND_COPYRIGHT">LICENSE
+  AND COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MRCAL(1)</td>
+    <td class="head-vol">mrcal: camera projection, calibration toolkit</td>
+    <td class="head-rtitle">MRCAL(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">mrcal-convert-lensmodel - Converts a camera model from one lens
+    model to another</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>  $ mrcal-convert-lensmodel
+      --viz LENSMODEL_OPENCV4 left.cameramodel
+  ... lots of output as the solve runs ...
+  RMS error of the solution: 3.40256580058 pixels.
+  Wrote 'left-LENSMODEL_OPENCV4.cameramodel'
+  ... a plot pops up showing the differences ...
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Given one camera model, this tool computes another camera model
+    that represents the same camera, but utilizes a different lens model. While
+    lens models all exist to solve the same problem, the different
+    representations don't map to one another perfectly, and this tool finds the
+    best-fitting parameters of the target lens model. Two different methods are
+    implemented:</p>
+<p class="Pp">1. If the given cameramodel file contains optimization_inputs,
+    then we have all
+  <br/>
+   the data that was used to compute this model in the first place, and we can
+  <br/>
+   re-run the original optimization, using the new lens model. This is the
+  <br/>
+   default behavior, and is the preferred choice. However it can only work with
+  <br/>
+   models that were computed by mrcal originally. We re-run the full original
+  <br/>
+   solve, even it contained multiple cameras, unless --monocular is given. With
+  <br/>
+   that option, we re-solve only the subset of the images observed by the one
+  <br/>
+   requested camera</p>
+<p class="Pp">2. We can sample a grid of points on the imager, unproject them to
+    observation
+  <br/>
+   vectors in the camera coordinate system, and then fit a new camera model that
+  <br/>
+   reprojects these vectors as closely to the original pixel coordinates as
+  <br/>
+   possible. This can be applied to models that didn't come from mrcal. Select
+  <br/>
+   this mode by passing --sampled.</p>
+<p class="Pp">Since camera models (lens parameters AND geometry) are computed
+    off real pixel observations, the confidence of the projections varies
+    greatly across the imager and across observation distances. The first method
+    uses the original data, so it implicitly respects these uncertainties:
+    uncertain areas in the original model will be uncertain in the new model as
+    well. The second method, however, doesn't have this information: it doesn't
+    know which parts of the imager and space are reliable, so the results
+    suffer.</p>
+<p class="Pp">As always, the intrinsics have some baked-in geometry information.
+    Both methods optimize intrinsics AND extrinsics, and output cameramodels
+    with updated versions of both. If --sampled: we can request that only the
+    intrinsics be optimized by passing --intrinsics-only.</p>
+<p class="Pp">Also, if --sampled and not --intrinsics-only: we fit the
+    extrinsics off 3D points, not just observation directions. The distance from
+    the camera to the points is set by --distance. This can take a
+    comma-separated list of distances to use. It's STRONGLY recommended to ask
+    for two different distances:</p>
+<p class="Pp">- A &quot;near&quot; distance: where we expect the intrinsics to
+    have the most accuracy.
+  <br/>
+   At the range of the chessboards, usually</p>
+<p class="Pp">- A &quot;far&quot; distance: at &quot;infinity&quot;. A few km is
+    good usually.</p>
+<p class="Pp">The reason for this is that --sampled solves at a single distance
+    aren't sufficiently constrained. If we ask for a single far distance:
+    &quot;--distance 1000&quot; for instance, we can easily get an extrinsics
+    shift of 100m. This is aphysical: changing the intrinsics could shift the
+    camera origin by a few mm, but not 100m. Conceptually we want to perform a
+    rotation-only extrinsics solve, but this isn't yet implemented. Passing both
+    a near and far distance appears to constrain the extrinsics well in
+    practice. The computed extrinsics transform is printed on the console, with
+    a warning if an aphysical shift was computed. Do pay attention to the
+    console output.</p>
+<p class="Pp">Sampled solves are sometimes sensitive to the optimization seed.
+    To control for this, pass --num-trials to evaluate the solve multiple times
+    from different random seeds, and to pick the best one. These solves are
+    usually quick, so there's no harm in passing something like
+    &quot;--num-trials 10&quot;.</p>
+<p class="Pp">We need to consider that the model we're trying to fit may not fit
+    the original model in all parts of the imager. Usually this is a factor when
+    converting wide-angle cameramodels to use a leaner model: a decent fit will
+    be possible at the center, with more and more divergence as we move towards
+    the edges. We handle this with the --where and --radius options to allow the
+    user to select the area of the imager that is used for the fit: observations
+    outside the selected area are thrown out. This region is centered on the
+    point given by --where (or at the center of the imager, if --where is
+    omitted). The radius of this region is given by --radius. If '--radius 0'
+    then we use ALL the data. A radius&lt;0 can be used to set the size of the
+    no-data margin at the corners; in this case I'll use</p>
+<p class="Pp"></p>
+<pre>    r = sqrt(width^2 + height^2)/2. - abs(radius)
+</pre>
+<p class="Pp">There's a balance to strike here. A larger radius means that we'll
+    try to fit as well as we can in a larger area. This might mean that we won't
+    fit well anywhere, but we won't do terribly anywhere, either. A smaller area
+    means that we give up on the outer regions entirely (resulting in very poor
+    fits there), but we'll be able to fit much better in the areas that remain.
+    Generally empirical testing is required to find a good compromise: pass
+    --viz to see the resulting differences. Note that --radius and --where
+    applies only if we're optimizing sampled reprojections; if we're using the
+    original optimization inputs, the options are illegal.</p>
+<p class="Pp">The output is written to a file on disk, with the same filename as
+    the input model, but with the new lensmodel added to the filename.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="POSITIONAL_ARGUMENTS"><a class="permalink" href="#POSITIONAL_ARGUMENTS">POSITIONAL
+  ARGUMENTS</a></h2>
+<pre>  to                    The target lens model
+  model                 Input camera model. If omitted or &quot;-&quot;, we read
+                        standard input and write to standard output
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="OPTIONAL_ARGUMENTS"><a class="permalink" href="#OPTIONAL_ARGUMENTS">OPTIONAL
+  ARGUMENTS</a></h2>
+<pre>  -h, --help            show this help message and exit
+  --sampled             Instead of solving the original calibration problem
+                        using the new lens model, use sampled imager points.
+                        This produces biased results, but can be used even if
+                        the original optimization_inputs aren't available
+  --gridn GRIDN GRIDN   Used if --sampled. How densely we should sample the
+                        imager. By default we use a 30x20 grid
+  --distance DISTANCE   Required if --sampled and not --intrinsics-only. A
+                        sampled solve fits the intrinsics and extrinsics to
+                        match up reprojections of a grid of observed pixels.
+                        The points being projected are set a particular
+                        distance (set by this argument) from the camera. Set
+                        this to the distance that is expected to be most
+                        confident for the given cameramodel. Points at
+                        infinity aren't supported yet: specify a high distance
+                        instead. We can fit multiple distances at the same
+                        time by passing them here in a comma-separated,
+                        whitespace-less list. If multiple distances are given,
+                        we fit the model using ALL the distances, but --viz
+                        displays the difference for the FIRST distance given.
+                        See the description above. Without --sampled, this is
+                        used for the visualization only
+  --intrinsics-only     Used if --sampled. By default I optimize the
+                        intrinsics and extrinsics to find the closest
+                        reprojection. If for whatever reason we know that the
+                        camera coordinate system was already right, or we need
+                        to keep the original extrinsics, pass --intrinsics-
+                        only. The resulting extrinsics will be the same, but
+                        the fit will not be as good. In many cases, optimizing
+                        extrinsics is required to get a usable fit, so
+                        --intrinsics-only may not be an option if accurate
+                        results are required.
+  --where WHERE WHERE   Used with or without --sampled. I use a subset of the
+                        imager to compute the fit. The active region is a
+                        circle centered on this point. If omitted, we will
+                        focus on the center of the imager
+  --radius RADIUS       Used with or without --sampled. I use a subset of the
+                        imager to compute the fit. The active region is a
+                        circle with a radius given by this parameter. If
+                        radius == 0, I'll use the whole imager for the fit. If
+                        radius &lt; 0, this parameter specifies the width of the
+                        region at the corners that I should ignore: I will use
+                        sqrt(width^2 + height^2)/2. - abs(radius). This is
+                        valid ONLY if we're focusing at the center of the
+                        imager. By default I ignore a large-ish chunk area at
+                        the corners.
+  --monocular           Used if not --sampled. By default we re-solve the full
+                        calibration problem that was used to originally obtain
+                        the input model, even if it contained multiple
+                        cameras. If --monocular, we re-solve only a subset of
+                        the original problem, using ONLY the observations made
+                        by THIS camera
+  --viz                 Visualize the differences between the input and output
+                        models. If we have --distance, the FIRST given
+                        distance is used to display the fit error
+  --cbmax CBMAX         Maximum range of the colorbar
+  --title TITLE         Used if --viz. Title string for the diff plot.
+                        Overrides the default title. Exclusive with
+                        --extratitle
+  --extratitle EXTRATITLE
+                        Used if --viz. Additional string for the plot to
+                        append to the default title. Exclusive with --title
+  --hardcopy HARDCOPY   Used if --viz. Write the diff output to disk, instead
+                        of making an interactive plot
+  --terminal TERMINAL   Used if --viz. gnuplotlib terminal. The default is
+                        good almost always, so most people don't need this
+                        option
+  --set SET             Used if --viz. Extra 'set' directives to gnuplotlib.
+                        Can be given multiple times
+  --unset UNSET         Used if --viz. Extra 'unset' directives to gnuplotlib.
+                        Can be given multiple times
+  --force, -f           By default existing models on disk are not
+                        overwritten. Pass --force to overwrite them without
+                        complaint
+  --outdir OUTDIR       Directory to write the output into. If omitted, we use
+                        the directory of the input model
+  --num-trials NUM_TRIALS
+                        If given, run the solve more than once. Useful in case
+                        random initialization produces noticeably different
+                        results. By default we run just one trial, which is
+                        enough most of the time
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPOSITORY"><a class="permalink" href="#REPOSITORY">REPOSITORY</a></h1>
+<p class="Pp">&lt;https://www.github.com/dkogan/mrcal&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Dima Kogan,
+    <span class="Li">&quot;&lt;dima@secretsauce.net&gt;&quot;</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE_AND_COPYRIGHT"><a class="permalink" href="#LICENSE_AND_COPYRIGHT">LICENSE
+  AND COPYRIGHT</a></h1>
+<p class="Pp">Copyright (c) 2017-2023 California Institute of Technology
+    (&quot;Caltech&quot;). U.S. Government sponsorship acknowledged. All rights
+    reserved.</p>
+<p class="Pp">Licensed under the Apache License, Version 2.0 (the
+    &quot;License&quot;); You may obtain a copy of the License at</p>
+<p class="Pp"></p>
+<pre>    http://www.apache.org/licenses/LICENSE-2.0
+</pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-07-25</td>
+    <td class="foot-os">mrcal 2.4.1-1ubuntu0.24.04.1</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: mrcal 2.4.1-1ubuntu0.24.04.1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

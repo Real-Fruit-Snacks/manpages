@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="AFS PAG and token PAM module">
+<title>pam_afs_session(5) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pam_afs_session(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#CONFIGURATION">CONFIGURATION</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#WARNINGS">WARNINGS</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PAM_AFS_SESSION(5)</td>
+    <td class="head-vol">pam-afs-session</td>
+    <td class="head-rtitle">PAM_AFS_SESSION(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pam_afs_session - AFS PAG and token PAM module</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>  auth          optional        pam_afs_session.so
+  session       required        pam_afs_session.so
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The AFS session service module for PAM, typically installed at
+    <i>/lib/security/pam_afs_session.so</i>, establishes new AFS sessions and
+    obtains AFS tokens when a new session is opened for a user. It is a shared
+    object that is dynamically loaded by the PAM subsystem as necessary, based
+    on the system PAM configuration. PAM is a system for plugging in external
+    authentication and session management modules so that each application
+    doesn't have to know the best way to check user authentication or create a
+    user session on that system. For details on how to configure PAM on your
+    system, see the PAM man page, often <a class="Xr" href="../7/PAM.html"><i>pam</i>(7)</a>.</p>
+<p class="Pp">This module provides pam_setcred, pam_open_session, and
+    pam_close_session implementations for AFS. Because pam_setcred is part of
+    the auth PAM group, it also implements a dummy pam_authenticate that always
+    succeeds (otherwise, it can't provide a pam_setcred).</p>
+<p class="Pp">Make sure that this module is NEVER listed as
+    <span class="Li">&quot;sufficient&quot;</span> or as the only
+    <span class="Li">&quot;required&quot;</span> module in the auth group. Doing
+    so will potentially allow users to log on without any password. There
+    unfortunately isn't a way to work around this and still provide pam_setcred
+    without running afoul of a bug in (at least) Linux PAM 0.99.7.1 and probably
+    earlier that causes authentication to fail when the final module in the auth
+    group returns PAM_IGNORE and
+    <span class="Li">&quot;[default=done]&quot;</span> was given as the
+  action.</p>
+<p class="Pp">Here are the actions of this module:</p>
+<dl class="Bl-tag">
+  <dt id="pam_open_session"><a class="permalink" href="#pam_open_session">pam_open_session</a></dt>
+  <dd>When a new session is opened, this module will first check to see if AFS
+      is running on the system. If not, it will log a message and exit
+      successfully. If AFS is running, it will place the user's session in a new
+      PAG (Process Authentication Group, often implemented as supplemental
+      groups, which limits user tokens to only processes in that PAG). It will
+      then attempt to obtain tokens, either directly if built with the Heimdal
+      libkafs library and Kerberos support or by running an external
+      <b>aklog</b> program. If PAG creation fails, the module will fail; if
+      obtaining tokens fails, the module will log a warning but still return
+      success.
+    <p class="Pp">The module will only attempt to obtain tokens if the
+        environment variable KRB5CCNAME is set in the environment, unless
+        otherwise configured (see the always_aklog option). It will always
+        create a new PAG, however.</p>
+  </dd>
+  <dt id="pam_close_session"><a class="permalink" href="#pam_close_session">pam_close_session</a></dt>
+  <dd>If and only if pam_open_session successfully obtained AFS tokens and AFS
+      is still running on the system, pam_close_session will delete the tokens
+      in the current PAG (equivalent to running <b>unlog</b>). To leave the
+      tokens after session close, set the retain_after_close option.</dd>
+  <dt id="pam_setcred"><a class="permalink" href="#pam_setcred">pam_setcred</a></dt>
+  <dd>When pam_setcred is called with the PAM_ESTABLISH_CRED flag, it will do
+      the same as if pam_open_session was called. When pam_setcred is called
+      with the PAM_DELETE_CRED flag, it will do the same as if pam_close_session
+      was called. When called with the PAM_REINITIALIZE_CRED flag or the
+      PAM_REFRESH_CRED flag, it won't create a new PAG but instead will only
+      attempt to get new tokens (still skipping this unless KRB5CCNAME is set in
+      the environment or always_aklog is set).</dd>
+</dl>
+<p class="Pp">This module is primarily intended for use with a Kerberos
+    authentication module. It does not itself do any user authentication; it
+    cannot, for instance, be used to authenticate users to a <b>kaserver</b>.
+    While it is intended for use with an <b>aklog</b> that uses Kerberos ticket
+    caches to obtain tokens, it can be used with any <b>aklog</b> implementation
+    (always_aklog may have to be set if no Kerberos ticket cache will be
+    present).</p>
+<p class="Pp">This module performs no authorization checks and does not hook
+    into password changes; it only implements the session functions and
+    pam_setcred.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION"><a class="permalink" href="#CONFIGURATION">CONFIGURATION</a></h1>
+<p class="Pp">The AFS session PAM module supports the following configuration
+    options, which may be set in the PAM configuration as arguments listed after
+    <span class="Li">&quot;pam_afs_session.so&quot;</span> or in the system
+    <i>krb5.conf</i>.</p>
+<p class="Pp">Some of them take arguments, in which case the argument will be
+    given after <span class="Li">&quot;=&quot;</span>. The rest are boolean
+    options. To set a boolean option in the PAM configuration, just give the
+    name of the option in the arguments. To set an option that takes an
+    argument, follow the option name with an equal sign
+    (<span class="Li">&quot;=&quot;</span>) and the value, with no separating
+    whitespace. Whitespace in option arguments is not supported in the PAM
+    configuration files of most PAM implementations.</p>
+<p class="Pp">To set an option for the PAM module in the system <i>krb5.conf</i>
+    file, put that option in the [appdefaults] section. The AFS session PAM
+    module will look for options either at the top level of the [appdefaults]
+    section or in a subsection named
+    <span class="Li">&quot;pam-afs-session&quot;</span> (currently,
+    realm-specific configuration is not checked). For example, the following
+    fragment of a <i>krb5.conf</i> file would set <i>aklog_homedir</i> to true
+    and <i>minimum_uid</i> to 100.</p>
+<p class="Pp"></p>
+<pre>    [appdefaults]
+        aklog_homedir = true
+        pam-afs-session = {
+            minimum_uid = 100
+        }
+</pre>
+<p class="Pp">There is no difference to the PAM module whether options are
+    specified at the top level or in a
+    <span class="Li">&quot;pam-afs-session&quot;</span> section; the
+    <span class="Li">&quot;pam-afs-session&quot;</span> section is supported in
+    case there are options that should be set for the PAM module but not for
+    other applications. For more information on the syntax of <i>krb5.conf</i>,
+    see <a class="Xr" href="../5/krb5.conf.html"><i>krb5.conf</i>(5)</a>.</p>
+<p class="Pp">If the same option is set in <i>krb5.conf</i> and in the PAM
+    configuration, the latter takes precedent. Note, however, that due to the
+    configuration syntax, there's no way to turn off a boolean option in the PAM
+    configuration that was turned on in <i>krb5.conf</i>.</p>
+<dl class="Bl-tag">
+  <dt id="afs_cells="><a class="permalink" href="#afs_cells=">afs_cells=<i>cell</i>[,<i>cell</i>...]</a></dt>
+  <dd>Obtain tokens for the listed cells instead of the default local cell. If
+      more than one cell is listed, try to obtain tokens for each cell. If
+      specified in <i>krb5.conf</i>, the cells can be separated by any
+      combination of spaces and commas; if specified in the PAM configuration,
+      they must be separated by commas.
+    <p class="Pp">If the AFS session PAM module is running an external program,
+        this option is implemented by passing a <b>-c</b> flag with the cell as
+        its argument for each listed cell to that program. If aklog_homedir is
+        also set, the <b>-c</b> flags and the <b>-p</b> flag will all be passed
+        to the external program.</p>
+  </dd>
+  <dt id="aklog_homedir"><a class="permalink" href="#aklog_homedir">aklog_homedir</a></dt>
+  <dd>Try to obtain the necessary tokens to access the user's home directory. If
+      the libkafs token-obtaining API is used, setting this will cause the AFS
+      session PAM module to pass the user's home directory into that API and
+      request that the appropriate tokens be obtained. If running an external
+      <b>aklog</b> program, <b>aklog</b> will be called with <b>-p</b>
+      <i>home-directory</i> where <i>home-directory</i> is the home directory of
+      the local user for which the session is being opened or refreshed. This
+      generally will tell <b>aklog</b> to check that path, find all AFS cells
+      involved in access to that path, and attempt to obtain tokens for each
+      one. Note that this means that if the user's home directory is not in AFS,
+      no tokens will be obtained.
+    <p class="Pp">In either case, the user's home directory is obtained via
+        <i>getpwnam()</i> based on the username PAM says we are
+      authenticating.</p>
+  </dd>
+  <dt id="always_aklog"><a class="permalink" href="#always_aklog">always_aklog</a></dt>
+  <dd>Normally, the AFS session PAM module only tries to obtain tokens if
+      KRB5CCNAME is set in the PAM environment. If this option is set, it will
+      always attempt to obtain tokens. This is only useful if it is configured
+      to run an external <b>aklog</b> program.
+    <p class="Pp">This can be used if your environment doesn't correctly set
+        KRB5CCNAME in the environment for some reason, or if your <b>aklog</b>
+        doesn't rely on a Kerberos ticket cache to obtain tokens (or can find
+        the cache on its own via some other means).</p>
+  </dd>
+  <dt id="debug"><a class="permalink" href="#debug">debug</a></dt>
+  <dd>If this option is set, additional trace information will be logged to
+      syslog with priority LOG_DEBUG.</dd>
+  <dt id="ignore_root"><a class="permalink" href="#ignore_root">ignore_root</a></dt>
+  <dd>If this option is set, the AFS session PAM module won't take any action
+      (and will exit successfully) if the account for which the session is being
+      established is named <span class="Li">&quot;root&quot;</span>.</dd>
+  <dt id="kdestroy"><a class="permalink" href="#kdestroy">kdestroy</a></dt>
+  <dd>If this option is set and the AFS session PAM module was built with
+      Kerberos support, the user's ticket cache will be destroyed after tokens
+      are obtained successfully. If tokens are not obtained successfully, the
+      ticket cache will be left intact. Please note that this is not properly a
+      security feature, since the ticket cache will still be written to disk
+      between the time the Kerberos PAM module authenticates the user and the
+      time the AFS session PAM module is run. It can, however, be used to reduce
+      the window during which Kerberos ticket caches are lying about if the only
+      use one has for ticket caches is to obtain AFS tokens.</dd>
+  <dt id="minimum_uid="><a class="permalink" href="#minimum_uid=">minimum_uid=<i>uid</i></a></dt>
+  <dd>If this option is set, the AFS session PAM module won't take any action
+      (and will exit successfully) if the account for which the session is being
+      established has a UID lower than <i>uid</i>.</dd>
+  <dt id="nopag"><a class="permalink" href="#nopag">nopag</a></dt>
+  <dd>If this option is set, no PAG will be created. Be careful when using this
+      option, since it means that the user will inherit a PAG from the process
+      managing the login. If <b>sshd</b>, for instance, is started in a PAG,
+      every user who logs in via ssh will be put in the same PAG and will share
+      tokens if this option is used.
+    <p class="Pp">This is the default on Mac OS X, where PAGs are not
+      supported.</p>
+  </dd>
+  <dt id="notokens"><a class="permalink" href="#notokens">notokens</a></dt>
+  <dd>If this option is set, the AFS session PAM module will only create a PAG
+      and not attempt to obtain tokens. Setting this option overrides all other
+      settings related to acquiring tokens, including always_aklog. If both
+      nopag and notokens are set, the module essentially does nothing.
+    <p class="Pp">Setting notokens also implies retain_after_close, meaning that
+        the AFS session PAM module will also not attempt to delete tokens when
+        the user's session ends.</p>
+  </dd>
+  <dt id="program="><a class="permalink" href="#program=">program=<i>path</i></a></dt>
+  <dd>The path to the <b>aklog</b> program to run. Setting this option tells the
+      AFS session PAM module to always run an external program to obtain tokens
+      and never use the libkafs interface, even if the latter is available.
+    <p class="Pp">You may pass options to this program by separating them with
+        commas (or spaces or tabs in <i>krb5.conf</i> or if the configuration
+        syntax of your PAM configuration allows this). For example, the
+      setting:</p>
+    <p class="Pp"></p>
+    <pre>    program=/usr/bin/aklog,-noprdb,-524
+    </pre>
+    <p class="Pp">will run <span class="Li">&quot;/usr/bin/aklog -noprdb
+        -524&quot;</span> as the program to obtain tokens. The arguments are
+        passed directly, not parsed by the shell.</p>
+    <p class="Pp">If this option is not set, the default behavior is to call the
+        libkafs function to obtain tokens, if available, and otherwise to use a
+        default path to <b>aklog</b> determined at compile time (the first
+        <b>aklog</b> found on the compiler's path by default). If no
+        <b>aklog</b> could be found at compile time and libkafs isn't used, this
+        option must be set.</p>
+  </dd>
+  <dt id="retain_after_close"><a class="permalink" href="#retain_after_close">retain_after_close</a></dt>
+  <dd>If this option is set, pam_close_session will do nothing (successfully)
+      rather than deleting tokens. This will allow programs started in the
+      user's PAG that are still running when the log out to continue to use the
+      user's tokens until they expire. Normally, the AFS kernel module will
+      automatically clean up tokens once every process in that PAG has
+      terminated.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<dl class="Bl-tag">
+  <dt id="KRB5CCNAME"><a class="permalink" href="#KRB5CCNAME">KRB5CCNAME</a></dt>
+  <dd>This module looks for KRB5CCNAME in the PAM environment and by default
+      does not run <b>aklog</b> if it is not set.</dd>
+</dl>
+<p class="Pp">The entire PAM environment is passed to <b>aklog</b> as its
+    environment (rather than the environment of the process running the PAM
+    functions).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WARNINGS"><a class="permalink" href="#WARNINGS">WARNINGS</a></h1>
+<p class="Pp">As mentioned above, this module implements a dummy
+    pam_authenticate function so that it can provide a pam_setcred function.
+    Never list this module as <span class="Li">&quot;sufficient&quot;</span> or
+    as the only <span class="Li">&quot;required&quot;</span> module or you may
+    allow users to log on without a password.</p>
+<p class="Pp">While spawning an external <b>aklog</b> program, the AFS session
+    PAM module resets the SIGCHLD signal handler to the default handler while
+    the program runs and then restores it afterward. This is done to avoid
+    having aklog interfere with process handling in the calling application, but
+    it means that there's a race condition that can cause children to be
+    incorrectly handled if they exit while aklog is running. There is
+    unfortunately no good solution to this other than building against Heimdal
+    and using the libkafs interface to obtain tokens instead of an external
+    program.</p>
+<p class="Pp">To detect whether AFS is running on the system, the AFS session
+    PAM module temporarily sets a SIGSYS handler before attempting an AFS system
+    call. That handler may also modify a static variable. Neither of these
+    should ideally be done in a PAM module, but there is no other good way of
+    checking for the non-existence of a system call that doesn't crash the
+    application on some operating systems. The PAM module will attempt to
+    restore the previous SIGSYS handler, if any, after the test is done, and the
+    static variable is used in such a way that running it from multiple threads
+    shouldn't be an issue, but be aware that the PAM module is doing this behind
+    the back of the application and may interfere with unusual SIGSYS handlers
+    or similar application actions.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">When using the libkafs interface to obtain tokens, be sure that it
+    is configured properly for the type of AFS tokens expected at your site. As
+    of Heimdal 0.7, the default behavior is to contact the krb524 service to
+    translate Kerberos v5 tickets into Kerberos v4 tickets to use as tokens. AFS
+    cells running current server software no longer need this, and if your site
+    doesn't run the krb524 service, this may break token acquisition.</p>
+<p class="Pp">Sites running AFS servers that understand Kerberos-v5-derived
+    tokens should add configuration like:</p>
+<p class="Pp"></p>
+<pre>    libkafs = {
+        EXAMPLE.ORG = {
+            afs-use-524 = no
+        }
+    }
+</pre>
+<p class="Pp">to the [appdefaults] section of their <i>krb5.conf</i> files to
+    disable use of the krb524 service. See the Heimdal <i>kafs</i>(3) man page
+    for more information.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT_AND_LICENSE"><a class="permalink" href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></h1>
+<p class="Pp">Copyright 2015 Russ Allbery &lt;eagle@eyrie.org&gt;</p>
+<p class="Pp">Copyright 2005, 2006, 2007, 2008, 2009, 2010, 2011 The Board of
+    Trustees of the Leland Stanford Junior University</p>
+<p class="Pp">Copying and distribution of this file, with or without
+    modification, are permitted in any medium without royalty provided the
+    copyright notice and this notice are preserved. This file is offered as-is,
+    without any warranty.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/aklog.html"><i>aklog</i>(1)</a>, <i>kafs</i>(3), <a class="Xr" href="../7/PAM.html"><i>pam</i>(7)</a>, <a class="Xr" href="../3/syslog.html"><i>syslog</i>(3)</a>,
+    <a class="Xr" href="../1/unlog.html"><i>unlog</i>(1)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2015-09-19</td>
+    <td class="foot-os">2.6</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: libpam-afs-session 2.6-5 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

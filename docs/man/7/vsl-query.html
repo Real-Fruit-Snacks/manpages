@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Varnish VSL Query Expressions">
+<title>vsl-query(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">vsl-query(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#OVERVIEW">OVERVIEW</a></li><li><a href="#GROUPING">GROUPING</a></li><li><a href="#Transaction_Hierarchy">Transaction
+  Hierarchy</a></li><li><a href="#MEMORY_USAGE">MEMORY
+  USAGE</a></li><li><a href="#QUERY_LANGUAGE">QUERY
+  LANGUAGE</a></li><li><a href="#Record_selection_criteria">Record
+  selection criteria</a></li><li><a href="#Operators">Operators</a></li><li><a href="#Operand">Operand</a></li><li><a href="#Boolean_functions">Boolean
+  functions</a></li><li><a href="#QUERY_EXPRESSION_EXAMPLES">QUERY
+  EXPRESSION EXAMPLES</a></li><li><a href="#HISTORY">HISTORY</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">VSL-QUERY(7)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">VSL-QUERY(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">vsl-query - Varnish VSL Query Expressions</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OVERVIEW"><a class="permalink" href="#OVERVIEW">OVERVIEW</a></h1>
+<p class="Pp">The Varnish VSL Query Expressions extracts transactions from the
+    Varnish shared memory log, and perform queries on the transactions before
+    reporting matches.</p>
+<p class="Pp">A transaction is a set of log lines that belongs together, e.g. a
+    client request or a backend request. The API monitors the log, and collects
+    all log records that make up a transaction before reporting on that
+    transaction. Transactions can also be grouped, meaning backend transactions
+    are reported together with the client transaction that initiated it.</p>
+<p class="Pp">A query is run on a group of transactions. A query expression is
+    true if there is a log record within the group that satisfies the condition.
+    It is false only if none of the log records satisfies the condition. Query
+    expressions can be combined using boolean functions. In addition to log
+    records, it is possible to query transaction ids (vxid) in query.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GROUPING"><a class="permalink" href="#GROUPING">GROUPING</a></h1>
+<p class="Pp">When grouping transactions, there is a hierarchy structure showing
+    which transaction initiated what. The level increases by one on an
+    'initiated by' relation, so for example a backend transaction will have one
+    higher level than the client transaction that initiated it on a cache miss.
+    Request restart transactions don't get their level increased to make it
+    predictable.</p>
+<p class="Pp">Levels start counting at 1, except when using raw where it will
+    always be 0.</p>
+<p class="Pp">The grouping modes are:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>session</b>
+    <p class="Pp">All transactions initiated by a client connection are reported
+        together. Client connections are open ended when using HTTP keep-alives,
+        so it is undefined when the session will be reported. If the transaction
+        timeout period is exceeded an incomplete session will be reported.
+        Non-transactional data (vxid == 0) is not reported.</p>
+  </li>
+  <li><b>request</b>
+    <p class="Pp">Transactions are grouped by request, where the set will
+        include the request itself as well as any backend requests or
+        ESI-subrequests. Session data and non-transactional data (vxid == 0) is
+        not reported.</p>
+  </li>
+  <li><b>vxid</b>
+    <p class="Pp">Transactions are not grouped, so each vxid is reported in its
+        entirety. Sessions, requests, ESI-requests and backend requests are all
+        reported individually. Non-transactional data is not reported (vxid ==
+        0). This is the default.</p>
+  </li>
+  <li><b>raw</b>
+    <p class="Pp">Every log record will make up a transaction of its own. All
+        data, including non-transactional data will be reported.</p>
+  </li>
+</ul>
+</div>
+<br/>
+<section class="Ss">
+<h2 class="Ss" id="Transaction_Hierarchy"><a class="permalink" href="#Transaction_Hierarchy">Transaction
+  Hierarchy</a></h2>
+<p class="Pp">Example transaction hierarchy using request grouping mode</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>Lvl 1: Client request (cache miss)
+<br/>
+  Lvl 2: Backend request
+<br/>
+  Lvl 2: ESI subrequest (cache miss)
+<br/>
+    Lvl 3: Backend request
+<br/>
+    Lvl 3: Backend request (VCL restart)
+<br/>
+    Lvl 3: ESI subrequest (cache miss)
+<br/>
+      Lvl 4: Backend request
+<br/>
+  Lvl 2: ESI subrequest (cache hit)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MEMORY_USAGE"><a class="permalink" href="#MEMORY_USAGE">MEMORY
+  USAGE</a></h1>
+<p class="Pp">The API will use pointers to shared memory log data as long as
+    possible to keep memory usage at a minimum. But as the shared memory log is
+    a ring buffer, data will get overwritten eventually, so the API creates
+    local copies of referenced log data when varnishd comes close to overwriting
+    still unreported content.</p>
+<p class="Pp">This process avoids loss of log data in many scenarios, but it is
+    not failsafe: Overruns where varnishd &quot;overtakes&quot; the log reader
+    process in the ring buffer can still happen when API clients cannot keep up
+    reading and/or copying, for instance due to output blocking.</p>
+<p class="Pp">Though being unrelated to grouping in principle, copying of log
+    data is particularly relevant for session grouping together with long
+    lasting client connections - for this grouping, the logging API client
+    process is likely to consume relevant amounts of memory. As the vxid
+    grouping also logs (potentially long lasting) sessions, it is also likely to
+    require memory for copies of log entries, but far less than session
+    grouping.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="QUERY_LANGUAGE"><a class="permalink" href="#QUERY_LANGUAGE">QUERY
+  LANGUAGE</a></h1>
+<p class="Pp">A query expression consists of record selection criteria, and
+    optionally an operator and a value to match against the selected
+  records.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>&lt;record selection criteria&gt; &lt;operator&gt; &lt;operand&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Additionally, a query expression can occur on the transaction
+    itself rather than log records belonging to the transaction.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>vxid &lt;numerical operator&gt; &lt;integer&gt;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">A <b>vxid</b> query allows you to directly target a specific
+    transacion, whose id can be obtained from an <b>X-Varnish</b> HTTP header,
+    the default &quot;guru meditation&quot; error page, or <b>Begin</b> and
+    <b>Link</b> log records.</p>
+<p class="Pp">A query must fit on a single line, but it is possible to pass
+    multiple queries at once, one query per line. Empty lines are ignored, and
+    the list of queries is treated as if the 'or' operator was used to combine
+    them.</p>
+<p class="Pp">For example this list of queries:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre># catch varnish errors
+*Error
+# catch backend errors
+BerespStatus &gt;= 500
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">is identical to this query:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>(*Error) or (BerespStatus &gt;= 500)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Comments can be used and will be ignored, they start with the
+    <b>'#'</b> character, which may be more useful when the query is read from a
+    file.</p>
+<p class="Pp">For very long queries that couldn't easily be split into multiple
+    queries it is possible to break them into multiple lines with a backslash
+    preceding an end of line.</p>
+<p class="Pp">For example this query:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>BerespStatus &gt;= 500
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">is identical to this query:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>BerespStatus \
+&gt;= \
+500
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">A backslash-newline sequence doesn't continue a comment on the
+    next line and isn't allowed in a quoted string.</p>
+<section class="Ss">
+<h2 class="Ss" id="Record_selection_criteria"><a class="permalink" href="#Record_selection_criteria">Record
+  selection criteria</a></h2>
+<p class="Pp">The record selection criteria determines what kind records from
+    the transaction group the expression applies to. Syntax:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>{level}taglist:record-prefix[field]
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Taglist is mandatory, the other components are optional.</p>
+<p class="Pp">The level limits the expression to a transaction at that level. If
+    left unspecified, the expression is applied to transactions at all levels.
+    Level is a positive integer or zero. If level is followed by a '+'
+    character, it expresses greater than or equal. If level is followed by a
+    '-', it expresses less than or equal.</p>
+<p class="Pp">The taglist is a comma-separated list of VSL record tags that this
+    expression should be checked against. Each list element can be a tag name or
+    a tag glob. Globs allow a '*' either in the beginning of the name or at the
+    end, and will select all tags that match either the prefix or subscript. A
+    single '*' will select all tags.</p>
+<p class="Pp">The record prefix will further limit the matches to those records
+    that has this prefix as their first part of the record content followed by a
+    colon. The part of the log record matched against will then be limited to
+    what follows the prefix and colon. This is useful when matching against
+    specific HTTP headers. The record prefix matching is done case
+  insensitive.</p>
+<p class="Pp">The field will, if present, treat the log record as a white space
+    separated list of fields, and only the nth part of the record will be
+    matched against. Fields start counting at 1.</p>
+<p class="Pp">An expression using only a record selection criteria will be true
+    if there is any record in the transaction group that is selected by the
+    criteria.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Operators"><a class="permalink" href="#Operators">Operators</a></h2>
+<p class="Pp">The following matching operators are available:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>== != &lt; &lt;= &gt; &gt;=
+    <p class="Pp">Numerical comparison. The record contents will be converted to
+        either an integer or a float before comparison, depending on the type of
+        the operand.</p>
+  </li>
+  <li>eq ne
+    <p class="Pp">String comparison. 'eq' tests string equality, 'ne' tests for
+        not equality.</p>
+  </li>
+  <li>~ !~
+    <p class="Pp">Regular expression matching. '~' is a positive match, '!~' is
+        a non-match.</p>
+  </li>
+</ul>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Operand"><a class="permalink" href="#Operand">Operand</a></h2>
+<p class="Pp">The operand is the value the selected records will be matched
+    against.</p>
+<p class="Pp">An operand can be quoted or unquoted. Quotes can be either single
+    or double quotes, and for quoted operands a backslash can be used to escape
+    the quotes.</p>
+<p class="Pp">Unquoted operands can only consist of the following
+  characters:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>a-z A-Z 0-9 + - _ . *
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The following types of operands are available:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>Integer
+    <p class="Pp">A number without any fractional part, valid for the numerical
+        comparison operators. The integer type is used when the operand does not
+        contain any period (.) nor exponent (e) characters. However if the
+        record evaluates as a float, only its integral part is used for the
+        comparison.</p>
+  </li>
+  <li>Float
+    <p class="Pp">A number with a fractional part, valid for the numerical
+        comparison operators. The float type is used when the operand does
+        contain a period (.) or exponent (e) character.</p>
+  </li>
+  <li>String
+    <p class="Pp">A sequence of characters, valid for the string equality
+        operators.</p>
+  </li>
+  <li>Regular expression
+    <p class="Pp">A PCRE2 regular expression. Valid for the regular expression
+        operators.</p>
+  </li>
+</ul>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Boolean_functions"><a class="permalink" href="#Boolean_functions">Boolean
+  functions</a></h2>
+<p class="Pp">Query expressions can be linked together using boolean functions.
+    The following are available, in decreasing precedence:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>not &lt;expr&gt;
+    <p class="Pp">Inverts the result of &lt;expr&gt;</p>
+  </li>
+  <li>&lt;expr1&gt; and &lt;expr2&gt;
+    <p class="Pp">True only if both expr1 and expr2 are true</p>
+  </li>
+  <li>&lt;expr1&gt; or &lt;expr2&gt;
+    <p class="Pp">True if either of expr1 or expr2 is true</p>
+  </li>
+</ul>
+</div>
+<br/>
+<p class="Pp">Expressions can be grouped using parenthesis.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="QUERY_EXPRESSION_EXAMPLES"><a class="permalink" href="#QUERY_EXPRESSION_EXAMPLES">QUERY
+  EXPRESSION EXAMPLES</a></h1>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Transaction group contains a request URL that equals to
+    &quot;/foo&quot;</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>ReqURL eq &quot;/foo&quot;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Transaction group contains a request cookie header</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>ReqHeader:cookie
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Transaction group doesn't contain a request cookie header</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>not ReqHeader:cookie
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Client request where internal handling took more than 800ms.:</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>Timestamp:Process[2] &gt; 0.8
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Transaction group contains a request user-agent header that contains
+      &quot;iPod&quot; and the request delivery time exceeds 1 second</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>ReqHeader:user-agent ~ &quot;iPod&quot; and Timestamp:Resp[2] &gt; 1.
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Transaction group contains a backend response status larger than or equal
+      to 500</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>BerespStatus &gt;= 500
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Transaction group contains a request response status of 304, but where the
+      request did not contain an if-modified-since header</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>RespStatus == 304 and not ReqHeader:if-modified-since
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Transactions that have had backend failures or long delivery time on their
+      ESI subrequests. (Assumes request grouping mode).</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>BerespStatus &gt;= 500 or {2+}Timestamp:Process[2] &gt; 1.
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Log non-transactional errors. (Assumes raw grouping mode).</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>vxid == 0 and Error
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp">This document was initially written by Martin Blix Grydeland and
+    amended by others.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">This document is licensed under the same licence as Varnish
+    itself. See LICENCE for details.</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>Copyright (c) 2006 Verdens Gang AS</li>
+  <li>Copyright (c) 2006-2015 Varnish Software AS</li>
+</ul>
+</div>
+<br/>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: varnish 7.1.1-1.1ubuntu1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

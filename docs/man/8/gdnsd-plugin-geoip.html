@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="gdnsd meta-plugin for GSLB + failover via MaxMind&#x27;s GeoIP2 databases">
+<title>gdnsd-plugin-geoip(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">gdnsd-plugin-geoip(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#PLUGIN_METAFO">PLUGIN_METAFO</a></li><li><a href="#FILE_LOCATIONS">FILE
+  LOCATIONS</a></li><li><a href="#_undefined_datacenters_ok_=_false_">&amp;quot;undefined_datacenters_ok
+  = false&amp;quot;</a></li><li><a href="#_geoip2_db_=_GeoIP2">&amp;quot;geoip2_db
+  = GeoIP2-City.mmdb&amp;quot;</a></li><li><a href="#_datacenters_=___one,_two,_three,_...___">&amp;quot;datacenters
+  = [ one, two, three, ... ]&amp;quot;</a></li><li><a href="#_ignore_ecs_=_true_">&amp;quot;ignore_ecs
+  = true&amp;quot;</a></li><li><a href="#_nets_=___...___">&amp;quot;nets
+  = { ... }&amp;quot;</a></li><li><a href="#_nets_=_nets_file_name_">&amp;quot;nets
+  = nets_file_name&amp;quot;</a></li><li><a href="#_map_=___...___">&amp;quot;map
+  = { ... }&amp;quot;</a></li><li><a href="#GeoIP2_Location_Data_Hierarchy">GeoIP2
+  Location Data Hierarchy</a></li><li><a href="#MAP_TESTING">MAP
+  TESTING</a></li><li><a href="#META-PLUGIN_INTERACTION">META-PLUGIN
+  INTERACTION</a></li><li><a href="#IPv4_Compatible_Addresses">IPv4
+  Compatible Addresses</a></li><li><a href="#ANOTHER_CONFIG_EXAMPLE">ANOTHER
+  CONFIG EXAMPLE</a></li><li><a href="#EXAMPLE_OF_METAFO">EXAMPLE
+  OF METAFO-&amp;gt;GEOIP CITY-AUTO-MODE w/ LAST RESORT CNAME</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GDNSD-PLUGIN-GEOIP(8)</td>
+    <td class="head-vol">gdnsd</td>
+    <td class="head-rtitle">GDNSD-PLUGIN-GEOIP(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gdnsd-plugin-geoip - gdnsd meta-plugin for GSLB + failover via
+    MaxMind's GeoIP2 databases</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Minimal example gdnsd config file using this plugin:</p>
+<p class="Pp"></p>
+<pre>  plugins =&gt; { geoip =&gt; {
+    maps =&gt; {
+      my_prod_map =&gt; {
+        geoip2_db =&gt; GeoIP2-City.mmdb,
+        datacenters =&gt; [dc-03, dc-02, dc-01, dc-fail],
+        map =&gt; {
+            EU =&gt; {
+                DE =&gt; [dc-03, dc-01, dc-fail],
+                CH =&gt; [dc-01, dc-03, dc-fail]
+            },
+            NA =&gt; { MX =&gt; [dc-02, dc-fail] }
+        }
+      },
+      my_auto_map =&gt; {
+        geoip2_db =&gt; GeoIP2-Country.mmdb,
+        datacenters =&gt; [dc1, dc2],
+        auto_dc_coords =&gt; {
+           dc1 =&gt; [ 38.9, -77 ],
+           dc2 =&gt; [ 50.1, 8.7 ],
+        }
+      }
+    },
+    resources =&gt; {
+      prod_www =&gt; {
+        map =&gt; my_prod_map
+        service_types =&gt; up
+        dcmap =&gt; {
+          dc-01 =&gt; 192.0.2.1,
+          dc-02 =&gt; { lb01 =&gt; 192.0.2.2, lb02 =&gt; 192.0.2.3 },
+          dc-03 =&gt; [ 192.0.2.4, 192.0.2.5, 192.0.2.6 ],
+          dc-fail =&gt; last.resort.cname.example.net.
+        }
+      }
+      corp_www =&gt; {
+        map =&gt; my_auto_map
+        dcmap =&gt; {
+          dc1 =&gt; 192.0.2.100,
+          dc2 =&gt; 192.0.2.101
+        }
+      }
+    }
+  }}
+</pre>
+<p class="Pp">Example zonefile RRs in zone example.com:</p>
+<p class="Pp"></p>
+<pre>  www      600 DYNA geoip!prod_www
+  www-dc01 600 DYNA geoip!prod_www/dc-01
+  www.corp 600 DYNA geoip!corp_www
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>gdnsd-plugin-geoip</b> uses MaxMind's GeoIP2 binary databases
+    to map address and CNAME results based on geography and monitored service
+    availability. It fully supports both IPv6 and the emerging
+    edns-client-subnet standard. If a request contains the edns-client-subnet
+    option with a source netmask greater than zero, the edns-client-subnet
+    information will be used instead of the source IP of the request (the IP of
+    the querying cache).</p>
+<p class="Pp">It supports the GeoIP2 format databases, which typically end in
+    <i>.mmdb</i>. It does not supports the legacy GeoIP1 format databases (which
+    typically end in <i>.dat</i>).</p>
+<p class="Pp">It can also be used with no GeoIP database at all, in which case
+    the only network-mapping input comes from the
+    <span class="Li">&quot;nets&quot;</span> config data or an external
+    <span class="Li">&quot;nets&quot;</span> file, which explicitly map subnets
+    to datacenter lists.</p>
+<p class="Pp">This plugin can operate in an automatic distance-based mode (using
+    a City-level database's coordinate information) It can also operate
+    coordinate-free and rely on the user to configure a hierarchical map of
+    cascading default user-location-to-datacenter mappings, starting at the
+    continent level.</p>
+<p class="Pp">The two modes can also be effectively mixed at geographic
+    boundaries.</p>
+<p class="Pp">For each <span class="Li">&quot;map&quot;</span> you define (which
+    maps geographic location codes to preference-ordered lists of your
+    datacenter locations), this plugin merges all of the raw GeoIP subnets into
+    the largest possible supernets which contain identical responses in your
+    configuration. These in turn are used to set larger edns-client-subnet scope
+    masks than you'd see simply returning raw GeoIP results.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PLUGIN_METAFO"><a class="permalink" href="#PLUGIN_METAFO">PLUGIN_METAFO</a></h1>
+<p class="Pp">The documentation for <a class="Xr" href="../8/gdnsd-plugin-metafo.html"><b>gdnsd-plugin-metafo</b>(8)</a> is required
+    reading for understanding the geoip plugin documentation here. The geoip
+    plugin is an exact superset of the metafo plugin, and re-uses almost all of
+    the metafo plugin's source code. Metafo does failover along a single,
+    global, ordered list of datacenters. What plugin_geoip adds on top of the
+    functionality of metafo is the ability to have the order of the datacenter
+    failover list become dynamic per-request based on geographic hints derived
+    from the client's network address.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILE_LOCATIONS"><a class="permalink" href="#FILE_LOCATIONS">FILE
+  LOCATIONS</a></h1>
+<p class="Pp">The configuration of this plugin can reference several external
+    configuration and/or data files. By default, all files referenced in this
+    plugin's configuration are loaded from the <i>geoip</i> subdirectory of the
+    daemon's configuration directory (default <i>/etc/gdnsd</i>). You can load
+    from other locations by specifying absolute file paths.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh">CONFIGURATION - TOP-LEVEL</h1>
+<p class="Pp">The top level of the geoip plugin's configuration (i.e.
+    <span class="Li">&quot;plugins =&gt; {</span> <span class="Li">geoip =&gt; {
+    ... } }&quot;</span>) supports only three explicit keys. One is the optional
+    setting <span class="Li">&quot;undefined_datacenters_ok&quot;</span>.</p>
+<p class="Pp">The other two are required and expanded upon in detail in the next
+    two sections: <span class="Li">&quot;maps&quot;</span>, and
+    <span class="Li">&quot;resources&quot;</span>. The
+    <span class="Li">&quot;maps&quot;</span> section defines one or more named
+    mappings of location information from GeoIP binary databases to ordered
+    subsets of datacenter names. The
+    <span class="Li">&quot;resources&quot;</span> section defines one or more
+    named resources, each of which references one of the named maps and resolves
+    datacenter names to specific sets of addresses or CNAMEs.</p>
+<p class="Pp">Any other keys present at this level will be inherited down inside
+    of each per-resource hash inside the
+    <span class="Li">&quot;resources&quot;</span> stanza, acting as per-resource
+    defaults for anything not defined explicitly there.</p>
+<section class="Ss">
+<h2 class="Ss" id="_undefined_datacenters_ok_=_false_"><a class="permalink" href="#_undefined_datacenters_ok_=_false_">&quot;undefined_datacenters_ok
+  = false&quot;</a></h2>
+<p class="Pp">Boolean, default false. If set to true, geoip resources are
+    allowed to leave some of the datacenters specified in their
+    <span class="Li">&quot;map&quot;</span> undefined in their resource-level
+    <span class="Li">&quot;dcmap&quot;</span>. For example, a map M might define
+    3 datacenters named A, B, and C, but a resource using map M might only
+    define result addresses for datacenters B and C in its
+    <span class="Li">&quot;dcmap&quot;</span>. This would otherwise be a hard
+    configuration error.</p>
+<p class="Pp"><b>!!! DANGER !!!</b> - Setting this value to true is a good way
+    to shoot yourself in the foot if you're not very careful about how your maps
+    and resources are configured with respect to each other, especially in
+    &quot;City Auto Mode&quot;. Maps are calculated without any knowledge of the
+    resources that use them. If a specific network or location maps to a list of
+    datacenters which contains none of the defined datacenters for a given
+    resource, the results of runtime queries for that resource from that
+    location or network will be the empty set (no answer records at all). This
+    is virtually guaranteed to happen in &quot;City Auto Mode&quot; if the
+    number of undefined datacenters in a resource is greater than or equal to
+    the map's <span class="Li">&quot;auto_dc_limit&quot;</span>.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh">CONFIGURATION - MAPS</h1>
+<p class="Pp">All <span class="Li">&quot;maps&quot;</span>-level configuration
+    keys are the names of the maps you choose to define. A map, conceptually, is
+    a mapping between geography and/or network topology to varying ordered
+    datacenter sub-sets. The value of each named map must be a hash, and the
+    following configuration keys apply within:</p>
+<section class="Ss">
+<h2 class="Ss" id="_geoip2_db_=_GeoIP2"><a class="permalink" href="#_geoip2_db_=_GeoIP2">&quot;geoip2_db
+  = GeoIP2-City.mmdb&quot;</a></h2>
+<p class="Pp">String, filename, optional. This is the filename of a MaxMind
+    GeoIP2 format database. It should contain either the City or Country data
+    model. There is no distinction made here for the IP version, and it is
+    normal for these databases to contain both IPv4 and IPv6 data together. If
+    one or the other is missing, clients using that address family will be
+    defaulted.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_datacenters_=___one,_two,_three,_...___"><a class="permalink" href="#_datacenters_=___one,_two,_three,_...___">&quot;datacenters
+  = [ one, two, three, ... ]&quot;</a></h2>
+<p class="Pp">Array of strings, required. This is the total set of datacenter
+    names used by this map. You must define at least one datacenter name
+    (although 2 or more would be infinitely more useful). At this time, there is
+    a maximum limit of 254 datacenter names per map, although this could be
+    raised if anyone requires it. The order specified here is the fallback
+    default result ordering in various default cases (e.g. if no explicit
+    top-level map default list is given).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_ignore_ecs_=_true_"><a class="permalink" href="#_ignore_ecs_=_true_">&quot;ignore_ecs
+  = true&quot;</a></h2>
+<p class="Pp">Boolean, default false. If this is set to
+    <span class="Li">&quot;true&quot;</span>, all resources using this map will
+    ignore EDNS Client Subnet (ECS) information when performing lookups against
+    the map, relying solely on the DNS source IP for the lookup. If the client
+    provided ECS in such a query, the response will also contain the ECS option
+    to signal that we're ECS aware in general, but the response scope mask will
+    be set to zero to signal the cache that the ECS data wasn't used and the
+    result is globally cacheable.</p>
+<p class="Pp">This is useful for situations in which the map is intentionally
+    meant to operate solely on recursor IPs rather than ECS IPs, but other maps
+    serviced by the same authserver do make use of ECS data, and thus the global
+    <b>edns_client_subnet</b> config option can't be used to disable handling
+    the option completely for the whole server.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_nets_=___...___"><a class="permalink" href="#_nets_=___...___">&quot;nets
+  = { ... }&quot;</a></h2>
+<p class="Pp">Key-value hash, optional (see below for alternate form). If
+    specified, the contents should be key-value pairs of
+    <span class="Li">&quot;network/netmask&quot;</span> mapped to a datacenter
+    name (or an array of datacenter names). Any network-to-datacenter mappings
+    specified here will override mappings determined via GeoIP. Note that it is
+    illegal to specify networks in the IPv4-like subspaces of IPv6 other than
+    v4compat, but it is legal to specify actual IPv4 networks (which are treated
+    identically to v4compat). See the section on IPv4 Compatible Addresses later
+    in this document for more details. The order of the networks is unimportant;
+    they will always be sorted and inserted such that an entry which is a subnet
+    of another entry is not obliterated by the parent supernet.</p>
+<p class="Pp"></p>
+<pre>    nets =&gt; {
+        10.0.0.0/8 =&gt; [ dc1, dc2 ],
+        192.0.2.128/25 =&gt; dc3
+        2001:DB8::/32 =&gt; [ dc4, dc5, dc6 ],
+    }
+</pre>
+<p class="Pp">In the case that one entry is a subnet of another with a different
+    result dclist, the entries are merged correctly such that the supernet
+    surrounds the subnet. In the case of an exact duplicate entry (or an
+    effective one, after merging smaller subnets) with a different dclist, it is
+    arbitrary which one &quot;wins&quot; and the condition is warned about. If
+    you care about this case, you should sanitize your nets data beforehand with
+    an external tool and/or parse for the warning message in log outputs.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_nets_=_nets_file_name_"><a class="permalink" href="#_nets_=_nets_file_name_">&quot;nets
+  = nets_file_name&quot;</a></h2>
+<p class="Pp">String pathname, optional. A variant of the above, but the
+    contents of the key-value hash are loaded from the named external file. This
+    makes life easier for external tools and scripts generating large sets of
+    nets entries (e.g. from BGP data). The file will be monitored for changes
+    and reloaded at runtime much like the GeoIP databases.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="_map_=___...___"><a class="permalink" href="#_map_=___...___">&quot;map
+  = { ... }&quot;</a></h2>
+<p class="Pp">Key-value hash, optional. This is the heart of a named map which
+    uses GeoIP: the map itself, which maps places to ordered lists of
+    datacenters. It requires <span class="Li">&quot;geoip2_db&quot;</span> is
+    also specified, and makes no sense without it.</p>
+<p class="Pp">This is a nested key-value hash. At each level, the keys are
+    location codes (continent, country, region/subdivision, or city information
+    depending on depth), and the values are either an ordered datacenter array
+    (e.g. <span class="Li">&quot;[</span> <span class="Li">dc03, dc01, dc04
+    ]&quot;</span>), or a sub-hash containing a deeper level of distinction. At
+    each layer, a special key named <span class="Li">&quot;default&quot;</span>
+    is available, which sets the default for everything within the current
+    scope. The top-level default itself defaults to the ordered list from
+    <span class="Li">&quot;datacenters&quot;</span> in the normal case. If the
+    entire <span class="Li">&quot;map&quot;</span> stanza is missing or empty,
+    you just get the default behavior of
+    <span class="Li">&quot;default&quot;</span>. A datacenter array can also be
+    empty, which implies that this location is mapped to receive no response
+    data (the server will still respond to the query, and will not issue an
+    NXDOMAIN. It will simply be a NODATA/NOERROR response like you'd get if
+    there were no records of this type, but could be records of other types for
+    the same name).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="GeoIP2_Location_Data_Hierarchy"><a class="permalink" href="#GeoIP2_Location_Data_Hierarchy">GeoIP2
+  Location Data Hierarchy</a></h2>
+<p class="Pp">The top level of the map hierarchy is comprised of MaxMind's seven
+    continent codes: <span class="Li">&quot;AF&quot;</span> for Africa,
+    <span class="Li">&quot;AS&quot;</span> for Asia,
+    <span class="Li">&quot;NA&quot;</span> for North America,
+    <span class="Li">&quot;SA&quot;</span> for South America,
+    <span class="Li">&quot;EU&quot;</span> for Europe,
+    <span class="Li">&quot;OC&quot;</span> for Oceania, and
+    <span class="Li">&quot;AN&quot;</span> for Antarctica. The next level is the
+    ISO 3166-1 2-letter country code.</p>
+<p class="Pp">From here there are a number of Subdivision levels, the count of
+    which varies for different network database entries. In the US, for example,
+    there is only one level of subdivision data for the US States. In the Czech
+    Republic there are two levels of subdivision: first into 14 regions, and
+    then further into 91 districts. Subdivisions are all specified using their
+    ISO 3166-2 codes directly.</p>
+<p class="Pp">After all subdivision levels, the final level is the City level.
+    The City names are all in the UTF-8 character set. Currently this plugin
+    only uses the English city names from the database, even though other
+    languages may be available depending on the database.</p>
+<p class="Pp">As a pragmatic answer to the issues that can arise with multiple
+    subdivision layers, the map automatically searches deeper in the database
+    data when no map match is found at a given level of the map hierarchy
+    beneath the Country level. This means you can skip over any levels of
+    Subdivision detail in your map that are irrelevant to you.</p>
+<p class="Pp">For example, this targets the New Zealand regional council
+    subdivision of Otago without explicitly specifying the enclosing subdivision
+    for the South Island:</p>
+<p class="Pp"></p>
+<pre>  { OC =&gt; { NZ =&gt; { OTA =&gt; [...] } } }
+</pre>
+<p class="Pp">As another example, this works correctly for targeting the city of
+    Paris without caring about what layers of subdivisions lie between it and
+    FR:</p>
+<p class="Pp"></p>
+<pre>  { EU =&gt; { FR =&gt; { Paris =&gt; [...] } } }
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh">CONFIGURATION - MAPS - CITY AUTO MODE</h1>
+<p class="Pp">&quot;City-auto-mode&quot; is a special mode of operation that
+    automatically maps out the world to your datacenters based on coordinate
+    math, so that you don't have to manually construct a complex hierarchical
+    <span class="Li">&quot;map&quot;</span>. It can still be mixed with
+    <span class="Li">&quot;map&quot;</span> of course, allowing you to use
+    auto-mode for only select geographic areas if you wish (or disabling it for
+    select areas by specifying manual lists). The key parameter is
+    <span class="Li">&quot;auto_dc_coords&quot;</span>, which enables
+    city-auto-mode. This requires a City-level GeoIP2 database; the Country ones
+    don't contain coordinate information.</p>
+<dl class="Bl-tag">
+  <dt>&quot;auto_dc_coords = { ... }&quot;</dt>
+  <dd>Key-value hash, optional. If this option is specified, the whole map's
+      basic mode of operation changes to &quot;city-auto-mode&quot;. The
+      contents of the hash are a key for each datacenter named in
+      <span class="Li">&quot;datacenters&quot;</span>, with their values set to
+      an array of <span class="Li">&quot;[lat, lon]&quot;</span> in decimal
+      degree units. When city-auto-mode is enabled by this, the following
+      configuration-validation changes occur from the default, static-mapping
+      mode: the loaded GeoIP2 database(s) are required be City-level databases,
+      and the special keyword <span class="Li">&quot;auto&quot;</span> becomes a
+      legal &quot;datacenter list&quot; in the
+      <span class="Li">&quot;map&quot;</span> stanza.
+    <p class="Pp">With city-auto-mode enabled, the top-level map
+        <span class="Li">&quot;default&quot;</span> defaults to
+        <span class="Li">&quot;auto&quot;</span>, but can be overridden with a
+        manual list. For any location that maps to
+        <span class="Li">&quot;auto&quot;</span>, the coordinates specified here
+        in <span class="Li">&quot;auto_dc_coords&quot;</span> will be compared
+        with the coordinates from the City-level database(s) to determine an
+        automatic distance-sorted datacenter list.</p>
+    <p class="Pp">If you omit one or more defined datacenters from the
+        coordinate list in <span class="Li">&quot;auto_dc_coords&quot;</span>,
+        those datacenters will not be used in automatic results, but will still
+        be available for manual use via <span class="Li">&quot;map&quot;</span>
+        and/or <span class="Li">&quot;nets&quot;</span> entries.</p>
+  </dd>
+  <dt>&quot;auto_dc_limit = N&quot;</dt>
+  <dd>Unsigned integer, optional, default 3. When city-auto-mode is in effect,
+      this is the upper length limit for auto-generated lists. 3 is a reasonable
+      default even if you have a considerably longer set of datacenters, as this
+      provides a primary as well as two fallbacks. Raising this to a large
+      number in the presence of a long datacenter list will cause the set of
+      unique result datacenter lists to increase rapidly, and thus reduce the
+      optimization of the final result database for edns-client-subnet purposes.
+      It's really not worth raising this value in almost any case, unless you
+      really need to handle more than 3 random datacenters going offline at the
+      same time and still have clients fail elsewhere. The value zero is treated
+      as unlimited (highly un-recommended).</dd>
+</dl>
+<p class="Pp">Under city-auto-mode, when the top-level default is (explicitly or
+    implicitly) <span class="Li">&quot;auto&quot;</span>, there is still a
+    fallback static ordering which is the whole ordered
+    <span class="Li">&quot;datacenters&quot;</span> list, which is the normal
+    static default <span class="Li">&quot;default&quot;</span> when not in
+    city-auto-mode. This fallback is used when no location information is
+    available at all (e.g. IPv6 client vs IPv4 GeoIP DB, Anonymous Proxies,
+    etc).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MAP_TESTING"><a class="permalink" href="#MAP_TESTING">MAP
+  TESTING</a></h1>
+<p class="Pp">A binary program
+    <span class="Li">&quot;gdnsd_geoip_test&quot;</span> is included. This can
+    be used directly from the commandline, parses the relevant bits of your
+    gdnsd config file for geoip map info, and then provides datacenter list
+    results for IP address + map combinations supplied by the user. Useful for
+    debugging your maps and testing the mapping of client IPs. It has a separate
+    manpage <a class="Xr" href="../1/gdnsd_geoip_test.html"><b>gdnsd_geoip_test</b>(1)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh">CONFIGURATION - RESOURCES</h1>
+<p class="Pp">Resource-level configuration within the
+    <span class="Li">&quot;resources&quot;</span> stanza is nearly identical to
+    the resources configuration of the metafo plugin, with all of the same basic
+    behaviors about synthesizing or directly referencing the configuration of
+    other plugins per-datacenter.</p>
+<p class="Pp">One difference is that metafo's per-resource
+    <span class="Li">&quot;datacenters&quot;</span> array is replaced with
+    <span class="Li">&quot;map =&gt; mapname&quot;</span>, which references one
+    of the maps defined in the <span class="Li">&quot;maps&quot;</span> stanza,
+    described in detail earlier. The set of defined datacenters in the
+    <span class="Li">&quot;dcmap&quot;</span> stanza must match the total set of
+    datacenters defined by the referenced map, unless
+    <span class="Li">&quot;undefined_datacenters_ok&quot;</span> is set to
+    <span class="Li">&quot;true&quot;</span> (see warnings and documentation
+    above).</p>
+<p class="Pp">The <span class="Li">&quot;skip_first&quot;</span> flag can also
+    be set per resource, and is much more useful with the geoip plugin than it
+    is with the basic metafo plugin. If this flag is set, the first datacenter
+    in the failover list for a given lookup will be skipped, allowing the
+    definition of a &quot;second choice&quot; resource using the same basic map
+    definition as the first choice. In this case the original first choice is
+    *never* a possible answer, and the rest of the logic (e.g. skipping
+    datacenters marked as down) proceeds as normal with the remaining list. If
+    the map entry and/or the resource definition have already reduced the
+    effective datacenter count to one, the flag has no effect.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="META-PLUGIN_INTERACTION"><a class="permalink" href="#META-PLUGIN_INTERACTION">META-PLUGIN
+  INTERACTION</a></h1>
+<p class="Pp">Both of the meta-plugins
+    (<span class="Li">&quot;metafo&quot;</span> and
+    <span class="Li">&quot;geoip&quot;</span>) can reference their own as well
+    as each others' resources by direct reference within a
+    <span class="Li">&quot;dcmap&quot;</span>, so long as a resource does not
+    directly refer to itself. This allows plugin-layering configurations such as
+    geoip -&gt; metafo -&gt; weighted, or metafo -&gt; geoip -&gt; multifo, or
+    even metafo -&gt; metafo -&gt; simplefo, etc.</p>
+<p class="Pp">Bear in mind that once you begin using inter-meta-plugin
+    references, you could create a reference loop. gdnsd does not currently
+    detect or prevent such loops, and they will cause complete runtime failure
+    when queried, probably by running out of stack space during recursion.</p>
+<p class="Pp">Additionally, <span class="Li">&quot;geoip&quot;</span> can
+    synthesize configuration for <span class="Li">&quot;metafo&quot;</span>
+    resources, but the reverse does not hold;
+    <span class="Li">&quot;metafo&quot;</span> cannot synthesize configuration
+    for <span class="Li">&quot;geoip&quot;</span> resources.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="IPv4_Compatible_Addresses"><a class="permalink" href="#IPv4_Compatible_Addresses">IPv4
+  Compatible Addresses</a></h1>
+<p class="Pp">This plugin knows of six different relatively-trivial ways to map
+    IPv4 addresses into the IPv6 address space. These are shown below in as much
+    detail matters to this plugin, with
+    <span class="Li">&quot;NNNN:NNNN&quot;</span> in place of the copied IPv4
+    address bytes:</p>
+<p class="Pp"></p>
+<pre>         ::0000:NNNN:NNNN/96   # RFC 4291 - v4compat (deprecated)
+         ::ffff:NNNN:NNNN/96   # RFC 4291 - v4mapped
+    ::ffff:0000:NNNN:NNNN/96   # RFC 2765 - SIIT (obsoleted)
+       64:ff9b::NNNN:NNNN/96   # RFC 6052 - Well-Known Prefix
+    2001:0000:X:NNNN:NNNN/32   # RFC 4380 - Teredo (IPv4 bits are flipped)
+           2002:NNNN:NNNN::/16 # RFC 3056 - 6to4
+    (in the Teredo case above, &quot;X&quot; represents some variable non-zero bytes
+     that occupy the center 64 bits of the address).
+</pre>
+<p class="Pp">All of this plugin's internal lookup databases are IPv6 databases,
+    and any IPv4-like information is always stored in the v4compat space within
+    these databases. When doing runtime lookups all other v4-like addresses (raw
+    IPv4 addresses, v4mapped, SIIT, WKP, Teredo, and 6to4) are converted to the
+    canonical v4compat IPv6 representation before querying the internal
+    databases. The other representations (v4mapped, SIIT, WKP, Teredo, 6to4) are
+    Undefined internally, and will never be referenced at lookup-time due to the
+    v4compat conversion mentioned earlier.</p>
+<p class="Pp">The <span class="Li">&quot;nets&quot;</span> stanza is not allowed
+    to specify entries in the five undefined v4-like IPv6 spaces (those other
+    than v4compat). Specify those networks as normal IPv4 networks or v4compat
+    networks instead. Legitimate IPv6 <span class="Li">&quot;nets&quot;</span>
+    entries which happen to be a supernet of any v4-like spaces will *not*
+    unduly affect v4-like lookups. There is no functional difference between
+    v4compat and native v4 forms in <span class="Li">&quot;nets&quot;</span>,
+    e.g. <span class="Li">&quot;192.0.2.0/24&quot;</span> and
+    <span class="Li">&quot;::C000:0200/120&quot;</span> are completely
+    identical.</p>
+<p class="Pp">GeoIP databases that are natively IPv4-only get all of their data
+    loaded into the v4compat space only. For normal IPv6 GeoIP databases, by
+    default we load the v4compat space directly (which is where MaxMind stores
+    IPv4 data in their IPv6 databases), but ignore the v4mapped/SIIT/Teredo/6to4
+    spaces (some of which are empty in MaxMind's databases, and some of which
+    simply alias the v4compat space).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ANOTHER_CONFIG_EXAMPLE"><a class="permalink" href="#ANOTHER_CONFIG_EXAMPLE">ANOTHER
+  CONFIG EXAMPLE</a></h1>
+<p class="Pp">A relatively-maximal example config, showing the interaction of
+    valid <span class="Li">&quot;maps&quot;</span> and
+    <span class="Li">&quot;resources&quot;</span> sections:</p>
+<p class="Pp"></p>
+<pre>  service_types =&gt; {
+    xmpp_svc =&gt; { plugin =&gt; &quot;tcp_connect&quot;, ... }
+    www_svc =&gt; { plugin =&gt; &quot;http_status&quot;, ... }
+  }
+  plugins =&gt; {
+    geoip =&gt; {
+      maps =&gt; {
+        my_prod_map =&gt; {
+          geoip2_db =&gt; GeoIP2-City.mmdb,
+          datacenters =&gt; [us-01, de-01, sg-01],
+          map =&gt; {
+              # Hierarchy is Continent -&gt; Country -&gt; Region -&gt; City
+              NA =&gt; {
+                US =&gt; {
+                  Dallas =&gt; [sg-01],
+                }
+              }
+              SA =&gt; [us-01, sg-01, de-01],
+              EU =&gt; {
+                default =&gt; [de-01, us-01, sg-01],
+                CH =&gt; {
+                  Geneve =&gt; {
+                    Geneva =&gt; [sg-01],
+                  }
+                }
+              }
+              AF =&gt; [de-01, us-01, sg-01],
+              AS =&gt; [sg-01, de-01, us-01],
+              OC =&gt; [sg-01, us-01, de-01],
+          }
+          nets =&gt; {
+              10.0.0.0/8 =&gt; [ de-01 ],
+              2001:DB8::/32 =&gt; [ us-01 ],
+          }
+        }
+        my_auto_map =&gt; {
+          geoip2_db =&gt; GeoIP2-City.mmdb,
+          datacenters =&gt; [us-01, de-01, sg-01],
+          auto_dc_coords =&gt; {
+             us-01 =&gt; [ 38.9, -77 ],
+             de-01 =&gt; [ 50.1, 8.7 ],
+             sg-01 =&gt; [ 1.3, 103.9 ],
+          }
+        }
+      }
+      resources =&gt; {
+        prod_app =&gt; {
+          map =&gt; my_auto_map
+          # these two are inherited multifo config keys
+          #  for all of the dcmap below:
+          service_types =&gt; [www_svc, xmpp_svc],
+          up_thresh =&gt; 0.4,
+          dcmap =&gt; {
+            us-01 =&gt; {
+              lb01 =&gt; 192.0.2.1,
+              lb02 =&gt; 192.0.2.2,
+              lb03 =&gt; 192.0.2.3,
+              lb01.v6 =&gt; 2001:DB8::1,
+              lb02.v6 =&gt; 2001:DB8::2,
+              lb03.v6 =&gt; 2001:DB8::3,
+            },
+            sg-01 =&gt; {
+              lb01 =&gt; 192.0.2.4,
+              lb02 =&gt; 192.0.2.5,
+              lb03 =&gt; 192.0.2.6,
+              lb01.v6 =&gt; 2001:DB8::4,
+              lb02.v6 =&gt; 2001:DB8::5,
+              lb03.v6 =&gt; 2001:DB8::6,
+            },
+            de-01 =&gt; {
+              lb01 =&gt; 192.0.2.7,
+              lb02 =&gt; 192.0.2.8,
+              lb03 =&gt; 192.0.2.9,
+              lb01.v6 =&gt; 2001:DB8::7,
+              lb02.v6 =&gt; 2001:DB8::8,
+              lb03.v6 =&gt; 2001:DB8::9,
+            },
+          }
+        },
+        prod_cdn =&gt; {
+          map =&gt; my_prod_map,
+          dcmap =&gt; {
+            us-01 =&gt; us-cdn-provider.example.net.
+            sg-01 =&gt; asia-cdn-provider.example.net.
+            de-01 =&gt; europe-cdn-provider.example.net.
+          }
+        }
+      }
+    }
+  }
+</pre>
+<p class="Pp">Example zonefile RRs in zone example.com:</p>
+<p class="Pp"></p>
+<pre>  app     600 DYNA geoip!prod_app
+  app.us  600 DYNA geoip!prod_app/us-01
+  app.sg  600 DYNA geoip!prod_app/sg-01
+  app.de  600 DYNA geoip!prod_app/de-01
+  content 600 DYNC geoip!prod_cdn
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLE_OF_METAFO"><a class="permalink" href="#EXAMPLE_OF_METAFO">EXAMPLE
+  OF METAFO-&gt;GEOIP CITY-AUTO-MODE w/ LAST RESORT CNAME</a></h1>
+<pre>  plugins =&gt; {
+    geoip =&gt; {
+      maps =&gt; {
+        auto_map =&gt; {
+          geoip2_db =&gt; GeoIP2-City.mmdb,
+          datacenters =&gt; [dc1, dc2, dc3, dc4],
+          auto_dc_coords =&gt; {
+             dc1 =&gt; [ 38.9, -77 ],
+             dc2 =&gt; [ 50.1, 8.7 ],
+             dc3 =&gt; [ 20.2, 88.9 ],
+             dc4 =&gt; [ 39.0, -20 ],
+          },
+          # only fail through the nearest 2 before giving up:
+          auto_dc_limit =&gt; 2,
+        }
+      },
+      resources =&gt; {
+        www_real =&gt; {
+          map =&gt; my_auto_map,
+          service_types =&gt; [ http, xmpp ],
+          dcmap =&gt; {
+            dc1 =&gt; 192.0.2.100,
+            dc2 =&gt; 192.0.2.101,
+            dc3 =&gt; 192.0.2.102,
+            dc4 =&gt; 192.0.2.103
+          }
+        }
+      }
+    },
+    metafo =&gt; {
+      resources =&gt; {
+        www =&gt; {
+          datacenters =&gt; [ real, backup ],
+          dcmap =&gt; {
+            real =&gt; %geoip!www_real,
+            backup =&gt; backup-host.example.net.
+          }
+        }
+      }
+    }
+  }
+  And in the example.com zonefile:
+  ; This tries through the closest 2/4 datacenters to
+  ;   the client from the geoip map, and if both of
+  ;   those are down it returns a CNAME to backup-host.example.net.
+  ;   for a downtime message or something:
+  www DYNC metafo!www
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/gdnsd-plugin-metafo.html"><b>gdnsd-plugin-metafo</b>(8)</a>, <a class="Xr" href="../1/gdnsd_geoip_test.html"><b>gdnsd_geoip_test</b>(1)</a>,
+    <a class="Xr" href="../5/gdnsd.config.html"><b>gdnsd.config</b>(5)</a>, <a class="Xr" href="../5/gdnsd.zonefile.html"><b>gdnsd.zonefile</b>(5)</a>, <a class="Xr" href="../8/gdnsd.html"><b>gdnsd</b>(8)</a></p>
+<p class="Pp">The gdnsd manual.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT_AND_LICENSE"><a class="permalink" href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></h1>
+<p class="Pp">Copyright (c) 2012 Brandon L Black &lt;blblack@gmail.com&gt;</p>
+<p class="Pp">This file is part of gdnsd.</p>
+<p class="Pp">gdnsd is free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by the Free
+    Software Foundation, either version 3 of the License, or (at your option)
+    any later version.</p>
+<p class="Pp">gdnsd is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+    more details.</p>
+<p class="Pp">You should have received a copy of the GNU General Public License
+    along with gdnsd. If not, see &lt;http://www.gnu.org/licenses/&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">gdnsd 3.8.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: gdnsd 3.8.2-1build2 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

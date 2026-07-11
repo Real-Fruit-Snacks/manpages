@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="introduction to security under FreeBSD">
+<title>security(7freebsd) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">security(7freebsd)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#SECURING_THE_ROOT_ACCOUNT_AND_SECURING_STAFF_ACCOUNTS">SECURING
+  THE ROOT ACCOUNT AND SECURING STAFF ACCOUNTS</a></li><li><a href="#SECURING_ROOT_">SECURING
+  ROOT &amp;#x2014; ROOT-RUN SERVERS AND SUID/SGID BINARIES</a></li><li><a href="#SECURING_USER_ACCOUNTS">SECURING
+  USER ACCOUNTS</a></li><li><a href="#SECURING_THE_PASSWORD_FILE">SECURING
+  THE PASSWORD FILE</a></li><li><a href="#SECURING_THE_KERNEL_CORE,_RAW_DEVICES,_AND_FILE_SYSTEMS">SECURING
+  THE KERNEL CORE, RAW DEVICES, AND FILE SYSTEMS</a></li><li><a href="#CHECKING_FILE_INTEGRITY:_BINARIES,_CONFIG_FILES,_ETC">CHECKING
+  FILE INTEGRITY: BINARIES, CONFIG FILES, ETC</a></li><li><a href="#PARANOIA">PARANOIA</a></li><li><a href="#SPECIAL_SECTION_ON_DoS_ATTACKS">SPECIAL
+  SECTION ON DoS ATTACKS</a></li><li><a href="#ACCESS_ISSUES_WITH_KERBEROS_AND_SSH">ACCESS
+  ISSUES WITH KERBEROS AND SSH</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#HISTORY">HISTORY</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SECURITY(7)</td>
+    <td class="head-vol">Miscellaneous Information Manual</td>
+    <td class="head-rtitle">SECURITY(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">security</code> &#x2014;
+    <span class="Nd">introduction to security under FreeBSD</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Security is a function that begins and ends with the system
+    administrator. While all <span class="Ux">BSD</span> multi-user systems have
+    some inherent security, the job of building and maintaining additional
+    security mechanisms to keep users &#x201C;honest&#x201D; is probably one of
+    the single largest undertakings of the sysadmin. Machines are only as secure
+    as you make them, and security concerns are ever competing with the human
+    necessity for convenience. <span class="Ux">UNIX</span> systems, in general,
+    are capable of running a huge number of simultaneous processes and many of
+    these processes operate as servers &#x2014; meaning that external entities
+    can connect and talk to them. As yesterday's mini-computers and mainframes
+    become today's desktops, and as computers become networked and
+    internetworked, security becomes an ever bigger issue.</p>
+<p class="Pp">Security is best implemented through a layered onion approach. In
+    a nutshell, what you want to do is to create as many layers of security as
+    are convenient and then carefully monitor the system for intrusions.</p>
+<p class="Pp">System security also pertains to dealing with various forms of
+    attacks, including attacks that attempt to crash or otherwise make a system
+    unusable but do not attempt to break root. Security concerns can be split up
+    into several categories:</p>
+<ol class="Bl-enum Bd-indent">
+  <li>Denial of Service attacks (DoS)</li>
+  <li>User account compromises</li>
+  <li>Root compromise through accessible servers</li>
+  <li>Root compromise via user accounts</li>
+  <li>Backdoor creation</li>
+</ol>
+<p class="Pp">A denial of service attack is an action that deprives the machine
+    of needed resources. Typically, DoS attacks are brute-force mechanisms that
+    attempt to crash or otherwise make a machine unusable by overwhelming its
+    servers or network stack. Some DoS attacks try to take advantages of bugs in
+    the networking stack to crash a machine with a single packet. The latter can
+    only be fixed by applying a bug fix to the kernel. Attacks on servers can
+    often be fixed by properly specifying options to limit the load the servers
+    incur on the system under adverse conditions. Brute-force network attacks
+    are harder to deal with. A spoofed-packet attack, for example, is nearly
+    impossible to stop short of cutting your system off from the Internet. It
+    may not be able to take your machine down, but it can fill up your Internet
+    pipe.</p>
+<p class="Pp">A user account compromise is even more common than a DoS attack.
+    Many sysadmins still run standard
+    <a class="Xr" href="../8/telnetd.html">telnetd(8)</a> and
+    <a class="Xr" href="../8/ftpd.html">ftpd(8)</a> servers on their machines.
+    These servers, by default, do not operate over encrypted connections. The
+    result is that if you have any moderate-sized user base, one or more of your
+    users logging into your system from a remote location (which is the most
+    common and convenient way to log in to a system) will have his or her
+    password sniffed. The attentive system administrator will analyze his remote
+    access logs looking for suspicious source addresses even for successful
+    logins.</p>
+<p class="Pp">One must always assume that once an attacker has access to a user
+    account, the attacker can break root. However, the reality is that in a well
+    secured and maintained system, access to a user account does not necessarily
+    give the attacker access to root. The distinction is important because
+    without access to root the attacker cannot generally hide his tracks and
+    may, at best, be able to do nothing more than mess with the user's files or
+    crash the machine. User account compromises are very common because users
+    tend not to take the precautions that sysadmins take.</p>
+<p class="Pp">System administrators must keep in mind that there are potentially
+    many ways to break root on a machine. The attacker may know the root
+    password, the attacker may find a bug in a root-run server and be able to
+    break root over a network connection to that server, or the attacker may
+    know of a bug in an SUID-root program that allows the attacker to break root
+    once he has broken into a user's account. If an attacker has found a way to
+    break root on a machine, the attacker may not have a need to install a
+    backdoor. Many of the root holes found and closed to date involve a
+    considerable amount of work by the attacker to clean up after himself, so
+    most attackers do install backdoors. This gives you a convenient way to
+    detect the attacker. Making it impossible for an attacker to install a
+    backdoor may actually be detrimental to your security because it will not
+    close off the hole the attacker used to break in originally.</p>
+<p class="Pp">Security remedies should always be implemented with a
+    multi-layered &#x201C;onion peel&#x201D; approach and can be categorized as
+    follows:</p>
+<ol class="Bl-enum Bd-indent">
+  <li>Securing root and staff accounts</li>
+  <li>Securing root &#x2014; root-run servers and SUID/SGID binaries</li>
+  <li>Securing user accounts</li>
+  <li>Securing the password file</li>
+  <li>Securing the kernel core, raw devices, and file systems</li>
+  <li>Quick detection of inappropriate changes made to the system</li>
+  <li>Paranoia</li>
+</ol>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURING_THE_ROOT_ACCOUNT_AND_SECURING_STAFF_ACCOUNTS"><a class="permalink" href="#SECURING_THE_ROOT_ACCOUNT_AND_SECURING_STAFF_ACCOUNTS">SECURING
+  THE ROOT ACCOUNT AND SECURING STAFF ACCOUNTS</a></h1>
+<p class="Pp">Do not bother securing staff accounts if you have not secured the
+    root account. Most systems have a password assigned to the root account. The
+    first thing you do is assume that the password is
+    <a class="permalink" href="#always"><i class="Em" id="always">always</i></a>
+    compromised. This does not mean that you should remove the password. The
+    password is almost always necessary for console access to the machine. What
+    it does mean is that you should not make it possible to use the password
+    outside of the console or possibly even with a
+    <a class="Xr" href="../1/su.html">su(1)</a> utility. For example, make sure
+    that your PTYs are specified as being
+    &#x201C;<code class="Li">insecure</code>&#x201D; in the
+    <span class="Pa">/etc/ttys</span> file so that direct root logins via
+    <span class="Xr">telnet(1)</span> are disallowed. If using
+    other login services such as
+    <a class="Xr" href="../8/sshd.html">sshd(8)</a>, make sure that direct root
+    logins are disabled there as well. Consider every access method &#x2014;
+    services such as <span class="Xr">ftp(1)</span> often fall
+    through the cracks. Direct root logins should only be allowed via the system
+    console.</p>
+<p class="Pp">Of course, as a sysadmin you have to be able to get to root, so we
+    open up a few holes. But we make sure these holes require additional
+    password verification to operate. One way to make root accessible is to add
+    appropriate staff accounts to the
+    &#x201C;<code class="Li">wheel</code>&#x201D; group (in
+    <span class="Pa">/etc/group</span>). The staff members placed in the
+    <code class="Li">wheel</code> group are allowed to
+    <a class="Xr" href="../1/su.html">su(1)</a> to root. You should never give
+    staff members native <code class="Li">wheel</code> access by putting them in
+    the <code class="Li">wheel</code> group in their password entry. Staff
+    accounts should be placed in a &#x201C;<code class="Li">staff</code>&#x201D;
+    group, and then added to the <code class="Li">wheel</code> group via the
+    <span class="Pa">/etc/group</span> file. Only those staff members who
+    actually need to have root access should be placed in the
+    <code class="Li">wheel</code> group. It is also possible, when using an
+    authentication method such as Kerberos, to use Kerberos's
+    <span class="Pa">.k5login</span> file in the root account to allow a
+    <span class="Xr">ksu(1)</span> to root without having to
+    place anyone at all in the <code class="Li">wheel</code> group. This may be
+    the better solution since the <code class="Li">wheel</code> mechanism still
+    allows an intruder to break root if the intruder has gotten hold of your
+    password file and can break into a staff account. While having the
+    <code class="Li">wheel</code> mechanism is better than having nothing at
+    all, it is not necessarily the safest option.</p>
+<p class="Pp" id="from">An indirect way to secure the root account is to secure
+    your staff accounts by using an alternative login access method and *'ing
+    out the crypted password for the staff accounts. This way an intruder may be
+    able to steal the password file but will not be able to break into any staff
+    accounts or root, even if root has a crypted password associated with it
+    (assuming, of course, that you have limited root access to the console).
+    Staff members get into their staff accounts through a secure login mechanism
+    such as <a class="Xr" href="../8/kerberos.html">kerberos(8)</a> or
+    <a class="Xr" href="../1/ssh.html">ssh(1)</a> using a private/public key
+    pair. When you use something like Kerberos you generally must secure the
+    machines which run the Kerberos servers and your desktop workstation. When
+    you use a public/private key pair with SSH, you must generally secure the
+    machine you are logging in
+    <a class="permalink" href="#from"><i class="Em">from</i></a> (typically your
+    workstation), but you can also add an additional layer of protection to the
+    key pair by password protecting the keypair when you create it with
+    <a class="Xr" href="../1/ssh-keygen.html">ssh-keygen(1)</a>. Being able to
+    *-out the passwords for staff accounts also guarantees that staff members
+    can only log in through secure access methods that you have set up. You can
+    thus force all staff members to use secure, encrypted connections for all
+    their sessions which closes an important hole used by many intruders: that
+    of sniffing the network from an unrelated, less secure machine.</p>
+<p class="Pp">The more indirect security mechanisms also assume that you are
+    logging in from a more restrictive server to a less restrictive server. For
+    example, if your main box is running all sorts of servers, your workstation
+    should not be running any. In order for your workstation to be reasonably
+    secure you should run as few servers as possible, up to and including no
+    servers at all, and you should run a password-protected screen blanker. Of
+    course, given physical access to a workstation, an attacker can break any
+    sort of security you put on it. This is definitely a problem that you should
+    consider but you should also consider the fact that the vast majority of
+    break-ins occur remotely, over a network, from people who do not have
+    physical access to your workstation or servers.</p>
+<p class="Pp">Using something like Kerberos also gives you the ability to
+    disable or change the password for a staff account in one place and have it
+    immediately affect all the machines the staff member may have an account on.
+    If a staff member's account gets compromised, the ability to instantly
+    change his password on all machines should not be underrated. With discrete
+    passwords, changing a password on N machines can be a mess. You can also
+    impose re-passwording restrictions with Kerberos: not only can a Kerberos
+    ticket be made to timeout after a while, but the Kerberos system can require
+    that the user choose a new password after a certain period of time (say,
+    once a month).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURING_ROOT_"><a class="permalink" href="#SECURING_ROOT_">SECURING
+  ROOT &#x2014; ROOT-RUN SERVERS AND SUID/SGID BINARIES</a></h1>
+<p class="Pp">The prudent sysadmin only runs the servers he needs to, no more,
+    no less. Be aware that third party servers are often the most bug-prone. For
+    example, running an old version of
+    <span class="Xr">imapd(8)</span> or
+    <span class="Xr">popper(8)</span>
+    (<span class="Pa">ports/mail/popper</span>) is like giving a universal root
+    ticket out to the entire world. Never run a server that you have not checked
+    out carefully. Many servers do not need to be run as root. For example, the
+    <a class="Xr" href="../8/in.ntalkd.html">talkd(8)</a>,
+    <a class="Xr" href="../8/in.comsat.html">comsat(8)</a>, and
+    <span class="Xr">fingerd(8)</span> daemons can be run in
+    special user &#x201C;sandboxes&#x201D;. A sandbox is not perfect unless you
+    go to a large amount of trouble, but the onion approach to security still
+    stands: if someone is able to break in through a server running in a
+    sandbox, they still have to break out of the sandbox. The more layers the
+    attacker must break through, the lower the likelihood of his success. Root
+    holes have historically been found in virtually every server ever run as
+    root, including basic system servers. If you are running a machine through
+    which people only log in via <a class="Xr" href="../8/sshd.html">sshd(8)</a>
+    and never log in via <a class="Xr" href="../8/telnetd.html">telnetd(8)</a>
+    then turn off those services!</p>
+<p class="Pp"><span class="Ux">FreeBSD</span> now defaults to running
+    <a class="Xr" href="../8/in.ntalkd.html">talkd(8)</a>,
+    <a class="Xr" href="../8/in.comsat.html">comsat(8)</a>, and
+    <span class="Xr">fingerd(8)</span> in a sandbox.
+    Depending on whether you are installing a new system or upgrading an
+    existing system, the special user accounts used by these sandboxes may not
+    be installed. The prudent sysadmin would research and implement sandboxes
+    for servers whenever possible.</p>
+<p class="Pp">There are a number of other servers that typically do not run in
+    sandboxes: <a class="Xr" href="../8/ssmtp.html">sendmail(8)</a>,
+    <span class="Xr">popper(8)</span>,
+    <span class="Xr">imapd(8)</span>,
+    <a class="Xr" href="../8/ftpd.html">ftpd(8)</a>, and others. There are
+    alternatives to some of these, but installing them may require more work
+    than you are willing to put (the convenience factor strikes again). You may
+    have to run these servers as root and rely on other mechanisms to detect
+    break-ins that might occur through them.</p>
+<p class="Pp">The other big potential root hole in a system are the SUID-root
+    and SGID binaries installed on the system. Most of these binaries, such as
+    <a class="Xr" href="../1/su.html">su(1)</a>, reside in
+    <span class="Pa">/bin</span>, <span class="Pa">/sbin</span>,
+    <span class="Pa">/usr/bin</span>, or <span class="Pa">/usr/sbin</span>.
+    While nothing is 100% safe, the system-default SUID and SGID binaries can be
+    considered reasonably safe. Still, root holes are occasionally found in
+    these binaries. A root hole was found in Xlib in 1998 that made
+    <a class="Xr" href="../1/xterm.html">xterm(1)</a>
+    (<span class="Pa">ports/x11/xterm</span>) (which is typically SUID)
+    vulnerable. It is better to be safe than sorry and the prudent sysadmin will
+    restrict SUID binaries that only staff should run to a special group that
+    only staff can access, and get rid of (&#x201C;<code class="Li">chmod
+    000</code>&#x201D;) any SUID binaries that nobody uses. A server with no
+    display generally does not need an
+    <a class="Xr" href="../1/xterm.html">xterm(1)</a> binary. SGID binaries can
+    be almost as dangerous. If an intruder can break an SGID-kmem binary the
+    intruder might be able to read <span class="Pa">/dev/kmem</span> and thus
+    read the crypted password file, potentially compromising any passworded
+    account. Alternatively an intruder who breaks group
+    &#x201C;<code class="Li">kmem</code>&#x201D; can monitor keystrokes sent
+    through PTYs, including PTYs used by users who log in through secure
+    methods. An intruder that breaks the
+    &#x201C;<code class="Li">tty</code>&#x201D; group can write to almost any
+    user's TTY. If a user is running a terminal program or emulator with a
+    keyboard-simulation feature, the intruder can potentially generate a data
+    stream that causes the user's terminal to echo a command, which is then run
+    as that user.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURING_USER_ACCOUNTS"><a class="permalink" href="#SECURING_USER_ACCOUNTS">SECURING
+  USER ACCOUNTS</a></h1>
+<p class="Pp">User accounts are usually the most difficult to secure. While you
+    can impose draconian access restrictions on your staff and *-out their
+    passwords, you may not be able to do so with any general user accounts you
+    might have. If you do have sufficient control then you may win out and be
+    able to secure the user accounts properly. If not, you simply have to be
+    more vigilant in your monitoring of those accounts. Use of SSH and Kerberos
+    for user accounts is more problematic due to the extra administration and
+    technical support required, but still a very good solution compared to a
+    crypted password file.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURING_THE_PASSWORD_FILE"><a class="permalink" href="#SECURING_THE_PASSWORD_FILE">SECURING
+  THE PASSWORD FILE</a></h1>
+<p class="Pp">The only sure fire way is to *-out as many passwords as you can
+    and use SSH or Kerberos for access to those accounts. Even though the
+    crypted password file (<span class="Pa">/etc/spwd.db</span>) can only be
+    read by root, it may be possible for an intruder to obtain read access to
+    that file even if the attacker cannot obtain root-write access.</p>
+<p class="Pp">Your security scripts should always check for and report changes
+    to the password file (see
+    <a class="Sx" href="#CHECKING_FILE_INTEGRITY">CHECKING FILE INTEGRITY</a>
+    below).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SECURING_THE_KERNEL_CORE,_RAW_DEVICES,_AND_FILE_SYSTEMS"><a class="permalink" href="#SECURING_THE_KERNEL_CORE,_RAW_DEVICES,_AND_FILE_SYSTEMS">SECURING
+  THE KERNEL CORE, RAW DEVICES, AND FILE SYSTEMS</a></h1>
+<p class="Pp">If an attacker breaks root he can do just about anything, but
+    there are certain conveniences. For example, most modern kernels have a
+    packet sniffing device driver built in. Under
+    <span class="Ux">FreeBSD</span> it is called the
+    <span class="Xr">bpf(4)</span> device. An intruder will
+    commonly attempt to run a packet sniffer on a compromised machine. You do
+    not need to give the intruder the capability and most systems should not
+    have the <span class="Xr">bpf(4)</span> device compiled
+  in.</p>
+<p class="Pp">But even if you turn off the
+    <span class="Xr">bpf(4)</span> device, you still have
+    <span class="Pa">/dev/mem</span> and <span class="Pa">/dev/kmem</span> to
+    worry about. For that matter, the intruder can still write to raw disk
+    devices. Also, there is another kernel feature called the module loader,
+    <span class="Xr">kldload(8)</span>. An enterprising
+    intruder can use a KLD module to install his own
+    <span class="Xr">bpf(4)</span> device or other sniffing
+    device on a running kernel. To avoid these problems you have to run the
+    kernel at a higher security level, at least level 1. The security level can
+    be set with a <a class="Xr" href="../8/sysctl.html">sysctl(8)</a> on the
+    <var class="Va">kern.securelevel</var> variable. Once you have set the
+    security level to 1, write access to raw devices will be denied and special
+    <span class="Xr">chflags(1)</span> flags, such as
+    <code class="Cm">schg</code>, will be enforced. You must also ensure that
+    the <code class="Cm">schg</code> flag is set on critical startup binaries,
+    directories, and script files &#x2014; everything that gets run up to the
+    point where the security level is set. This might be overdoing it, and
+    upgrading the system is much more difficult when you operate at a higher
+    security level. You may compromise and run the system at a higher security
+    level but not set the <code class="Cm">schg</code> flag for every system
+    file and directory under the sun. Another possibility is to simply mount
+    <span class="Pa">/</span> and <span class="Pa">/usr</span> read-only. It
+    should be noted that being too draconian in what you attempt to protect may
+    prevent the all-important detection of an intrusion.</p>
+<p class="Pp">The kernel runs with five different security levels. Any
+    super-user process can raise the level, but no process can lower it. The
+    security levels are:</p>
+<dl class="Bl-tag">
+  <dt id="1"><a class="permalink" href="#1"><code class="Ic">-1</code></a></dt>
+  <dd>Permanently insecure mode - always run the system in insecure mode. This
+      is the default initial value.</dd>
+  <dt id="0"><a class="permalink" href="#0"><code class="Ic">0</code></a></dt>
+  <dd>Insecure mode - immutable and append-only flags may be turned off. All
+      devices may be read or written subject to their permissions.</dd>
+  <dt id="1~2"><a class="permalink" href="#1~2"><code class="Ic">1</code></a></dt>
+  <dd>Secure mode - the system immutable and system append-only flags may not be
+      turned off; disks for mounted file systems,
+      <span class="Pa">/dev/mem</span> and <span class="Pa">/dev/kmem</span> may
+      not be opened for writing; <span class="Pa">/dev/io</span> (if your
+      platform has it) may not be opened at all; kernel modules (see
+      <span class="Xr">kld(4)</span>) may not be loaded or
+      unloaded. The kernel debugger may not be entered using the
+      <var class="Va">debug.kdb.enter</var> sysctl. A panic or trap cannot be
+      forced using the <var class="Va">debug.kdb.panic</var> and other
+    sysctl's.</dd>
+  <dt id="2"><a class="permalink" href="#2"><code class="Ic">2</code></a></dt>
+  <dd>Highly secure mode - same as secure mode, plus disks may not be opened for
+      writing (except by <a class="Xr" href="../2/mount.html">mount(2)</a>)
+      whether mounted or not. This level precludes tampering with file systems
+      by unmounting them, but also inhibits running
+      <span class="Xr">newfs(8)</span> while the system is
+      multi-user.
+    <p class="Pp">In addition, kernel time changes are restricted to less than
+        or equal to one second. Attempts to change the time by more than this
+        will log the message &#x201C;Time adjustment clamped to +1
+        second&#x201D;.</p>
+  </dd>
+  <dt id="3"><a class="permalink" href="#3"><code class="Ic">3</code></a></dt>
+  <dd>Network secure mode - same as highly secure mode, plus IP packet filter
+      rules (see <span class="Xr">ipfw(8)</span>,
+      <span class="Xr">ipfirewall(4)</span> and
+      <span class="Xr">pfctl(8)</span>) cannot be changed and
+      <span class="Xr">dummynet(4)</span> or
+      <span class="Xr">pf(4)</span> configuration cannot be
+      adjusted.</dd>
+</dl>
+<p class="Pp">The security level can be configured with variables documented in
+    <span class="Xr">rc.conf(5)</span>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CHECKING_FILE_INTEGRITY:_BINARIES,_CONFIG_FILES,_ETC"><a class="permalink" href="#CHECKING_FILE_INTEGRITY:_BINARIES,_CONFIG_FILES,_ETC">CHECKING
+  FILE INTEGRITY: BINARIES, CONFIG FILES, ETC</a></h1>
+<p class="Pp">When it comes right down to it, you can only protect your core
+    system configuration and control files so much before the convenience factor
+    rears its ugly head. For example, using
+    <span class="Xr">chflags(1)</span> to set the
+    <code class="Cm">schg</code> bit on most of the files in
+    <span class="Pa">/</span> and <span class="Pa">/usr</span> is probably
+    counterproductive because while it may protect the files, it also closes a
+    detection window. The last layer of your security onion is perhaps the most
+    important &#x2014; detection. The rest of your security is pretty much
+    useless (or, worse, presents you with a false sense of safety) if you cannot
+    detect potential incursions. Half the job of the onion is to slow down the
+    attacker rather than stop him in order to give the detection layer a chance
+    to catch him in the act.</p>
+<p class="Pp">The best way to detect an incursion is to look for modified,
+    missing, or unexpected files. The best way to look for modified files is
+    from another (often centralized) limited-access system. Writing your
+    security scripts on the extra-secure limited-access system makes them mostly
+    invisible to potential attackers, and this is important. In order to take
+    maximum advantage you generally have to give the limited-access box
+    significant access to the other machines in the business, usually either by
+    doing a read-only NFS export of the other machines to the limited-access
+    box, or by setting up SSH keypairs to allow the limit-access box to SSH to
+    the other machines. Except for its network traffic, NFS is the least visible
+    method &#x2014; allowing you to monitor the file systems on each client box
+    virtually undetected. If your limited-access server is connected to the
+    client boxes through a switch, the NFS method is often the better choice. If
+    your limited-access server is connected to the client boxes through a hub or
+    through several layers of routing, the NFS method may be too insecure
+    (network-wise) and using SSH may be the better choice even with the
+    audit-trail tracks that SSH lays.</p>
+<p class="Pp">Once you give a limit-access box at least read access to the
+    client systems it is supposed to monitor, you must write scripts to do the
+    actual monitoring. Given an NFS mount, you can write scripts out of simple
+    system utilities such as <a class="Xr" href="../1/find.html">find(1)</a> and
+    <span class="Xr">md5(1)</span>. It is best to physically
+    <span class="Xr">md5(1)</span> the client-box files boxes at
+    least once a day, and to test control files such as those found in
+    <span class="Pa">/etc</span> and <span class="Pa">/usr/local/etc</span> even
+    more often. When mismatches are found relative to the base MD5 information
+    the limited-access machine knows is valid, it should scream at a sysadmin to
+    go check it out. A good security script will also check for inappropriate
+    SUID binaries and for new or deleted files on system partitions such as
+    <span class="Pa">/</span> and <span class="Pa">/usr</span>.</p>
+<p class="Pp">When using SSH rather than NFS, writing the security script is
+    much more difficult. You essentially have to
+    <a class="Xr" href="../1/scp.html">scp(1)</a> the scripts to the client box
+    in order to run them, making them visible, and for safety you also need to
+    <a class="Xr" href="../1/scp.html">scp(1)</a> the binaries (such as
+    <a class="Xr" href="../1/find.html">find(1)</a>) that those scripts use. The
+    <a class="Xr" href="../8/sshd.html">sshd(8)</a> daemon on the client box may
+    already be compromised. All in all, using SSH may be necessary when running
+    over unsecure links, but it is also a lot harder to deal with.</p>
+<p class="Pp">A good security script will also check for changes to user and
+    staff members access configuration files: <span class="Pa">.rhosts</span>,
+    <span class="Pa">.shosts</span>,
+    <span class="Pa">.ssh/authorized_keys</span> and so forth, files that might
+    fall outside the purview of the MD5 check.</p>
+<p class="Pp">If you have a huge amount of user disk space it may take too long
+    to run through every file on those partitions. In this case, setting mount
+    flags to disallow SUID binaries on those partitions is a good idea. The
+    <code class="Cm">nosuid</code> option (see
+    <a class="Xr" href="../8/mount.html">mount(8)</a>) is what you want to look
+    into. I would scan them anyway at least once a week, since the object of
+    this layer is to detect a break-in whether or not the break-in is
+  effective.</p>
+<p class="Pp">Process accounting (see
+    <a class="Xr" href="../8/accton.html">accton(8)</a>) is a relatively
+    low-overhead feature of the operating system which I recommend using as a
+    post-break-in evaluation mechanism. It is especially useful in tracking down
+    how an intruder has actually broken into a system, assuming the file is
+    still intact after the break-in occurs.</p>
+<p class="Pp">Finally, security scripts should process the log files and the
+    logs themselves should be generated in as secure a manner as possible
+    &#x2014; remote syslog can be very useful. An intruder tries to cover his
+    tracks, and log files are critical to the sysadmin trying to track down the
+    time and method of the initial break-in. One way to keep a permanent record
+    of the log files is to run the system console to a serial port and collect
+    the information on a continuing basis through a secure machine monitoring
+    the consoles.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARANOIA"><a class="permalink" href="#PARANOIA">PARANOIA</a></h1>
+<p class="Pp">A little paranoia never hurts. As a rule, a sysadmin can add any
+    number of security features as long as they do not affect convenience, and
+    can add security features that do affect convenience with some added
+    thought. Even more importantly, a security administrator should mix it up a
+    bit &#x2014; if you use recommendations such as those given by this manual
+    page verbatim, you give away your methodologies to the prospective attacker
+    who also has access to this manual page.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SPECIAL_SECTION_ON_DoS_ATTACKS"><a class="permalink" href="#SPECIAL_SECTION_ON_DoS_ATTACKS">SPECIAL
+  SECTION ON DoS ATTACKS</a></h1>
+<p class="Pp">This section covers Denial of Service attacks. A DoS attack is
+    typically a packet attack. While there is not much you can do about modern
+    spoofed packet attacks that saturate your network, you can generally limit
+    the damage by ensuring that the attacks cannot take down your servers.</p>
+<ol class="Bl-enum Bd-indent">
+  <li>Limiting server forks</li>
+  <li>Limiting springboard attacks (ICMP response attacks, ping broadcast,
+    etc.)</li>
+  <li>Kernel Route Cache</li>
+</ol>
+<p class="Pp">A common DoS attack is against a forking server that attempts to
+    cause the server to eat processes, file descriptors, and memory until the
+    machine dies. The <a class="Xr" href="../8/inetd.html">inetd(8)</a> server
+    has several options to limit this sort of attack. It should be noted that
+    while it is possible to prevent a machine from going down it is not
+    generally possible to prevent a service from being disrupted by the attack.
+    Read the <a class="Xr" href="../8/inetd.html">inetd(8)</a> manual page
+    carefully and pay specific attention to the <code class="Fl">-c</code>,
+    <code class="Fl">-C</code>, and <code class="Fl">-R</code> options. Note
+    that spoofed-IP attacks will circumvent the <code class="Fl">-C</code>
+    option to <a class="Xr" href="../8/inetd.html">inetd(8)</a>, so typically a
+    combination of options must be used. Some standalone servers have
+    self-fork-limitation parameters.</p>
+<p class="Pp">The <a class="Xr" href="../8/ssmtp.html">sendmail(8)</a> daemon
+    has its <code class="Fl">-OMaxDaemonChildren</code> option which tends to
+    work much better than trying to use
+    <a class="Xr" href="../8/ssmtp.html">sendmail(8)</a>'s load limiting
+    options due to the load lag. You should specify a
+    <var class="Va">MaxDaemonChildren</var> parameter when you start
+    <a class="Xr" href="../8/ssmtp.html">sendmail(8)</a> high enough to
+    handle your expected load but not so high that the computer cannot handle
+    that number of <code class="Nm">sendmail</code>'s without falling on its
+    face. It is also prudent to run
+    <a class="Xr" href="../8/ssmtp.html">sendmail(8)</a> in
+    &#x201C;queued&#x201D; mode (<code class="Fl">-ODeliveryMode=queued</code>)
+    and to run the daemon (&#x201C;<code class="Nm">sendmail</code>
+    <code class="Fl">-bd</code>&#x201D;) separate from the queue-runs
+    (&#x201C;<code class="Nm">sendmail</code>
+    <code class="Fl">-q15m</code>&#x201D;). If you still want real-time delivery
+    you can run the queue at a much lower interval, such as
+    <code class="Fl">-q1m</code>, but be sure to specify a reasonable
+    <var class="Va">MaxDaemonChildren</var> option for that
+    <a class="Xr" href="../8/ssmtp.html">sendmail(8)</a> to prevent cascade
+    failures.</p>
+<p class="Pp">The <a class="Xr" href="../8/syslogd.html">syslogd(8)</a> daemon
+    can be attacked directly and it is strongly recommended that you use the
+    <code class="Fl">-s</code> option whenever possible, and the
+    <code class="Fl">-a</code> option otherwise.</p>
+<p class="Pp">You should also be fairly careful with connect-back services such
+    as tcpwrapper's reverse-identd, which can be attacked directly. You
+    generally do not want to use the reverse-ident feature of tcpwrappers for
+    this reason.</p>
+<p class="Pp" id="except">It is a very good idea to protect internal services
+    from external access by firewalling them off at your border routers. The
+    idea here is to prevent saturation attacks from outside your LAN, not so
+    much to protect internal services from network-based root compromise. Always
+    configure an exclusive firewall, i.e., &#x2018;firewall everything
+    <a class="permalink" href="#except"><i class="Em">except</i></a> ports A, B,
+    C, D, and M-Z&#x2019;. This way you can firewall off all of your low ports
+    except for certain specific services such as
+    <a class="Xr" href="../8/in.ntalkd.html">talkd(8)</a>,
+    <a class="Xr" href="../8/ssmtp.html">sendmail(8)</a>, and other
+    internet-accessible services. If you try to configure the firewall the other
+    way &#x2014; as an inclusive or permissive firewall, there is a good chance
+    that you will forget to &#x201C;close&#x201D; a couple of services or that
+    you will add a new internal service and forget to update the firewall. You
+    can still open up the high-numbered port range on the firewall to allow
+    permissive-like operation without compromising your low ports. Also take
+    note that <span class="Ux">FreeBSD</span> allows you to control the range of
+    port numbers used for dynamic binding via the various
+    <var class="Va">net.inet.ip.portrange</var> sysctl's
+    (&#x201C;<code class="Li">sysctl net.inet.ip.portrange</code>&#x201D;),
+    which can also ease the complexity of your firewall's configuration. I
+    usually use a normal first/last range of 4000 to 5000, and a hiport range of
+    49152 to 65535, then block everything under 4000 off in my firewall (except
+    for certain specific internet-accessible ports, of course).</p>
+<p class="Pp">Another common DoS attack is called a springboard attack &#x2014;
+    to attack a server in a manner that causes the server to generate responses
+    which then overload the server, the local network, or some other machine.
+    The most common attack of this nature is the ICMP PING BROADCAST attack. The
+    attacker spoofs ping packets sent to your LAN's broadcast address with the
+    source IP address set to the actual machine they wish to attack. If your
+    border routers are not configured to stomp on ping's to broadcast addresses,
+    your LAN winds up generating sufficient responses to the spoofed source
+    address to saturate the victim, especially when the attacker uses the same
+    trick on several dozen broadcast addresses over several dozen different
+    networks at once. Broadcast attacks of over a hundred and twenty megabits
+    have been measured. A second common springboard attack is against the ICMP
+    error reporting system. By constructing packets that generate ICMP error
+    responses, an attacker can saturate a server's incoming network and cause
+    the server to saturate its outgoing network with ICMP responses. This type
+    of attack can also crash the server by running it out of
+    <var class="Vt">mbuf</var>'s, especially if the server cannot drain the ICMP
+    responses it generates fast enough. The <span class="Ux">FreeBSD</span>
+    kernel has a new kernel compile option called
+    <code class="Dv">ICMP_BANDLIM</code> which limits the effectiveness of these
+    sorts of attacks. The last major class of springboard attacks is related to
+    certain internal <a class="Xr" href="../8/inetd.html">inetd(8)</a> services
+    such as the UDP echo service. An attacker simply spoofs a UDP packet with
+    the source address being server A's echo port, and the destination address
+    being server B's echo port, where server A and B are both on your LAN. The
+    two servers then bounce this one packet back and forth between each other.
+    The attacker can overload both servers and their LANs simply by injecting a
+    few packets in this manner. Similar problems exist with the internal chargen
+    port. A competent sysadmin will turn off all of these
+    <a class="Xr" href="../8/inetd.html">inetd(8)</a>-internal test
+  services.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACCESS_ISSUES_WITH_KERBEROS_AND_SSH"><a class="permalink" href="#ACCESS_ISSUES_WITH_KERBEROS_AND_SSH">ACCESS
+  ISSUES WITH KERBEROS AND SSH</a></h1>
+<p class="Pp">There are a few issues with both Kerberos and SSH that need to be
+    addressed if you intend to use them. Kerberos5 is an excellent
+    authentication protocol but the kerberized
+    <span class="Xr">telnet(1)</span> suck rocks. There are
+    bugs that make them unsuitable for dealing with binary streams. Also, by
+    default Kerberos does not encrypt a session unless you use the
+    <code class="Fl">-x</code> option. SSH encrypts everything by default.</p>
+<p class="Pp">SSH works quite well in every respect except when it is set up to
+    forward encryption keys. What this means is that if you have a secure
+    workstation holding keys that give you access to the rest of the system, and
+    you <a class="Xr" href="../1/ssh.html">ssh(1)</a> to an unsecure machine,
+    your keys become exposed. The actual keys themselves are not exposed, but
+    <a class="Xr" href="../1/ssh.html">ssh(1)</a> installs a forwarding port for
+    the duration of your login and if an attacker has broken root on the
+    unsecure machine he can utilize that port to use your keys to gain access to
+    any other machine that your keys unlock.</p>
+<p class="Pp">We recommend that you use SSH in combination with Kerberos
+    whenever possible for staff logins. SSH can be compiled with Kerberos
+    support. This reduces your reliance on potentially exposable SSH keys while
+    at the same time protecting passwords via Kerberos. SSH keys should only be
+    used for automated tasks from secure machines (something that Kerberos is
+    unsuited to). We also recommend that you either turn off key-forwarding in
+    the SSH configuration, or that you make use of the
+    <var class="Va">from</var>=<var class="Ar">IP/DOMAIN</var> option that SSH
+    allows in its <span class="Pa">authorized_keys</span> file to make the key
+    only usable to entities logging in from specific machines.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><span class="Xr">chflags(1)</span>,
+    <a class="Xr" href="../1/find.html">find(1)</a>,
+    <span class="Xr">md5(1)</span>,
+    <span class="Xr">netstat(1)</span>,
+    <a class="Xr" href="../1ssl/openssl.html">openssl(1)</a>,
+    <a class="Xr" href="../1/ssh.html">ssh(1)</a>,
+    <a class="Xr" href="../1/xdm.html">xdm(1)</a>
+    (<span class="Pa">ports/x11/xorg-clients</span>),
+    <a class="Xr" href="../5/group.html">group(5)</a>,
+    <span class="Xr">ttys(5)</span>,
+    <a class="Xr" href="../8/accton.html">accton(8)</a>,
+    <a class="Xr" href="../8/finit.html">init(8)</a>,
+    <a class="Xr" href="../8/sshd.html">sshd(8)</a>,
+    <a class="Xr" href="../8/sysctl.html">sysctl(8)</a>,
+    <a class="Xr" href="../8/syslogd.html">syslogd(8)</a>,
+    <a class="Xr" href="../8/vipw.html">vipw(8)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HISTORY"><a class="permalink" href="#HISTORY">HISTORY</a></h1>
+<p class="Pp">The <code class="Nm">security</code> manual page was originally
+    written by <span class="An">Matthew Dillon</span> and first appeared in
+    <span class="Ux">FreeBSD 3.1</span>, December 1998.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">August 13, 2019</td>
+    <td class="foot-os">Debian</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: freebsd-manpages 12.2-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

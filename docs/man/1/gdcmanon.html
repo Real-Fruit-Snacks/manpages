@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Tool to anonymize a DICOM file.">
+<title>gdcmanon(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">gdcmanon(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#PARAMETERS">PARAMETERS</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#Required_parameters">Required
+  parameters</a></li><li><a href="#specific_options">specific
+  options</a></li><li><a href="#Crypto_library_options">Crypto
+  library options</a></li><li><a href="#encryption_options">encryption
+  options</a></li><li><a href="#dumb_mode_options">dumb
+  mode options</a></li><li><a href="#general_options">general
+  options</a></li><li><a href="#environment_variable">environment
+  variable</a></li><li><a href="#TYPICAL_USAGE">TYPICAL
+  USAGE</a></li><li><a href="#De">De-identification
+  (anonymization, encrypt)</a></li><li><a href="#Re">Re-identification
+  (de-anonymization,decrypt)</a></li><li><a href="#Multiple_files_caveat">Multiple
+  files caveat</a></li><li><a href="#Dumb_mode">Dumb
+  mode</a></li><li><a href="#OPENSSL">OPENSSL</a></li><li><a href="#Generating_a_Private_Key">Generating
+  a Private Key</a></li><li><a href="#Generating_a_Certificate">Generating
+  a Certificate</a></li><li><a href="#DICOM_STANDARD:">DICOM
+  STANDARD:</a></li><li><a href="#WARNINGS">WARNINGS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">GDCMANON(1)</td>
+    <td class="head-vol">DICOM Manipulation.</td>
+    <td class="head-rtitle">GDCMANON(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">gdcmanon - Tool to anonymize a DICOM file.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<div class="Bd-indent">
+<pre>gdcmanon [options] file-in file-out
+gdcmanon [options] dir-in  dir-out</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The <b>gdcmanon</b> tool is an implementation of PS 3.15 / E.1 /
+    Basic Application Level Confidentiality Profile (Implementation of E.1.1
+    De-identify &amp; E.1.2 Re-identify)</p>
+<p class="Pp">This tool is split into two very different operating mode:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;An implementation of PS 3.15, see -e and -d
+  flags</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;A dumb mode, see &#x2013;dumb</div>
+<p class="Pp">Dumb mode and PS 3.15 do not work well together, you should really
+    only use one type of anonymization. In case of doubt, avoid using
+    &#x2013;dumb.</p>
+<p class="Pp">In order to use the PS 3.15 implementation (-d &amp; -e flag),
+    you'll need a certificate to do de-identification operations, and the
+    associated private key to do the re-identification operation. If you are
+    only doing a one-shot anonymization and do not need to properly re-identify
+    the DICOM file, you can safely discard the private key and only keep the
+    certificate. See OpenSSL refsection below for an example on how to generate
+    the private key/certificate pair.</p>
+<p class="Pp">gdcmanon will exit early if OpenSSL was not configured/build
+    properly into the library (see GDCM_USE_SYSTEM_OPENSSL in cmake).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARAMETERS"><a class="permalink" href="#PARAMETERS">PARAMETERS</a></h1>
+<div class="Bd-indent">
+<pre>file-in   DICOM input filename
+file-out  DICOM output filename</pre>
+</div>
+<p class="Pp">or</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>file-in   DICOM input directory
+file-out  DICOM output directory</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">You need to specify at least one operating mode, from the
+    following list (and only one):</p>
+<section class="Ss">
+<h2 class="Ss" id="Required_parameters"><a class="permalink" href="#Required_parameters">Required
+  parameters</a></h2>
+<div class="Bd-indent">
+<pre>
+<br/>
+  -e --de-identify            De-identify DICOM (default)
+<br/>
+  -d --re-identify            Re-identify DICOM
+<br/>
+     --dumb                   Dumb mode anonymizer</pre>
+</div>
+<p class="Pp">Warning when operating in dumb mode, you need to also specify an
+    operation to do, such as 'remove' or 'empty' a tag, see below the dumb mode
+    options.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="specific_options"><a class="permalink" href="#specific_options">specific
+  options</a></h2>
+<div class="Bd-indent">
+<pre>
+<br/>
+  -i --input                  DICOM filename / directory
+<br/>
+  -o --output                 DICOM filename / directory
+<br/>
+  -r --recursive              recursively process (sub-)directories.
+<br/>
+     --continue               Do not stop when file found is not DICOM.
+<br/>
+     --root-uid               Root UID.
+<br/>
+     --resources-path         Resources path.
+<br/>
+  -k --key                    Path to RSA Private Key.
+<br/>
+  -c --certificate            Path to Certificate.
+<br/>
+  -p --password               Encryption passphrase.</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Crypto_library_options"><a class="permalink" href="#Crypto_library_options">Crypto
+  library options</a></h2>
+<div class="Bd-indent">
+<pre>
+<br/>
+     --crypto=
+<br/>
+           openssl            OpenSSL (default on non-Windows systems).
+<br/>
+           capi               Microsoft CryptoAPI (default on Windows systems).
+<br/>
+           openssl-p7         Old OpenSSL implementation.</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="encryption_options"><a class="permalink" href="#encryption_options">encryption
+  options</a></h2>
+<div class="Bd-indent">
+<pre>
+<br/>
+     --des            DES.
+<br/>
+     --des3           Triple DES.
+<br/>
+     --aes128         AES 128.
+<br/>
+     --aes192         AES 192.
+<br/>
+     --aes256         AES 256.</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="dumb_mode_options"><a class="permalink" href="#dumb_mode_options">dumb
+  mode options</a></h2>
+<div class="Bd-indent">
+<pre>
+<br/>
+     --empty   %d,%d           DICOM tag(s) to empty
+<br/>
+               %d,%d,%s        DICOM private tag(s) to empty
+<br/>
+     --clear   %d,%d           DICOM tag(s) to clear
+<br/>
+               %d,%d,%s        DICOM private tag(s) to clear
+<br/>
+     --remove  %d,%d           DICOM tag(s) to remove
+<br/>
+               %d,%d,%s        DICOM private tag(s) to remove
+<br/>
+     --replace %d,%d=%s        DICOM tag(s) to replace
+<br/>
+               %d,%d,%s=%s     DICOM private tag(s) to replace</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="general_options"><a class="permalink" href="#general_options">general
+  options</a></h2>
+<div class="Bd-indent">
+<pre>
+<br/>
+  -h   --help
+<br/>
+         print this help text and exit
+<br/>
+  -v   --version
+<br/>
+         print version information and exit
+<br/>
+  -V   --verbose
+<br/>
+         verbose mode (warning+error).
+<br/>
+  -W   --warning
+<br/>
+         warning mode, print warning information
+<br/>
+  -E   --error
+<br/>
+         error mode, print error information
+<br/>
+  -D   --debug
+<br/>
+         debug mode, print debug information</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="environment_variable"><a class="permalink" href="#environment_variable">environment
+  variable</a></h2>
+<div class="Bd-indent">
+<pre>
+<br/>
+  GDCM_ROOT_UID Root UID
+<br/>
+  GDCM_RESOURCES_PATH path pointing to resources files (Part3.xml, ...)</pre>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TYPICAL_USAGE"><a class="permalink" href="#TYPICAL_USAGE">TYPICAL
+  USAGE</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="De"><a class="permalink" href="#De">De-identification
+  (anonymization, encrypt)</a></h2>
+<p class="Pp">The only thing required for this operation is a certificate file
+    (in PEM format).</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ gdcmanon --certificate certificate.pem -e original.dcm original_anonymized.dcm</pre>
+</div>
+<p class="Pp">You can use &#x2013;asn1 option from gdcmdump to dump the
+    generated DataSet as ASN1 structure (see <a class="Xr" href="../1/gdcmdump.html"><b>gdcmdump</b>(1)</a> for
+  example).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Re"><a class="permalink" href="#Re">Re-identification
+  (de-anonymization,decrypt)</a></h2>
+<p class="Pp">The only thing required for this operation is a private key (in
+    PEM format). It is required that the private key used for the
+    re-identification process, was the actual private key used to generate the
+    certificate file (certificate.pem) used during the de-identification
+  step.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ gdcmanon --key privatekey.pem -d original_anonymized.dcm original_copy.dcm</pre>
+</div>
+<p class="Pp">You can then check that original.dcm and original_copy.dcm are
+    identical.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Multiple_files_caveat"><a class="permalink" href="#Multiple_files_caveat">Multiple
+  files caveat</a></h2>
+<p class="Pp">It is very important to understand the following refsection, when
+    anonymizing more than one single file. When anonymizing multiple DICOM
+    files, you are required to use the directory input. You cannot call multiple
+    time the gdcmanon command line tool. Indeed the tool stores in memory during
+    the process only a hash table of conversion so that each time a particular
+    value is found it get always replaced by the same de-identified value
+    (think: consistent Series Instance UID).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Dumb_mode"><a class="permalink" href="#Dumb_mode">Dumb
+  mode</a></h2>
+<p class="Pp">This functionality is not described in the DICOM standard. Users
+    are advised that improper use of that mode is not recommended, meaning that
+    important tag can be emptied/removed/replaced resulting in illegal/invalid
+    DICOM file. Only use when you know what you are doing. If you delete a Type
+    1 attribute, chance is that your DICOM file will be not accepted in most
+    DICOM third party viewer. Unfortunately this is often this mode that is
+    implemented in popular DICOM Viewer, always prefer what the DICOM standard
+    describes, and avoid the dumb mode.</p>
+<p class="Pp">The following example shows how to use dumb mode and achieve 5
+    operations at the same time:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Empty the tag (0010,0010) Patient's Name,</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Clear the tag (0010,0020) Patient ID,</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Remove the tag (0010,0040) Patient's Sex</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Remove the tag (0010,1010) Patient's Age</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Replace the tag (0010,1030) Patient's Weight with
+  the value '10'</div>
+<p class="Pp">You are required to check which DICOM attribute is Type 1 and Type
+    1C, before trying to <b>'Empty'</b>,<b>'Clear'</b> or <b>'Remove'</b> a
+    particular DICOM attribute. For the same reason, you are required to check
+    what are valid value in a replace operation.</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ gdcmanon --dumb --empty 10,10 --clear 10,20 --remove 10,40 --remove 10,1010 --replace 10,1030,10 012345.002.050.dcm out.dcm</pre>
+</div>
+<p class="Pp">In the following example a private tag (0029,20,SIEMENS MEDCOM
+    HEADER) is cleared out (made empty only when present):</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ gdcmanon --dumb --clear &quot;0029,20,SIEMENS MEDCOM HEADER&quot; input.dcm output.dcm</pre>
+</div>
+<p class="Pp">Multiple operation of &#x2013;dumb mode can take place, just reuse
+    the output of the previous operation. Always use gdcmdump on the input and
+    output file to check what was actually achieved. You can use a diff program
+    to check only what changed (see <a class="Xr" href="../1/gdcmdiff.html"><b>gdcmdiff</b>(1)</a> for example).</p>
+<p class="Pp"><b>Irreversible Anonymization</b>
+  <br/>
+</p>
+<div class="Bd-indent">
+<p class="Pp">In some very rare cases, one would want to anonymize using the PS
+    3.15 mode so as to take benefit of the automatic conversion of all content
+    that could contain Patient related information.</p>
+<p class="Pp">In the end all Patient related information has been removed and
+    has been secretly stored in the 0400,0500 DICOM attribute. However to make
+    sure that no-one ever try to break that security using brute-force
+    algorithm, one want want to remove completely this DICOM attribute. This
+    will make the DICOM:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Completely free of any Patient related
+  information (as per PS 3.15 specification)</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;Remove any mean of people to brute force attack
+  the file to find out the identity of the Patient</div>
+<p class="Pp">In this case one could simply do, as a first step execute the
+    reversible anonymizer:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ gdcmanon -c certificate.pem input.dcm anonymized_reversible.dcm</pre>
+</div>
+<p class="Pp">and now completely remove the DICOM attribute containing the
+    secretly encrypted Patient related information:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ gdcmanon --dumb --remove 400,500 --remove 12,62 --remove 12,63 anonymized_reversible.dcm anonymized_irreversible.dcm</pre>
+</div>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPENSSL"><a class="permalink" href="#OPENSSL">OPENSSL</a></h1>
+<p class="Pp">On most system you can have access to OpenSSL to generate the
+    Private Key/Certificate pair.</p>
+<section class="Ss">
+<h2 class="Ss" id="Generating_a_Private_Key"><a class="permalink" href="#Generating_a_Private_Key">Generating
+  a Private Key</a></h2>
+<p class="Pp">Command line to generate a rsa key (512bit)</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ openssl genrsa -out CA_key.pem</pre>
+</div>
+<p class="Pp">Command line to generate a rsa key (2048bit)</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ openssl genrsa -out CA_key.pem 2048</pre>
+</div>
+<p class="Pp">Command line to generate a rsa key (2048bit) + passphrase</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ openssl genrsa -des3 -out CA_key.pem 2048</pre>
+</div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Generating_a_Certificate"><a class="permalink" href="#Generating_a_Certificate">Generating
+  a Certificate</a></h2>
+<p class="Pp">From your previously generated Private Key, you can now generate a
+    certificate in PEM (DER format is currently not supported).</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ openssl req -new -key CA_key.pem -x509 -days 365 -out CA_cert.cer</pre>
+</div>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DICOM_STANDARD:"><a class="permalink" href="#DICOM_STANDARD:">DICOM
+  STANDARD:</a></h1>
+<p class="Pp">Page to the DICOM Standard:</p>
+<p class="Pp"><b>http://dicom.nema.org/</b></p>
+<p class="Pp">The DICOM Standard at the time of releasing gdcmanon is:</p>
+<p class="Pp"><b>ftp://medical.nema.org/medical/dicom/2008/</b></p>
+<p class="Pp">Direct link to PS 3.15-2008:</p>
+<p class="Pp"><b>ftp://medical.nema.org/medical/dicom/2008/08_15pu.pdf</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="WARNINGS"><a class="permalink" href="#WARNINGS">WARNINGS</a></h1>
+<p class="Pp">Certain attributes may still contains Protected Health Information
+    (PHI) after an anonymization step. This is typically the case for Patient's
+    Address (0010,1040). The reason is that this particular attribute is not
+    supposed to be in the composite IODs in the first place. DICOM Supp 142
+    includes it (however gdcmanon does not implement it).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/gdcmconv.html"><b>gdcmconv</b>(1)</a>, <a class="Xr" href="../1/gdcmdump.html"><b>gdcmdump</b>(1)</a>, <a class="Xr" href="../1/gdcmdiff.html"><b>gdcmdiff</b>(1)</a>,
+    <a class="Xr" href="../1ssl/openssl.html"><b>openssl</b>(1)</a>, <a class="Xr" href="../1/dumpasn1.html"><b>dumpasn1</b>(1)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp"><b>Mathieu Malaterre</b></p>
+<div class="Bd-indent">Main developer</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright &#x00A9; 2006, 2011 Mathieu Malaterre</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">04/08/2024</td>
+    <td class="foot-os">GDCM 3.0.22</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: libgdcm-tools 3.0.22-2.1ubuntu1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

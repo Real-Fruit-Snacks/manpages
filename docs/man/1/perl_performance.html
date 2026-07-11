@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="- How to make Perl faster">
+<title>perl_performance(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">perl_performance(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Measure,_don&#x27;t_guess">Measure,
+  don&#x27;t guess</a></li><li><a href="#Regexps">Regexps</a></li><li><a href="#Functions">Functions</a></li><li><a href="#Miscellaneous">Miscellaneous</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PERL_PERFORMANCE(1)</td>
+    <td class="head-vol">Makepp</td>
+    <td class="head-rtitle">PERL_PERFORMANCE(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">makepp_perl_performance -- How to make Perl faster</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The biggest tuning gains will usually come from algorithmic
+    improvements. But while these can be hard to find, there is also a lot you
+    can do mechanically.</p>
+<p class="Pp">Makepp is a big heavy-duty program, where speed is a must. A lot
+    of effort has been put into optimizing it. This documents some general
+    things we have found. Currently the concrete tests leading to these results
+    have mostly been discarded, but I plan to gradually add them.</p>
+<p class="Pp">If you are looking at how to speedup makepp (beyond the Perl
+    programming you put into your makefiles), look at makepp_speedup. This page
+    is completely independent of makepp, only intended to make our results
+    available to the Perl community. Some of these measures are common sence,
+    but you sometimes forget them. Others need measuring to believe them,
+  so:</p>
+<section class="Ss">
+<h2 class="Ss" id="Measure,_don't_guess"><a class="permalink" href="#Measure,_don't_guess">Measure,
+  don't guess</a></h2>
+<dl class="Bl-tag">
+  <dt id="Profile"><a class="permalink" href="#Profile">Profile your
+    program</a></dt>
+  <dd>Makepp comes with a module <i>profiler.pm</i> in its cvs repository. This
+      is first run as a program on a copy(!) of your code, which it instruments.
+      Then you run your copy and get configurable statistics per interval and a
+      final total on the most frequently called functions and on the most time
+      spent in functions (minus subcalls). Both are provided absolutely and in
+      caller-callee pairs. (Documentation within.)
+    <p class="Pp">This tells you which functions are the most promising
+        candidates for tuning. It also gives you a hint where your algorithm
+        might be wrong, either within surprisingly expensive functions, or
+        through surprisingly frequent calls.</p>
+  </dd>
+  <dt id="Time"><a class="permalink" href="#Time">Time your solution</a></dt>
+  <dd>Either one of
+    <p class="Pp"></p>
+    <pre>    perl -Mstrict -MBenchmark -we 'my &lt;initialization&gt;; timethis -10, sub { &lt;code&gt; }'
+    time perl -Mstrict -we 'my &lt;initialization&gt;; for( 0..999_999 ) { &lt;code&gt; }'
+    </pre>
+    <p class="Pp">when run on different variants of code you can think of, can
+        give surprising results. Even small modifications can matter a lot. Be
+        careful not to &quot;measure&quot; code that can get optimized away,
+        because you discard the result, or because it depends on constants.</p>
+    <p class="Pp">Depending on your system, this will tell you in kb how fat
+        Perl got:</p>
+    <p class="Pp"></p>
+    <pre>    perl -Mstrict -we '&lt;build huge data&gt;; system &quot;ps -ovsz $$&quot;'
+    </pre>
+    <p class="Pp">Below we only show the code within the
+        <span class="Li">&quot;-e&quot;</span> option as one liners.</p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Regexps"><a class="permalink" href="#Regexps">Regexps</a></h2>
+<dl class="Bl-tag">
+  <dt id="Use"><a class="permalink" href="#Use">Use simple regexps</a></dt>
+  <dd>Several matches combined with <span class="Li">&quot;||&quot;</span> are
+      faster than a big one with <span class="Li">&quot;|&quot;</span>.</dd>
+  <dt id="Use~2"><a class="permalink" href="#Use~2">Use precompiled
+    regexps</a></dt>
+  <dd>Instead of interpolating strings into regexps (except if the string will
+      never change and you use the <span class="Li">&quot;o&quot;</span>
+      modifier), precompile the regexp with
+      <span class="Li">&quot;qr//&quot;</span> and interpolate that.</dd>
+  <dt id="Use~3"><a class="permalink" href="#Use~3">Use (?:...)</a></dt>
+  <dd>If you don't use what the grouping matches, don't make Perl save it with
+      <span class="Li">&quot;(...)&quot;</span>.</dd>
+  <dt id="Anchor"><a class="permalink" href="#Anchor">Anchor at beginning of
+    string</a></dt>
+  <dd>Don't make Perl look through your whole string, if you want a match only
+      at the beginning.</dd>
+  <dt id="Don't"><a class="permalink" href="#Don't">Don't anchor at end after
+    greedy</a></dt>
+  <dd>If you have a <span class="Li">&quot;*&quot;</span> or
+      <span class="Li">&quot;+&quot;</span> that will match till the end of
+      string, don't put a <span class="Li">&quot;$&quot;</span> after it.</dd>
+  <dt id="Use~4"><a class="permalink" href="#Use~4">Use tr///</a></dt>
+  <dd>This is twice as fast as s/// when it is applicable.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Functions"><a class="permalink" href="#Functions">Functions</a></h2>
+<dl class="Bl-tag">
+  <dt id="Avoid"><a class="permalink" href="#Avoid">Avoid object
+    orientation</a></dt>
+  <dd>Dynamic method lookup is slower in any language, and Perl, being loosely
+      typed, can never do it at compile time. Don't use it, unless you need the
+      benefit of polymorphism through inheritance. The following call methods
+      are ordered from slowest to fastest:
+    <p class="Pp"></p>
+    <pre>    $o-&gt;method( ... );          # searched in class of $o and its @ISA
+    Class::method( $o, ... );   # static function, new stack
+    Class::method $o, ...;      # static function, new stack, checked at compile time
+    &amp;Class::method;             # static function, reuse stack
+    </pre>
+    <p class="Pp">This last form always possible if method (or normal function)
+        takes no arguments. If it does take arguments, watch out that you don't
+        inadvertently supply any optional ones! If you use this form a lot, it
+        is best to keep track of the minimum and maximum number of arguments
+        each function can take. Reusing a stack with extra arguments is no
+        problem, they'll get ignored.</p>
+  </dd>
+  <dt id="Don't~2"><a class="permalink" href="#Don't~2">Don't modify
+    stack</a></dt>
+  <dd>The following sin is frequently found even in the Perl doc:
+    <p class="Pp"></p>
+    <pre>    my $self = shift;
+    </pre>
+    <p class="Pp">Unless you have a pertinent reason for this, use this:</p>
+    <p class="Pp"></p>
+    <pre>    my( $self, $x, $y, @z ) = @_;
+    </pre>
+  </dd>
+  <dt id="Use~5"><a class="permalink" href="#Use~5">Use few functions and
+    modules</a></dt>
+  <dd>Every function (and that alas includes constants) takes up over 1kb for
+      it's mere existence. With each module requiring other ones, most of which
+      you never need, that can add up. Don't pull in a big module, just to
+      replace two lines of Perl code with a single more elegant looking function
+      call.
+    <p class="Pp">If you have a function only called in one place, and the two
+        combined would still be reasonably short, merge them with due
+      comments.</p>
+    <p class="Pp">Don't have one function only call another with the same
+        arguments. Alias it instead:</p>
+    <p class="Pp"></p>
+    <pre>    *alias = \&amp;function;
+    </pre>
+  </dd>
+  <dt id="Group"><a class="permalink" href="#Group">Group calls to
+    print</a></dt>
+  <dd>Individual calls to print, or print with separate arguments are very
+      expensive. Build up the string in memory and print it in one go. If you
+      can accumulate over 3kb, syswrite is more efficient.
+    <p class="Pp"></p>
+    <pre>    perl -MBenchmark -we 'timethis -10, sub { print STDERR $_ for 1..5 }' 2&gt;/dev/null
+    perl -MBenchmark -we 'timethis -10, sub { print STDERR 1..5 }' 2&gt;/dev/null
+    perl -MBenchmark -we 'timethis -10, sub { my $str = &quot;&quot;; $str .= $_ for 1..5; print STDERR $str }' 2&gt;/dev/null
+    </pre>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Miscellaneous"><a class="permalink" href="#Miscellaneous">Miscellaneous</a></h2>
+<dl class="Bl-tag">
+  <dt id="Avoid~2"><a class="permalink" href="#Avoid~2">Avoid hashes</a></dt>
+  <dd>Perl becomes quite slow with many small hashes. If you don't need them,
+      use something else. Object orientation works just as well on an array,
+      except that the members can't be accessed by name. But you can use numeric
+      constants to name the members. For the sake of comparability we use plain
+      numeric keys here:
+    <p class="Pp"></p>
+    <pre>    my $i = 0; our %a = map +($i++, $_), &quot;a&quot;..&quot;j&quot;; timethis -10, sub { $b = $a{int rand 10} }
+               our @a = &quot;a&quot;..&quot;j&quot;;                  timethis -10, sub { $b = $a[rand 10] }
+ 
+    my $i = 0;  my %a = map +($i++, $_), &quot;a&quot;..&quot;j&quot;; timethis -10, sub { $b = $a{int rand 10} }
+                my @a = &quot;a&quot;..&quot;j&quot;;                  timethis -10, sub { $b = $a[rand 10] }
+    </pre>
+  </dd>
+  <dt id="Use~6"><a class="permalink" href="#Use~6">Use int keys for ref
+    sets</a></dt>
+  <dd>When you need a unique reference representation, e.g. for set ops with
+      hashes, using the integer form of refs is three times as fast as using the
+      pretty printed default string representation. Caveat: the HP/UX 64bitall
+      variant of Perl, at least up to 5.8.8 has a buggy
+      <span class="Li">&quot;int&quot;</span> function, where this doesn't work
+      reliably. There a hex form is still a fair bit faster than default
+      strings. Actually this can even be faster than stringified int, depending
+      on the version or maybe configuration of perl. As of 5.8.1 there is also
+      the equivalent but hopefully reliable Scalar::Util::refaddr
+    <p class="Pp"></p>
+    <pre>    my @list = map { bless { $_ =&gt; 1 }, &quot;someclass&quot; } 0..9; my( %a, %b );
+        timethis -10, sub { $a{$_} = 1 for @list };
+        timethis -10, sub { $b{int()} = 1 for @list };
+        timethis -10, sub { $b{sprintf '%x', $_} = 1 for @list };
+        timethis -10, sub { $b{refaddr $_} = 1 for @list };
+    </pre>
+    <p class="Pp">There is also sprintf '%p' which supposedly outputs a pointer,
+        but depending on which expression leads to the same ref, you get
+        different values, so it's useless.</p>
+  </dd>
+  <dt id="Beware"><a class="permalink" href="#Beware">Beware of strings</a></dt>
+  <dd>Perl is awful for always copying strings around, even if you're never
+      going to modify them. This wastes CPU and memory. Try to avoid that
+      wherever reasonably possible. If the string is a function parameter and
+      the function has a modest length, don't copy the string into a
+      <span class="Li">&quot;my&quot;</span> variable, access it with
+      <span class="Li">$_[0]</span> and document the function well. Elsewhere,
+      the aliasing feature of <span class="Li">&quot;for(each)&quot;</span> can
+      help. Or just use references to strings, which are fast to copy. If you
+      somehow ensure that same strings get stored only once, you can do
+      numerical comparison for equality.</dd>
+  <dt id="Avoid~3"><a class="permalink" href="#Avoid~3">Avoid bit
+    operations</a></dt>
+  <dd>If you have disjoint bit patterns you can add them instead of or`ing them.
+      Shifting can be performed my multiplication or integer division. Retaining
+      only the lowest bits can be achieved with modulo.
+    <p class="Pp">Separate boolean hash members are faster than stuffing
+        everything into an integer with bit operations or into a string with
+        <span class="Li">&quot;vec&quot;</span>.</p>
+  </dd>
+  <dt id="Use~7"><a class="permalink" href="#Use~7">Use order of boolean
+    operations</a></dt>
+  <dd>If you only care whether an expression is true or false, check the cheap
+      things, like boolean variables, first, and call functions last.</dd>
+  <dt id="Use~8"><a class="permalink" href="#Use~8">Use undef instead of
+    0</a></dt>
+  <dd>It takes up a few percent less memory, at least as hash or list values.
+      You can still query it as a boolean.
+    <p class="Pp"></p>
+    <pre>    my %x; $x{$_} = 0   for 0..999_999; system &quot;ps -ovsz $$&quot;
+    my %x; undef $x{$_} for 0..999_999; system &quot;ps -ovsz $$&quot;
+ 
+    my @x = (0) x 999_999;     system &quot;ps -ovsz $$&quot;
+    my @x = (undef) x 999_999; system &quot;ps -ovsz $$&quot;
+    </pre>
+  </dd>
+  <dt id="Choose"><a class="permalink" href="#Choose">Choose for or map</a></dt>
+  <dd>These are definitely not equivalent. Depending on your use (i.e. the list
+      and the complexity of your code), one or the other may be faster.
+    <p class="Pp"></p>
+    <pre>    my @l = 0..99;
+    for( 0..99_999 ) { map $a = &quot; $_ &quot;, @l }
+    for( 0..99_999 ) { map $a = &quot; $_ &quot;, 0..99 }
+    for( 0..99_999 ) { $a = &quot; $_ &quot; for @l }
+    for( 0..99_999 ) { $a = &quot; $_ &quot; for 0..99 }
+    </pre>
+  </dd>
+  <dt id="Don't~3"><a class="permalink" href="#Don't~3">Don't alias $_</a></dt>
+  <dd>While it is convenient, it is rather expensive, even copying reasonable
+      strings is faster. The last example is twice as fast as the first
+      &quot;for&quot;.
+    <p class="Pp"></p>
+    <pre>    my $x = &quot;abcdefg&quot;; my $b = 0;
+    for( &quot;$x&quot; ) { $b = 1 - $b if /g/ } # Copy needed only if modifying.
+    for( $x ) { $b = 1 - $b if /g/ }
+    local *_ = \$x; $b = 1 - $b if /g/;
+    local $_ = $x; $b = 1 - $b if /g/; # Copy cheaper than alias.
+    my $y = $x; $b = 1 - $b if $y =~ /g/;
+    </pre>
+  </dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Daniel Pfeiffer &lt;occitan@esperanto.org&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2021-01-06</td>
+    <td class="foot-os">perl v5.32.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: makepp 2.0.98.5-2.1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

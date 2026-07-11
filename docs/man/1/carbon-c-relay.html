@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="graphite relay, aggregator and rewriter">
+<title>carbon-c-relay(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">carbon-c-relay(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#CONFIGURATION_SYNTAX">CONFIGURATION
+  SYNTAX</a></li><li><a href="#CLUSTERS">CLUSTERS</a></li><li><a href="#MATCHES">MATCHES</a></li><li><a href="#REWRITES">REWRITES</a></li><li><a href="#AGGREGATIONS">AGGREGATIONS</a></li><li><a href="#STATISTICS">STATISTICS</a></li><li><a href="#LISTENERS">LISTENERS</a></li><li><a href="#INCLUDES">INCLUDES</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#STATISTICS~2">STATISTICS</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CARBON-C-RELAY(1)</td>
+    <td class="head-vol">Graphite data collection and visualisation</td>
+    <td class="head-rtitle">CARBON-C-RELAY(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>carbon-c-relay</b> - graphite relay, aggregator and
+  rewriter</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>carbon-c-relay</b> <b>-f</b> <i>config-file</i> <b>[
+    options</b> ... <b>]</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>carbon-c-relay</b> accepts, cleanses, matches, rewrites,
+    forwards and aggregates graphite metrics by listening for incoming
+    connections and relaying the messages to other servers defined in its
+    configuration. The core functionality is to route messages via flexible
+    rules to the desired destinations.</p>
+<p class="Pp"><b>carbon-c-relay</b> is a simple program that reads its routing
+    information from a file. The command line arguments allow to set the
+    location for this file, as well as the amount of dispatchers (worker
+    threads) to use for reading the data from incoming connections and passing
+    them onto the right destination(s). The route file supports two main
+    constructs: clusters and matches. The first define groups of hosts data
+    metrics can be sent to, the latter define which metrics should be sent to
+    which cluster. Aggregation rules are seen as matches. Rewrites are actions
+    that directly affect the metric at the point in which they appear in the
+    configuration.</p>
+<p class="Pp">For every metric received by the relay, cleansing is performed.
+    The following changes are performed before any match, aggregate or rewrite
+    rule sees the metric:</p>
+<ul class="Bl-bullet">
+  <li>double dot elimination (necessary for correctly functioning consistent
+      hash routing)</li>
+  <li>trailing/leading dot elimination</li>
+  <li>whitespace normalisation (this mostly affects output of the relay to other
+      targets: metric, value and timestamp will be separated by a single space
+      only, ever)</li>
+  <li>irregular char replacement with underscores (_), currently irregular is
+      defined as not being in <b>[0-9a-zA-Z-_:#]</b>, but can be overridden on
+      the command line. Note that tags (when present and allowed) are not
+      processed this way.</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">These options control the behaviour of <b>carbon-c-relay</b>.</p>
+<ul class="Bl-bullet">
+  <li><b>-v</b>: Print version string and exit.</li>
+  <li><b>-d</b>: Enable debug mode, this prints statistics to stdout and prints
+      extra messages about some situations encountered by the relay that
+      normally would be too verbose to be enabled. When combined with <b>-t</b>
+      (test mode) this also prints stub routes and consistent-hash ring
+      contents.</li>
+  <li><b>-s</b>: Enable submission mode. In this mode, internal statistics are
+      not generated. Instead, queue pressure and metrics drops are reported on
+      stdout. This mode is useful when used as submission relay which&#x00B4;
+      job is just to forward to (a set of) main relays. Statistics about the
+      submission relays in this case are not needed, and could easily cause a
+      non-desired flood of metrics e.g. when used on each and every host
+      locally.</li>
+  <li><b>-t</b>: Test mode. This mode doesn&#x00B4;t do any routing at all, but
+      instead reads input from stdin and prints what actions would be taken
+      given the loaded configuration. This mode is very useful for testing relay
+      routes for regular expression syntax etc. It also allows to give insight
+      on how routing is applied in complex configurations, for it shows rewrites
+      and aggregates taking place as well. When <b>-t</b> is repeated, the relay
+      will only test the configuration for validity and exit immediately
+      afterwards. Any standard output is suppressed in this mode, making it
+      ideal for start-scripts to test a (new) configuration.</li>
+  <li><b>-f</b> <i>config-file</i>: Read configuration from <i>config-file</i>.
+      A configuration consists of clusters and routes. See <i>CONFIGURATION
+      SYNTAX</i> for more information on the options and syntax of this
+    file.</li>
+  <li><b>-l</b> <i>log-file</i>: Use <i>log-file</i> for writing messages.
+      Without this option, the relay writes both to <i>stdout</i> and
+      <i>stderr</i>. When logging to file, all messages are prefixed with
+      <b>MSG</b> when they were sent to <i>stdout</i>, and <b>ERR</b> when they
+      were sent to <i>stderr</i>.</li>
+  <li><b>-p</b> <i>port</i>: Listen for connections on port <i>port</i>. The
+      port number is used for both <b>TCP</b>, <b>UDP</b> and <b>UNIX
+      sockets</b>. In the latter case, the socket file contains the port number.
+      The port defaults to <i>2003</i>, which is also used by the original
+      <b>carbon-cache.py</b>. Note that this only applies to the defaults, when
+      <b>listen</b> directives are in the config, this setting is ignored.</li>
+  <li><b>-w</b> <i>workers</i>: Use <i>workers</i> number of threads. The
+      default number of workers is equal to the amount of detected CPU cores. It
+      makes sense to reduce this number on many-core machines, or when the
+      traffic is low.</li>
+  <li><b>-b</b> <i>batchsize</i>: Set the amount of metrics that sent to remote
+      servers at once to <i>batchsize</i>. When the relay sends metrics to
+      servers, it will retrieve <b>batchsize</b> metrics from the pending queue
+      of metrics waiting for that server and send those one by one. The size of
+      the batch will have minimal impact on sending performance, but it controls
+      the amount of lock-contention on the queue. The default is
+    <i>2500</i>.</li>
+  <li><b>-q</b> <i>queuesize</i>: Each server from the configuration where the
+      relay will send metrics to, has a queue associated with it. This queue
+      allows for disruptions and bursts to be handled. The size of this queue
+      will be set to <i>queuesize</i> which allows for that amount of metrics to
+      be stored in the queue before it overflows, and the relay starts dropping
+      metrics. The larger the queue, more metrics can be absorbed, but also more
+      memory will be used by the relay. The default queue size is
+    <i>25000</i>.</li>
+  <li><b>-L</b> <i>stalls</i>: Sets the max mount of stalls to <i>stalls</i>
+      before the relay starts dropping metrics for a server. When a queue fills
+      up, the relay uses a mechanism called stalling to signal the client
+      (writing to the relay) of this event. In particular when the client sends
+      a large amount of metrics in very short time (burst), stalling can help to
+      avoid dropping metrics, since the client just needs to slow down for a
+      bit, which in many cases is possible (e.g. when catting a file with
+      <b>nc</b>(1)). However, this behaviour can also obstruct, artificially
+      stalling writers which cannot stop that easily. For this the stalls can be
+      set from <i>0</i> to <i>15</i>, where each stall can take around 1 second
+      on the client. The default value is set to <i>4</i>, which is aimed at the
+      occasional disruption scenario and max effort to not loose metrics with
+      moderate slowing down of clients.</li>
+  <li><b>-C</b> <i>CAcertpath</i>: Read CA certs (for use with TLS/SSL
+      connections) from given path or file. When not given, the default
+      locations are used. Strict verfication of the peer is performed, so when
+      using self-signed certificates, be sure to include the CA cert in the
+      default location, or provide the path to the cert using this option.</li>
+  <li><b>-T</b> <i>timeout</i>: Specifies the IO timeout in milliseconds used
+      for server connections. The default is <i>600</i> milliseconds, but may
+      need increasing when WAN links are used for target servers. A relatively
+      low value for connection timeout allows the relay to quickly establish a
+      server is unreachable, and as such failover strategies to kick in before
+      the queue runs high.</li>
+  <li><b>-c</b> <i>chars</i>: Defines the characters that are next to
+      <b>[A-Za-z0-9]</b> allowed in metrics to <i>chars</i>. Any character not
+      in this list, is replaced by the relay with <b>_</b> (underscore). The
+      default list of allowed characters is <i>-_:#</i>.</li>
+  <li><b>-m</b> <i>length</i>: Limits the metric names to be of at most
+      <i>length</i> bytes long. Any lines containing metric names larger than
+      this will be discarded.</li>
+  <li><b>-M</b> <i>length</i> Limits the input to lines of at most <i>length</i>
+      bytes. Any excess lines will be discarded. Note that <b>-m</b> needs to be
+      smaller than this value.</li>
+  <li><b>-H</b> <i>hostname</i>: Override hostname determined by a call to
+      <b>gethostname</b>(3) with <i>hostname</i>. The hostname is used mainly in
+      the statistics metrics <b>carbon.relays.&lt;hostname&gt;.&lt;...&gt;</b>
+      sent by the relay.</li>
+  <li><b>-B</b> <i>backlog</i>: Sets TCP connection listen backlog to
+      <i>backlog</i> connections. The default value is <i>32</i> but on servers
+      which receive many concurrent connections, this setting likely needs to be
+      increased to avoid connection refused errors on the clients.</li>
+  <li><b>-U</b> <i>bufsize</i>: Sets the socket send/receive buffer sizes in
+      bytes, for both TCP and UDP scenarios. When unset, the OS default is used.
+      The maximum is also determined by the OS. The sizes are set using
+      setsockopt with the flags SO_RCVBUF and SO_SNDBUF. Setting this size may
+      be necessary for large volume scenarios, for which also <b>-B</b> might
+      apply. Checking the <i>Recv-Q</i> and the <i>receive errors</i> values
+      from <i>netstat</i> gives a good hint about buffer usage.</li>
+  <li><b>-E</b>: Disable disconnecting idle incoming connections. By default the
+      relay disconnects idle client connections after 10 minutes. It does this
+      to prevent resources clogging up when a faulty or malicious client keeps
+      on opening connections without closing them. It typically prevents running
+      out of file descriptors. For some scenarios, however, it is not desirable
+      for idle connections to be disconnected, hence passing this flag will
+      disable this behaviour.</li>
+  <li><b>-D</b>: Deamonise into the background after startup. This option
+      requires <b>-l</b> and <b>-P</b> flags to be set as well.</li>
+  <li><b>-P</b> <i>pidfile</i>: Write the pid of the relay process to a file
+      called <i>pidfile</i>. This is in particular useful when daemonised in
+      combination with init managers.</li>
+  <li><b>-O</b> <i>threshold</i>: The minimum number of rules to find before
+      trying to optimise the ruleset. The default is <b>50</b>, to disable the
+      optimiser, use <b>-1</b>, to always run the optimiser use <b>0</b>. The
+      optimiser tries to group rules to avoid spending excessive time on
+      matching expressions.</li>
+</ul>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CONFIGURATION_SYNTAX"><a class="permalink" href="#CONFIGURATION_SYNTAX">CONFIGURATION
+  SYNTAX</a></h1>
+<p class="Pp">The config file supports the following syntax, where comments
+    start with a <b>#</b> character and can appear at any position on a line and
+    suppress input until the end of that line:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+cluster &lt;name&gt;
+<br/>
+    &lt; &lt;forward | any_of | failover&gt; [useall] |
+<br/>
+      &lt;carbon_ch | fnv1a_ch | jump_fnv1a_ch&gt; [replication &lt;count&gt;] [dynamic] &gt;
+<br/>
+        &lt;host[:port][=instance] [proto &lt;udp | tcp&gt;]
+<br/>
+                                [type linemode]
+<br/>
+                                [transport &lt;plain | gzip | lz4 | snappy&gt;
+<br/>
+                                           [ssl]]&gt; ...
+<br/>
+    ;
+cluster &lt;name&gt;
+<br/>
+    file [ip]
+<br/>
+        &lt;/path/to/file&gt; ...
+<br/>
+    ;
+match
+<br/>
+        &lt;* | expression ...&gt;
+<br/>
+    [validate &lt;expression&gt; else &lt;log | drop&gt;]
+<br/>
+    send to &lt;cluster ... | blackhole&gt;
+<br/>
+    [stop]
+<br/>
+    ;
+rewrite &lt;expression&gt;
+<br/>
+    into &lt;replacement&gt;
+<br/>
+    ;
+aggregate
+<br/>
+        &lt;expression&gt; ...
+<br/>
+    every &lt;interval&gt; seconds
+<br/>
+    expire after &lt;expiration&gt; seconds
+<br/>
+    [timestamp at &lt;start | middle | end&gt; of bucket]
+<br/>
+    compute &lt;sum | count | max | min | average |
+<br/>
+             median | percentile&lt;%&gt; | variance | stddev&gt; write to
+<br/>
+        &lt;metric&gt;
+<br/>
+    [compute ...]
+<br/>
+    [send to &lt;cluster ...&gt;]
+<br/>
+    [stop]
+<br/>
+    ;
+send statistics to &lt;cluster ...&gt;
+<br/>
+    [stop]
+<br/>
+    ;
+statistics
+<br/>
+    [submit every &lt;interval&gt; seconds]
+<br/>
+    [reset counters after interval]
+<br/>
+    [prefix with &lt;prefix&gt;]
+<br/>
+    [send to &lt;cluster ...&gt;]
+<br/>
+    [stop]
+<br/>
+    ;
+listen
+<br/>
+    type linemode [transport &lt;plain | gzip | lz4 | snappy&gt; [ssl &lt;pemcert&gt;]]
+<br/>
+        &lt;&lt;interface[:port] | port&gt; proto &lt;udp | tcp&gt;&gt; ...
+<br/>
+        &lt;/ptah/to/file proto unix&gt; ...
+<br/>
+    ;
+include &lt;/path/to/file/or/glob&gt;
+<br/>
+    ;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<section class="Ss">
+<h2 class="Ss" id="CLUSTERS"><a class="permalink" href="#CLUSTERS">CLUSTERS</a></h2>
+<p class="Pp">Multiple clusters can be defined, and need not to be referenced by
+    a match rule. All clusters point to one or more hosts, except the
+    <b>file</b> cluster which writes to files in the local filesystem.
+    <b>host</b> may be an IPv4 or IPv6 address, or a hostname. Since host is
+    followed by an optional <b>:</b> and port, for IPv6 addresses not to be
+    interpreted wrongly, either a port must be given, or the IPv6 address
+    surrounded by brackets, e.g. <b>[::1]</b>. Optional <b>transport</b> and
+    <b>proto</b> clauses can be used to wrap the connection in a compression or
+    encryption later or specify the use of UDP or TCP to connect to the remote
+    server. When omitted the connection defaults to an unwrapped TCP connection.
+    <b>type</b> can only be linemode at the moment.</p>
+<p class="Pp">DNS hostnames are resolved to a single address, according to the
+    preference rules in RFC 3484 <i>https://www.ietf.org/rfc/rfc3484.txt</i>.
+    The <b>any_of</b>, <b>failover</b> and <b>forward</b> clusters have an
+    explicit <b>useall</b> flag that enables expansion for hostnames resolving
+    to multiple addresses. Using this option Each address returned becomes a
+    cluster destination.</p>
+<p class="Pp">There are two groups of cluster types, simple forwarding clusters
+    and consistent hashing clusters.</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>forward</b> and <b>file</b> clusters</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The <b>forward</b> and <b>file</b> clusters simply send everything they
+      receive to the defined members (host addresses or files). When a cluster
+      has multiple members, all incoming metrics are sent to /all/ members,
+      basically duplicating the input metric stream over all members.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>any_of</b> cluster</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The <b>any_of</b> cluster is a small variant of the <b>forward</b>
+      cluster, but instead of sending the input metrics to all defined members,
+      it sends each incoming metric to only one of defined members. The purpose
+      of this is a load-balanced scenario where any of the members can receive
+      any metric. As <b>any_of</b> suggests, when any of the members become
+      unreachable, the remaining available members will immediately receive the
+      full input stream of metrics. This specifically mean that when 4 members
+      are used, each will receive approximately 25% of the input metrics. When
+      one member becomes unavailable (e.g. network interruption, or a restart of
+      the service), the remaining 3 members will each receive about 33% of the
+      input. When designing cluster capacity, one should take into account that
+      in the most extreme case, the final remaining member will receive all
+      input traffic.</dd>
+  <dt></dt>
+  <dd>An <b>any_of</b> cluster can in particular be useful when the cluster
+      points to other relays or caches. When used with other relays, it
+      effectively load-balances, and adapts immediately over inavailability of
+      targets. When used with caches, the behaviour of the <b>any_of</b> router
+      to send the same metrics consistently to the same destination helps caches
+      to have a high hitrate on their internal buffers for the same metrics (if
+      they use them), but still allows for a rolling-restart of the caches when
+      e.g. on the same machine.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>failover</b> cluster</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The <b>failover</b> cluster is like the <b>any_of</b> cluster, but sticks
+      to the order in which servers are defined. This is to implement a pure
+      failover scenario between servers. All metrics are sent to at most 1
+      member, so no hashing or balancing is taking place. A <b>failover</b>
+      cluster with two members will only send metrics to the second member if
+      the first becomes unavailable.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>carbon_ch</b> cluster</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The <b>carbon_ch</b> cluster sends the metrics to the member that is
+      responsible according to the consistent hash algorithm, as used in the
+      original carbon python relay, or multiple members if replication is set to
+      more than 1. When <b>dynamic</b> is set, failure of any of the servers
+      does not result in metrics being dropped for that server, but instead the
+      undeliverable metrics are sent to any other server in the cluster in order
+      for the metrics not to get lost. This is most useful when replication is
+      1.</dd>
+  <dt></dt>
+  <dd>The calculation of the hashring, that defines the way in which metrics are
+      distributed, is based on the server host (or IP address) and the optional
+      instance of the member. This means that using <b>carbon_ch</b> two targets
+      on different ports but on the same host will map to the same hashkey,
+      which means no distribution of metrics takes place. The instance is used
+      to remedy that situation. An instance is appended to the memeber after the
+      port, and separated by an equals sign, e.g. <b>127.0.0.1:2006=a</b> for
+      instance <b>a</b>.</dd>
+  <dt></dt>
+  <dd>Consistent hashes are consistent in the sense that removal of a member
+      from the cluster should not result in a complete re-mapping of all metrics
+      to members, but instead only add the metrics from the removed member to
+      all remaining members, approximately each gets its fair share. The other
+      way around, when a member is added, each member should see a subset of its
+      metrics now being addressed to the new member. This is an important
+      advantage over a normal hash, where each removal or addition of members
+      (also via e.g. a change in their IP address or hostname) would cause a
+      full re-mapping of all metrics over all available metrics.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>fnv1a_ch</b> cluster</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The <b>fnv1a_ch</b> cluster is a identical in behaviour to
+      <b>carbon_ch</b>, but it uses a different hash technique (FNV1a) which is
+      faster but more importantly defined to get by the beforementioned
+      limitation of <b>carbon_ch</b> to use both host and port from the members.
+      This is useful when multiple targets live on the same host just separated
+      by port.</dd>
+  <dt></dt>
+  <dd>Since the instance property is no longer necessary with <b>fnv1a_ch</b>
+      this way, this cluster type uses it to completely override the string that
+      the hashkey should be calculated off. This allows for many things,
+      including masquerading old IP addresses, but it basically can be used to
+      make the hash key location agnostic of the (physical) location of that
+      key. For example, usage like
+      <b>10.0.0.1:2003=4d79d13554fa1301476c1f9fe968b0ac</b> would allow to
+      change port and/or ip address of the server that receives data for the
+      instance key. Obviously, this way migration of data can be dealt with much
+      more conveniently. Note that since the instance name is used as full hash
+      input, instances as <b>a</b>, <b>b</b>, etc. will likely result in poor
+      hash distribution, since their hashes have very little input. Consider
+      using longer and mostly differing instance names such as random hashes for
+      better hash distribution behaviour.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>jump_fnv1a_ch</b> cluster</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The <b>jump_fnv1a_ch</b> cluster is also a consistent hash cluster like
+      the previous two, but it does not take the member host, port or instance
+      into account at all. Whether this is useful to you depends on your
+      scenario. The jump hash has almost perfect balancing over the members
+      defined in the cluster, at the expense of not being able to remove any
+      member but the last in order as defined in the cluster. What this means is
+      that this hash is fine to use with ever growing clusters where older nodes
+      are never removed.</dd>
+  <dt></dt>
+  <dd>If you have a cluster where removal of old nodes takes place often, the
+      jump hash is not suitable for you. Jump hash works with servers in an
+      ordered list without gaps. To influence the ordering, the instance given
+      to the server will be used as sorting key. Without, the order will be as
+      given in the file. It is a good practice to fix the order of the servers
+      with instances such that it is explicit what the right nodes for the jump
+      hash are.</dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="MATCHES"><a class="permalink" href="#MATCHES">MATCHES</a></h2>
+<p class="Pp">Match rules are the way to direct incoming metrics to one or more
+    clusters. Match rules are processed top to bottom as they are defined in the
+    file. It is possible to define multiple matches in the same rule. Each match
+    rule can send data to one or more clusters. Since match rules &quot;fall
+    through&quot; unless the <b>stop</b> keyword is added, carefully crafted
+    match expression can be used to target multiple clusters or aggregations.
+    This ability allows to replicate metrics, as well as send certain metrics to
+    alternative clusters with careful ordering and usage of the <b>stop</b>
+    keyword. The special cluster <b>blackhole</b> discards any metrics sent to
+    it. This can be useful for weeding out unwanted metrics in certain cases.
+    Because throwing metrics away is pointless if other matches would accept the
+    same data, a match with as destination the blackhole cluster, has an
+    implicit <b>stop</b>. The <b>validation</b> clause adds a check to the data
+    (what comes after the metric) in the form of a regular expression. When this
+    expression matches, the match rule will execute as if no validation clause
+    was present. However, if it fails, the match rule is aborted, and no metrics
+    will be sent to destinations, this is the <b>drop</b> behaviour. When
+    <b>log</b> is used, the metric is logged to stderr. Care should be taken
+    with the latter to avoid log flooding. When a validate clause is present,
+    destinations need not to be present, this allows for applying a global
+    validation rule. Note that the cleansing rules are applied before validation
+    is done, thus the data will not have duplicate spaces. The <b>route
+    using</b> clause is used to perform a temporary modification to the key used
+    for input to the consistent hashing routines. The primary purpose is to
+    route traffic so that appropriate data is sent to the needed aggregation
+    instances.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="REWRITES"><a class="permalink" href="#REWRITES">REWRITES</a></h2>
+<p class="Pp">Rewrite rules take a regular expression as input to match incoming
+    metrics, and transform them into the desired new metric name. In the
+    replacement, backreferences are allowed to match capture groups defined in
+    the input regular expression. A match of <b>server\.(x|y|z)\.</b> allows to
+    use e.g. <b>role.\1.</b> in the substitution. A few caveats apply to the
+    current implementation of rewrite rules. First, their location in the config
+    file determines when the rewrite is performed. The rewrite is done in-place,
+    as such a match rule before the rewrite would match the original name, a
+    match rule after the rewrite no longer matches the original name. Care
+    should be taken with the ordering, as multiple rewrite rules in succession
+    can take place, e.g. <b>a</b> gets replaced by <b>b</b> and <b>b</b> gets
+    replaced by <b>c</b> in a succeeding rewrite rule. The second caveat with
+    the current implementation, is that the rewritten metric names are not
+    cleansed, like newly incoming metrics are. Thus, double dots and potential
+    dangerous characters can appear if the replacement string is crafted to
+    produce them. It is the responsibility of the writer to make sure the
+    metrics are clean. If this is an issue for routing, one can consider to have
+    a rewrite-only instance that forwards all metrics to another instance that
+    will do the routing. Obviously the second instance will cleanse the metrics
+    as they come in. The backreference notation allows to lowercase and
+    uppercase the replacement string with the use of the underscore (<b>_</b>)
+    and carret (<b>^</b>) symbols following directly after the backslash. For
+    example, <b>role.\_1.</b> as substitution will lowercase the contents of
+    <b>\1</b>. The dot (<b>.</b>) can be used in a similar fashion, or followed
+    after the underscore or caret to replace dots with underscores in the
+    substitution. This can be handy for some situations where metrics are sent
+    to graphite.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="AGGREGATIONS"><a class="permalink" href="#AGGREGATIONS">AGGREGATIONS</a></h2>
+<p class="Pp">The aggregations defined take one or more input metrics expressed
+    by one or more regular expresions, similar to the match rules. Incoming
+    metrics are aggregated over a period of time defined by the interval in
+    seconds. Since events may arrive a bit later in time, the expiration time in
+    seconds defines when the aggregations should be considered final, as no new
+    entries are allowed to be added any more. On top of an aggregation multiple
+    aggregations can be computed. They can be of the same or different
+    aggregation types, but should write to a unique new metric. The metric names
+    can include back references like in rewrite expressions, allowing for
+    powerful single aggregation rules that yield in many aggregations. When no
+    <b>send to</b> clause is given, produced metrics are sent to the relay as if
+    they were submitted from the outside, hence match and aggregation rules
+    apply to those. Care should be taken that loops are avoided this way. For
+    this reason, the use of the <b>send to</b> clause is encouraged, to direct
+    the output traffic where possible. Like for match rules, it is possible to
+    define multiple cluster targets. Also, like match rules, the <b>stop</b>
+    keyword applies to control the flow of metrics in the matching process.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="STATISTICS"><a class="permalink" href="#STATISTICS">STATISTICS</a></h2>
+<p class="Pp">The <b>send statistics to</b> construct is deprecated and will be
+    removed in the next release. Use the special <b>statistics</b> construct
+    instead.</p>
+<p class="Pp">The <b>statistics</b> construct can control a couple of things
+    about the (internal) statistics produced by the relay. The <b>send to</b>
+    target can be used to avoid router loops by sending the statistics to a
+    certain destination cluster(s). By default the metrics are prefixed with
+    <b>carbon.relays.&lt;hostname&gt;</b>, where hostname is determinted on
+    startup and can be overridden using the <b>-H</b> argument. This prefix can
+    be set using the <b>prefix with</b> clause similar to a rewrite rule target.
+    The input match in this case is the pre-set regular expression
+    <b>^(([^.]+)(\..*)?)$</b> on the hostname. As such, one can see that the
+    default prefix is set by <b>carbon.relays.\.1</b>. Note that this uses the
+    replace-dot-with-underscore replacement feature from rewrite rules. Given
+    the input expression, the following match groups are available: <b>\1</b>
+    the entire hostname, <b>\2</b> the short hostname and <b>\3</b> the
+    domainname (with leading dot). It may make sense to replace the default by
+    something like <b>carbon.relays.\_2</b> for certain scenarios, to always use
+    the lowercased short hostname, which following the expression doesn&#x00B4;t
+    contain a dot. By default, the metrics are submitted every 60 seconds, this
+    can be changed using the <b>submit every &lt;interval&gt; seconds</b>
+    clause.
+  <br/>
+  To obtain a more compatible set of values to carbon-cache.py, use the <b>reset
+    counters after interval</b> clause to make values non-cumulative, that is,
+    they will report the change compared to the previous value.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="LISTENERS"><a class="permalink" href="#LISTENERS">LISTENERS</a></h2>
+<p class="Pp">The ports and protocols the relay should listen for incoming
+    connections can be specified using the <b>listen</b> directive. Currently,
+    all listeners need to be of <b>linemode</b> type. An optional compression or
+    encryption wrapping can be specified for the port and optional interface
+    given by ip address, or unix socket by file. When interface is not
+    specified, the any interface on all available ip protocols is assumed. If no
+    <b>listen</b> directive is present, the relay will use the default listeners
+    for port 2003 on tcp and udp, plus the unix socket
+    <b>/tmp/.s.carbon-c-relay.2003</b>. This typically expands to 5 listeners on
+    an IPv6 enabled system. The default matches the behaviour of versions prior
+    to v3.2.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="INCLUDES"><a class="permalink" href="#INCLUDES">INCLUDES</a></h2>
+<p class="Pp">In case configuration becomes very long, or is managed better in
+    separate files, the <b>include</b> directive can be used to read another
+    file. The given file will be read in place and added to the router
+    configuration at the time of inclusion. The end result is one big route
+    configuration. Multiple <b>include</b> statements can be used throughout the
+    configuration file. The positioning will influence the order of rules as
+    normal. Beware that recursive inclusion (<b>include</b> from an included
+    file) is supported, and currently no safeguards exist for an inclusion loop.
+    For what is worth, this feature likely is best used with simple
+    configuration files (e.g. not having <b>include</b> in them).</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp"><b>carbon-c-relay</b> evolved over time, growing features on
+    demand as the tool proved to be stable and fitting the job well. Below
+    follow some annotated examples of constructs that can be used with the
+    relay.</p>
+<p class="Pp">Clusters can be defined as much as necessary. They receive data
+    from match rules, and their type defines which members of the cluster
+    finally get the metric data. The simplest cluster form is a <b>forward</b>
+    cluster:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+cluster send-through
+<br/>
+    forward
+<br/>
+        10.1.0.1
+<br/>
+    ;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Any metric sent to the <b>send-through</b> cluster would simply be
+    forwarded to the server at IPv4 address <b>10.1.0.1</b>. If we define
+    multiple servers, all of those servers would get the same metric, thus:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+cluster send-through
+<br/>
+    forward
+<br/>
+        10.1.0.1
+<br/>
+        10.2.0.1
+<br/>
+    ;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">The above results in a duplication of metrics send to both
+    machines. This can be useful, but most of the time it is not. The
+    <b>any_of</b> cluster type is like <b>forward</b>, but it sends each
+    incoming metric to any of the members. The same example with such cluster
+    would be:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+cluster send-to-any-one
+<br/>
+    any_of 10.1.0.1:2010 10.1.0.1:2011;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">This would implement a multipath scenario, where two servers are
+    used, the load between them is spread, but should any of them fail, all
+    metrics are sent to the remaining one. This typically works well for
+    upstream relays, or for balancing carbon-cache processes running on the same
+    machine. Should any member become unavailable, for instance due to a rolling
+    restart, the other members receive the traffic. If it is necessary to have
+    true fail-over, where the secondary server is only used if the first is
+    down, the following would implement that:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+cluster try-first-then-second
+<br/>
+    failover 10.1.0.1:2010 10.1.0.1:2011;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">These types are different from the two consistent hash cluster
+    types:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+cluster graphite
+<br/>
+    carbon_ch
+<br/>
+        127.0.0.1:2006=a
+<br/>
+        127.0.0.1:2007=b
+<br/>
+        127.0.0.1:2008=c
+<br/>
+    ;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">If a member in this example fails, all metrics that would go to
+    that member are kept in the queue, waiting for the member to return. This is
+    useful for clusters of carbon-cache machines where it is desirable that the
+    same metric ends up on the same server always. The <b>carbon_ch</b> cluster
+    type is compatible with carbon-relay consistent hash, and can be used for
+    existing clusters populated by carbon-relay. For new clusters, however, it
+    is better to use the <b>fnv1a_ch</b> cluster type, for it is faster, and
+    allows to balance over the same address but different ports without an
+    instance number, in constrast to <b>carbon_ch</b>.</p>
+<p class="Pp">Because we can use multiple clusters, we can also replicate
+    without the use of the <b>forward</b> cluster type, in a more intelligent
+    way:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+cluster dc-old
+<br/>
+    carbon_ch replication 2
+<br/>
+        10.1.0.1
+<br/>
+        10.1.0.2
+<br/>
+        10.1.0.3
+<br/>
+    ;
+cluster dc-new1
+<br/>
+    fnv1a_ch replication 2
+<br/>
+        10.2.0.1
+<br/>
+        10.2.0.2
+<br/>
+        10.2.0.3
+<br/>
+    ;
+cluster dc-new2
+<br/>
+    fnv1a_ch replication 2
+<br/>
+        10.3.0.1
+<br/>
+        10.3.0.2
+<br/>
+        10.3.0.3
+<br/>
+    ;
+match *
+<br/>
+    send to dc-old
+<br/>
+    ;
+match *
+<br/>
+    send to
+<br/>
+        dc-new1
+<br/>
+        dc-new2
+<br/>
+    stop
+<br/>
+    ;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">In this example all incoming metrics are first sent to
+    <b>dc-old</b>, then <b>dc-new1</b> and finally to <b>dc-new2</b>. Note that
+    the cluster type of <b>dc-old</b> is different. Each incoming metric will be
+    send to 2 members of all three clusters, thus replicating to in total 6
+    destinations. For each cluster the destination members are computed
+    independently. Failure of clusters or members does not affect the others,
+    since all have individual queues. The above example could also be written
+    using three match rules for each dc, or one match rule for all three dcs.
+    The difference is mainly in performance, the number of times the incoming
+    metric has to be matched against an expression. The <b>stop</b> rule in
+    <b>dc-new</b> match rule is not strictly necessary in this example, because
+    there are no more following match rules. However, if the match would target
+    a specific subset, e.g. <b>^sys\.</b>, and more clusters would be defined,
+    this could be necessary, as for instance in the following abbreviated
+    example:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+cluster dc1-sys ... ;
+cluster dc2-sys ... ;
+cluster dc1-misc ... ;
+cluster dc2-misc ... ;
+match ^sys\. send to dc1-sys;
+match ^sys\. send to dc2-sys stop;
+match * send to dc1-misc;
+match * send to dc2-misc stop;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">As can be seen, without the <b>stop</b> in dc2-sys&#x00B4; match
+    rule, all metrics starting with <b>sys.</b> would also be send to dc1-misc
+    and dc2-misc. It can be that this is desired, of course, but in this example
+    there is a dedicated cluster for the <b>sys</b> metrics.</p>
+<p class="Pp">Suppose there would be some unwanted metric that unfortunately is
+    generated, let&#x00B4;s assume some bad/old software. We don&#x00B4;t want
+    to store this metric. The <b>blackhole</b> cluster is suitable for that,
+    when it is harder to actually whitelist all wanted metrics. Consider the
+    following:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+match
+<br/>
+        some_legacy1$
+<br/>
+        some_legacy2$
+<br/>
+    send to blackhole
+<br/>
+    stop;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">This would throw away all metrics that end with
+    <b>some_legacy</b>, that would otherwise be hard to filter out. Since the
+    order matters, it can be used in a construct like this:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+cluster old ... ;
+cluster new ... ;
+match * send to old;
+match unwanted send to blackhole stop;
+match * send to new;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">In this example the old cluster would receive the metric
+    that&#x00B4;s unwanted for the new cluster. So, the order in which the rules
+    occur does matter for the execution.</p>
+<p class="Pp">Validation can be used to ensure the data for metrics is as
+    expected. A global validation for just number (no floating point) values
+    could be:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+match *
+<br/>
+    validate ^[0-9]+\ [0-9]+$ else drop
+<br/>
+    ;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">(Note the escape with backslash <b>\</b> of the space, you might
+    be able to use <b>\s</b> or <b>[:space:]</b> instead, this depends on your
+    configured regex implementation.)</p>
+<p class="Pp">The validation clause can exist on every match rule, so in
+    principle, the following is valid:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+match ^foo
+<br/>
+    validate ^[0-9]+\ [0-9]+$ else drop
+<br/>
+    send to integer-cluster
+<br/>
+    ;
+match ^foo
+<br/>
+    validate ^[0-9.e+-]+\ [0-9.e+-]+$ else drop
+<br/>
+    send to float-cluster
+<br/>
+    stop;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Note that the behaviour is different in the previous two examples.
+    When no <b>send to</b> clusters are specified, a validation error makes the
+    match behave like the <b>stop</b> keyword is present. Likewise, when
+    validation passes, processing continues with the next rule. When destination
+    clusters are present, the <b>match</b> respects the <b>stop</b> keyword as
+    normal. When specified, processing will always stop when specified so.
+    However, if validation fails, the rule does not send anything to the
+    destination clusters, the metric will be dropped or logged, but never
+  sent.</p>
+<p class="Pp">The relay is capable of rewriting incoming metrics on the fly.
+    This process is done based on regular expressions with capture groups that
+    allow to substitute parts in a replacement string. Rewrite rules allow to
+    cleanup metrics from applications, or provide a migration path. In
+    it&#x00B4;s simplest form a rewrite rule looks like this:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+rewrite ^server\.(.+)\.(.+)\.([a-zA-Z]+)([0-9]+)
+<br/>
+    into server.\_1.\2.\3.\3\4
+<br/>
+    ;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">In this example a metric like <b>server.DC.role.name123</b> would
+    be transformed into <b>server.dc.role.name.name123</b>. For rewrite rules
+    hold the same as for matches, that their order matters. Hence to build on
+    top of the old/new cluster example done earlier, the following would store
+    the original metric name in the old cluster, and the new metric name in the
+    new cluster:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+match * send to old;
+rewrite ... ;
+match * send to new;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Note that after the rewrite, the original metric name is no longer
+    available, as the rewrite happens in-place.</p>
+<p class="Pp">Aggregations are probably the most complex part of carbon-c-relay.
+    Two ways of specifying aggregates are supported by carbon-c-relay. The
+    first, static rules, are handled by an optimiser which tries to fold
+    thousands of rules into groups to make the matching more efficient. The
+    second, dynamic rules, are very powerful compact definitions with possibly
+    thousands of internal instantiations. A typical static aggregation looks
+    like:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+aggregate
+<br/>
+        ^sys\.dc1\.somehost-[0-9]+\.somecluster\.mysql\.replication_delay
+<br/>
+        ^sys\.dc2\.somehost-[0-9]+\.somecluster\.mysql\.replication_delay
+<br/>
+    every 10 seconds
+<br/>
+    expire after 35 seconds
+<br/>
+    timestamp at end of bucket
+<br/>
+    compute sum write to
+<br/>
+        mysql.somecluster.total_replication_delay
+<br/>
+    compute average write to
+<br/>
+        mysql.somecluster.average_replication_delay
+<br/>
+    compute max write to
+<br/>
+        mysql.somecluster.max_replication_delay
+<br/>
+    compute count write to
+<br/>
+        mysql.somecluster.replication_delay_metric_count
+<br/>
+    ;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">In this example, four aggregations are produced from the incoming
+    matching metrics. In this example we could have written the two matches as
+    one, but for demonstration purposes we did not. Obviously they can refer to
+    different metrics, if that makes sense. The <b>every 10 seconds</b> clause
+    specifies in what interval the aggregator can expect new metrics to arrive.
+    This interval is used to produce the aggregations, thus each 10 seconds 4
+    new metrics are generated from the data received sofar. Because data may be
+    in transit for some reason, or generation stalled, the <b>expire after</b>
+    clause specifies how long the data should be kept before considering a data
+    bucket (which is aggregated) to be complete. In the example, 35 was used,
+    which means after 35 seconds the first aggregates are produced. It also
+    means that metrics can arrive 35 seconds late, and still be taken into
+    account. The exact time at which the aggregate metrics are produced is
+    random between 0 and interval (10 in this case) seconds after the expiry
+    time. This is done to prevent thundering herds of metrics for large
+    aggregation sets. The <b>timestamp</b> that is used for the aggregations can
+    be specified to be the <b>start</b>, <b>middle</b> or <b>end</b> of the
+    bucket. Original carbon-aggregator.py uses <b>start</b>, while
+    carbon-c-relay&#x00B4;s default has always been <b>end</b>. The
+    <b>compute</b> clauses demonstrate a single aggregation rule can produce
+    multiple aggregates, as often is the case. Internally, this comes for free,
+    since all possible aggregates are always calculated, whether or not they are
+    used. The produced new metrics are resubmitted to the relay, hence matches
+    defined before in the configuration can match output of the aggregator. It
+    is important to avoid loops, that can be generated this way. In general,
+    splitting aggregations to their own carbon-c-relay instance, such that it is
+    easy to forward the produced metrics to another relay instance is a good
+    practice.</p>
+<p class="Pp">The previous example could also be written as follows to be
+    dynamic:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+aggregate
+<br/>
+        ^sys\.dc[0-9].(somehost-[0-9]+)\.([^.]+)\.mysql\.replication_delay
+<br/>
+    every 10 seconds
+<br/>
+    expire after 35 seconds
+<br/>
+    compute sum write to
+<br/>
+        mysql.host.\1.replication_delay
+<br/>
+    compute sum write to
+<br/>
+        mysql.host.all.replication_delay
+<br/>
+    compute sum write to
+<br/>
+        mysql.cluster.\2.replication_delay
+<br/>
+    compute sum write to
+<br/>
+        mysql.cluster.all.replication_delay
+<br/>
+    ;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">Here a single match, results in four aggregations, each of a
+    different scope. In this example aggregation based on hostname and cluster
+    are being made, as well as the more general <b>all</b> targets, which in
+    this example have both identical values. Note that with this single
+    aggregation rule, both per-cluster, per-host and total aggregations are
+    produced. Obviously, the input metrics define which hosts and clusters are
+    produced.</p>
+<p class="Pp">With use of the <b>send to</b> clause, aggregations can be made
+    more intuitive and less error-prone. Consider the below example:</p>
+<dl class="Bl-tag">
+  <dt>
+  </dt>
+  <dd>
+    <pre>
+cluster graphite fnv1a_ch ip1 ip2 ip3;
+aggregate ^sys\.somemetric
+<br/>
+    every 60 seconds
+<br/>
+    expire after 75 seconds
+<br/>
+    compute sum write to
+<br/>
+        sys.somemetric
+<br/>
+    send to graphite
+<br/>
+    stop
+<br/>
+    ;
+match * send to graphite;</pre>
+  </dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+<p class="Pp">It sends all incoming metrics to the graphite cluster, except the
+    sys.somemetric ones, which it replaces with a sum of all the incoming ones.
+    Without a <b>stop</b> in the aggregate, this causes a loop, and without the
+    <b>send to</b>, the metric name can&#x00B4;t be kept its original name, for
+    the output now directly goes to the cluster.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="STATISTICS~2"><a class="permalink" href="#STATISTICS~2">STATISTICS</a></h1>
+<p class="Pp">When <b>carbon-c-relay</b> is run without <b>-d</b> or <b>-s</b>
+    arguments, statistics will be produced. By default they are sent to the
+    relay itself in the form of <b>carbon.relays.&lt;hostname&gt;.*</b>. See the
+    <b>statistics</b> construct to override this prefix, sending interval and
+    values produced. While many metrics have a similar name to what
+    carbon-cache.py would produce, their values are likely different. By
+    default, most values are running counters which only increase over time. The
+    use of the nonNegativeDerivative() function from graphite is useful with
+    these.</p>
+<p class="Pp">The following metrics are produced under the
+    <b>carbon.relays.&lt;hostname&gt;</b> namespace:</p>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>metricsReceived</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of metrics that were received by the relay. Received here means
+      that they were seen and processed by any of the dispatchers.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>metricsSent</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of metrics that were sent from the relay. This is a total count
+      for all servers combined. When incoming metrics are duplicated by the
+      cluster configuration, this counter will include all those duplications.
+      In other words, the amount of metrics that were successfully sent to other
+      systems. Note that metrics that are processed (received) but still in the
+      sending queue (queued) are not included in this counter.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>metricsDiscarded</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of input lines that were not considered to be a valid metric.
+      Such lines can be empty, only containing whitespace, or hitting the limits
+      given for max input length and/or max metric length (see <b>-m</b> and
+      <b>-M</b> options).</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>metricsQueued</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The total number of metrics that are currently in the queues for all the
+      server targets. This metric is not cumulative, for it is a sample of the
+      queue size, which can (and should) go up and down. Therefore you should
+      not use the derivative function for this metric.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>metricsDropped</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The total number of metric that had to be dropped due to server queues
+      overflowing. A queue typically overflows when the server it tries to send
+      its metrics to is not reachable, or too slow in ingesting the amount of
+      metrics queued. This can be network or resource related, and also greatly
+      depends on the rate of metrics being sent to the particular server.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>metricsBlackholed</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of metrics that did not match any rule, or matched a rule with
+      blackhole as target. Depending on your configuration, a high value might
+      be an indication of a misconfiguration somewhere. These metrics were
+      received by the relay, but never sent anywhere, thus they
+    disappeared.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>metricStalls</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of times the relay had to stall a client to indicate that the
+      downstream server cannot handle the stream of metrics. A stall is only
+      performed when the queue is full and the server is actually receptive of
+      metrics, but just too slow at the moment. Stalls typically happen during
+      micro-bursts, where the client typically is unaware that it should stop
+      sending more data, while it is able to.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>connections</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of connect requests handled. This is an ever increasing number
+      just counting how many connections were accepted.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>disconnects</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of disconnected clients. A disconnect either happens because
+      the client goes away, or due to an idle timeout in the relay. The
+      difference between this metric and connections is the amount of
+      connections actively held by the relay. In normal situations this amount
+      remains within reasonable bounds. Many connections, but few disconnections
+      typically indicate a possible connection leak in the client. The idle
+      connections disconnect in the relay here is to guard against resource
+      drain in such scenarios.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>dispatch_wallTime_us</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of microseconds spent by the dispatchers to do their work. In
+      particular on multi-core systems, this value can be confusing, however, it
+      indicates how long the dispatchers were doing work handling clients. It
+      includes everything they do, from reading data from a socket, cleaning up
+      the input metric, to adding the metric to the appropriate queues. The
+      larger the configuration, and more complex in terms of matches, the more
+      time the dispatchers will spend on the cpu. But also time they do /not/
+      spend on the cpu is included in this number. It is the pure wallclock time
+      the dispatcher was serving a client.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>dispatch_sleepTime_us</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of microseconds spent by the dispatchers sleeping waiting for
+      work. When this value gets small (or even zero) the dispatcher has so much
+      work that it doesn&#x00B4;t sleep any more, and likely can&#x00B4;t
+      process the work in a timely fashion any more. This value plus the
+      wallTime from above sort of sums up to the total uptime taken by this
+      dispatcher. Therefore, expressing the wallTime as percentage of this sum
+      gives the busyness percentage draining all the way up to 100% if sleepTime
+      goes to 0.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>server_wallTime_us</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of microseconds spent by the servers to send the metrics from
+      their queues. This value includes connection creation, reading from the
+      queue, and sending metrics over the network.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>dispatcherX</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>For each indivual dispatcher, the metrics received and blackholed plus the
+      wall clock time. The values are as described above.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>destinations.X</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>For all known destinations, the number of dropped, queued and sent metrics
+      plus the wall clock time spent. The values are as described above.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>aggregators.metricsReceived</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of metrics that were matched an aggregator rule and were
+      accepted by the aggregator. When a metric matches multiple aggregators,
+      this value will reflect that. A metric is not counted when it is
+      considered syntactically invalid, e.g. no value was found.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>aggregators.metricsDropped</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of metrics that were sent to an aggregator, but did not fit
+      timewise. This is either because the metric was too far in the past or
+      future. The expire after clause in aggregate statements controls how long
+      in the past metric values are accepted.</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>aggregators.metricsSent</dd>
+</dl>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>The number of metrics that were sent from the aggregators. These metrics
+      were produced and are the actual results of aggregations.</dd>
+  <dt>
+  </dt>
+  <dd></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Please report them at:
+    <i>https://github.com/grobian/carbon-c-relay/issues</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Fabian Groffen &lt;grobian@gentoo.org&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">All other utilities from the graphite stack.</p>
+<p class="Pp">This project aims to be a fast replacement of the original Carbon
+    relay
+    <i>http://graphite.readthedocs.org/en/1.0/carbon-daemons.html#carbon-relay-py</i>.
+    <b>carbon-c-relay</b> aims to deliver performance and configurability.
+    Carbon is single threaded, and sending metrics to multiple consistent-hash
+    clusters requires chaining of relays. This project provides a multithreaded
+    relay which can address multiple targets and clusters for each and every
+    metric based on pattern matches.</p>
+<p class="Pp">There are a couple more replacement projects out there, which are
+    carbon-relay-ng <i>https://github.com/graphite-ng/carbon-relay-ng</i> and
+    graphite-relay <i>https://github.com/markchadwick/graphite-relay</i>.</p>
+<p class="Pp">Compared to carbon-relay-ng, this project does provide
+    carbon&#x00B4;s consistent-hash routing. graphite-relay, which does this,
+    however doesn&#x00B4;t do metric-based matches to direct the traffic, which
+    this project does as well. To date, carbon-c-relay can do aggregations,
+    failover targets and more.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ACKNOWLEDGEMENTS"><a class="permalink" href="#ACKNOWLEDGEMENTS">ACKNOWLEDGEMENTS</a></h1>
+<p class="Pp">This program was originally developed for Booking.com, which
+    approved that the code was published and released as Open Source on GitHub,
+    for which the author would like to express his gratitude. Development has
+    continued since with the help of many contributors suggesting features,
+    reporting bugs, adding patches and more to make carbon-c-relay into what it
+    is today.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">August 2020</td>
+    <td class="foot-os">Graphite</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: carbon-c-relay 3.7.3-2build2 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

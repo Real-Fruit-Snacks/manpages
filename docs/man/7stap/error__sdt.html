@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="&lt;sys/sdt.h&gt; marker failures">
+<title>error::sdt(7stap) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">error::sdt(7stap)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">ERROR::SDT(7stap)</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">ERROR::SDT(7stap)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">error::sdt - &lt;sys/sdt.h&gt; marker failures</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">Systemtap's <b>&lt;sys/sdt.h&gt;</b> probes are modeled after the
+    dtrace USDT API, but are implemented differently. They leave a only a NOP
+    instruction in the userspace program's text segment, and add an ELF note to
+    the binary with metadata. This metadata describes the marker's name and
+    parameters. This encoding is designed to be parseable by multiple tools (not
+    just systemtap: GDB, the GNU Debugger, also contains support). These allow
+    the tools to find parameters and their types, wherever they happen to
+    reside, even without DWARF debuginfo.</p>
+<p class="Pp"></p>
+<p class="Pp">The reason finding parameters is tricky is because the STAP_PROBE
+    / DTRACE_PROBE markers store an assembly language expression for each
+    operand, as a result of use of gcc inline-assembly directives. The compiler
+    is given a broad gcc operand constraint string (&quot;nor&quot;) for the
+    operands, which usually works well. Usually, it does not force the compiler
+    to load the parameters into or out of registers, which would slow down an
+    instrumented program. However, some instrumentation sites with some
+    parameters do not work well with the default &quot;nor&quot; constraint.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="unresolveable"><a class="permalink" href="#unresolveable">unresolveable
+    at run-time</a></dt>
+  <dd>GCC may emit strings that an assembler could resolve (from the context of
+      compiling the original program), but a run-time tool cannot. For example,
+      the operand string might refer to a label of a local symbol that is not
+      emitted into the ELF object file at all, which leaves no trace for the
+      run-time. Reference to such parameters from within systemtap can result in
+      &quot;SDT asm not understood&quot; errors.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="too"><a class="permalink" href="#too">too complicated
+    expression</a></dt>
+  <dd>GCC might synthesize very complicated assembly addressing modes from
+      complex C data types / pointer expressions. systemtap or gdb may not be
+      able to parse some valid but complicated expressions. Reference to such
+      parameters from within systemtap can result in &quot;SDT asm not
+      understood&quot; errors.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="overly"><a class="permalink" href="#overly">overly restrictive
+    constraint</a></dt>
+  <dd>GCC might not be able to even compile the original program with the
+      default &quot;nor&quot; constraint due to shortage of registers or other
+      reasons. A compile-time gcc error such as &quot;asm operand has impossible
+      constraints&quot; may result.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+<p class="Pp">There are two general workarounds to this family of problems.</p>
+<p class="Pp"></p>
+<dl class="Bl-tag">
+  <dt id="change"><a class="permalink" href="#change">change the
+    constraints</a></dt>
+  <dd>While compiling the original instrumented program, set the
+      <i>STAP_SDT_ARG_CONSTRAINT</i> macro to different constraint strings. See
+      the GCC manual about various options. For example, on many machine
+      architectures, &quot;r&quot; forces operands into registers, and
+      &quot;g&quot; leaves operands essentially unconstrained.
+    <p class="Pp"></p>
+  </dd>
+  <dt id="revert"><a class="permalink" href="#revert">revert to
+    debuginfo</a></dt>
+  <dd>As long as the instrumented program compiles, it may be fine simply to
+      keep using &lt;sys/sdt.h&gt; but eschew extraction of a few individual
+      parameters. In the worst case, disable &lt;sys/sdt.h&gt; macros entirely
+      to eschew the compiled-in instrumentation. If DWARF debuginfo was
+      generated and preserved, a systemtap script could refer to the underlying
+      source context variables instead of the positional STAP_PROBE parameters.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<pre><a class="Xr" href="../1/stap.html"><i>stap</i>(1)</a>,
+<i>stapprobes</i>(3stap),
+<a class="Xr" href="../7stap/error__dwarf.html"><i>error::dwarf</i>(7stap)</a>,
+<i>http://gcc.gnu.org/onlinedocs/gcc/Constraints.html</i>,
+<i>http://sourceware.org/systemtap/wiki/UserSpaceProbeImplementation</i>,
+<a class="Xr" href="../7stap/error__reporting.html"><i>error::reporting</i>(7stap)</a></pre>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: systemtap-doc 5.0-2ubuntu1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

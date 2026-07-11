@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Message-handling programs">
+<title>curvecpserver(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">curvecpserver(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Incoming_messagess">Incoming
+  messagess</a></li><li><a href="#Outgoing_messagess">Outgoing
+  messagess</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">NaCl(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">NaCl(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">CurveCP &#x2014; Message-handling programs</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>curvecpserver</b> [<b>-q </b><i>(optional)</i><i>] [</i><b>-Q
+    </b><i>(optional)</i><i>] [</i><b>-v </b><i>(optional)</i><i>] [</i><b>-c
+    n</b><i>(optional)</i><i>] [sname] [keydir] [ip] [port] [ext] [prog]</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This manual page documents briefly the <b>CurveCP</b>
+  commands.</p>
+<p class="Pp">A traditional UNIX-style server such as ftpd handles just one
+    network connection, reading input from stdin and writing output to stdout. A
+    &quot;superserver&quot; such as inetd or tcpserver listens for network
+    connections and starts a separate server process for each connection.</p>
+<p class="Pp">The <b>CurveCP</b> command-line tools have an extra level of
+    modularity. The <b>curvecpserver</b> superserver listens for network
+    connections. For each connection, <b>curvecpserver</b> starts the
+    <b>curvecpmessage</b> message handler; <b>curvecpmessage</b> then starts a
+    server such as ftpd. Then ftpd sends a stream of data to
+    <b>curvecpmessage</b>, which in turn sends messages to <b>curvecpserver</b>,
+    which encrypts and authenticates the messages and sends them inside network
+    packets. At the same time <b>curvecpclient</b> receives network packets,
+    verifies and decrypts messages inside the packets, and passes the messages
+    to <b>curvecpmessage</b>; <b>curvecpmessage</b> sends a stream of data to
+    ftpd. The same curvecpmessage tool is also used by <b>curvecpclient</b>.</p>
+<p class="Pp"><b>curvecpserver</b> and <b>curvecpclient</b> can use programs
+    other than <b>curvecpmessage</b>. Those programs can directly generate
+    messages in the CurveCP message format without talking to separate tools
+    such as ftpd; or they can support a completely different protocol that
+    reuses CurveCP's cryptographic layer but transmits different kinds of
+    messages.</p>
+<p class="Pp">This page explains what programmers have to do to write
+    <b>curvecpmessage</b> replacements that talk to <b>curvecpserver</b> and
+    <b>curvecpclient.</b></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Incoming_messagess"><a class="permalink" href="#Incoming_messagess">Incoming
+  messagess</a></h1>
+<p class="Pp">File descriptor 8 is a pipe. Read from this pipe a length byte n,
+    between 1 and 68, and a 16*n-byte message. Repeat. The pipe is set to
+    non-blocking mode; be prepared for EAGAIN and EWOULDBLOCK, even in the
+    middle of a message.</p>
+<p class="Pp">This pipe reading must always be active. The <b>curvecpclient</b>
+    and <b>curvecpserver</b> programs assume that every message is read
+    immediately. If you can't handle a message immediately, read it and put it
+    onto a queue. If you don't have queue space, throw the message away; this
+    shouldn't cause trouble, since you have to be able to handle missing
+    messages in any case.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Outgoing_messagess"><a class="permalink" href="#Outgoing_messagess">Outgoing
+  messagess</a></h1>
+<p class="Pp">File descriptor 9 is a pipe. Write to this pipe a length byte n,
+    between 1 and 68, and a 16*n-byte message. Repeat. The pipe is set to
+    non-blocking mode; be prepared for EAGAIN and EWOULDBLOCK, even in the
+    middle of a message.</p>
+<p class="Pp">As a client, do not use length bytes above 40 until a message has
+    arrived from the server. (The messages inside CurveCP Initiate packets are
+    limited to 640 bytes.)</p>
+<p class="Pp">The CurveCP server does not start until it has received a message
+    from the client. Furthermore, the CurveCP server must receive this message
+    within 60 seconds of the client starting up. (The CurveCP Initiate packet is
+    valid for only 60 seconds after the corresponding CurveCP Cookie packet.)
+    This does not mean that the client must start sending messages immediately,
+    but it does mean that waiting for more than a second to send a message is a
+    bad idea.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">How to use <b>curvecpserver</b>:</p>
+<dl class="Bl-tag">
+  <dt id="q"><a class="permalink" href="#q"><b>-q</b> <b>optional</b> </a></dt>
+  <dd>no error messages</dd>
+  <dt id="Q"><a class="permalink" href="#Q"><b>-Q</b> <b>optional</b> </a></dt>
+  <dd>print error messages (default)</dd>
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b> <b>optional</b> </a></dt>
+  <dd>print extra information</dd>
+  <dt id="c"><a class="permalink" href="#c"><b>-c n</b> <b>optional</b>
+    </a></dt>
+  <dd>allow at most n clients at once (default 100)</dd>
+  <dt id="sname"><a class="permalink" href="#sname"><b>sname</b> </a></dt>
+  <dd>server's name</dd>
+  <dt id="keydir"><a class="permalink" href="#keydir"><b>keydir</b> </a></dt>
+  <dd>use this public-key directory</dd>
+  <dt id="ip"><a class="permalink" href="#ip"><b>ip</b> </a></dt>
+  <dd>server's IP address</dd>
+  <dt id="port"><a class="permalink" href="#port"><b>port</b> </a></dt>
+  <dd>server's UDP port</dd>
+  <dt id="ext"><a class="permalink" href="#ext"><b>ext</b> </a></dt>
+  <dd>server's extension</dd>
+  <dt id="prog"><a class="permalink" href="#prog"><b>prog</b> </a></dt>
+  <dd>run this server</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">curvecpmessage (1), curvecpclient (1), inetd (8), tcpserver
+  (1).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">This manual page was written by Sergiusz Pawlowicz
+    debian@pawlowicz.name for the <b>Debian</b> system (and may be used by
+    others). The source of this page is a webpage
+    https://curvecp.org/messageapi.html . Permission is granted to copy,
+    distribute and/or modify this document under public domain.</p>
+<p class="Pp"></p>
+<p class="Pp">This manual page was rewritten for the <b>Debian</b> distribution
+    because the original program does not have a manual page.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: nacl-tools 20110221-13 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

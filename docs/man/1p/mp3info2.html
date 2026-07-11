@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="get/set MP3 tags; uses MP3::Tag to get default values.">
+<title>mp3info2(1p) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">mp3info2(1p)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Normalization_of_fields">Normalization
+  of fields</a></li><li><a href="#The_order_of_operation">The
+  order of operation</a></li><li><a href="#Usage_strategy:_escalation_of_complexity">Usage
+  strategy: escalation of complexity</a></li><li><a href="#EXAMPLES:_parse_rules">EXAMPLES:
+  parse rules</a></li><li><a href="#More_examples">More
+  examples</a></li><li><a href="#Examples_on_dealing_with_broken_encodings">Examples
+  on dealing with broken encodings</a></li><li><a href="#INCOMPATIBILITIES_with_">INCOMPATIBILITIES
+  with mp3info</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#OBSOLETE_INTERFACE">OBSOLETE
+  INTERFACE</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#Utilities_to_create_CDDB_file">Utilities
+  to create CDDB file</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MP3INFO2(1p)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">MP3INFO2(1p)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">mp3info2 - get/set MP3 tags; uses MP3::Tag to get default
+  values.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>  # Print the information in tags and autodeduced info
+  mp3info2 *.mp3
+  # In addition, set the year field to 1981
+  mp3info2 -y 1981 *.mp3
+  # Same without printout of info, recursively in the current directory
+  mp3info2 -R -p &quot;&quot; -y 1981 .
+  # Do not deduce any field, print (normalized) info from the tags only
+  mp3info2 -C autoinfo=ID3v2,ID3v1 *.mp3
+  # As above, but without normalization/autofill, the raw information in tags
+  mp3info2 -N *.mp3
+  # As above, but only with ID2v1 tag read
+  mp3info2 -NC autoinfo=ID3v1 *.mp3
+  # Get artist from CDDB_File, autodeduce other info, write it to tags
+  mp3info2 -C artist=CDDB_File -u *.mp3
+  # For title, prefer information from .inf file; autodeduce rest, update
+  mp3info2 -C title=Inf,ID3v2,ID3v1,filename -u *.mp3
+  # Same, and get the artist from CDDB file
+  mp3info2 -C title=Inf,ID3v2,ID3v1,filename -C artist=CDDB_File -u *.mp3
+  # Write a script for conversion of .wav to .mp3, autodeducing tags
+  mp3info2 -p &quot;lame -h --vbr-new --tt '%t' --tn %n --ta '%a' --tc '%c' --tl '%l' --ty '%y' '%f'\n&quot; *.wav &gt;xxx.sh
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The program prints a message summarizing tag info (obtained via
+    MP3::Tag module) for specified files.</p>
+<p class="Pp">It may also update the information in ID3 tags. This happens in
+    three different cases.</p>
+<ul class="Bl-bullet">
+  <li>If the information supplied in command-line options
+      <span class="Li">&quot;t a l y g c n&quot;</span> differs from the content
+      of the corresponding ID3 tags (or there is no corresponding ID3
+    tags).</li>
+  <li>If options <span class="Li">&quot;-d&quot;</span> or
+      <span class="Li">&quot;-F&quot;</span> were given.</li>
+  <li>if <span class="Li">&quot;MP3::Tag&quot;</span> obtains the info from
+      other means than MP3 tags, and <span class="Li">&quot;-u&quot;</span>
+      forces the update of the ID3 tags.</li>
+</ul>
+<p class="Pp">(All these ways are disabled by
+    <span class="Li">&quot;-D&quot;</span> option.) ID3v2 tag is written if
+    needed, or if <span class="Li">&quot;-2&quot;</span> option is given.
+    (Automatic fill-in of deduceable fields (via the method
+    <b>id3v2_frames_autofill()</b>) is performed unless
+    <span class="Li">&quot;-d&quot;</span> or
+    <span class="Li">&quot;-N&quot;</span> options are given.)</p>
+<p class="Pp">The option <span class="Li">&quot;-u&quot;</span> writes
+    (<span class="Li">&quot;u&quot;</span>pdates) the fetched information to the
+    MP3 ID3 tags. This option is assumed if there are command-line options which
+    explicitly set tag elements (<span class="Li">&quot;-a&quot;</span>,
+    <span class="Li">&quot;-t&quot;</span> etc., and
+    <span class="Li">&quot;-F&quot;</span>,
+    <span class="Li">&quot;-d&quot;</span>). (Effects of this option may be
+    overridden by giving <span class="Li">&quot;-D&quot;</span> option.) If
+    <span class="Li">&quot;-2&quot;</span> option is also given, forces write of
+    ID3v2 tag even if the info fits the ID3v1 tag (in addition, this option
+    enables auto-update of &quot;personal name&quot; fields, and corresponding
+    titles according to values of
+    <span class="Li">&quot;translate_person&quot;</span>,
+    <span class="Li">&quot;person_frames&quot;</span> etc. configuration
+    settings; see &quot;Normalization of fields&quot;). This option is ignored
+    if no change to tags is detected; however, one can force an update by
+    repeating this option (useful if you expect the change the
+    &quot;format&quot; of the tag, as opposed to its &quot;content&quot;).</p>
+<p class="Pp">The option <span class="Li">&quot;-p&quot;</span> prints a message
+    using the next argument as format (by default
+    <span class="Li">&quot;\\&quot;</span>,
+    <span class="Li">&quot;\t&quot;</span>,
+    <span class="Li">&quot;\n&quot;</span> are replaced by backslash, tab and
+    newline; governed by the value of <span class="Li">&quot;-E&quot;</span>
+    option); see &quot;interpolate&quot; in MP3::Tag for details of the format
+    of <b>sprintf()</b>-like escapes. If no option
+    <span class="Li">&quot;-p&quot;</span> is given, message in default format
+    will be emitted. The value of option <span class="Li">&quot;-e&quot;</span>
+    is the encoding used for the output; if the value is a number,
+    system-specific encoding is guessed (and used for the output if the bit 0x1
+    is set); if the bit 0x2 is set, then command line options are assumed to be
+    in the guessed encoding; if the bit 0x4 is set, then command line arguments
+    are assumed to be in the guessed encoding. If the bit 0x8 is set, the
+    encoding/decoding configuration of file input/output of
+    <span class="Li">&quot;MP3::Tag&quot;</span> is redone with the the detected
+    encoding. Use the value <span class="Li">&quot;binary&quot;</span> to do
+    binary output.</p>
+<p class="Pp">In presence of <span class="Li">&quot;-U&quot;</span> option the
+    default for <span class="Li">&quot;-e&quot;</span> is
+    <span class="Li">15</span>, and the decoding/encoding processing happens as
+    if LANG is set for <span class="Li">&quot;UTF-8&quot;</span> encoding. (For
+    example, for <span class="Li">&quot;-Ue 1&quot;</span> the
+    <span class="Li">&quot;STDOUT&quot;</span> the output message of this script
+    happens in UTF-8 mode, which makes it easier to detect decoding/encoding
+    errors in tags.)</p>
+<p class="Pp">With option <span class="Li">&quot;-D&quot;</span> (dry run) no
+    update is performed, no matter what the other options are. With this option,
+    no parsing of tags is performed unless needed.</p>
+<p class="Pp">Use options</p>
+<p class="Pp"></p>
+<pre>  t a l y g c n
+</pre>
+<p class="Pp">to overwrite the information (title artist album year genre
+    comment track-number) obtained via
+    <span class="Li">&quot;MP3::Tag&quot;</span> heuristics
+    (<span class="Li">&quot;-u&quot;</span> switch is implied if any one of
+    these arguments differs from what would be found otherwise; use
+    <span class="Li">&quot;-D&quot;</span> switch to disable auto-update). By
+    default, the values of these options are not
+    <span class="Li">&quot;%&quot;</span>-interpolated; this may be changed by
+    <span class="Li">&quot;-E&quot;</span> option.</p>
+<p class="Pp">The option <span class="Li">&quot;-d&quot;</span> should contain
+    the comma-separated list of ID3v2 frames to delete. A frame specification is
+    the same as what might be given to
+    <span class="Li">&quot;%{...}&quot;</span> frame interpolation command,
+    e.g., <span class="Li">&quot;TIT3&quot;</span>,
+    <span class="Li">&quot;COMM03&quot;</span>,
+    <span class="Li">&quot;COMM(fra)[short title]&quot;</span>; the difference
+    with modify-access is that <b>ALL</b> (and not the <b>first</b> of) matching
+    frames are deleted. (Option -d may be repeated.)</p>
+<p class="Pp">For example, <span class="Li">&quot;-d APIC&quot;</span> would
+    remove all picture frames. In addition, if the list contains
+    <span class="Li">&quot;ID3v1&quot;</span> or
+    <span class="Li">&quot;ID3v2&quot;</span>, whole tags will be deleted.</p>
+<p class="Pp">Likewise, the option <span class="Li">&quot;-F&quot;</span> allows
+    setting of arbitrary <span class="Li">&quot;ID3v2&quot;</span> frames: if
+    one needs to set one frame, use the directive
+    <span class="Li">&quot;FRAME_spec=VALUE&quot;</span>:</p>
+<p class="Pp"></p>
+<pre>  -F TIT2=The_new_Title
+</pre>
+<p class="Pp">Again, on modify, <b>ALL</b> matching frames are deleted first, so
+    be carefull with</p>
+<p class="Pp"></p>
+<pre>  -F COMM=MyComment
+</pre>
+<p class="Pp">Option <span class="Li">&quot;-F&quot;</span> may be repeated to
+    set more than one frame. If configuration variable
+    <span class="Li">&quot;empty-F-deletes&quot;</span> is TRUE (default), empty
+    arguments will delete the frame.</p>
+<p class="Pp">One can replace
+    <span class="Li">&quot;FRAME_spec=VALUE&quot;</span> by
+    <span class="Li">&quot;FRAME_spec &lt; FILE&quot;</span>; in this case the
+    value to set is read from the file named <i>FILE</i>; if the frame is
+    text-only (meaning: at most <span class="Li">&quot;[encoded]Text URL
+    Language</span> <span class="Li">Description&quot;</span> fields are
+    present), the file is read in text mode (and with starting/trailing
+    whitespace stripped), otherwise it is read in binary mode. (Whitespace is
+    required about the <span class="Li">&quot;&lt;&quot;</span> signs.) If
+    <span class="Li">&quot;&lt;&quot;</span> is replaced by
+    <span class="Li">&quot;?&lt;&quot;</span>, the value is set only if frame is
+    not yet present, and if the file exists; if replaced by
+    <span class="Li">&quot;&gt;&quot;</span>, the value (if present) is written
+    to <i>FILE</i> (creation of intermediate directories is controlled by
+    configuration option
+    <span class="Li">&quot;frames_write_creates_dirs&quot;</span>, the default
+    is FALSE).</p>
+<p class="Pp">Additionally, <span class="Li">&quot;FRAME_spec&quot;</span> may
+    be one of <span class="Li">&quot;ID3v1&quot;</span> or
+    <span class="Li">&quot;ID3v2&quot;</span> or
+    <span class="Li">&quot;TAGS&quot;</span>; in this case, whole tags are
+    written or read. For example, for <span class="Li">&quot;TAGS &lt;</span>
+    <span class="Li">FILE&quot;</span>, <span class="Li">&quot;title artist
+    album year genre comment track&quot;</span> info is calculated from
+    <i>FILE</i>, which may be raw tags, as produced with
+    <span class="Li">&quot;&gt;&quot;</span>, or a valid MP3 file; if
+    Image::ExifTool is present, the data may be read from arbitrary multimedia
+    file. (Likewise, for <span class="Li">&quot;ID3v1 &lt; FILE&quot;</span>,
+    the same info is extracted from <span class="Li">&quot;ID3v1&quot;</span>
+    tag only.) After this, in case of <span class="Li">&quot;ID3v2&quot;</span>
+    or <span class="Li">&quot;TAGS&quot;</span>,
+    <span class="Li">&quot;ID3v2&quot;</span> frames are copied from the
+    <span class="Li">&quot;ID3v2&quot;</span> tag one-by-one. (With suitable
+    modifications for <span class="Li">&quot;?&lt;&quot;</span>.)</p>
+<p class="Pp">By default, the &quot;VALUE&quot; for
+    <span class="Li">&quot;-F&quot;</span> is
+    <span class="Li">&quot;%&quot;</span>-interpolated; this can be changed by
+    option <span class="Li">&quot;-E&quot;</span>. For user convenience,
+    human-friendlier forms <span class="Li">&quot;composer, text_by, orchestra,
+    conductor, track, disk_n&quot;</span> can be used instead of
+    <span class="Li">&quot;TCOM, TEXT, TPE2, TPE3, TRCK, TPOS&quot;</span>.</p>
+<p class="Pp">The option <span class="Li">&quot;-P RECIPE&quot;</span> is a very
+    powerful generalization of what can be done by options
+    <span class="Li">&quot;-F&quot;</span>,
+    <span class="Li">&quot;-d&quot;</span>, and <span class="Li">&quot;-t -a -l
+    -y -g -c -n&quot;</span>. It may be repeated; the values should contain the
+    parse recipes. They become the configuration item
+    <span class="Li">&quot;parse_data&quot;</span> of
+    <span class="Li">&quot;MP3::Tag&quot;</span>; eventually this information is
+    processed by MP3::Tag::ParseData module (if the latter is present in the
+    chain of heuristics; see option <span class="Li">&quot;-C&quot;</span>). The
+    <span class="Li">&quot;RECIPE&quot;</span> is split into
+    <span class="Li">&quot;$flags, $string, @patterns&quot;</span> on its first
+    non-alphanumeric character; the first of <span class="Li">@patterns</span>
+    which matches <span class="Li">$string</span> is going to be executed (for
+    side effects). (See examples: &quot;EXAMPLES: parse rules&quot;.)</p>
+<p class="Pp">If option <span class="Li">&quot;-G&quot;</span> is specified, the
+    file names on the command line are considered as glob patterns. This may be
+    useful if the maximal command-line length is too low. With the option
+    <span class="Li">&quot;-R&quot;</span> arguments can be directories, which
+    are searched recursively for audio (default <i>*.mp3</i>) files to process;
+    use option <span class="Li">&quot;-r&quot;</span> to reset the regular
+    expression to look for (the default is
+    <span class="Li">&quot;(?i:\.mp3$)&quot;</span>).</p>
+<p class="Pp">The option <span class="Li">&quot;-E&quot;</span> controls
+    expansion of escape characters. It should contain the letters of the
+    command-line options where <span class="Li">&quot;\\, \n, \t&quot;</span>
+    are interpolated; one can append the letters of <span class="Li">&quot;t a l
+    y g c n F&quot;</span> options requiring
+    <span class="Li">&quot;%&quot;</span>-interpolation after the separator
+    <span class="Li">&quot;/i:&quot;</span> (for
+    <span class="Li">&quot;-F&quot;</span>, only the values are interpolated).
+    The default value is <span class="Li">&quot;p/i:Fp&quot;</span>: only
+    <span class="Li">&quot;-p&quot;</span> is
+    <span class="Li">&quot;\&quot;</span>-interpolated, and only
+    <span class="Li">&quot;-F&quot;</span> and
+    <span class="Li">&quot;-p&quot;</span> are subject to
+    <span class="Li">&quot;%&quot;</span>-interpolation. If all one wants is to
+    <i>add</i> to the defaults, preceed the value of
+    <span class="Li">&quot;-E&quot;</span> (containing added options) by
+    <span class="Li">&quot;+&quot;</span>. (Some parts of the value of option
+    <span class="Li">&quot;-P&quot;</span> are interpolated, but this should be
+    governed by flags, not <span class="Li">&quot;-E&quot;</span>; do <i>NOT</i>
+    put <span class="Li">&quot;P&quot;</span> into the
+    <span class="Li">&quot;%&quot;</span>-interpolated part of
+    <span class="Li">&quot;-E&quot;</span>.)</p>
+<p class="Pp">If the option <span class="Li">&quot;-@&quot;</span> is given, all
+    characters <span class="Li">&quot;@&quot;</span> in the options are replaced
+    by <span class="Li">&quot;%&quot;</span>. This may be convenient if the
+    shell treats <span class="Li">&quot;%&quot;</span> specially (e.g., DOSISH
+    shells).</p>
+<p class="Pp">If option <span class="Li">&quot;-I&quot;</span> is given, no
+    guessworking for <i>artist</i> field is performed on typeout.</p>
+<p class="Pp">The option <span class="Li">&quot;-C
+    CONFIG_OPT=VALUE1,VALUE2...&quot;</span> sets
+    <span class="Li">&quot;MP3::Tag&quot;</span> configuration data the same way
+    as <span class="Li">&quot;MP3::Tag-&quot;</span><b>config()</b>&gt; would do
+    (recall that the value is an array; separate elements by commas if more than
+    one). The option may be repeated to set more than one value. Note that since
+    <span class="Li">&quot;ParseData&quot;</span> is used to process
+    <span class="Li">&quot;-P&quot;</span> parse recipes, it should be better be
+    kept in the <span class="Li">&quot;autoinfo&quot;</span> configuration (and
+    related fields <span class="Li">&quot;author&quot;</span> etc) in presence
+    of <span class="Li">&quot;-P&quot;</span>.</p>
+<p class="Pp">If the option <span class="Li">&quot;-x&quot;</span> is given, the
+    technical information about the audio file is printed (MP3 level, duration,
+    number of frames, padding, copyright, and the list of ID3v2 frame names in
+    format suitable to <span class="Li">&quot;%{...}&quot;</span> escapes). If
+    <span class="Li">&quot;-x&quot;</span> is repeated, content of frames is
+    also printed out (may output non-printable chars, if it is repeated more
+    than twice).</p>
+<p class="Pp">If option <span class="Li">&quot;-N&quot;</span> is given, all the
+    &quot;smarts&quot; are disabled - no normalization of fields happens, and
+    (by default) no attempt to deduce the values of fields from non-ID3
+    information is done. This option is (currently) equivalent to having
+    <span class="Li">&quot;-C autoinfo=ParseData,ID3v2,ID3v1&quot;</span> as the
+    first directive, to having no <i>Normalize::Text::Music_Fields.pm</i>
+    present on <span class="Li">@INC</span> path, and not calling
+    <b>autofill()</b> method.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Normalization_of_fields"><a class="permalink" href="#Normalization_of_fields">Normalization
+  of fields</a></h1>
+<p class="Pp">(The loading of normalization module and all subsequent operations
+    may be disabled by the option <span class="Li">&quot;-N&quot;</span>, or by
+    setting the environment variable
+    <span class="Li">&quot;MP3TAG_NORMALIZE_FIELDS&quot;</span> to be FALSE. If
+    not prohibited, the module is attempted to be loaded if directory
+    <i>~/.music_fields</i> is present, or
+    <span class="Li">&quot;MP3TAG_NORMALIZE_FIELDS&quot;</span> is set and
+    TRUE.)</p>
+<p class="Pp">If loading of the module
+    <span class="Li">&quot;Normalize::Text::Music_Fields&quot;</span> is
+    successful, the following is applicable:</p>
+<p class="Pp">If the value of
+    <span class="Li">&quot;MP3TAG_NORMALIZE_FIELDS&quot;</span> is defined and
+    not 1, this value is broken into directories as a PATH, and load path of
+    <span class="Li">&quot;Normalize::Text::Music_Fields&quot;</span> is set to
+    be this list of directories. Then MP3::Tag is instructed (via corresponding
+    configuration settings) to use
+    <span class="Li">&quot;normalize_artist&quot;</span> (etc.) methods defined
+    by this module. These methods may normalize certain tag data. The current
+    version defines methods for &quot;normalization&quot; of personal names, and
+    titles (based on the composer). This normalization is driven through
+    user-editable configuration tables.</p>
+<p class="Pp">In addition to automatical normalization of MP3 tag data, one can
+    use &quot;fake MP3 files&quot; to manually access some features of this
+    module. For this, use an empty file name, and
+    <span class="Li">&quot;-D&quot;</span> option. E.g,</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -D -a beethoven                       -p &quot;%a\n&quot;         &quot;&quot;
+  mp3info2 -D -a beethoven                       -p &quot;%{shP[%a]}\n&quot; &quot;&quot;
+  mp3info2 -D -a beethoven -t &quot;sonata #28&quot;       -p &quot;%t\n&quot;         &quot;&quot;
+  mp3info2 -D -a beethoven -t &quot;allegretto, Bes&quot; -@p &quot;@t\n&quot;         &quot;&quot;
+  mp3info2 -D -a beethoven -t &quot;op93&quot;            -@p &quot;@t\n&quot;         &quot;&quot;
+</pre>
+<p class="Pp">will print the normalized person-name for
+    <span class="Li">&quot;beethoven&quot;</span>, the corresponding normalized
+    short person-name, and the normalized title for
+    <span class="Li">&quot;sonata #28&quot;</span> of composer
+    <span class="Li">&quot;beethoven&quot;</span>. E.g., with the shipped
+    normalization tables, it will print</p>
+<p class="Pp"></p>
+<pre>  Ludwig van Beethoven (1770-1827)
+  L. van Beethoven
+  Piano Sonata No. 28 in A major; Op. 101 (1816)
+  Allegretto for Piano Trio in B flat major; WoO 39 (1812)
+  Symphony No. 8 in F major; Op. 93 (comp. 1812, f.p. Vienna, 1814-02-27, cond. Beethoven; pubd. 1816)
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="The_order_of_operation"><a class="permalink" href="#The_order_of_operation">The
+  order of operation</a></h1>
+<p class="Pp">Currently, the operations are done in the following order</p>
+<ul class="Bl-bullet">
+  <li>Deletion of ID3v1 or ID3v2 as a whole via
+      <span class="Li">&quot;-d&quot;</span> option;</li>
+  <li>Recipies of <span class="Li">&quot;-P&quot;</span> option are set up (to
+      be triggered by interpolation);</li>
+  <li>The setting done via
+      <span class="Li">&quot;-a/-t/-l/-y/-g/-c/-n&quot;</span> options;</li>
+  <li>The settings done via <span class="Li">&quot;-F&quot;</span> option;</li>
+  <li>Deletion of individual frames via <span class="Li">&quot;-d&quot;</span>
+      option;</li>
+  <li>autofill of ID3v2 (id) frames;</li>
+  <li>Emit info based on <span class="Li">&quot;-p&quot;</span> and
+      <span class="Li">&quot;-x&quot;</span> options;</li>
+  <li>Trigger recipies of <span class="Li">&quot;-P&quot;</span> (if not
+      triggered by interpolation);</li>
+  <li>Update tags if needed.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Usage_strategy:_escalation_of_complexity"><a class="permalink" href="#Usage_strategy:_escalation_of_complexity">Usage
+  strategy: escalation of complexity</a></h1>
+<p class="Pp">The purpose of this script is to to make handling of ID3 tags as
+    simple <i>as possible</i>.</p>
+<p class="Pp">On one end of the scale, one can perform arbitrarily complex
+    manipulations with tags using <span class="Li">&quot;MP3::Tag&quot;</span>
+    Perl module.</p>
+<p class="Pp">On the other end, it is much more convenient to handle simplest
+    manipulations with tags using this script's options
+    <span class="Li">&quot;-t -a -l -y -g -c -n&quot;</span> and
+    <span class="Li">&quot;-p</span> <span class="Li">-F -d&quot;</span>. For
+    slightly more complicated tasks, one may need to use the more elaborate
+    method of <i>parse rules</i>, provided to this script by the option
+    <span class="Li">&quot;-P&quot;</span>; the rules depend heavily on
+    <i>interpolation</i>, see &quot;interpolate&quot; in MP3::Tag,
+    &quot;interpolate_with_flags&quot; in MP3::Tag.</p>
+<p class="Pp">To simplify upgrade from &quot;simplest manipulations&quot; to
+    &quot;more elaborate ones&quot;, here we provide &quot;parse rule&quot;
+    <i>synonyms</i> to the simplest options. So if you start with
+    <span class="Li">&quot;-t -a -l -y -g -c -n&quot;</span> and
+    <span class="Li">&quot;-p -F -d&quot;</span> options which &quot;almost
+    work&quot; for you, you have a good chance to be able to fully achieve your
+    aim by modifying the synonyms described below.</p>
+<p class="Pp">(Below we assume that <span class="Li">&quot;-E&quot;</span>
+    option is set to its default value, so <span class="Li">&quot;-F
+    -p&quot;</span> are <span class="Li">&quot;%&quot;</span>-interpolated,
+    other options are not. Note also that if your TTY's encoding is recognized
+    by Perl, it is highly recommended to set <span class="Li">&quot;-e
+    3&quot;</span> option; on DOSISH shells, better use
+    <span class="Li">&quot;-@&quot;</span>, and replace
+    <span class="Li">&quot;%&quot;</span>'s by
+    <span class="Li">&quot;@&quot;</span>'s below.)</p>
+<dl class="Bl-tag">
+  <dt>&quot;-t VALUE&quot;</dt>
+  <dd>
+    <pre>  -P &quot;mz/VALUE/%t&quot;
+    </pre>
+  </dd>
+  <dt>&quot;-a -l -y -g -c -n&quot;</dt>
+  <dd>Likewise.</dd>
+  <dt>&quot;-F&quot; &quot;TIT2=VALUE&quot;</dt>
+  <dd>
+    <pre>  -P &quot;mzi/VALUE/%{TIT2}&quot;
+    </pre>
+  </dd>
+  <dt>&quot;-F&quot; &quot;APIC[myDescr] &lt; FILE&quot;</dt>
+  <dd>
+    <pre>  -F &quot;APIC[myDescr]=%{I(fimbB)FILE}&quot;
+    </pre>
+    <p class="Pp">or</p>
+    <p class="Pp"></p>
+    <pre>  -P &quot;mzi/%{I(fimbB)FILE}/%{APIC[myDescr]}&quot;
+    </pre>
+    <p class="Pp">(remove <span class="Li">&quot;bB&quot;</span> for text-only
+        frames).</p>
+  </dd>
+  <dt>&quot;-F&quot; &quot;APIC[myDescr] &gt; FILE&quot;</dt>
+  <dd>
+    <pre>  -P &quot;bOi,%{APIC[myDescr]},FILE&quot;
+    </pre>
+    <p class="Pp">(remove <span class="Li">&quot;b&quot;</span> for text-only
+        frames); or use <span class="Li">&quot;-e binary -p</span>
+        <span class="Li">&quot;%{APIC[myDescr]}&quot;&quot;</span> with
+        redirection, see &quot;EXAMPLES: parse rules&quot;.</p>
+  </dd>
+  <dt>&quot;-d&quot; TIT2</dt>
+  <dd>
+    <pre>  -P &quot;m//%{TIT2}&quot;
+    </pre>
+  </dd>
+  <dt>&quot;-F&quot; &quot;TIT2 ?&lt; FILE&quot;</dt>
+  <dd>Very tricky. This won't set distinguish empty file and non-existing one:
+    <p class="Pp"></p>
+    <pre>  -P &quot;mzi/%{TIT2:1}0%{I(fFim)FILE}/10/10%{TIT2}/0%{U1}&quot;
+    </pre>
+    <p class="Pp">(add <span class="Li">&quot;bB&quot;</span> to
+        <span class="Li">&quot;fFim&quot;</span> for non-text-only frames); the
+        last part may be omitted if one omits the flag
+        <span class="Li">&quot;m&quot;</span> - it is present to catch misprints
+        only.</p>
+  </dd>
+</dl>
+<p class="Pp">For details on &quot;parse rules&quot;, see &quot;EXAMPLES: parse
+    rules&quot; and &quot;DESCRIPTION&quot; in MP3::Tag::ParseData.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES:_parse_rules"><a class="permalink" href="#EXAMPLES:_parse_rules">EXAMPLES:
+  parse rules</a></h1>
+<p class="Pp">Only the <span class="Li">&quot;-P&quot;</span> option is
+    complicated enough to deserve comments... For full details on <i>parse
+    rules</i>, see &quot;DESCRIPTION&quot; in MP3::Tag::ParseData; for full
+    details on interpolation, see &quot;interpolate&quot; in MP3::Tag,
+    &quot;interpolate_with_flags&quot; in MP3::Tag.</p>
+<p class="Pp">For a (silly) example, one can replace <span class="Li">&quot;-a
+    Homer -t Iliad&quot;</span> by</p>
+<p class="Pp"></p>
+<pre>  -P mz=Homer=%a -P mz=Iliad=%t
+</pre>
+<p class="Pp">A less silly example is forcing a particular way of parsing a file
+    name via</p>
+<p class="Pp"></p>
+<pre>  -P &quot;im=%{d0}/%f=%a/%n %t.%e&quot;
+</pre>
+<p class="Pp">It is broken into</p>
+<p class="Pp"></p>
+<pre> flags          string          pattern1
+ &quot;im&quot;           &quot;%{d0}/%f&quot;      &quot;%a/%n %t.%e&quot;
+</pre>
+<p class="Pp">The flag letters stand for <i>interpolate</i>, <i>must_match</i>.
+    This interpolates the string <span class="Li">&quot;%{d0}/%f&quot;</span>
+    and parses the result (which is the file name with one level of the
+    directory part preserved) using the given pattern; thus the directory name
+    becomes the artist, the leading numeric part - the track number, and the
+    rest of the file name (without extension) - the title. Note that since
+    multiple patterns are allowed, one can similarly allow for multiple formats
+    of the names, e.g.</p>
+<p class="Pp"></p>
+<pre>  -P &quot;im=%{d0}/%f=%a/%n %t.%e=%a/%t (%y).%e&quot;
+</pre>
+<p class="Pp">allows for the file basename to be also of the form &quot;TITLE
+    (YEAR)&quot;. An alternative way to obtain the same results is</p>
+<p class="Pp"></p>
+<pre>  -P &quot;im=%{d0}=%a&quot; -P &quot;im=%f=%n %t.%e=%t (%y).%e&quot;
+</pre>
+<p class="Pp">which corresponds to two recipies:</p>
+<p class="Pp"></p>
+<pre> flags          string          pattern1        pattern2
+ &quot;im&quot;           &quot;%{d0}&quot;         &quot;%a&quot;
+ &quot;im&quot;           &quot;%f&quot;            &quot;%n %t.%e&quot;      &quot;%t (%y).%e&quot;
+</pre>
+<p class="Pp">Of course, one could use</p>
+<p class="Pp"></p>
+<pre> &quot;im&quot;           &quot;%B&quot;            &quot;%n %t&quot;         &quot;%t (%y)&quot;
+</pre>
+<p class="Pp">as a replacement for the second one.</p>
+<p class="Pp">Note that it may be more readable to set <i>artist</i> to
+    <span class="Li">&quot;%{d0}&quot;</span> by an explicit asignment, with
+    arguments similar to</p>
+<p class="Pp"></p>
+<pre>  -E &quot;p/i:Fpa&quot; -a &quot;%{d0}&quot;
+</pre>
+<p class="Pp">(this value of <span class="Li">&quot;-E&quot;</span> requests
+    <span class="Li">&quot;%&quot;</span>-interpolation of the option
+    <span class="Li">&quot;-a&quot;</span> in addition to the default
+    <span class="Li">&quot;\&quot;</span>-interpolation of
+    <span class="Li">&quot;-p&quot;</span>, and
+    <span class="Li">&quot;%&quot;</span>-interpolation of
+    <span class="Li">&quot;-F&quot;</span> and
+    <span class="Li">&quot;-p&quot;</span>; one can shortcut it with
+    <span class="Li">&quot;-E +/i:a&quot;</span>).</p>
+<p class="Pp">To give more examples,</p>
+<p class="Pp"></p>
+<pre>  -P &quot;if=%D/.comment=%c&quot;
+</pre>
+<p class="Pp">will read comment from the file <i>.comment</i> in the directory
+    of the audio file;</p>
+<p class="Pp"></p>
+<pre>  -P &quot;ifn=%D/.comment=%c&quot;
+</pre>
+<p class="Pp">has similar effect if the file <i>.comment</i> has one-line
+    comments, one per track (this assumes the the track number can be found by
+    other means).</p>
+<p class="Pp">Suppose that a file <i>Parts</i> in a directory of MP3 files has
+    the following format: it has a preamble, then has a short paragraph of
+    information per audio file, preceded by the track number and dot:</p>
+<p class="Pp"></p>
+<pre>   ...
+   12. Rezitativ.
+   (Pizarro, Rocco)
+   13. Duett: jetzt, Alter, jetzt hat es Eile, (Pizarro, Rocco)
+   ...
+</pre>
+<p class="Pp">The following command puts this info into the title of the ID3 tag
+    (provided the audio file names are informative enough so that MP3::Tag can
+    deduce the track number):</p>
+<p class="Pp"></p>
+<pre> mp3info2 -u -C parse_split='\n(?=\d+\.)' -P 'fl;Parts;%=n. %t'
+</pre>
+<p class="Pp">If this paragraph of information has the form
+    <span class="Li">&quot;TITLE (COMMENT)&quot;</span> with the
+    <span class="Li">&quot;COMMENT&quot;</span> part being optional, then
+  use</p>
+<p class="Pp"></p>
+<pre> mp3info2 -u -C parse_split='\n(?=\d+\.)' -P 'fl;Parts;%=n. %t (%c);%=n. %t'
+</pre>
+<p class="Pp">If you want to remove a dot or a comma got into the end of the
+    title, use</p>
+<p class="Pp"></p>
+<pre> mp3info2 -u -C parse_split='\n(?=\d+\.)' \
+   -P 'fl;Parts;%=n. %t (%c);%=n. %t' -P 'iR;%t;%t[.,]$'
+</pre>
+<p class="Pp">The second pattern of this invocation is converted to</p>
+<p class="Pp"></p>
+<pre>  ['iR', '%t' =&gt; '%t[.,]$']
+</pre>
+<p class="Pp">which essentially applies the substitution
+    <span class="Li">&quot;s/(.*)[.,]$/$1/s&quot;</span> to the title.</p>
+<p class="Pp">Now suppose that in addition to <i>Parts</i>, we have a text file
+    <i>Comment</i> with additional info; we want to put this info into the
+    comment field <i>after</i> what is extracted from
+    <span class="Li">&quot;TITLE (COMMENT)&quot;</span>; separate these two
+    parts of the comment by an empty line:</p>
+<p class="Pp"></p>
+<pre> mp3info2 -E C -C 'parse_split=\n(?=\d+\.)' -C 'parse_join=\n\n' \
+  -P 'f;Comment;%c'           -P 'fl;Parts;%=n. %t'              \
+  -P 'i;%t///%c;%t (%c)///%c' -P 'iR;%t;%t[.,]$'
+</pre>
+<p class="Pp">This assumes that the title and the comment do not contain
+    <span class="Li">'///'</span> as a substring. Explanation: the first pattern
+    of <span class="Li">&quot;-P&quot;</span>,</p>
+<p class="Pp"></p>
+<pre>  ['f', 'Comment' =&gt; '%c'],
+</pre>
+<p class="Pp">reads comment from the file
+    <span class="Li">&quot;Comment&quot;</span> into the comment field; the
+    second,</p>
+<p class="Pp"></p>
+<pre>  ['fl', 'Parts'  =&gt; '%=n. %t'],
+</pre>
+<p class="Pp">reads a chunk of <span class="Li">&quot;Parts&quot;</span> into
+    the title field. The third one</p>
+<p class="Pp"></p>
+<pre>  ['i', '%t///%c' =&gt; '%t (%c)///%c']
+</pre>
+<p class="Pp">rearranges the title and comment <i>provided</i> the title is of
+    the form <span class="Li">&quot;TITLE</span>
+    <span class="Li">(COMMENT)&quot;</span>. (The configuration option
+    <span class="Li">&quot;parse_join&quot;</span> takes care of separating two
+    chunks of comment corresponding to two occurences of
+    <span class="Li">%c</span> on the right hand side.)</p>
+<p class="Pp">Finally, the fourth pattern is the same as in the preceding
+    example; it removes spurious punctuation at the end of the title.</p>
+<p class="Pp">More examples: removing string &quot;with violin&quot; from the
+    start of the comment field (removing comment altogether if nothing
+  remains):</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -u -P 'iz;%c;with violin%c' *.mp3
+</pre>
+<p class="Pp">setting the artist field without letting auto-update feature
+    deduce other fields from other sources;</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -C autoinfo=ParseData -a &quot;A. U. Thor&quot; *.mp3
+</pre>
+<p class="Pp">setting a comment field unless it it already present:</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -u -P 'i;%c///with piano;///%c' *.mp3
+</pre>
+<p class="Pp">The last example shows how to actually write &quot;programs&quot;
+    in the language of the <span class="Li">&quot;-P&quot;</span> option: the
+    example gives a conditional assignment. With user variables (as in
+    <span class="Li">&quot;%{U8}&quot;</span>) for temporaries, and a
+    possibility to use regular expressions, one could provide arbitrary
+    programmatic logic. Of course, at some level of complexity one should better
+    switch to direct interfacing with
+    <span class="Li">&quot;MP3::Tag&quot;</span> Perl module (use the code of
+    this Perl script as an example!).</p>
+<p class="Pp">Here is a typical task setting &quot;advanced&quot; id3v2 frames:
+    composer (<span class="Li">&quot;TCOM&quot;</span>), orchestra
+    (<span class="Li">&quot;TPE2&quot;</span>), conductor
+    (<span class="Li">&quot;TPE3&quot;</span>). We assume a directory tree which
+    contains MP3 files tagged with the following conventions:
+    <span class="Li">&quot;artist&quot;</span> is actually a composer;
+    <span class="Li">&quot;comment&quot;</span> is of one of two forms:</p>
+<p class="Pp"></p>
+<pre>  Performers; Orchestra; Conductor
+  Orchestra; Conductor
+</pre>
+<p class="Pp">To set the specific MP3 frames via
+    <span class="Li">&quot;-P&quot;</span> rules, use</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -@P &quot;mi/@a/@{TCOM}&quot; \
+    -P &quot;mi/@c/@{U1}; @{TPE2}; @{TPE3}/@{TPE2}; @{TPE3}&quot; -R .
+</pre>
+<p class="Pp">With <span class="Li">&quot;-F&quot;</span> options, this can be
+    simplified as</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -@F &quot;TCOM=@a&quot; -P &quot;mi/@c/@{U1}; @{TPE2}; @{TPE3}/@{TPE2}; @{TPE3}&quot; -R .
+</pre>
+<p class="Pp">or</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -@F &quot;composer=@a&quot; -P &quot;mi/@c/@{U1}; @{TPE2}; @{TPE3}/@{TPE2}; @{TPE3}&quot; -R .
+</pre>
+<p class="Pp">To copy ID3 tags of MP3 files in the current directory to files in
+    directory <i>/tmp/mp3</i> with the extension <i>.tag</i> (and print
+    &quot;progress report&quot;), use</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -p &quot;@N@E\n&quot; -@P &quot;bODi,@{ID3v2}@{ID3v1},/tmp/mp3/@N.tag&quot; -DNR .
+</pre>
+<p class="Pp">Since we did not use <span class="Li">&quot;z&quot;</span> flag,
+    MP3 files without tags are skipped.</p>
+<p class="Pp">Now suppose that there are two parallel file hierarchies of audio
+    files, and of lyrics: audio files are in
+    <i>audio/dir_name/audio_name.mp3</i> with corresponding lyrics file in
+    <i>text/dir_name/audio_name.mp3</i>. To attach lyrics to MP3 files (in
+    <span class="Li">&quot;COMM&quot;</span> frame with description
+    <span class="Li">&quot;lyrics&quot;</span> in language
+    <span class="Li">&quot;eng&quot;</span> - <i>this is a non-standard
+    location, see below!</i>), call</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -@P &quot;fim;../text/@{d0}/@B.txt;@{COMM(eng)[lyrics]}&quot; -Ru .
+</pre>
+<p class="Pp">inside the directory <i>audio</i>. (Change
+    <span class="Li">&quot;fim&quot;</span> to
+    <span class="Li">&quot;Ffim&quot;</span> to ignore the audio files for which
+    the corresponding text file does not exist.) (Of course, to follow the
+    specifications, one should have used the field
+    <span class="Li">&quot;%{USLT(eng)[]}&quot;</span> instead of
+    <span class="Li">&quot;%{COMM(eng)[lyrics]}&quot;</span>; see below for
+    variations).</p>
+<p class="Pp">Finish by a very simple example: all what the pattern</p>
+<p class="Pp"></p>
+<pre>  -P 'i;%t;%t'
+</pre>
+<p class="Pp">does is removal of trailing and leading blanks from the title
+    (which is deduced by other means).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="More_examples"><a class="permalink" href="#More_examples">More
+  examples</a></h1>
+<p class="Pp">With <span class="Li">&quot;-F&quot;</span> option, one could set
+    the <span class="Li">&quot;USLT&quot;</span> frame as</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -@F &quot;USLT(eng)[] &lt; ../text/@{d0}/@B.txt&quot; -Ru .
+</pre>
+<p class="Pp">Print out such a frame (in any language) with</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -@p &quot;@{USLT[]}\n&quot; file.mp3
+</pre>
+<p class="Pp">Similarly, to print out the APIC frame with empty description,
+  use</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -e binary -@p &quot;@{APIC[]}&quot; file.mp3 &gt; output_picture_file
+</pre>
+<p class="Pp">or (with description &quot;cover&quot;)</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -@P &quot;bOi,@{APIC[cover]},output_picture_file.jpg&quot; audio_07.mp3
+</pre>
+<p class="Pp">To set such a frame from file <i>xxx.gif</i> (with the default
+    <span class="Li">&quot;Picture Type&quot;</span>,
+    <span class="Li">&quot;Cover (front)&quot;</span>, and empty description),
+    do one of</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -F  &quot;APIC  &lt;          xxx.gif&quot;  file.mp3
+  mp3info2 -@F &quot;APIC[]=@{I(fimbB)xxx.gif}&quot; file.mp3
+</pre>
+<p class="Pp">The difference of <span class="Li">&quot;APIC&quot;</span> and
+    <span class="Li">&quot;APIC[]&quot;</span> is that the first removes all
+    <span class="Li">&quot;APIC&quot;</span> frames first, and the second
+    removes only all <span class="Li">&quot;APIC&quot;</span> frames with empty
+    description - but arbitrary image type. So it may be more suitable to use
+    the full specification, as in <span class="Li">&quot;APIC(Cover
+    (front))[]&quot;</span>.</p>
+<p class="Pp">To remove <span class="Li">&quot;APIC&quot;</span> frames with
+    empty descriptions, arbitrary <span class="Li">&quot;Picture
+    Type&quot;</span>s (and <span class="Li">&quot;MIME type&quot;</span>s which
+    may be correctly calculated by <i>mp3info2</i>, e.g.,
+    <span class="Li">&quot;TIFF/JPEG/GIF/PNG&quot;</span>), use</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -d &quot;APIC[]&quot; file.mp3
+</pre>
+<p class="Pp">(note that this wouldn't free disk space, unless
+    &quot;shrink&quot; is forced by configuration variables). To do the same
+    with the &quot;Conductor&quot; picture type only, do</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -d &quot;APIC(Conductor)[]&quot; file.mp3
+</pre>
+<p class="Pp">To scan through subdirectories, and add file <i>cover.jpg</i> from
+    the directory of the file as a &quot;default&quot;
+    <span class="Li">&quot;APIC&quot;</span> frame, but only if there is no
+    <span class="Li">&quot;APIC&quot;</span> frame, and a file exists, do</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -@F &quot;APIC ?&lt; @D/cover.jpg&quot; -R .
+</pre>
+<p class="Pp">This deletes empty frames for date, <span class="Li">&quot;TCOP,
+    TENC, WXXX[], COMM(eng)[]&quot;</span>, and removes the leading 0 from track
+    number from MP3 file in current directory:</p>
+<p class="Pp"></p>
+<pre>  mp3info2 -@ -E +/i:y -F &quot;TCOP=@{TCOP}&quot; -F &quot;TENC=@{TENC}&quot;
+    -F &quot;WXXX[]=@{WXXX[]}&quot; -F &quot;COMM(eng)[]=@{COMM(eng)[]}&quot;
+    -y &quot;@y&quot; -P &quot;mi/@n/0@n/@n&quot; *.mp3
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Examples_on_dealing_with_broken_encodings"><a class="permalink" href="#Examples_on_dealing_with_broken_encodings">Examples
+  on dealing with broken encodings</a></h1>
+<p class="Pp">One of principal weaknesses of ID3 specification was that it
+    required that data is provided in
+    <span class="Li">&quot;latin-1&quot;</span> encoding. Since most languages
+    in the world are not expressible in
+    <span class="Li">&quot;latin-1&quot;</span>, this lead to (majority?) of ID3
+    tags being not standard-conforming. Newer versions of the specs fixed this
+    shortcoming, but the damage was already done. Fortunately, this script can
+    use abilities of <span class="Li">&quot;MP3::Tag&quot;</span> to convert
+    from non-conforming content to a conforming one.</p>
+<p class="Pp">The following example converts ID3v2 tags which were written in
+    (non-standard-conforming) encoding
+    <span class="Li">&quot;cp1251&quot;</span> to be in standard-conforming
+    encoding. For the purpose of this example, assume that ID3v1 tags are in the
+    same encoding (and that one wants to leave them in the encoding
+    <span class="Li">&quot;cp1251&quot;</span>); the files to process are found
+    in the current directory and (recursively) in its subdirectories
+    (<span class="Li">&quot;set&quot;</span> syntax for DOSISH shells):</p>
+<p class="Pp"></p>
+<pre>  set MP3TAG_DECODE_V1_DEFAULT=cp1251
+  set MP3TAG_DECODE_V2_DEFAULT=cp1251
+  mp3info2 -C id3v2_fix_encoding_on_write=1 -u2R .
+</pre>
+<p class="Pp">For more information, see &quot;ENVIRONMENT&quot; in MP3::Tag,
+    &quot;config&quot; in MP3::Tag, and &quot;CUSTOMIZATION&quot; in
+  MP3::Tag.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INCOMPATIBILITIES_with_"><a class="permalink" href="#INCOMPATIBILITIES_with_">INCOMPATIBILITIES
+  with <i>mp3info</i></a></h1>
+<p class="Pp">This tool is loosely modeled on the program <i>mp3info</i>; it is
+    &quot;mostly&quot; backward compatible (especially when in &quot;naive&quot;
+    mode via <span class="Li">&quot;-N&quot;</span>), and allows a very
+    significant superset of functionality. Known backward incompatibilities
+  are:</p>
+<p class="Pp"></p>
+<pre>  -G -h -r -d -x
+</pre>
+<p class="Pp">Missing functionality:</p>
+<p class="Pp"></p>
+<pre>  -f -F -i
+</pre>
+<p class="Pp">Incompatible
+  <span class="Li">&quot;%&quot;</span>-<i>escapes</i>:</p>
+<p class="Pp"></p>
+<pre>  %e %E         - absolutely different semantic
+  %v            - has no trailing 0s
+  %q            - has fractional part
+  %r            - is a number, not a word &quot;Variable&quot; for VBR
+  %u            - is one less (in presence of descriptor frame only?)
+</pre>
+<p class="Pp">Missing <span class="Li">&quot;%&quot;</span>-<i>escapes</i>:</p>
+<p class="Pp"></p>
+<pre>  %b %G
+</pre>
+<p class="Pp">Backslash escapes: only <span class="Li">&quot;\\&quot;</span>,
+    <span class="Li">&quot;\n&quot;</span>,
+    <span class="Li">&quot;\t&quot;</span> supported.</p>
+<p class="Pp"><span class="Li">&quot;-x&quot;</span> prints data in a different
+    format, not all fields are present, and ID3v2 tag names are output.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<p class="Pp">With <span class="Li">&quot;-e&quot;</span> above 0, this script
+    may consult environment variables <span class="Li">&quot;LC_CTYPE, LC_ALL,
+    LANG&quot;</span> to deduce the current encoding. Moreover, we try to
+    auto-detect the <span class="Li">&quot;UTF-8&quot;</span> encoding via
+    <span class="Li">&quot;LANG&quot;</span> environment variable (disabled if
+    <span class="Li">&quot;${^UNICODE}&quot;</span> sets translation of the
+    command-line arguments). (This auto-detection may be switched off by the
+    variable
+    <span class="Li">&quot;MP3INFO_DECODE_ARGV_DEFAULT_RESET&quot;</span>.) The
+    effects of the variable
+    <span class="Li">&quot;MP3TAG_NORMALIZE_FIELDS&quot;</span> is described in
+    the section &quot;Normalization of fields&quot;. No other environment
+    variables are directly read by this script.</p>
+<p class="Pp">Note however, that MP3::Tag module has a rich set of defaults for
+    encoding settings settable by environment variables; see
+    &quot;ENVIRONMENT&quot; in MP3::Tag. So these variables affect (indirectly)
+    how this script works. In particular, starting with v1.14, there is an
+    autodetection of encoding of setup files (which this script uses for the
+    <span class="Li">&quot;-P&quot;</span> option). (However, this autodetection
+    may be switched off.)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OBSOLETE_INTERFACE"><a class="permalink" href="#OBSOLETE_INTERFACE">OBSOLETE
+  INTERFACE</a></h1>
+<p class="Pp">If you do not understand what it is about, it is safe to ignore
+    this announcement:</p>
+<p class="Pp">The old, pre-version=<span class="Li">1.05</span> way (by
+    triplication of a separator, without repetition of options) to provide
+    multiple commands to <span class="Li">&quot;-F&quot;</span> and &lt;-P&gt;
+    options is still supported, but is strongly discouraged. (It does not
+    conflict with the current interface.)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Ilya Zakharevich &lt;cpan@ilyaz.org&gt;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="Utilities_to_create_CDDB_file"><a class="permalink" href="#Utilities_to_create_CDDB_file">Utilities
+  to create CDDB file</a></h1>
+<p class="Pp">Good CD reapers (e.g., <i>cdda2wav</i> with option
+    <span class="Li">&quot;cddb=0&quot;</span>) create a CDDB file with fetched
+    information - as far as an Internet connection is present. However, if not
+    available, other options exist.</p>
+<p class="Pp">The scripts (supplied with the distribution in <i>./examples</i>)
+    can create a &quot;stub&quot; CDDB file basing on:</p>
+<dl class="Bl-tag">
+  <dt id="fulltoc2fake_cddb.pl"><a class="permalink" href="#fulltoc2fake_cddb.pl"><i>fulltoc2fake_cddb.pl</i></a></dt>
+  <dd>a dump of a full TOC of a CD; create one, e.g., by
+    <p class="Pp"></p>
+    <pre>  readcd -fulltoc dev=0,1,0 -f=audiocd
+    </pre>
+  </dd>
+  <dt id="inf2fake_cddb.pl"><a class="permalink" href="#inf2fake_cddb.pl"><i>inf2fake_cddb.pl</i></a></dt>
+  <dd>directory of <i>*.inf</i> files (e.g., created by <i>cdda2wav</i> without
+      Internet connection);</dd>
+  <dt id="dir_mp3_2fake_cddb.pl"><a class="permalink" href="#dir_mp3_2fake_cddb.pl"><i>dir_mp3_2fake_cddb.pl</i></a></dt>
+  <dd>a directory of MP3 files ripped from a CD (via some guesswork).</dd>
+</dl>
+<p class="Pp">Passing this stub to the script <i>cddb2cddb.pl</i>, it can be
+    transformed to a &quot;filled&quot; CDDB file via a connection to some
+    online database. Use <span class="Li">&quot;-r&quot;</span> option if
+    multiple records in the database match the CD signature.</p>
+<p class="Pp"></p>
+<pre>  fulltoc2fake_cddb audiocd.toc | cddb2cddb     &gt; audio.cddb
+  inf_2fake_cddb                | cddb2cddb     &gt; audio.cddb
+  dir_mp3_2fake_cddb            | cddb2cddb -r3 &gt; audio.cddb # 3rd record
+</pre>
+<p class="Pp">When such a CDDB file is present, it will be used by MP3::Tag
+    module to deduce the information about an audio file. This information is
+    (by default, transparently) used by this script.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp">MP3::Tag, MP3::Tag::ParseData, audio_rename, typeset_audio_dir</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2022-12-30</td>
+    <td class="foot-os">perl v5.36.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: libmp3-tag-perl 1.16-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

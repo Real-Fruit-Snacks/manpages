@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="proxy / forward to another NBD server">
+<title>nbdkit-nbd-plugin(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">nbdkit-nbd-plugin(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#PARAMETERS">PARAMETERS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#Convert_oldstyle_server_to_encrypted_newstyle">Convert
+  oldstyle server to encrypted newstyle</a></li><li><a href="#Use_qemu-nbd_to_open_a_qcow2_file">Use
+  qemu-nbd to open a qcow2 file</a></li><li><a href="#Add_nbdkit-partition-filter_to_qemu-nbd">Add
+  nbdkit-partition-filter to qemu-nbd</a></li><li><a href="#Convert_newstyle_server_for_oldstyle-only_client">Convert
+  newstyle server for oldstyle-only client</a></li><li><a href="#DUMP_PLUGIN_OUTPUT">DUMP
+  PLUGIN OUTPUT</a></li><li><a href="#FILES">FILES</a></li><li><a href="#VERSION">VERSION</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#LICENSE">LICENSE</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">nbdkit-nbd-plugin(1)</td>
+    <td class="head-vol">NBDKIT</td>
+    <td class="head-rtitle">nbdkit-nbd-plugin(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">nbdkit-nbd-plugin - proxy / forward to another NBD server</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre> nbdkit nbd { command=COMMAND [arg=ARG [...]] |
+              hostname=HOST [port=PORT] |
+              vhost-cid=CID [port=PORT] |
+              socket=SOCKNAME |
+              socket-fd=FD |
+              [uri=]URI }
+            [dynamic-export=BOOL] [export=NAME] [retry=N] [shared=BOOL]
+            [tls=MODE] [tls-certificates=DIR] [tls-verify=BOOL]
+            [tls-username=NAME] [tls-psk=FILE]
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><span class="Li">&quot;nbdkit-nbd-plugin&quot;</span> is a plugin
+    for <a class="Xr" href="../1/nbdkit.html"><b>nbdkit</b>(1)</a> that lets you forward the connection to another NBD
+    server. There are several uses for this plugin:</p>
+<ul class="Bl-bullet">
+  <li>Adjust the set of features seen by the ultimate NBD client without having
+      to change the original server. For example, convert between the oldstyle
+      and newstyle protocols, or add TLS support if the original server lacks
+      it.</li>
+  <li>Apply nbdkit filters to any other NBD server.</li>
+  <li>With <a class="Xr" href="../8/qemu-nbd.html"><b>qemu-nbd</b>(8)</a>, read and write qcow2 files with nbdkit (see also
+      <a class="Xr" href="../1/nbdkit-qcow2dec-filter.html"><b>nbdkit-qcow2dec-filter</b>(1)</a>).</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARAMETERS"><a class="permalink" href="#PARAMETERS">PARAMETERS</a></h1>
+<p class="Pp">One of <b>socket</b>, <b>hostname</b> (optionally with
+    <b>port</b>), <b>vsock</b> (optionally with <b>port</b>), <b>uri</b>,
+    <b>socket-fd</b> or <b>command</b> must be given to specify which NBD server
+    to forward to:</p>
+<dl class="Bl-tag">
+  <dt id="command="><a class="permalink" href="#command="><b>command=</b>COMMAND</a></dt>
+  <dd></dd>
+  <dt id="arg="><a class="permalink" href="#arg="><b>arg=</b>ARG</a></dt>
+  <dd>(nbdkit &#x2265; 1.22)
+    <p class="Pp">Run an NBD server, usually <a class="Xr" href="../8/qemu-nbd.html"><b>qemu-nbd</b>(8)</a>, as an external
+        command. See &quot;EXAMPLES&quot; below.</p>
+    <p class="Pp"><span class="Li">&quot;COMMAND&quot;</span> is the program to
+        run, followed by zero or more
+        <span class="Li">&quot;arg=ARG&quot;</span> parameters for each
+        argument. For example:</p>
+    <p class="Pp"></p>
+    <pre> nbdkit nbd command=qemu-nbd arg=-f arg=qcow2 arg=$PWD/disk.qcow2
+    </pre>
+    <p class="Pp">would run the command <span class="Li">&quot;qemu-nbd -f qcow2
+        $PWD/disk.qcow2&quot;</span>. Because nbdkit may change directory before
+        running the command, you may need to ensure that all file paths used in
+        parameters (like the disk name above) are absolute paths.</p>
+    <p class="Pp">This uses the libnbd API
+        <b>nbd_connect_systemd_socket_activation</b>(3). This option implies
+        <span class="Li">&quot;shared=true&quot;</span>.</p>
+  </dd>
+  <dt id="hostname="><a class="permalink" href="#hostname="><b>hostname=</b>HOST</a></dt>
+  <dd></dd>
+  <dt id="port="><a class="permalink" href="#port="><b>port=</b>PORT</a></dt>
+  <dd>(nbdkit &#x2265; 1.14)
+    <p class="Pp">Connect to the NBD server at the remote
+        <span class="Li">&quot;HOST&quot;</span> using a TCP socket. The
+        optional port parameter overrides the default port (10809), and may be a
+        16-bit number or a non-numeric string to look up the well-known port for
+        a service name.</p>
+  </dd>
+  <dt id="vsock="><a class="permalink" href="#vsock="><b>vsock=</b>CID</a></dt>
+  <dd></dd>
+  <dt id="port=~2"><a class="permalink" href="#port=~2"><b>port=</b>PORT</a></dt>
+  <dd>(nbdkit &#x2265; 1.22)
+    <p class="Pp">Connect to the NBD server at the given vsock
+        <span class="Li">&quot;CID&quot;</span> (for example, in a guest VM,
+        using the cid 2 will connect to a server in the host). The optional port
+        parameter overrides the default port (10809), and must be a 32-bit
+        number. This only works for platforms with the
+        <span class="Li">&quot;AF_VSOCK&quot;</span> family of sockets and
+        libnbd new enough to use it; <span class="Li">&quot;nbdkit --dump-plugin
+        nbd&quot;</span> will contain
+        <span class="Li">&quot;libnbd_vsock=1&quot;</span> if this is the case.
+        For more details on AF_VSOCK, see &quot;AF_VSOCK&quot; in
+        <a class="Xr" href="../1/nbdkit-service.html"><b>nbdkit-service</b>(1)</a>.</p>
+  </dd>
+  <dt id="socket="><a class="permalink" href="#socket="><b>socket=</b>SOCKNAME</a></dt>
+  <dd>Connect to the NBD server using Unix domain socket
+      <span class="Li">&quot;SOCKNAME&quot;</span>.</dd>
+  <dt id="socket"><a class="permalink" href="#socket"><b>socket-fd=</b>FD</a></dt>
+  <dd>(nbdkit &#x2265; 1.22)
+    <p class="Pp">Connect to the NBD server over a socket file descriptor
+        inherited by nbdkit. This uses the libnbd API
+        <b>nbd_connect_socket</b>(3). This option implies
+        <span class="Li">&quot;shared=true&quot;</span>.</p>
+  </dd>
+  <dt>[<b>uri=</b>]URI</dt>
+  <dd>(nbdkit &#x2265; 1.14)
+    <p class="Pp">When <span class="Li">&quot;uri&quot;</span> is supplied,
+        decode <span class="Li">&quot;URI&quot;</span> to determine the address
+        to connect to. A URI can specify a TCP connection (such as
+        <span class="Li">&quot;nbd://localhost:10809/export&quot;</span>), a
+        Unix socket (such as
+        <span class="Li">&quot;nbd+unix:///export?socket=/path/to/sock&quot;</span>),
+        or a vsock connection (such as
+        <span class="Li">&quot;nbd+vsock:///2:10809/export&quot;</span>).
+        Remember you may need to quote the parameter to protect it from the
+        shell.</p>
+    <p class="Pp">The <span class="Li">&quot;uri&quot;</span> parameter is only
+        available when the plugin was compiled against libnbd with URI support;
+        <span class="Li">&quot;nbdkit --dump-plugin nbd&quot;</span> will
+        contain <span class="Li">&quot;libnbd_uri=1&quot;</span> if this is the
+        case.</p>
+    <p class="Pp">The export portion of the URI is ignored when using
+        <span class="Li">&quot;dynamic-export=true&quot;</span>.</p>
+    <p class="Pp"><span class="Li">&quot;uri=&quot;</span> is a magic config key
+        and may be omitted in most cases. See &quot;Magic parameters&quot; in
+        <a class="Xr" href="../1/nbdkit.html"><b>nbdkit</b>(1)</a>.</p>
+  </dd>
+</dl>
+<p class="Pp">Other parameters control the NBD connection:</p>
+<dl class="Bl-tag">
+  <dt id="export="><a class="permalink" href="#export="><b>export=</b>NAME</a></dt>
+  <dd>If this parameter is given, and the server speaks new style protocol, then
+      connect to the named export instead of the default export (the empty
+      string). If <span class="Li">&quot;uri&quot;</span> is supplied, the
+      export name should be embedded in the URI instead. This is incompatible
+      with <span class="Li">&quot;dynamic-export=true&quot;</span>.</dd>
+  <dt id="retry="><a class="permalink" href="#retry="><b>retry=</b>N</a></dt>
+  <dd>(nbdkit &#x2265; 1.14)
+    <p class="Pp">If the initial connection attempt to the server fails, retry
+        up to <span class="Li">&quot;N&quot;</span> times more after a
+        one-second delay between tries (default 0).</p>
+  </dd>
+  <dt id="shared=false"><a class="permalink" href="#shared=false"><b>shared=false</b></a></dt>
+  <dd></dd>
+  <dt id="shared=true"><a class="permalink" href="#shared=true"><b>shared=true</b></a></dt>
+  <dd>(nbdkit &#x2265; 1.14)
+    <p class="Pp">If using <span class="Li">&quot;command&quot;</span> or
+        <span class="Li">&quot;socket-fd&quot;</span> modes then this defaults
+        to true, otherwise false.</p>
+    <p class="Pp">If false the plugin will open a new connection to the server
+        for each client making a connection to nbdkit. The remote server does
+        not have to be started until immediately before the first nbdkit client
+        connects.</p>
+    <p class="Pp">If this parameter is set to
+        <span class="Li">&quot;true&quot;</span>, the plugin will open a single
+        connection to the server when nbdkit is first started (the
+        <span class="Li">&quot;retry&quot;</span> parameter may be necessary to
+        coordinate timing of the remote server startup), and all clients to
+        nbdkit will share that single connection. This mode is incompatible with
+        <b>dynamic-export=true</b>.</p>
+  </dd>
+  <dt id="dynamic"><a class="permalink" href="#dynamic"><b>dynamic-export=false</b></a></dt>
+  <dd></dd>
+  <dt id="dynamic~2"><a class="permalink" href="#dynamic~2"><b>dynamic-export=true</b></a></dt>
+  <dd>(nbdkit &#x2265; 1.24)
+    <p class="Pp">This parameter defaults to false, in which case all clients to
+        nbdkit use the same export of the server, as set by
+        <span class="Li">&quot;export&quot;</span> or
+        <span class="Li">&quot;uri&quot;</span>, regardless of the client's
+        export name request. If it is set to true, nbdkit will pass the client's
+        requested export name over to the final NBD server, which means clients
+        requesting different export names can see different content when the
+        server differentiates content by export name. Dynamic exports prevent
+        the use of <span class="Li">&quot;shared&quot;</span> mode, and thus are
+        not usable with <span class="Li">&quot;command&quot;</span> or
+        <span class="Li">&quot;socket-fd&quot;</span>.</p>
+    <p class="Pp">If libnbd is new enough, dynamic export mode is able to
+        advertise the same exports as listed by the server;
+        <span class="Li">&quot;nbdkit --dump-plugin nbd&quot;</span> will
+        contain <span class="Li">&quot;libnbd_dynamic_list=1&quot;</span> if
+        this is the case. Regardless of what this plugin lists, it is also
+        possible to use <a class="Xr" href="../1/nbdkit-exportname-filter.html"><b>nbdkit-exportname-filter</b>(1)</a> to adjust what export
+        names the client sees or uses as a default.</p>
+  </dd>
+  <dt id="tls=off"><a class="permalink" href="#tls=off"><b>tls=off</b></a></dt>
+  <dd></dd>
+  <dt id="tls=on"><a class="permalink" href="#tls=on"><b>tls=on</b></a></dt>
+  <dd></dd>
+  <dt id="tls=require"><a class="permalink" href="#tls=require"><b>tls=require</b></a></dt>
+  <dd>(nbdkit &#x2265; 1.14)
+    <p class="Pp">Selects which TLS mode to use with the server. If no other tls
+        option is present, this defaults to
+        <span class="Li">&quot;off&quot;</span>, where the client does not
+        attempt encryption (and may be rejected by a server that requires it).
+        If omitted but another tls option is present, this defaults to
+        <span class="Li">&quot;on&quot;</span>, where the client
+        opportunistically attempts a TLS handshake, but will continue running
+        unencrypted if the server does not support encryption. If set to
+        <span class="Li">&quot;require&quot;</span> or if the
+        <span class="Li">&quot;uri&quot;</span> parameter is used with a scheme
+        that requires encryption (such as
+        <span class="Li">&quot;nbds://host&quot;</span>), then this requires an
+        encrypted connection to the server.</p>
+    <p class="Pp">The <span class="Li">&quot;tls&quot;</span> parameter is only
+        available when the plugin was compiled against libnbd with TLS support;
+        <span class="Li">&quot;nbdkit --dump-plugin nbd&quot;</span> will
+        contain <span class="Li">&quot;libnbd_tls=1&quot;</span> if this is the
+        case. Note the difference between <i>--tls=...</i> controlling what
+        nbdkit serves, and <span class="Li">&quot;tls=...&quot;</span>
+        controlling what the nbd plugin connects to as a client.</p>
+  </dd>
+  <dt id="tls"><a class="permalink" href="#tls"><b>tls-certificates=</b>DIR</a></dt>
+  <dd>(nbdkit &#x2265; 1.14)
+    <p class="Pp">This specifies the directory containing X.509 client
+        certificates to present to the server.</p>
+  </dd>
+  <dt id="tls~2"><a class="permalink" href="#tls~2"><b>tls-verify=false</b></a></dt>
+  <dd>(nbdkit &#x2265; 1.14)
+    <p class="Pp">Setting this parameter to false disables server name
+        verification, which opens you to potential Man-in-the-Middle (MITM)
+        attacks, but allows for a simpler setup for distributing
+      certificates.</p>
+  </dd>
+  <dt id="tls~3"><a class="permalink" href="#tls~3"><b>tls-username=</b>NAME</a></dt>
+  <dd>(nbdkit &#x2265; 1.14)
+    <p class="Pp">If provided, this overrides the user name to present to the
+        server alongside the certificate.</p>
+  </dd>
+  <dt id="tls~4"><a class="permalink" href="#tls~4"><b>tls-psk=</b>FILE</a></dt>
+  <dd>(nbdkit &#x2265; 1.14)
+    <p class="Pp">If provided, this is the filename containing the Pre-Shared
+        Keys (PSK) to present to the server. While this is easier to set up than
+        X.509, it requires that the PSK file be transmitted over a secure
+        channel.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Convert_oldstyle_server_to_encrypted_newstyle"><a class="permalink" href="#Convert_oldstyle_server_to_encrypted_newstyle">Convert
+  oldstyle server to encrypted newstyle</a></h2>
+<p class="Pp">Expose the contents of an export served by an old style server
+    over a Unix socket to TCP network clients that only want to consume
+    encrypted data. Use <i>--exit-with-parent</i> to clean up nbdkit at the same
+    time that the old server exits.</p>
+<p class="Pp"></p>
+<pre> ( sock=`mktemp -u`
+   nbdkit --exit-with-parent --tls=require nbd socket=$sock &amp;
+   exec /path/to/oldserver --socket=$sock )
+</pre>
+<p class="Pp"></p>
+<pre> &#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;   TLS    &#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;  plaintext  &#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+ &#x2502; new client &#x2502; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6;&#x2502; nbdkit &#x2502; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6;&#x2502; old server &#x2502;
+ &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;   TCP    &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;    Unix     &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Use_qemu-nbd_to_open_a_qcow2_file"><a class="permalink" href="#Use_qemu-nbd_to_open_a_qcow2_file">Use
+  qemu-nbd to open a qcow2 file</a></h2>
+<p class="Pp">Run qemu-nbd as the server, allowing you to read and write qcow2
+    files (since nbdkit does not have a native qcow2 plugin). This allows you to
+    use nbdkit filters on top, see the next example.</p>
+<p class="Pp"></p>
+<pre> nbdkit nbd command=qemu-nbd arg=-f arg=qcow2 arg=/path/to/image.qcow2
+</pre>
+<p class="Pp">qemu-nbd is cleaned up when nbdkit exits.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Add_nbdkit-partition-filter_to_qemu-nbd"><a class="permalink" href="#Add_nbdkit-partition-filter_to_qemu-nbd">Add
+  nbdkit-partition-filter to qemu-nbd</a></h2>
+<p class="Pp">Combine <a class="Xr" href="../1/nbdkit-partition-filter.html"><b>nbdkit-partition-filter</b>(1)</a> with
+    <a class="Xr" href="../8/qemu-nbd.html"><b>qemu-nbd</b>(8)</a>&#x2019;s ability to visit qcow2 files:</p>
+<p class="Pp"></p>
+<pre> nbdkit --filter=partition nbd \
+        command=qemu-nbd arg=-f arg=qcow2 arg=/path/to/image.qcow2 \
+        partition=1
+</pre>
+<p class="Pp">This performs the same task as the deprecated qemu-nbd <i>-P</i>
+    option:</p>
+<p class="Pp"></p>
+<pre> qemu-nbd -P 1 -f qcow2 /path/to/image.qcow2
+</pre>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Convert_newstyle_server_for_oldstyle-only_client"><a class="permalink" href="#Convert_newstyle_server_for_oldstyle-only_client">Convert
+  newstyle server for oldstyle-only client</a></h2>
+<p class="Pp">Expose the contents of export
+    <span class="Li">&quot;foo&quot;</span> from a newstyle server with
+    encrypted data to a client that can only consume unencrypted old style. Use
+    <i>--run</i> to clean up nbdkit at the time the client exits. In general,
+    note that it is best to keep the plaintext connection limited to a Unix
+    socket on the local machine.</p>
+<p class="Pp"></p>
+<pre> nbdkit -o --tls=off nbd hostname=example.com export=foo tls=require \
+  --run '/path/to/oldclient --socket=$unixsocket'
+</pre>
+<p class="Pp"></p>
+<pre> &#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;  plaintext  &#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;   TLS    &#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+ &#x2502; old client &#x2502; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6;&#x2502; nbdkit &#x2502; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6;&#x2502; new server &#x2502;
+ &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;    Unix     &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;   TCP    &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DUMP_PLUGIN_OUTPUT"><a class="permalink" href="#DUMP_PLUGIN_OUTPUT">DUMP
+  PLUGIN OUTPUT</a></h1>
+<p class="Pp">You can learn which features are provided by libnbd by inspecting
+    the <span class="Li">&quot;libnbd_*&quot;</span> lines in
+    <i>--dump-plugin</i> output:</p>
+<p class="Pp"></p>
+<pre> $ nbdkit --dump-plugin nbd
+ [...]
+ libnbd_version=1.2.3
+ libnbd_tls=1
+ libnbd_uri=1
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><i>$plugindir</i><i>/nbdkit-nbd-plugin.so</i></dt>
+  <dd>The plugin.
+    <p class="Pp">Use <span class="Li">&quot;nbdkit --dump-config&quot;</span>
+        to find the location of <span class="Li">$plugindir</span>.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
+<p class="Pp"><span class="Li">&quot;nbdkit-nbd-plugin&quot;</span> first
+    appeared in nbdkit 1.2.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/nbdkit.html"><b>nbdkit</b>(1)</a>, <a class="Xr" href="../1/nbdkit-captive.html"><b>nbdkit-captive</b>(1)</a>,
+    <b>nbdkit-filter</b>(3), <a class="Xr" href="../1/nbdkit-exportname-filter.html"><b>nbdkit-exportname-filter</b>(1)</a>,
+    <a class="Xr" href="../1/nbdkit-qcow2dec-filter.html"><b>nbdkit-qcow2dec-filter</b>(1)</a>, <a class="Xr" href="../1/nbdkit-tls.html"><b>nbdkit-tls</b>(1)</a>,
+    <b>nbdkit-plugin</b>(3), <b>libnbd</b>(3), <a class="Xr" href="../8/qemu-nbd.html"><b>qemu-nbd</b>(8)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Eric Blake</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright Red Hat</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are
+  met:</p>
+<ul class="Bl-bullet">
+  <li>Redistributions of source code must retain the above copyright notice,
+      this list of conditions and the following disclaimer.</li>
+  <li>Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the documentation
+      and/or other materials provided with the distribution.</li>
+  <li>Neither the name of Red Hat nor the names of its contributors may be used
+      to endorse or promote products derived from this software without specific
+      prior written permission.</li>
+</ul>
+<p class="Pp">THIS SOFTWARE IS PROVIDED BY RED HAT AND CONTRIBUTORS ''AS IS''
+    AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+    IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+    ARE DISCLAIMED. IN NO EVENT SHALL RED HAT OR CONTRIBUTORS BE LIABLE FOR ANY
+    DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+    (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+    ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+    (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+    THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-03-31</td>
+    <td class="foot-os">nbdkit-1.36.3</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: nbdkit 1.36.3-1ubuntu10 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

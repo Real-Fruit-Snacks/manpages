@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="prelink ELF shared libraries and binaries to speed up startup time">
+<title>prelink(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">prelink(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#ARGUMENTS">ARGUMENTS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#AUTHORS">AUTHORS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">prelink(8)</td>
+    <td class="head-vol">System Manager's Manual</td>
+    <td class="head-rtitle">prelink(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">prelink - prelink ELF shared libraries and binaries to speed up
+    startup time</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">prelink [OPTION...]&#x00A0;[FILES]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>prelink</b> is a program that modifies ELF shared libraries and
+    ELF dynamically linked binaries in such a way that the time needed for the
+    dynamic linker to perform relocations at startup significantly decreases.
+    Due to fewer relocations, the run-time memory consumption decreases as well
+    (especially the number of unshareable pages). The prelinking information is
+    only used at startup time if none of the dependent libraries have changed
+    since prelinking; otherwise programs are relocated normally.</p>
+<p class="Pp"><b>prelink</b> first collects ELF binaries to be prelinked and all
+    the ELF shared libraries they depend on. Then it assigns a unique virtual
+    address space slot to each library and relinks the shared library to that
+    base address. When the dynamic linker attempts to load such a library,
+    unless that virtual address space slot is already occupied, it maps the
+    library into the given slot. After this is done, <b>prelink</b>, with the
+    help of dynamic linker, resolves all relocations in the binary or library
+    against its dependent libraries and stores the relocations into the ELF
+    object. It also stores a list of all dependent libraries together with their
+    checksums into the binary or library. For binaries, it also computes a list
+    of <i>conflicts</i> (relocations that resolve differently in the binary's
+    symbol search scope than in the smaller search scope in which the dependent
+    library was resolved) and stores it into a special ELF section.</p>
+<p class="Pp">At runtime, the dynamic linker first checks whether all dependent
+    libraries were successfully mapped into their designated address space
+    slots, and whether they have not changed since the prelinking was done. If
+    all checks are successful, the dynamic linker just replays the list of
+    conflicts (which is usually significantly shorter than total number of
+    relocations) instead of relocating each library.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="v"><a class="permalink" href="#v"><b>-v&#x00A0;--verbose</b></a></dt>
+  <dd>Verbose mode. Print the virtual address slots assigned to libraries and
+      what binary or library is currently being prelinked.</dd>
+  <dt id="n"><a class="permalink" href="#n"><b>-n&#x00A0;--dry-run</b></a></dt>
+  <dd>Don't actually prelink anything; just collect the binaries/libraries,
+      assign them addresses, and with <b>-v</b> print what would be
+    prelinked.</dd>
+  <dt id="a"><a class="permalink" href="#a"><b>-a --all</b></a></dt>
+  <dd>Prelink all binaries and dependent libraries found in directory
+      hierarchies specified in <i>/etc/prelink.conf</i>. Normally, only binaries
+      specified on the command line and their dependent libraries are
+    prelinked.</dd>
+  <dt id="m"><a class="permalink" href="#m"><b>-m --conserve-memory</b></a></dt>
+  <dd>When assigning addresses to libraries, allow overlap of address space
+      slots provided that the two libraries are not present together in any of
+      the binaries or libraries. This results in a smaller virtual address space
+      range used for libraries. On the other hand, if <b>prelink</b> sees a
+      binary during incremental prelinking which puts together two libraries
+      which were not present together in any other binary and were given the
+      same virtual address space slots, then the binary cannot be prelinked.
+      Without this option, each library is assigned a unique virtual address
+      space slot.</dd>
+  <dt id="R"><a class="permalink" href="#R"><b>-R --random</b></a></dt>
+  <dd>When assigning addresses to libraries, start with a random address within
+      the architecture-dependent virtual address space range. This can make some
+      buffer overflow attacks slightly harder to exploit, because libraries are
+      not present on the same addresses across different machines. Normally,
+      assigning virtual addresses starts at the bottom of the
+      architecture-dependent range.</dd>
+  <dt id="r"><a class="permalink" href="#r"><b>-r
+    --reloc-only=ADDRESS</b></a></dt>
+  <dd>Instead of prelinking, just relink given shared libraries to the specified
+      base address.</dd>
+  <dt id="N"><a class="permalink" href="#N"><b>-N --no-update-cache</b></a></dt>
+  <dd>Don't save the cache file after prelinking. Normally, the list of
+      libraries (and with <b>-m</b> binaries also) is stored into the
+      <i>/etc/prelink.cache</i> file together with their given address space
+      slots and dependencies, so the cache can be used during incremental
+      prelinking (prelinking without <b>-a</b> option).</dd>
+  <dt id="c"><a class="permalink" href="#c"><b>-c
+    --config-file=CONFIG</b></a></dt>
+  <dd>Specify an alternate config file instead of default
+      <i>/etc/prelink.conf</i>.</dd>
+  <dt id="C"><a class="permalink" href="#C"><b>-C
+    --cache-file=CACHE</b></a></dt>
+  <dd>Specify an alternate cache file instead of default
+      <i>/etc/prelink.cache</i>.</dd>
+  <dt id="f"><a class="permalink" href="#f"><b>-f --force</b></a></dt>
+  <dd>Force re-prelinking even for already prelinked objects whose dependencies
+      are unchanged. This option causes new virtual address space slots to be
+      assigned to all libraries. Normally, only binaries or libraries which are
+      either not prelinked yet, or whose dependencies have changed, are
+      prelinked.</dd>
+  <dt id="q"><a class="permalink" href="#q"><b>-q --quick</b></a></dt>
+  <dd>Run prelink in quick mode. This mode checks just mtime and ctime
+      timestamps of libraries and binaries stored in the cache file. If they are
+      unchanged from the last prelink run, it is assumed that the library in
+      question did not change, without parsing or verifying its ELF
+    headers.</dd>
+  <dt id="p"><a class="permalink" href="#p"><b>-p --print-cache</b></a></dt>
+  <dd>Print the contents of the cache file (normally <i>/etc/prelink.cache</i>)
+      and exit.</dd>
+  <dt id="dynamic"><a class="permalink" href="#dynamic"><b>--dynamic-linker=LDSO</b></a></dt>
+  <dd>Specify an alternate dynamic linker instead of the default.</dd>
+  <dt id="ld"><a class="permalink" href="#ld"><b>--ld-library-path=PATH</b></a></dt>
+  <dd>Specify a special <i>LD_LIBRARY_PATH</i> to be used when <b>prelink</b>
+      queries the dynamic linker about symbol resolution details.</dd>
+  <dt id="layout"><a class="permalink" href="#layout"><b>--layout-page-size=SIZE</b></a></dt>
+  <dd>Layout start of libraries at given boundary.</dd>
+  <dt id="libs"><a class="permalink" href="#libs"><b>--libs-only</b></a></dt>
+  <dd>Only prelink ELF shared libraries, don't prelink any binaries.</dd>
+  <dt id="h"><a class="permalink" href="#h"><b>-h --dereference</b></a></dt>
+  <dd>When processing command line directory arguments, follow symbolic links
+      when walking directory hierarchies.</dd>
+  <dt id="l"><a class="permalink" href="#l"><b>-l --one-file-system</b></a></dt>
+  <dd>When processing command line directory arguments, limit directory tree
+      walk to a single file system.</dd>
+  <dt id="T"><a class="permalink" href="#T"><b>-T
+    --timestamp-output</b></a></dt>
+  <dd>Prefix output with timestamps.</dd>
+  <dt id="u"><a class="permalink" href="#u"><b>-u --undo</b></a></dt>
+  <dd>Revert binaries and libraries to their original content before they were
+      prelinked. Without the <i>-a</i> option, this causes only the binaries and
+      libraries specified on the command line to be reverted to their original
+      state (and e.g. not their dependencies). If used together with the
+      <i>-a</i> option, all binaries and libraries from command line, all their
+      dependencies, all binaries found in directories specified on command line
+      and in the config file, and all their dependencies are undone.</dd>
+  <dt id="y"><a class="permalink" href="#y"><b>-y --verify</b></a></dt>
+  <dd>Verifies a prelinked binary or library. This option can be used only on a
+      single binary or library. It first applies an <i>--undo</i> operation on
+      the file, then prelinks just that file again and compares this with the
+      original file. If both are identical, it prints the file after
+      <i>--undo</i> operation on standard output and exits with zero status.
+      Otherwise it exits with error status. Thus if <i>--verify</i> operation
+      returns zero exit status and its standard output is equal to the content
+      of the binary or library before prelinking, you can be sure that nobody
+      modified the binaries or libraries after prelinking. Similarly with
+      message digests and checksums (unless you trigger the improbable case of
+      modified file and original file having the same digest or checksum).</dd>
+  <dt id="y~2"><a class="permalink" href="#y~2"><b>-y --md5</b></a></dt>
+  <dd>This is similar to <i>--verify</i> option, except instead of outputting
+      the content of the binary or library before prelinking to standard output,
+      MD5 digest is printed. See <a class="Xr" href="../1/md5sum.html"><b>md5sum</b>(1)</a>.</dd>
+  <dt id="y~3"><a class="permalink" href="#y~3"><b>-y --sha</b></a></dt>
+  <dd>This is similar to <i>--verify</i> option, except instead of outputting
+      the content of the binary or library before prelinking to standard output,
+      SHA1 digest is printed. See <a class="Xr" href="../1/sha1sum.html"><b>sha1sum</b>(1)</a>.</dd>
+  <dt id="exec"><a class="permalink" href="#exec"><b>--exec-shield
+    --no-exec-shield</b></a></dt>
+  <dd>On IA-32, if the kernel supports Exec-Shield, prelink attempts to lay
+      libraries out similarly to how the kernel places them (i.e. if possible
+      below the binary, most widely used into the ASCII armor zone). These
+      switches allow overriding prelink detection of whether Exec-Shield is
+      supported or not.</dd>
+  <dt id="b"><a class="permalink" href="#b"><b>-b --black-list=PATH</b></a></dt>
+  <dd>This option allows blacklisting certain paths, libraries or binaries.
+      Prelink will not touch them during prelinking.</dd>
+  <dt id="o"><a class="permalink" href="#o"><b>-o
+    --undo-output=FILE</b></a></dt>
+  <dd>When performing an <b>--undo</b> operation, don't overwrite the prelinked
+      binary or library with its original content (before it was prelinked), but
+      save that into the specified file.</dd>
+  <dt id="V"><a class="permalink" href="#V"><b>-V --version</b></a></dt>
+  <dd>Print version and exit.</dd>
+  <dt><b>-? --help</b></dt>
+  <dd>Print short help and exit.</dd>
+  <dt id="usage"><a class="permalink" href="#usage"><b>--usage</b></a></dt>
+  <dd>Print short usage message.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ARGUMENTS"><a class="permalink" href="#ARGUMENTS">ARGUMENTS</a></h1>
+<p class="Pp">Command-line arguments should be either directory hierarchies (in
+    which case <i>-l</i> and <i>-h</i> options apply), or particular ELF
+    binaries or shared libraries. Specifying a shared library explicitly on the
+    command line causes it to be prelinked even if no binary is linked against
+    it. Otherwise, binaries are collected together and only the libraries they
+    depend on are prelinked with them.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<div class="Bd-indent"># /usr/sbin/prelink -avmR</div>
+<p class="Pp">prelinks all binaries found in directories specified in
+    <i>/etc/prelink.conf</i> and all their dependent libraries, assigning
+    libraries unique virtual address space slots only if they ever appear
+    together, and starts assigning libraries at a random address.</p>
+<div class="Bd-indent"># /usr/sbin/prelink -vm ~/bin/progx</div>
+prelinks ~/bin/progx program and all its dependent libraries (unless they were
+  prelinked already e.g. during <i>prelink -a</i> invocation).
+<div class="Bd-indent"># /usr/sbin/prelink -au</div>
+reverts all binaries and libraries to their original content.
+<div class="Bd-indent"># /usr/sbin/prelink -y /bin/prelinked_prog &gt;
+  /tmp/original_prog; echo $? verifies whether /bin/prelinked_prog is
+  unchanged.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><b>/etc/prelink.cache</b></dt>
+  <dd>Binary file containing a list of prelinked libraries and/or binaries
+      together with their assigned virtual address space slots and dependencies.
+      You can run <i>/usr/sbin/prelink -p</i> to see what is stored in
+    there.</dd>
+  <dt><b>/etc/prelink.conf</b></dt>
+  <dd>Configuration file containing a list of directory hierarchies that contain
+      ELF shared libraries or binaries which should be prelinked. This
+      configuration file is used in <b>-a</b> mode to find binaries which should
+      be prelinked and also, no matter whether <b>-a</b> is given or not, to
+      limit which dependent shared libraries should be prelinked. If
+      <b>prelink</b> finds a dependent library of some binary or other library
+      which is not present in any of the directories specified either in
+      <b>/etc/prelink.conf</b> or on the command line, then it cannot be
+      prelinked. Each line of the config file should be either a comment
+      starting with <b>#</b>, or a directory name, or a blacklist specification.
+      Directory names can be prefixed by the <b>-l</b> switch, meaning the tree
+      walk of the given directory is only limited to one file system; or the
+      <b>-h</b> switch, meaning the tree walk of the given directory follows
+      symbolic links. A blacklist specification should be prefixed by <b>-b</b>
+      and optionally also <b>-l</b> or <b>-h</b> if needed. A blacklist entry
+      can be either an absolute directory name (in that case all files in that
+      directory hierarchy are ignored by the prelinker); an absolute filename
+      (then that particular library or binary is skipped); or a glob pattern
+      without a <b>/</b> character in it (then all files matching that glob in
+      any directory are ignored).</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/ldd.html"><b>ldd</b>(1)</a>, <a class="Xr" href="../8/ld.so.html"><b>ld.so</b>(8)</a>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp"><b>prelink</b> Some architectures, including IA-64 and HPPA, are
+    not yet supported.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Jakub Jelinek &lt;jakub@redhat.com&gt;.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">19 July 2013</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: prelink 0.0.20131005-1.1ubuntu1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

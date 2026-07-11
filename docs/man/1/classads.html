@@ -1,0 +1,2490 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="HTCondor Manual">
+<title>classads(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">classads(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#CLASSADS:_OLD_AND_NEW">CLASSADS:
+  OLD AND NEW</a></li><li><a href="#New_ClassAd_Attribute_References">New
+  ClassAd Attribute References</a></li><li><a href="#CLASSAD_SYNTAX">CLASSAD
+  SYNTAX</a></li><li><a href="#Composing_Literals">Composing
+  Literals</a></li><li><a href="#Attributes">Attributes</a></li><li><a href="#Expression_Operators">Expression
+  Operators</a></li><li><a href="#Predefined_Functions">Predefined
+  Functions</a></li><li><a href="#CLASSAD_EVALUATION_SEMANTICS">CLASSAD
+  EVALUATION SEMANTICS</a></li><li><a href="#Evaluating_Literals">Evaluating
+  Literals</a></li><li><a href="#Attribute_References">Attribute
+  References</a></li><li><a href="#ClassAd_Operators">ClassAd
+  Operators</a></li><li><a href="#Expression_Examples">Expression
+  Examples</a></li><li><a href="#OLD_CLASSADS_IN_THE_HTCONDOR_SYSTEM">OLD
+  CLASSADS IN THE HTCONDOR SYSTEM</a></li><li><a href="#Constraints_and_Preferences">Constraints
+  and Preferences</a></li><li><a href="#Querying_with_ClassAd_Expressions">Querying
+  with ClassAd Expressions</a></li><li><a href="#EXTENDING_CLASSADS_WITH_USER-WRITTEN_FUNCTIONS">EXTENDING
+  CLASSADS WITH USER-WRITTEN FUNCTIONS</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">CLASSADS(1)</td>
+    <td class="head-vol">HTCondor Manual</td>
+    <td class="head-rtitle">CLASSADS(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">classads - HTCondor Manual</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp">ClassAds are a flexible mechanism for representing the
+    characteristics and constraints of machines and jobs in the HTCondor system.
+    ClassAds are used extensively in the HTCondor system to represent jobs,
+    resources, submitters and other HTCondor daemons. An understanding of this
+    mechanism is required to harness the full flexibility of the HTCondor
+    system.</p>
+<p class="Pp">A ClassAd is a set of uniquely named expressions. Each named
+    expression is called an attribute. The following shows ten attributes, a
+    portion of an example ClassAd.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>MyType       = &quot;Machine&quot;
+TargetType   = &quot;Job&quot;
+Machine      = &quot;froth.cs.wisc.edu&quot;
+Arch         = &quot;INTEL&quot;
+OpSys        = &quot;LINUX&quot;
+Disk         = 35882
+Memory       = 128
+KeyboardIdle = 173
+LoadAvg      = 0.1000
+Requirements = TARGET.Owner==&quot;smith&quot; || LoadAvg&lt;=0.3 &amp;&amp; KeyboardIdle&gt;15*60
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">ClassAd expressions look very much like expressions in C, and are
+    composed of literals and attribute references composed with operators and
+    functions. The difference between ClassAd expressions and C expressions
+    arise from the fact that ClassAd expressions operate in a much more dynamic
+    environment. For example, an expression from a machine's ClassAd may refer
+    to an attribute in a job's ClassAd, such as TARGET.Owner in the above
+    example. The value and type of the attribute is not known until the
+    expression is evaluated in an environment which pairs a specific job ClassAd
+    with the machine ClassAd.</p>
+<p class="Pp">ClassAd expressions handle these uncertainties by defining all
+    operators to be total operators, which means that they have well defined
+    behavior regardless of supplied operands. This functionality is provided
+    through two distinguished values, <b>UNDEFINED</b> and <b>ERROR</b>, and
+    defining all operators so that they can operate on all possible values in
+    the ClassAd system. For example, the multiplication operator which usually
+    only operates on numbers, has a well defined behavior if supplied with
+    values which are not meaningful to multiply. Thus, the expression 10 *
+    &quot;A string&quot; evaluates to the value <b>ERROR</b>. Most operators are
+    strict with respect to <b>ERROR</b>, which means that they evaluate to
+    <b>ERROR</b> if any of their operands are <b>ERROR</b>. Similarly, most
+    operators are strict with respect to <b>UNDEFINED</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CLASSADS:_OLD_AND_NEW"><a class="permalink" href="#CLASSADS:_OLD_AND_NEW">CLASSADS:
+  OLD AND NEW</a></h1>
+<p class="Pp">ClassAds have existed for quite some time in two forms: Old and
+    New. Old ClassAds were the original form and were used in HTCondor until
+    HTCondor version 7.5.0. They were heavily tied to the HTCondor development
+    libraries. New ClassAds added new features and were designed as a
+    stand-alone library that could be used apart from HTCondor.</p>
+<p class="Pp">In HTCondor version 7.5.1, HTCondor switched to using the New
+    ClassAd library for all use of ClassAds within HTCondor. The library is
+    placed into a compatibility mode so that HTCondor 7.5.1 is still able to
+    exchange ClassAds with older versions of HTCondor.</p>
+<p class="Pp">All user interaction with tools (such as <i>condor_q</i>) as well
+    as output of tools is still compatible with Old ClassAds. Before HTCondor
+    version 7.5.1, New ClassAds were used only in the Job Router. There are some
+    syntax and behavior differences between Old and New ClassAds, all of which
+    should remain invisible to users of HTCondor.</p>
+<p class="Pp">A complete description of New ClassAds can be found at
+    <i>http://htcondor.org/classad/classad.html</i>, and in the ClassAd Language
+    Reference Manual found on that web page.</p>
+<p class="Pp">Some of the features of New ClassAds that are not in Old ClassAds
+    are lists, nested ClassAds, time values, and matching groups of ClassAds.
+    HTCondor has avoided using these features, as using them makes it difficult
+    to interact with older versions of HTCondor. But, users can start using them
+    if they do not need to interact with versions of HTCondor older than
+  7.5.1.</p>
+<p class="Pp">The syntax varies slightly between Old and New ClassAds. Here is
+    an example ClassAd presented in both forms. The Old form:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>Foo = 3
+Bar = &quot;ab\&quot;cd\ef&quot;
+Moo = Foo =!= Undefined
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The New form:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>[
+Foo = 3;
+Bar = &quot;ab\&quot;cd\\ef&quot;;
+Moo = Foo isnt Undefined;
+]
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">HTCondor will convert to and from Old ClassAd syntax as
+  needed.</p>
+<section class="Ss">
+<h2 class="Ss" id="New_ClassAd_Attribute_References"><a class="permalink" href="#New_ClassAd_Attribute_References">New
+  ClassAd Attribute References</a></h2>
+<p class="Pp">Expressions often refer to ClassAd attributes. These attribute
+    references work differently in Old ClassAds as compared with New ClassAds.
+    In New ClassAds, an unscoped reference is looked for only in the local
+    ClassAd. An unscoped reference is an attribute that does not have a
+    <b>MY.</b> or <b>TARGET.</b> prefix. The local ClassAd may be described by
+    an example. Matchmaking uses two ClassAds: the job ClassAd and the machine
+    ClassAd. The job ClassAd is evaluated to see if it is a match for the
+    machine ClassAd. The job ClassAd is the local ClassAd. Therefore, in the
+    <b>Requirements</b> attribute of the job ClassAd, any attribute without the
+    prefix <b>TARGET.</b> is looked up only in the job ClassAd. With New ClassAd
+    evaluation, the use of the prefix <b>MY.</b> is eliminated, as an unscoped
+    reference can only refer to the local ClassAd.</p>
+<p class="Pp">The <b>MY.</b> and <b>TARGET.</b> scoping prefixes only apply when
+    evaluating an expression within the context of two ClassAds. Two examples
+    that exemplify this are matchmaking and machine policy evaluation. When
+    evaluating an expression within the context of a single ClassAd, <b>MY.</b>
+    and <b>TARGET.</b> are not defined. Using them within the context of a
+    single ClassAd will result in a value of <b>Undefined</b>. Two examples that
+    exemplify evaluating an expression within the context of a single ClassAd
+    are during user job policy evaluation, and with the <b>-constraint</b>
+    option to command-line tools.</p>
+<p class="Pp">New ClassAds have no <b>CurrentTime</b> attribute. If needed, use
+    the time() function instead. In order to mimic Old ClassAd semantics in
+    current versions of HTCondor, all ClassAds have an implicit
+    <b>CurrentTime</b> attribute, with a value of time().</p>
+<p class="Pp">In current versions of HTCondor, New ClassAds will mimic the
+    evaluation behavior of Old ClassAds. No configuration variables or submit
+    description file contents should need to be changed. To eliminate this
+    behavior and use only the semantics of New ClassAds, set the configuration
+    variable <i>STRICT_CLASSAD_EVALUATION</i> to <b>True</b>. This permits
+    testing expressions to see if any adjustment is required, before a future
+    version of HTCondor potentially makes New ClassAds evaluation behavior the
+    default or the only option.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CLASSAD_SYNTAX"><a class="permalink" href="#CLASSAD_SYNTAX">CLASSAD
+  SYNTAX</a></h1>
+<p class="Pp"></p>
+<p class="Pp">ClassAd expressions are formed by composing literals, attribute
+    references and other sub-expressions with operators and functions.</p>
+<section class="Ss">
+<h2 class="Ss" id="Composing_Literals"><a class="permalink" href="#Composing_Literals">Composing
+  Literals</a></h2>
+<p class="Pp">Literals in the ClassAd language may be of integer, real, string,
+    undefined or error types. The syntax of these literals is as follows:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Integer"><a class="permalink" href="#Integer"><b>Integer</b></a></dt>
+  <dd>A sequence of continuous digits (i.e., [0-9]). Additionally, the keywords
+      TRUE and FALSE (case insensitive) are syntactic representations of the
+      integers 1 and 0 respectively.</dd>
+  <dt id="Real"><a class="permalink" href="#Real"><b>Real</b></a></dt>
+  <dd>Two sequences of continuous digits separated by a period (i.e.,
+      [0-9]+.[0-9]+).</dd>
+  <dt id="String"><a class="permalink" href="#String"><b>String</b></a></dt>
+  <dd>A double quote character, followed by a list of characters terminated by a
+      double quote character. A backslash character inside the string causes the
+      following character to be considered as part of the string, irrespective
+      of what that character is.</dd>
+  <dt id="Undefined"><a class="permalink" href="#Undefined"><b>Undefined</b></a></dt>
+  <dd>The keyword <b>UNDEFINED</b> (case insensitive) represents the
+      <b>UNDEFINED</b> value.</dd>
+  <dt id="Error"><a class="permalink" href="#Error"><b>Error</b></a></dt>
+  <dd>The keyword <b>ERROR</b> (case insensitive) represents the <b>ERROR</b>
+      value.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Attributes"><a class="permalink" href="#Attributes">Attributes</a></h2>
+<p class="Pp"></p>
+<p class="Pp">Every expression in a ClassAd is named by an attribute name.
+    Together, the (name,expression) pair is called an attribute. An attribute
+    may be referred to in other expressions through its attribute name.</p>
+<p class="Pp">Attribute names are sequences of alphabetic characters, digits and
+    underscores, and may not begin with a digit. All characters in the name are
+    significant, but case is not significant. Thus, Memory, memory and MeMoRy
+    all refer to the same attribute.</p>
+<p class="Pp">An attribute reference consists of the name of the attribute being
+    referenced, and an optional scope resolution prefix. The prefixes that may
+    be used are <b>MY.</b> and <b>TARGET.</b>. The case used for these prefixes
+    is not significant. The semantics of supplying a prefix are discussed in
+    classads/classad-mechanism:classad evaluation semantics.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Expression_Operators"><a class="permalink" href="#Expression_Operators">Expression
+  Operators</a></h2>
+<p class="Pp"></p>
+<p class="Pp">The operators that may be used in ClassAd expressions are similar
+    to those available in C. The available operators and their relative
+    precedence is shown in the following example:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>- (unary negation)   (high precedence)
+*  /   %
++   - (addition, subtraction)
+&lt;   &lt;=   &gt;=   &gt;
+==  !=  =?=  is  =!=  isnt
+&amp;&amp;
+||                   (low precedence)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The operator with the highest precedence is the unary minus
+    operator. The only operators which are unfamiliar are the =?=, is, =!= and
+    isnt operators, which are discussed in classads/classad-mechanism:classad
+    evaluation semantics.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Predefined_Functions"><a class="permalink" href="#Predefined_Functions">Predefined
+  Functions</a></h2>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp">Any ClassAd expression may utilize predefined functions. Function
+    names are case insensitive. Parameters to functions and a return value from
+    a function may be typed (as given) or not. Nested or recursive function
+    calls are allowed.</p>
+<p class="Pp">Here are descriptions of each of these predefined functions. The
+    possible types are the same as itemized in
+    classads/classad-mechanism:classad syntax. Where the type may be any of
+    these literal types, it is called out as AnyType. Where the type is Integer,
+    but only returns the value 1 or 0 (implying <b>True</b> or <b>False</b>), it
+    is called out as Boolean. The format of each function is given as</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>ReturnType FunctionName(ParameterType parameter1, ParameterType parameter2, ...)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Optional parameters are given within square brackets.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="AnyType"><a class="permalink" href="#AnyType"><b><b>AnyType
+    eval(AnyType Expr)</b></b></a></dt>
+  <dd>Evaluates <b>Expr</b> as a string and then returns the result of
+      evaluating the contents of the string as a ClassAd expression. This is
+      useful when referring to an attribute such as <b>slotX_State</b> where
+      <b>X</b>, the desired slot number is an expression, such as
+      <b>SlotID+10</b>. In such a case, if attribute <b>SlotID</b> is 5, the
+      value of the attribute <b>slot15_State</b> can be referenced using the
+      expression <b>eval(strcat(&quot;slot&quot;,
+      SlotID+10,&quot;_State&quot;))</b>. Function strcat() calls function
+      string() on the second parameter, which evaluates the expression, and then
+      converts the integer result 15 to the string <b>&quot;15&quot;</b>. The
+      concatenated string returned by strcat() is
+      <b>&quot;slot15_State&quot;</b>, and this string is then evaluated.
+    <p class="Pp">Note that referring to attributes of a job from within the
+        string passed to eval() in the <b>Requirements</b> or <b>Rank</b>
+        expressions could cause inaccuracies in HTCondor's automatic
+        auto-clustering of jobs into equivalent groups for matchmaking purposes.
+        This is because HTCondor needs to determine which ClassAd attributes are
+        significant for matchmaking purposes, and indirect references from
+        within the string passed to eval() will not be counted.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String unparse(Attribute attr)</b></b></dt>
+  <dd>This function looks up the value of the provided attribute and returns the
+      unparsed version as a string. The attribute's value is not evaluated. If
+      the attribute's value is <b>x + 3</b>, then the function would return the
+      string <b>&quot;x + 3&quot;</b>. If the provided attribute cannot be
+      found, an empty string is returned.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given or the argument is not an attribute reference.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String unresolved(Attribute attr)</b></b></dt>
+  <dd>This function returns the external attribute references and unresolved
+      attribute references of the expression that is the value of the provided
+      attribute. If the provided attribute cannot be found, then
+      <b>undefined</b> is returned.
+    <p class="Pp">For example, in a typical job ClassAd if the
+        <b>Requirements</b> expression has the value <b>OpSys ==
+        &quot;LINUX&quot; &amp;&amp; TARGET.Arch == &quot;ARM&quot; &amp;&amp;
+        Cpus &gt;= RequestCpus</b>, then <b>unresolved(Requirements)</b> will
+        return <b>&quot;Arch,Cpus,OpSys&quot;</b> because those will not be
+        attributes of the job ClassAd.</p>
+  </dd>
+  <dt id="Boolean"><a class="permalink" href="#Boolean"><b><b>Boolean
+    unresolved(Attribute attr, String pattern)</b></b></a></dt>
+  <dd>This function returns <b>True</b> when at least one of the external or
+      unresolved attribute references of the expression that is the value of the
+      provided attribute matches the given Perl regular expression pattern. If
+      none of the references match the pattern, then <b>False</b> is returned.
+      If the provided attribute cannot be found, then <b>undefined</b> is
+      returned.
+    <p class="Pp">For example, in a typical job ClassAd if the
+        <b>Requirements</b> expression has the value <b>OpSys ==
+        &quot;LINUX&quot; &amp;&amp; Arch == &quot;ARM&quot;</b>, then
+        <b>unresolved(Requirements, &quot;^OpSys&quot;)</b> will return
+        <b>True</b>, and <b>unresolved(Requirements, &quot;OpSys.+&quot;)</b>
+        will return <b>False</b>.</p>
+    <p class="Pp">The intended use of this function is to make it easier to
+        apply a submit transform to a job only when the job does not already
+        reference a certain attribute. For instance</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>JOB_TRANSFORM_DefPlatform @=end
+<br/>
+   # Apply this transform only when the job requirements does not reference OpSysAndver or OpSysName
+<br/>
+   REQUIREMENTS ! unresolved(Requirements, &quot;OpSys.+&quot;)
+<br/>
+   # Add a clause to the job requirements to match only CentOs7 machines
+<br/>
+   SET Requirements $(MY.Requirements) &amp;&amp; OpSysAndVer == &quot;CentOS7&quot;
+@end
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="AnyType~2"><a class="permalink" href="#AnyType~2"><b><b>AnyType
+    ifThenElse(AnyType IfExpr,AnyType ThenExpr, AnyType
+    ElseExpr)</b></b></a></dt>
+  <dd>A conditional expression is described by <b>IfExpr</b>. The following
+      defines return values, when <b>IfExpr</b> evaluates to</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li><b>True</b>. Evaluate and return the value as given by
+    <b>ThenExpr</b>.</li>
+  <li><b>False</b>. Evaluate and return the value as given by
+    <b>ElseExpr</b>.</li>
+  <li><b>UNDEFINED</b>. Return the value <b>UNDEFINED</b>.</li>
+  <li><b>ERROR</b>. Return the value <b>ERROR</b>.</li>
+  <li><b>0.0</b>. Evaluate, and return the value as given by
+    <b>ElseExpr</b>.</li>
+  <li>non-<b>0.0</b> Real values. Evaluate, and return the value as given by
+      <b>ThenExpr</b>.</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">Where <b>IfExpr</b> evaluates to give a value of type
+    <b>String</b>, the function returns the value <b>ERROR</b>. The
+    implementation uses lazy evaluation, so expressions are only evaluated as
+    defined.</p>
+<p class="Pp">This function returns <b>ERROR</b> if other than exactly 3
+    arguments are given.</p>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~2"><a class="permalink" href="#Boolean~2"><b><b>Boolean
+    isUndefined(AnyType Expr)</b></b></a></dt>
+  <dd>Returns <b>True</b>, if <b>Expr</b> evaluates to <b>UNDEFINED</b>. Returns
+      <b>False</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~3"><a class="permalink" href="#Boolean~3"><b><b>Boolean
+    isError(AnyType Expr)</b></b></a></dt>
+  <dd>Returns <b>True</b>, if <b>Expr</b> evaluates to <b>ERROR</b>. Returns
+      <b>False</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~4"><a class="permalink" href="#Boolean~4"><b><b>Boolean
+    isString(AnyType Expr)</b></b></a></dt>
+  <dd>Returns <b>True</b>, if the evaluation of <b>Expr</b> gives a value of
+      type <b>String</b>. Returns <b>False</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~5"><a class="permalink" href="#Boolean~5"><b><b>Boolean
+    isInteger(AnyType Expr)</b></b></a></dt>
+  <dd>Returns <b>True</b>, if the evaluation of <b>Expr</b> gives a value of
+      type <b>Integer</b>. Returns <b>False</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~6"><a class="permalink" href="#Boolean~6"><b><b>Boolean
+    isReal(AnyType Expr)</b></b></a></dt>
+  <dd>Returns <b>True</b>, if the evaluation of <b>Expr</b> gives a value of
+      type <b>Real</b>. Returns <b>False</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~7"><a class="permalink" href="#Boolean~7"><b><b>Boolean
+    isList(AnyType Expr)</b></b></a></dt>
+  <dd>Returns <b>True</b>, if the evaluation of <b>Expr</b> gives a value of
+      type <b>List</b>. Returns <b>False</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~8"><a class="permalink" href="#Boolean~8"><b><b>Boolean
+    isClassAd(AnyType Expr)</b></b></a></dt>
+  <dd>Returns <b>True</b>, if the evaluation of <b>Expr</b> gives a value of
+      type <b>ClassAd</b>. Returns <b>False</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~9"><a class="permalink" href="#Boolean~9"><b><b>Boolean
+    isBoolean(AnyType Expr)</b></b></a></dt>
+  <dd>Returns <b>True</b>, if the evaluation of <b>Expr</b> gives the integer
+      value 0 or 1. Returns <b>False</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~10"><a class="permalink" href="#Boolean~10"><b><b>Boolean
+    isAbstime(AnyType Expr)</b></b></a></dt>
+  <dd>Returns <b>True</b>, if the evaluation of <b>Expr</b> returns an abstime
+      type. Returns <b>False</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~11"><a class="permalink" href="#Boolean~11"><b><b>Boolean
+    isReltime(AnyType Expr)</b></b></a></dt>
+  <dd>Returns <b>True</b>, if the evaluation of <b>Expr</b> returns an relative
+      time type. Returns <b>False</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~12"><a class="permalink" href="#Boolean~12"><b><b>Boolean
+    member(AnyType m, ListType l)</b></b></a></dt>
+  <dd>Returns error if m does not evalute to a scalar, or l does not evaluate to
+      a list. Otherwise the elements of l are evaluted in order, and if an
+      element is equal to m in the sense of <b>==</b> the result of the function
+      is <b>True</b>. Otherwise the function returns false.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~13"><a class="permalink" href="#Boolean~13"><b><b>Boolean
+    anyCompare(string op, list l, AnyType t)</b></b></a></dt>
+  <dd>Returns error if op does not evalute to one of <b>&lt;</b>, <b>&lt;=</b>,
+      <b>==</b>, <b>&gt;</b>, <b>&gt;=</b>, <b>!-</b>, <b>is</b> or <b>isnt</b>.
+      Returns error if l isn't a list, or t isn't a scalar Otherwise the
+      elements of l are evaluted and compared to t using the corresponding
+      operator defined by op. If any of the members of l evaluate to true, the
+      result is <b>True</b>. Otherwise the function returns <b>False</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~14"><a class="permalink" href="#Boolean~14"><b><b>Boolean
+    allCompare(string op, list l, AnyType t)</b></b></a></dt>
+  <dd>Returns error if op does not evalute to one of <b>&lt;</b>, <b>&lt;=</b>,
+      <b>==</b>, <b>&gt;</b>, <b>&gt;=</b>, <b>!-</b>, <b>is</b> or <b>isnt</b>.
+      Returns error if l isn't a list, or t isn't a scalar Otherwise the
+      elements of l are evaluted and compared to t using the corresponding
+      operator defined by op. If all of the members of l evaluate to true, the
+      result is <b>True</b>. Otherwise the function returns <b>False</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~15"><a class="permalink" href="#Boolean~15"><b><b>Boolean
+    identicalMember(AnyType m, ListType l)</b></b></a></dt>
+  <dd>Returns error if m does not evalute to a scalar, or l does not evaluate to
+      a list. Otherwise the elements of l are evaluted in order, and if an
+      element is equal to m in the sense of <b>=?=</b> the result of the
+      function is <b>True</b>. Otherwise the function returns false.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer int(AnyType Expr)</b></b></dt>
+  <dd>Returns the integer value as defined by <b>Expr</b>. Where the type of the
+      evaluated <b>Expr</b> is <b>Real</b>, the value is truncated (round
+      towards zero) to an integer. Where the type of the evaluated <b>Expr</b>
+      is <b>String</b>, the string is converted to an integer using a C-like
+      atoi() function. When this result is not an integer, <b>ERROR</b> is
+      returned. Where the evaluated <b>Expr</b> is <b>ERROR</b> or
+      <b>UNDEFINED</b>, <b>ERROR</b> is returned.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Real real(AnyType Expr)</b></b></dt>
+  <dd>Returns the real value as defined by <b>Expr</b>. Where the type of the
+      evaluated <b>Expr</b> is <b>Integer</b>, the return value is the converted
+      integer. Where the type of the evaluated <b>Expr</b> is <b>String</b>, the
+      string is converted to a real value using a C-like atof() function. When
+      this result is not a real, <b>ERROR</b> is returned. Where the evaluated
+      <b>Expr</b> is <b>ERROR</b> or <b>UNDEFINED</b>, <b>ERROR</b> is returned.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String string(AnyType Expr)</b></b></dt>
+  <dd>Returns the string that results from the evaluation of <b>Expr</b>.
+      Converts a non-string value to a string. Where the evaluated <b>Expr</b>
+      is <b>ERROR</b> or <b>UNDEFINED</b>, <b>ERROR</b> is returned.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Bool"><a class="permalink" href="#Bool"><b><b>Bool bool(AnyType
+    Expr)</b></b></a></dt>
+  <dd>Returns the boolean that results from the evaluation of <b>Expr</b>.
+      Converts a non-boolean value to a bool. A string expression that evaluates
+      to the string &quot;true&quot; yields true, and &quot;false&quot; returns
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="AbsTime"><a class="permalink" href="#AbsTime"><b><b>AbsTime
+    absTime(AnyType t [, int z])</b></b></a></dt>
+  <dd>Creates an AbsTime value corresponding to time t an time-zone offset z. If
+      t is a String, then z must be omitted, and t is parsed as a specification
+      as follows.
+    <p class="Pp">The operand t is parsed as a specification of an instant in
+        time (date and time). This function accepts the canonical native
+        representation of AbsTime values, but minor variations in format are
+        allowed. The default format is yyyy-mm-ddThh:mm:sszzzzz where zzzzz is a
+        time zone in the format +hh:mm or -hh:mm</p>
+    <p class="Pp">If t and z are both omitted, the result is an AbsTime value
+        representing the time and place where the function call is evaluated.
+        Otherwise, t is converted to a Real by the function
+        &#x201C;real&#x201D;, and treated as a number of seconds from the epoch,
+        Midnight January 1, 1970 UTC. If z is specified, it is treated as a
+        number of seconds east of Greenwich. Otherwise, the offset is calculated
+        from t according to the local rules for the place where the function is
+        evaluated.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="RelTime"><a class="permalink" href="#RelTime"><b><b>RelTime
+    relTime(AnyType t)</b></b></a></dt>
+  <dd>If the operand t is a String, it is parsed as a specification of a time
+      interval. This function accepts the canonical native representation of
+      RelTime values, but minor variations in format are allowed.
+    <p class="Pp">Otherwise, t is converted to a Real by the function real, and
+        treated as a number of seconds. The default string format is
+        [-]days+hh:mm:ss.fff, where leading components and the fraction .fff are
+        omitted if they are zero. In the default syntax, days is a sequence of
+        digits starting with a non-zero digit, hh, mm, and ss are strings of
+        exactly two digits (padded on the left with zeros if necessary) with
+        values less than 24, 60, and 60, respectively and fff is a string of
+        exactly three digits.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer floor(AnyType Expr)</b></b></dt>
+  <dd>Returns the integer that results from the evaluation of <b>Expr</b>, where
+      the type of the evaluated <b>Expr</b> is <b>Integer</b>. Where the type of
+      the evaluated <b>Expr</b> is not <b>Integer</b>, function
+      <b>real(Expr)</b> is called. Its return value is then used to return the
+      largest magnitude integer that is not larger than the returned value.
+      Where <b>real(Expr)</b> returns <b>ERROR</b> or <b>UNDEFINED</b>,
+      <b>ERROR</b> is returned.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer ceiling(AnyType Expr)</b></b></dt>
+  <dd>Returns the integer that results from the evaluation of <b>Expr</b>, where
+      the type of the evaluated <b>Expr</b> is <b>Integer</b>. Where the type of
+      the evaluated <b>Expr</b> is not <b>Integer</b>, function
+      <b>real(Expr)</b> is called. Its return value is then used to return the
+      smallest magnitude integer that is not less than the returned value. Where
+      <b>real(Expr)</b> returns <b>ERROR</b> or <b>UNDEFINED</b>, <b>ERROR</b>
+      is returned.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer pow(Integer base, Integer exponent)</b> OR <b>Real
+    pow(Integer base, Integer exponent)</b> OR <b>Real pow(Real base, Real
+    exponent)</b></b></dt>
+  <dd>Calculates <b>base</b> raised to the power of <b>exponent</b>. If
+      <b>exponent</b> is an integer value greater than or equal to 0, and
+      <b>base</b> is an integer, then an integer value is returned. If
+      <b>exponent</b> is an integer value less than 0, or if either <b>base</b>
+      or <b>exponent</b> is a real, then a real value is returned. An invocation
+      with <b>exponent=0</b> or <b>exponent=0.0</b>, for any value of
+      <b>base</b>, including 0 or 0.0, returns the value 1 or 1.0, type
+      appropriate.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer quantize(AnyType a, Integer b)</b> OR <b>Real
+    quantize(AnyType a, Real b)</b> OR <b>AnyType quantize(AnyType a, AnyType
+    list b)</b></b></dt>
+  <dd><b>quantize()</b> computes the quotient of <b>a/b</b>, in order to further
+      compute `` ceiling(quotient) * b``. This computes and returns an integral
+      multiple of <b>b</b> that is at least as large as <b>a</b>. So, when <b>b
+      &gt;= a</b>, the return value will be <b>b</b>. The return type is the
+      same as that of <b>b</b>, where <b>b</b> is an Integer or Real.
+    <p class="Pp">When <b>b</b> is a list, <b>quantize()</b> returns the first
+        value in the list that is greater than or equal to <b>a</b>. When no
+        value in the list is greater than or equal to <b>a</b>, this computes
+        and returns an integral multiple of the last member in the list that is
+        at least as large as <b>a</b>.</p>
+    <p class="Pp">This function returns <b>ERROR</b> if <b>a</b> or <b>b</b>, or
+        a member of the list that must be considered is not an Integer or
+      Real.</p>
+    <p class="Pp">Here are examples:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>8     = quantize(3, 8)
+4     = quantize(3, 2)
+0     = quantize(0, 4)
+6.8   = quantize(1.5, 6.8)
+7.2   = quantize(6.8, 1.2)
+10.2  = quantize(10, 5.1)
+4     = quantize(0, {4})
+2     = quantize(2, {1, 2, &quot;A&quot;})
+3.0   = quantize(3, {1, 2, 0.5})
+3.0   = quantize(2.7, {1, 2, 0.5})
+ERROR = quantize(3, {1, 2, &quot;A&quot;})
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer round(AnyType Expr)</b></b></dt>
+  <dd>Returns the integer that results from the evaluation of <b>Expr</b>, where
+      the type of the evaluated <b>Expr</b> is <b>Integer</b>. Where the type of
+      the evaluated <b>Expr</b> is not <b>Integer</b>, function
+      <b>real(Expr)</b> is called. Its return value is then used to return the
+      integer that results from a round-to-nearest rounding method. The nearest
+      integer value to the return value is returned, except in the case of the
+      value at the exact midpoint between two integer values. In this case, the
+      even valued integer is returned. Where <b>real(Expr)</b> returns
+      <b>ERROR</b> or <b>UNDEFINED</b>, or the integer value does not fit into
+      32 bits, <b>ERROR</b> is returned.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer random([ AnyType Expr ])</b></b></dt>
+  <dd>Where the optional argument <b>Expr</b> evaluates to type <b>Integer</b>
+      or type <b>Real</b> (and called <b>x</b>), the return value is the integer
+      or real <b>r</b> randomly chosen from the interval <b>0 &lt;= r &lt;
+      x</b>. With no argument, the return value is chosen with
+      <b>random(1.0)</b>. Returns <b>ERROR</b> in all other cases.
+    <p class="Pp">This function returns <b>ERROR</b> if greater than 1 argument
+        is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Number"><a class="permalink" href="#Number"><b><b>Number sum([ List l
+    ])</b></b></a></dt>
+  <dd>The elements of l are evaluated, producing a list l of values. Undefined
+      values are removed. If the resulting l is composed only of numbers, the
+      result is the sum of the values, as a Real if any value is Real, and as an
+      Integer otherwise. If the list is empty, the result is 0. If the list has
+      only Undefined values, the result is <b>UNDEFINED</b>. In other cases, the
+      result is <b>ERROR</b>.
+    <p class="Pp">This function returns <b>ERROR</b> if greater than 1 argument
+        is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Number~2"><a class="permalink" href="#Number~2"><b><b>Number avg([
+    List l ])</b></b></a></dt>
+  <dd>The elements of l are evaluated, producing a list l of values. Undefined
+      values are removed. If the resulting l is composed only of numbers, the
+      result is the average of the values, as a Real. If the list is empty, the
+      result is 0. If the list has only Undefined values, the result is
+      <b>UNDEFINED</b>. In other cases, the result is ERROR.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Number~3"><a class="permalink" href="#Number~3"><b><b>Number min([
+    List l ])</b></b></a></dt>
+  <dd>The elements of l are evaluated, producing a list l of values. Undefined
+      values are removed. If the resulting l is composed only of numbers, the
+      result is the minimum of the values, as a Real if any value is Real, and
+      as an Integer otherwise. If the list is empty, the result is UNDEFINED. In
+      other cases, the result is ERROR.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Number~4"><a class="permalink" href="#Number~4"><b><b>Number max([
+    List l ])</b></b></a></dt>
+  <dd>The elements of l are evaluated, producing a list l of values. Undefined
+      values are removed. If the resulting l is composed only of numbers, the
+      result is the maximum of the values, as a Real if any value is Real, and
+      as an Integer otherwise. If the list is empty, the result is UNDEFINED. In
+      other cases, the result is ERROR.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String strcat(AnyType Expr1 [ , AnyType Expr2 ...])</b></b></dt>
+  <dd>Returns the string which is the concatenation of all arguments, where all
+      arguments are converted to type <b>String</b> by function
+      <b>string(Expr)</b>. Returns <b>ERROR</b> if any argument evaluates to
+      <b>UNDEFINED</b> or <b>ERROR</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String join(String sep, AnyType Expr1 [ , AnyType Expr2 ...])</b> OR
+    <b>String join(String sep, List list</b> OR <b>String join(List
+    list</b></b></dt>
+  <dd>Returns the string which is the concatenation of all arguments after the
+      first one. The first argument is the separator, and it is inserted between
+      each of the other arguments during concatenation. All arguments which are
+      not undefined are converted to type <b>String</b> by function
+      <b>string(Expr)</b> before concatenation. Undefined arguments are skipped.
+      When there are exactly two arguments, If the second argument is a List,
+      all members of the list are converted to strings and then joined using the
+      separator. When there is only one argument, and the argument is a List,
+      all members of the list are converted to strings and then concatenated.
+    <p class="Pp">Returns <b>ERROR</b> if any argument evaluates to
+        <b>UNDEFINED</b> or <b>ERROR</b>.</p>
+    <p class="Pp">For example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>&quot;a, b, c&quot; = join(&quot;, &quot;, &quot;a&quot;, &quot;b&quot;, &quot;c&quot;)
+&quot;abc&quot;   = join(split(&quot;a b c&quot;))
+&quot;a;b;c&quot; = join(&quot;;&quot;, split(&quot;a b c&quot;))
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String substr(String s, Integer offset [ , Integer length
+    ])</b></b></dt>
+  <dd>Returns the substring of <b>s</b>, from the position indicated by
+      <b>offset</b>, with (optional) <b>length</b> characters. The first
+      character within <b>s</b> is at offset 0. If the optional <b>length</b>
+      argument is not present, the substring extends to the end of the string.
+      If <b>offset</b> is negative, the value <b>(length - offset)</b> is used
+      for the offset. If <b>length</b> is negative, an initial substring is
+      computed, from the offset to the end of the string. Then, the absolute
+      value of <b>length</b> characters are deleted from the right end of the
+      initial substring. Further, where characters of this resulting substring
+      lie outside the original string, the part that lies within the original
+      string is returned. If the substring lies completely outside of the
+      original string, the null string is returned.
+    <p class="Pp">This function returns <b>ERROR</b> if greater than 3 or less
+        than 2 arguments are given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer strcmp(AnyType Expr1, AnyType Expr2)</b></b></dt>
+  <dd>Both arguments are converted to type <b>String</b> by function
+      <b>string(Expr)</b>. The return value is an integer that will be</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>less than 0, if <b>Expr1</b> is lexicographically less than
+    <b>Expr2</b></li>
+  <li>equal to 0, if <b>Expr1</b> is lexicographically equal to
+    <b>Expr2</b></li>
+  <li>greater than 0, if <b>Expr1</b> is lexicographically greater than
+      <b>Expr2</b></li>
+</ul>
+</div>
+<br/>
+<p class="Pp">Case is significant in the comparison. Where either argument
+    evaluates to <b>ERROR</b> or <b>UNDEFINED</b>, <b>ERROR</b> is returned.</p>
+<p class="Pp">This function returns <b>ERROR</b> if other than 2 arguments are
+    given.</p>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer stricmp(AnyType Expr1, AnyType Expr2)</b></b></dt>
+  <dd>This function is the same as <b>strcmp</b>, except that letter case is not
+      significant.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer versioncmp(String left, String right)</b></b></dt>
+  <dd>This function version-compares two strings. It returns an integer</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>less than zero if <b>left</b> is an earlier version than <b>right</b></li>
+  <li>zero if the strings are identical</li>
+  <li>more than zero if <b>left</b> is a later version than <b>right</b>.</li>
+</ul>
+</div>
+<br/>
+<p class="Pp">A version comparison is a lexicographic comparison unless the
+    first difference between the two strings occurs in a string of digits, in
+    which case, sort by the value of that number (assuming that more leading
+    zeroes mean smaller numbers). Thus <b>7.x</b> is earlier than <b>7.y</b>,
+    <b>7.9</b> is earlier than <b>7.10</b>, and the following sequence is in
+    order: <b>000, 00, 01, 010, 09, 0, 1, 9, 10</b>.</p>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"><b>Boolean versionGT(String left, String right)</b> <b>Boolean
+    versionLT(String left, String right)</b> <b>Boolean versionGE(String left,
+    String right)</b> <b>Boolean versionLE(String left, String right)</b>
+    <b>Boolean versionEQ(String left, String right)</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent">As <b>versioncmp()</b> (above), but for a specific
+  comparison and returning a boolean. The two letter codes stand for
+  &quot;Greater Than&quot;, &quot;Less Than&quot;, &quot;Greater than or
+  Equal&quot;, &quot;Less than or Equal&quot;, and &quot;EQual&quot;,
+  respectively.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"><b>Boolean version_in_range(String version, String min, String
+    max)</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent">Equivalent to <b>versionLE(min, version) &amp;&amp;
+  versionLE(version, max)</b>.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String toUpper(AnyType Expr)</b></b></dt>
+  <dd>The single argument is converted to type <b>String</b> by function
+      <b>string(Expr)</b>. The return value is this string, with all lower case
+      letters converted to upper case. If the argument evaluates to <b>ERROR</b>
+      or <b>UNDEFINED</b>, <b>ERROR</b> is returned.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String toLower(AnyType Expr)</b></b></dt>
+  <dd>The single argument is converted to type <b>String</b> by function
+      <b>string(Expr)</b>. The return value is this string, with all upper case
+      letters converted to lower case. If the argument evaluates to <b>ERROR</b>
+      or <b>UNDEFINED</b>, <b>ERROR</b> is returned.
+    <p class="Pp">This function returns <b>ERROR</b> if other than exactly 1
+        argument is given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer size(AnyType Expr)</b></b></dt>
+  <dd>If Expr evaluates to a string, return the number of characters in the
+      string. If Expr evaluate to a list, return the number of elements in the
+      list. If Expr evaluate to a classad, return the number of entries in the
+      ad. Otherwise, <b>ERROR</b> is returned.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="List"><a class="permalink" href="#List"><b><b>List split(String s [ ,
+    String tokens ] )</b></b></a></dt>
+  <dd>Returns a list of the substrings of <b>s</b> that have been split up by
+      using any of the characters within string <b>tokens</b>. If <b>tokens</b>
+      is not specified, then all white space characters are used to delimit the
+      string.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="List~2"><a class="permalink" href="#List~2"><b><b>List
+    splitUserName(String Name)</b></b></a></dt>
+  <dd>Returns a list of two strings. Where <b>Name</b> includes an <b>@</b>
+      character, the first string in the list will be the substring that comes
+      before the <b>@</b> character, and the second string in the list will be
+      the substring that comes after. Thus, if <b>Name</b> is
+      <b>&quot;user@domain&quot;</b>, then the returned list will be
+      {&quot;user&quot;, &quot;domain&quot;}. If there is no <b>@</b> character
+      in <b>Name</b>, then the first string in the list will be <b>Name</b>, and
+      the second string in the list will be the empty string. Thus, if
+      <b>Name</b> is <b>&quot;username&quot;</b>, then the returned list will be
+      {&quot;username&quot;, &quot;&quot;}.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="List~3"><a class="permalink" href="#List~3"><b><b>List
+    splitSlotName(String Name)</b></b></a></dt>
+  <dd>Returns a list of two strings. Where <b>Name</b> includes an <b>@</b>
+      character, the first string in the list will be the substring that comes
+      before the <b>@</b> character, and the second string in the list will be
+      the substring that comes after. Thus, if <b>Name</b> is
+      <b>&quot;slot1@machine&quot;</b>, then the returned list will be
+      {&quot;slot1&quot;, &quot;machine&quot;}. If there is no <b>@</b>
+      character in <b>Name</b>, then the first string in the list will be the
+      empty string, and the second string in the list will be <b>Name</b>, Thus,
+      if <b>Name</b> is <b>&quot;machinename&quot;</b>, then the returned list
+      will be {&quot;&quot;, &quot;machinename&quot;}.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer time()</b></b></dt>
+  <dd>Returns the current coordinated universal time. This is the time, in
+      seconds, since midnight of January 1, 1970.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String formatTime([ Integer time ] [ , String format ])</b></b></dt>
+  <dd>Returns a formatted string that is a representation of <b>time</b>. The
+      argument <b>time</b> is interpreted as coordinated universal time in
+      seconds, since midnight of January 1, 1970. If not specified, <b>time</b>
+      will default to the current time.
+    <p class="Pp">The argument <b>format</b> is interpreted similarly to the
+        format argument of the ANSI C strftime function. It consists of
+        arbitrary text plus placeholders for elements of the time. These
+        placeholders are percent signs (%) followed by a single letter. To have
+        a percent sign in the output, use a double percent sign (%%). If
+        <b>format</b> is not specified, it defaults to <b>%c</b>.</p>
+    <p class="Pp">Because the implementation uses strftime() to implement this,
+        and some versions implement extra, non-ANSI C options, the exact options
+        available to an implementation may vary. An implementation is only
+        required to implement the ANSI C options, which are:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>%a</b></b></dt>
+  <dd>abbreviated weekday name</dd>
+  <dt><b><b>%A</b></b></dt>
+  <dd>full weekday name</dd>
+  <dt><b><b>%b</b></b></dt>
+  <dd>abbreviated month name</dd>
+  <dt><b><b>%B</b></b></dt>
+  <dd>full month name</dd>
+  <dt><b><b>%c</b></b></dt>
+  <dd>local date and time representation</dd>
+  <dt><b><b>%d</b></b></dt>
+  <dd>day of the month (01-31)</dd>
+  <dt><b><b>%H</b></b></dt>
+  <dd>hour in the 24-hour clock (0-23)</dd>
+  <dt><b><b>%I</b></b></dt>
+  <dd>hour in the 12-hour clock (01-12)</dd>
+  <dt><b><b>%j</b></b></dt>
+  <dd>day of the year (001-366)</dd>
+  <dt><b><b>%m</b></b></dt>
+  <dd>month (01-12)</dd>
+  <dt><b><b>%M</b></b></dt>
+  <dd>minute (00-59)</dd>
+  <dt><b><b>%p</b></b></dt>
+  <dd>local equivalent of AM or PM</dd>
+  <dt><b><b>%S</b></b></dt>
+  <dd>second (00-59)</dd>
+  <dt><b><b>%U</b></b></dt>
+  <dd>week number of the year (Sunday as first day of week) (00-53)</dd>
+  <dt><b><b>%w</b></b></dt>
+  <dd>weekday (0-6, Sunday is 0)</dd>
+  <dt><b><b>%W</b></b></dt>
+  <dd>week number of the year (Monday as first day of week) (00-53)</dd>
+  <dt><b><b>%x</b></b></dt>
+  <dd>local date representation</dd>
+  <dt><b><b>%X</b></b></dt>
+  <dd>local time representation</dd>
+  <dt><b><b>%y</b></b></dt>
+  <dd>year without century (00-99)</dd>
+  <dt><b><b>%Y</b></b></dt>
+  <dd>year with century</dd>
+  <dt><b><b>%Z</b></b></dt>
+  <dd>time zone name, if any</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String interval(Integer seconds)</b></b></dt>
+  <dd>Uses <b>seconds</b> to return a string of the form <b>days+hh:mm:ss</b>.
+      This represents an interval of time. Leading values that are zero are
+      omitted from the string. For example, <b>seconds</b> of 67 becomes
+      &quot;1:07&quot;. A second example, <b>seconds</b> of 1472523 =
+      17*24*60*60 + 1*60*60 + 2*60 + 3, results in the string
+      &quot;17+1:02:03&quot;.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String evalInEachContext(Expression expr, List
+    contexts)</b></b></dt>
+  <dd>This function evaluates its first argument as an expression in the context
+      of each Classad in the second argument and returns a list that is the
+      result of each evaluation. The first argument should be an expression. If
+      the second argument does not evaluate to a list of ClassAds, <b>ERROR</b>
+      is returned.
+    <p class="Pp">For example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>{true, false} = evalInEachContext(Prio &gt; 2, { [Prio=3;], [Prio=1;] })
+{3, 1} = evalInEachContext(Prio, { [Prio=3;], [Prio=1;] })
+ERROR = evalInEachContext(Prio &gt; 2, { [Prio=3;], UNDEFINED })
+ERROR = evalInEachContext(Prio &gt; 2, UNDEFINED)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String countMatches(Expression expr, List contexts)</b></b></dt>
+  <dd>This function evaluates its first argument as an expression in the context
+      of each Classad in the second argument and returns a count of the results
+      that evaluated to <b>True</b>. The first argument should be an expression.
+      The second argument should be a list of ClassAds or a list of attribute
+      references to classAds, or should evaluate to a list of ClassAds. This
+      function will always return a integer value when the first argument is
+      defined and the second argument is not <b>ERROR</b>.
+    <p class="Pp">For example:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>1 = countMatches(Prio &gt; 2, { [Prio=3;], [Prio=1;] })
+1 = countMatches(Prio &gt; 2, { [Prio=3;], UNDEFINED })
+0 = countMatches(Prio &gt; 2, UNDEFINED)
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="AnyType~3"><a class="permalink" href="#AnyType~3"><b><b>AnyType
+    debug(AnyType expression)</b></b></a></dt>
+  <dd>This function evaluates its argument, and it returns the result. Thus, it
+      is a no-operation. However, a side-effect of the function is that
+      information about the evaluation is logged to the evaluating program's log
+      file, at the <b>D_FULLDEBUG</b> debug level. This is useful for
+      determining why a given ClassAd expression is evaluating the way it does.
+      For example, if a <i>condor_startd</i> <i>START</i> expression is
+      unexpectedly evaluating to <b>UNDEFINED</b>, then wrapping the expression
+      in this debug() function will log information about each component of the
+      expression to the log file, making it easier to understand the
+    expression.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String envV1ToV2(String old_env)</b></b></dt>
+  <dd>This function converts a set of environment variables from the old
+      HTCondor syntax to the new syntax. The single argument should evaluate to
+      a string that represents a set of environment variables using the old
+      HTCondor syntax (usually stored in the job ClassAd attribute <b>Env</b>).
+      The result is the same set of environment variables using the new HTCondor
+      syntax (usually stored in the job ClassAd attribute <b>Environment</b>).
+      If the argument evaluates to <b>UNDEFINED</b>, then the result is also
+      <b>UNDEFINED</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String mergeEnvironment(String env1 [ , String env2, ...
+    ])</b></b></dt>
+  <dd>This function merges multiple sets of environment variables into a single
+      set. If multiple arguments include the same variable, the one that appears
+      last in the argument list is used. Each argument should evaluate to a
+      string which represents a set of environment variables using the new
+      HTCondor syntax or <b>UNDEFINED</b>, which is treated like an empty
+      string. The result is a string that represents the merged set of
+      environment variables using the new HTCondor syntax (suitable for use as
+      the value of the job ClassAd attribute <b>Environment</b>).</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">For the following functions, a delimiter is represented by a
+    string. Each character within the delimiter string delimits individual
+    strings within a list of strings that is given by a single string. The
+    default delimiter contains the comma and space characters. A string within
+    the list is ended (delimited) by one or more characters within the delimiter
+    string.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer stringListSize(String list [ , String delimiter
+    ])</b></b></dt>
+  <dd>Returns the number of elements in the string <b>list</b>, as delimited by
+      the optional <b>delimiter</b> string. Returns <b>ERROR</b> if either
+      argument is not a string.
+    <p class="Pp">This function returns <b>ERROR</b> if other than 1 or 2
+        arguments are given.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer stringListSum(String list [ , String delimiter ])</b> OR
+    <b>Real stringListSum(String list [ , String delimiter ])</b></b></dt>
+  <dd>Sums and returns the sum of all items in the string <b>list</b>, as
+      delimited by the optional <b>delimiter</b> string. If all items in the
+      list are integers, the return value is also an integer. If any item in the
+      list is a real value (noninteger), the return value is a real. If any item
+      does not represent an integer or real value, the return value is
+      <b>ERROR</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Real stringListAvg(String list [ , String delimiter ])</b></b></dt>
+  <dd>Sums and returns the real-valued average of all items in the string
+      <b>list</b>, as delimited by the optional <b>delimiter</b> string. If any
+      item does not represent an integer or real value, the return value is
+      <b>ERROR</b>. A list with 0 items (the empty list) returns the value
+    0.0.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer stringListMin(String list [ , String delimiter ])</b> OR
+    <b>Real stringListMin(String list [ , String delimiter ])</b></b></dt>
+  <dd>Finds and returns the minimum value from all items in the string
+      <b>list</b>, as delimited by the optional <b>delimiter</b> string. If all
+      items in the list are integers, the return value is also an integer. If
+      any item in the list is a real value (noninteger), the return value is a
+      real. If any item does not represent an integer or real value, the return
+      value is <b>ERROR</b>. A list with 0 items (the empty list) returns the
+      value <b>UNDEFINED</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer stringListMax(String list [ , String delimiter ])</b> OR
+    <b>Real stringListMax(String list [ , String delimiter ])</b></b></dt>
+  <dd>Finds and returns the maximum value from all items in the string
+      <b>list</b>, as delimited by the optional <b>delimiter</b> string. If all
+      items in the list are integers, the return value is also an integer. If
+      any item in the list is a real value (noninteger), the return value is a
+      real. If any item does not represent an integer or real value, the return
+      value is <b>ERROR</b>. A list with 0 items (the empty list) returns the
+      value <b>UNDEFINED</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~16"><a class="permalink" href="#Boolean~16"><b><b>Boolean
+    stringListMember(String x, String list [ , String delimiter
+    ])</b></b></a></dt>
+  <dd>Returns <b>TRUE</b> if item <b>x</b> is in the string <b>list</b>, as
+      delimited by the optional <b>delimiter</b> string. Returns <b>FALSE</b> if
+      item <b>x</b> is not in the string <b>list</b>. Comparison is done with
+      <b>strcmp()</b>. The return value is <b>ERROR</b>, if any of the arguments
+      are not strings.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~17"><a class="permalink" href="#Boolean~17"><b><b>Boolean
+    stringListIMember(String x, String list [ , String delimiter
+    ])</b></b></a></dt>
+  <dd>Same as <b>stringListMember()</b>, but comparison is done with
+      <b>stricmp()</b>, so letter case is not relevant.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>Integer stringListsIntersect(String list1, String list2 [ , String
+    delimiter ])</b></b></dt>
+  <dd>Returns <b>TRUE</b> if the lists contain any matching elements, and
+      returns <b>FALSE</b> if the lists do not contain any matching elements.
+      Returns <b>ERROR</b> if either argument is not a string or if an incorrect
+      number of arguments are given.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~18"><a class="permalink" href="#Boolean~18"><b><b>Boolean
+    stringListSubsetMatch(String list1, String list2 [ , String delimiter
+    ])</b></b></a></dt>
+  <dd>Returns <b>TRUE</b> if all item in the string <b>list1</b> are also in the
+      string <b>list2</b>, as delimited by the optional <b>delimiter</b> string.
+      Returns <b>FALSE</b> if <b>list1</b> has any items that are not in
+      <b>list2</b>. Both lists are treated as sets. Empty items and duplicate
+      items are ignored. The return value is <b>TRUE</b> if <b>list1</b> is
+      <b>UNDEFINED</b> or empty and <b>list2</b> is any string value. The return
+      value is <b>FALSE</b> if <b>list1</b> is any string vlaue and <b>list2</b>
+      is <b>UNDEFINED</b>. The return value is <b>UNDEFINED</b> if both
+      <b>list1</b> and <b>list2</b> are <b>UNDEFINED</b>. The return value is
+      <b>ERROR</b>, if any of the arguments are not either strings or
+      <b>UNDEFINED</b></dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~19"><a class="permalink" href="#Boolean~19"><b><b>Boolean
+    stringListISubsetMatch(String list1, String list2 [ , String delimiter
+    ])</b></b></a></dt>
+  <dd>Same as <b>stringListSubsetMatch()</b>, but the sets are
+    case-insensitive.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp">The following six functions utilize regular expressions as defined
+    and supported by the PCRE library. See <i>http://www.pcre.org</i> for
+    complete documentation of regular expressions.</p>
+<p class="Pp">The <b>options</b> argument to these functions is a string of
+    special characters that modify the use of the regular expressions. Inclusion
+    of characters other than these as options are ignored.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="I"><a class="permalink" href="#I"><b><b>I</b> or <b>i</b></b></a></dt>
+  <dd>Ignore letter case.</dd>
+  <dt id="M"><a class="permalink" href="#M"><b><b>M</b> or <b>m</b></b></a></dt>
+  <dd>Modifies the interpretation of the caret (^) and dollar sign ($)
+      characters. The caret character matches the start of a string, as well as
+      after each newline character. The dollar sign character matches before a
+      newline character.</dd>
+  <dt id="S"><a class="permalink" href="#S"><b><b>S</b> or <b>s</b></b></a></dt>
+  <dd>The period matches any character, including the newline character.</dd>
+  <dt id="F"><a class="permalink" href="#F"><b><b>F</b> or <b>f</b></b></a></dt>
+  <dd>When doing substitution, return the full target string with substitutions
+      applied. Normally, only the substitute text is returned.</dd>
+  <dt id="G"><a class="permalink" href="#G"><b><b>G</b> or <b>g</b></b></a></dt>
+  <dd>When doing substitution, apply the substitution for every matching portion
+      of the target string (that doesn't overlap a previous match).</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~20"><a class="permalink" href="#Boolean~20"><b><b>Boolean
+    regexp(String pattern, String target [ , String options ])</b></b></a></dt>
+  <dd>Uses the regular expression given by string <b>pattern</b> to scan through
+      the string <b>target</b>. Returns <b>TRUE</b> when <b>target</b> matches
+      the regular expression given by <b>pattern</b>. Returns <b>FALSE</b>
+      otherwise. If any argument is not a string, or if <b>pattern</b> does not
+      describe a valid regular expression, returns <b>ERROR</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~21"><a class="permalink" href="#Boolean~21"><b><b>Boolean
+    regexpMember(String pattern, List targetStrings [ , String options
+    ])</b></b></a></dt>
+  <dd>Uses the description of a regular expression given by string
+      <b>pattern</b> to scan through a List of string n <b>targetStrings</b>.
+      Returns <b>TRUE</b> when <b>target</b> matches a regular expression given
+      by <b>pattern</b>. If no strings match, and at least one item in
+      targetString evaluated to undefined, returns undefined. If any item in
+      targetString before a match evaluated to neither a string nor undefined,
+      returns <b>ERROR</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String regexps</b></b></dt>
+  <dd><b>(String pattern, String target, String substitute [ , String options
+      ])</b> Uses the regular expression given by string <b>pattern</b> to scan
+      through the string <b>target</b>. When <b>target</b> matches the regular
+      expression given by <b>pattern</b>, the string <b>substitute</b> is
+      returned, with backslash expansion performed. If any argument is not a
+      string, returns <b>ERROR</b>.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String replace</b></b></dt>
+  <dd><b>(String pattern, String target, String substitute [ , String options
+      ])</b> Uses the regular expression given by string <b>pattern</b> to scan
+      through the string <b>target</b>. Returns a modified version of
+      <b>target</b>, where the first substring that matches <b>pattern</b> is
+      replaced by the string <b>substitute</b>, with backslash expansion
+      performed. Equivalent to <b>regexps()</b> with the <b>f</b> option. If any
+      argument is not a string, returns <b>ERROR</b>.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String replaceall</b></b></dt>
+  <dd><b>(String pattern, String target, String substitute [ , String options
+      ])</b> Uses the regular expression given by string <b>pattern</b> to scan
+      through the string <b>target</b>. Returns a modified version of
+      <b>target</b>, where every substring that matches <b>pattern</b> is
+      replaced by the string <b>substitute</b>, with backslash expansion
+      performed. Equivalent to <b>regexps()</b> with the <b>fg</b> options. If
+      any argument is not a string, returns <b>ERROR</b>.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="Boolean~22"><a class="permalink" href="#Boolean~22"><b><b>Boolean
+    stringList_regexpMember</b></b></a></dt>
+  <dd><b>(String pattern, String list [ , String delimiter ] [ , String options
+      ])</b> Uses the description of a regular expression given by string
+      <b>pattern</b> to scan through the list of strings in <b>list</b>. Returns
+      <b>TRUE</b> when one of the strings in <b>list</b> is a regular expression
+      as described by <b>pattern</b>. The optional <b>delimiter</b> describes
+      how the list is delimited, and string <b>options</b> modifies how the
+      match is performed. Returns <b>FALSE</b> if <b>pattern</b> does not match
+      any entries in <b>list</b>. The return value is <b>ERROR</b>, if any of
+      the arguments are not strings, or if <b>pattern</b> is not a valid regular
+      expression.</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><b><b>String userHome(String userName [ , String default ])</b></b></dt>
+  <dd>Returns the home directory of the given user as configured on the current
+      system (determined using the getpwdnam() call). (Returns <b>default</b> if
+      the <b>default</b> argument is passed and the home directory of the user
+      is not defined.)</dd>
+</dl>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="List~4"><a class="permalink" href="#List~4"><b><b>List userMap(String
+    mapSetName, String userName)</b></b></a></dt>
+  <dd>Map an input string using the given mapping set. Returns a string
+      containing the list of groups to which the user belongs separated by
+      commas or undefined if the user was not found in the map file.</dd>
+  <dt><b><b>String userMap(String mapSetName, String userName, String
+    preferredGroup)</b></b></dt>
+  <dd>Map an input string using the given mapping set. Returns a string, which
+      is the preferred group if the user is in that group; otherwise it is the
+      first group to which the user belongs, or undefined if the user belongs to
+      no groups.
+    <p class="Pp"></p>
+    <p class="Pp"></p>
+  </dd>
+  <dt><b><b>String userMap(String mapSetName, String userName, String
+    preferredGroup, String defaultGroup)</b></b></dt>
+  <dd>Map an input string using the given mapping set. Returns a string, which
+      is the preferred group if the user is in that group; the first group to
+      which the user belongs, if any; and the default group if the user belongs
+      to no groups.
+    <p class="Pp">The maps for the <b>userMap()</b> function are defined by the
+        following configuration macros:
+        <i>&lt;SUBSYS&gt;_CLASSAD_USER_MAP_NAMES</i>,
+        <i>CLASSAD_USER_MAPFILE_&lt;name&gt;</i> and
+        <i>CLASSAD_USER_MAPDATA_&lt;name&gt;</i> (see the
+        admin-manual/configuration-macros:htcondor-wide configuration file
+        entries section).</p>
+  </dd>
+</dl>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CLASSAD_EVALUATION_SEMANTICS"><a class="permalink" href="#CLASSAD_EVALUATION_SEMANTICS">CLASSAD
+  EVALUATION SEMANTICS</a></h1>
+<p class="Pp">The ClassAd mechanism's primary purpose is for matching entities
+    that supply constraints on candidate matches. The mechanism is therefore
+    defined to carry out expression evaluations in the context of two ClassAds
+    that are testing each other for a potential match. For example, the
+    <i>condor_negotiator</i> evaluates the <b>Requirements</b> expressions of
+    machine and job ClassAds to test if they can be matched. The semantics of
+    evaluating such constraints is defined below.</p>
+<section class="Ss">
+<h2 class="Ss" id="Evaluating_Literals"><a class="permalink" href="#Evaluating_Literals">Evaluating
+  Literals</a></h2>
+<p class="Pp">Literals are self-evaluating, Thus, integer, string, real,
+    undefined and error values evaluate to themselves.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Attribute_References"><a class="permalink" href="#Attribute_References">Attribute
+  References</a></h2>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp">Since the expression evaluation is being carried out in the
+    context of two ClassAds, there is a potential for name space ambiguities.
+    The following rules define the semantics of attribute references made by
+    ClassAd A that is being evaluated in a context with another ClassAd B:</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>If the reference is prefixed by a scope resolution prefix,</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>If the prefix is <b>MY.</b>, the attribute is looked up in ClassAd A. If
+      the named attribute does not exist in A, the value of the reference is
+      <b>UNDEFINED</b>. Otherwise, the value of the reference is the value of
+      the expression bound to the attribute name.</li>
+  <li>Similarly, if the prefix is <b>TARGET.</b>, the attribute is looked up in
+      ClassAd B. If the named attribute does not exist in B, the value of the
+      reference is <b>UNDEFINED</b>. Otherwise, the value of the reference is
+      the value of the expression bound to the attribute name.</li>
+</ul>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>2.</dt>
+  <dd>If the reference is not prefixed by a scope resolution prefix,</dd>
+</dl>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>If the attribute is defined in A, the value of the reference is the value
+      of the expression bound to the attribute name in A.</li>
+  <li>Otherwise, if the attribute is defined in B, the value of the reference is
+      the value of the expression bound to the attribute name in B.</li>
+  <li>Otherwise, if the attribute is defined in the ClassAd environment, the
+      value from the environment is returned. This is a special environment, to
+      be distinguished from the Unix environment. Currently, the only attribute
+      of the environment is <b>CurrentTime</b>, which evaluates to the integer
+      value returned by the system call <b>time(2)</b>.</li>
+  <li>Otherwise, the value of the reference is <b>UNDEFINED</b>.</li>
+</ul>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>3.</dt>
+  <dd>Finally, if the reference refers to an expression that is itself in the
+      process of being evaluated, there is a circular dependency in the
+      evaluation. The value of the reference is <b>ERROR</b>.</dd>
+</dl>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ClassAd_Operators"><a class="permalink" href="#ClassAd_Operators">ClassAd
+  Operators</a></h2>
+<p class="Pp"></p>
+<p class="Pp">All operators in the ClassAd language are total, and thus have
+    well defined behavior regardless of the supplied operands. Furthermore, most
+    operators are strict with respect to <b>ERROR</b> and <b>UNDEFINED</b>, and
+    thus evaluate to <b>ERROR</b> or <b>UNDEFINED</b> if either of their
+    operands have these exceptional values.</p>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>Arithmetic operators:</b></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>The operators <b>\*</b>, <b>/</b>, <b>+</b> and <b>-</b> operate
+      arithmetically only on integers and reals.</dd>
+  <dt>2.</dt>
+  <dd>Arithmetic is carried out in the same type as both operands, and type
+      promotions from integers to reals are performed if one operand is an
+      integer and the other real.</dd>
+  <dt>3.</dt>
+  <dd>The operators are strict with respect to both <b>UNDEFINED</b> and
+      <b>ERROR</b>.</dd>
+  <dt>4.</dt>
+  <dd>If either operand is not a numerical type, the value of the operation is
+      <b>ERROR</b>.</dd>
+</dl>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>Comparison operators:</b></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>The comparison operators <b>==</b>, <b>!=</b>, <b>&lt;=</b>, <b>&lt;</b>,
+      <b>&gt;=</b> and <b>&gt;</b> operate on integers, reals and strings.</dd>
+  <dt>2.</dt>
+  <dd>String comparisons are case insensitive for most operators. The only
+      exceptions are the operators <b>=?=</b> and <b>=!=</b>, which do case
+      sensitive comparisons assuming both sides are strings.</dd>
+  <dt>3.</dt>
+  <dd>Comparisons are carried out in the same type as both operands, and type
+      promotions from integers to reals are performed if one operand is a real,
+      and the other an integer. Strings may not be converted to any other type,
+      so comparing a string and an integer or a string and a real results in
+      <b>ERROR</b>.</dd>
+  <dt>4.</dt>
+  <dd>The operators <b>==</b>, <b>!=</b>, <b>&lt;=</b>, <b>&lt;</b>,
+      <b>&gt;=</b>, and <b>&gt;</b> are strict with respect to both
+      <b>UNDEFINED</b> and <b>ERROR</b>.</dd>
+  <dt>5.</dt>
+  <dd>In addition, the operators <b>=?=</b>, <b>is</b>, <b>=!=</b>, and
+      <b>isnt</b> behave similar to <b>==</b> and !=, but are not strict.
+      Semantically, the <b>=?=</b> and is test if their operands are
+      &quot;identical,&quot; i.e., have the same type and the same value. For
+      example, <b>10 == UNDEFINED</b> and <b>UNDEFINED == UNDEFINED</b> both
+      evaluate to <b>UNDEFINED</b>, but <b>10 =?= UNDEFINED</b> and
+      <b>UNDEFINED</b> is <b>UNDEFINED</b> evaluate to <b>FALSE</b> and
+      <b>TRUE</b> respectively. The <b>=!=</b> and <b>isnt</b> operators test
+      for the &quot;is not identical to&quot; condition.
+    <p class="Pp"><b>=?=</b> and <b>is</b> have the same behavior as each other.
+        And <b>isnt</b> and <b>=!=</b> behave the same as each other. The
+        ClassAd unparser will always use <b>=?=</b> in preference to <b>is</b>
+        and <b>=!=</b> in preference to <b>isnt</b> when printing out
+      ClassAds.</p>
+  </dd>
+</dl>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>Logical operators:</b></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>The logical operators <b>&amp;&amp;</b> and <b>||</b> operate on integers
+      and reals. The zero value of these types are considered <b>FALSE</b> and
+      non-zero values <b>TRUE</b>.</dd>
+  <dt>2.</dt>
+  <dd>The operators are not strict, and exploit the &quot;don't care&quot;
+      properties of the operators to squash <b>UNDEFINED</b> and <b>ERROR</b>
+      values when possible. For example, UNDEFINED &amp;&amp; FALSE evaluates to
+      <b>FALSE</b>, but <b>UNDEFINED || FALSE</b> evaluates to
+    <b>UNDEFINED</b>.</dd>
+  <dt>3.</dt>
+  <dd>Any string operand is equivalent to an <b>ERROR</b> operand for a logical
+      operator. In other words, <b>TRUE &amp;&amp; &quot;foobar&quot;</b>
+      evaluates to <b>ERROR</b>.</dd>
+</dl>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd><b>The Ternary operator:</b></dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>The Ternary operator (<b>expr1 ? expr2 : expr3</b>) operate with
+      expressions. If all three expressions are given, the operation is
+    strict.</dd>
+  <dt>2.</dt>
+  <dd>However, if the middle expression is missing, eg. <b>expr1 ?:</b>
+      <b>expr3</b>, then, when expr1 is defined, that defined value is returned.
+      Otherwise, when expr1 evaluated to <b>UNDEFINED</b>, the value of expr3 is
+      evaluated and returned. This can be a convenient shortcut for writing what
+      would otherwise be a much longer classad expression.</dd>
+</dl>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Expression_Examples"><a class="permalink" href="#Expression_Examples">Expression
+  Examples</a></h2>
+<p class="Pp"></p>
+<p class="Pp">The <b>=?=</b> operator is similar to the <b>==</b> operator. It
+    checks if the left hand side operand is identical in both type and value to
+    the the right hand side operand, returning <b>TRUE</b> when they are
+    identical.</p>
+<p class="Pp"><b>CAUTION:</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent">For strings, the comparison is case-insensitive with the
+  <b>==</b> operator and case-sensitive with the <b>=?=</b> operator. A key
+  point in understanding is that the <b>=?=</b> operator only produces
+  evaluation results of <b>TRUE</b> and <b>FALSE</b>, where the <b>==</b>
+  operator may produce evaluation results <b>TRUE</b>, <b>FALSE</b>,
+  <b>UNDEFINED</b>, or <b>ERROR</b>.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Table 4.1 presents examples that define the outcome of the
+    <b>==</b> operator. Table 4.2 presents examples that define the outcome of
+    the <b>=?=</b> operator.</p>
+<table class="tbl" style="border-top-style: solid;">
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>expression</b></td>
+    <td style="border-right-style: solid;"><b>evaluated result</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 == 10)</b></td>
+    <td style="border-right-style: solid;"><b>TRUE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 == 5)</b></td>
+    <td style="border-right-style: solid;"><b>FALSE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 == &quot;ABC&quot;)</b></td>
+    <td style="border-right-style: solid;"><b>ERROR</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>&quot;ABC&quot; ==
+      &quot;abc&quot;</b></td>
+    <td style="border-right-style: solid;"><b>TRUE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 == UNDEFINED)</b></td>
+    <td style="border-right-style: solid;"><b>UNDEFINED</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(UNDEFINED == UNDEFINED)</b></td>
+    <td style="border-right-style: solid;"><b>UNDEFINED</b></td>
+  </tr>
+</table>
+<p class="Pp">Table 4.1: Evaluation examples for the <b>==</b> operator</p>
+<table class="tbl" style="border-top-style: solid;">
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>expression</b></td>
+    <td style="border-right-style: solid;"><b>evaluated result</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 =?= 10)</b></td>
+    <td style="border-right-style: solid;"><b>TRUE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 =?= 5)</b></td>
+    <td style="border-right-style: solid;"><b>FALSE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 =?= &quot;ABC&quot;)</b></td>
+    <td style="border-right-style: solid;"><b>FALSE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>&quot;ABC&quot; =?=
+      &quot;abc&quot;</b></td>
+    <td style="border-right-style: solid;"><b>FALSE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 =?= UNDEFINED)</b></td>
+    <td style="border-right-style: solid;"><b>FALSE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(UNDEFINED =?= UNDEFINED)</b></td>
+    <td style="border-right-style: solid;"><b>TRUE</b></td>
+  </tr>
+</table>
+<p class="Pp">Table 4.2: Evaluation examples for the <b>=?=</b> operator</p>
+<p class="Pp">The <b>=!=</b> operator is similar to the <b>!=</b> operator. It
+    checks if the left hand side operand is not identical in both type and value
+    to the the right hand side operand, returning <b>FALSE</b> when they are
+    identical.</p>
+<p class="Pp"><b>CAUTION:</b></p>
+<div class="Bd-indent">
+<div class="Bd-indent">For strings, the comparison is case-insensitive with the
+  != operator and case-sensitive with the =!= operator. A key point in
+  understanding is that the <b>=!=</b> operator only produces evaluation results
+  of <b>TRUE</b> and <b>FALSE</b>, where the <b>!=</b> operator may produce
+  evaluation results <b>TRUE</b>, <b>FALSE</b>, <b>UNDEFINED</b>, or
+  <b>ERROR</b>.</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Table 4.3 presents examples that define the outcome of the
+    <b>!=</b> operator. Table 4.4 presents examples that define the outcome of
+    the <b>=!=</b> operator.</p>
+<table class="tbl" style="border-top-style: solid;">
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>expression</b></td>
+    <td style="border-right-style: solid;"><b>evaluated result</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 != 10)</b></td>
+    <td style="border-right-style: solid;"><b>FALSE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 != 5)</b></td>
+    <td style="border-right-style: solid;"><b>TRUE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 != &quot;ABC&quot;)</b></td>
+    <td style="border-right-style: solid;"><b>ERROR</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>&quot;ABC&quot; !=
+      &quot;abc&quot;</b></td>
+    <td style="border-right-style: solid;"><b>FALSE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 != UNDEFINED)</b></td>
+    <td style="border-right-style: solid;"><b>UNDEFINED</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(UNDEFINED != UNDEFINED)</b></td>
+    <td style="border-right-style: solid;"><b>UNDEFINED</b></td>
+  </tr>
+</table>
+<p class="Pp">Table 4.3: Evaluation examples for the <b>!=</b> operator</p>
+<table class="tbl" style="border-top-style: solid;">
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>expression</b></td>
+    <td style="border-right-style: solid;"><b>evaluated result</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 =!= 10)</b></td>
+    <td style="border-right-style: solid;"><b>FALSE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 =!= 5)</b></td>
+    <td style="border-right-style: solid;"><b>TRUE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 =!= &quot;ABC&quot;)</b></td>
+    <td style="border-right-style: solid;"><b>TRUE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>&quot;ABC&quot; =!=
+      &quot;abc&quot;</b></td>
+    <td style="border-right-style: solid;"><b>TRUE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(10 =!= UNDEFINED)</b></td>
+    <td style="border-right-style: solid;"><b>TRUE</b></td>
+  </tr>
+  <tr style="border-left-style: solid; border-bottom-style: solid;">
+    <td style="border-right-style: solid;"><b>(UNDEFINED =!= UNDEFINED)</b></td>
+    <td style="border-right-style: solid;"><b>FALSE</b></td>
+  </tr>
+</table>
+<p class="Pp">Table 4.4: Evaluation examples for the <b>=!=</b> operator</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OLD_CLASSADS_IN_THE_HTCONDOR_SYSTEM"><a class="permalink" href="#OLD_CLASSADS_IN_THE_HTCONDOR_SYSTEM">OLD
+  CLASSADS IN THE HTCONDOR SYSTEM</a></h1>
+<p class="Pp">The simplicity and flexibility of ClassAds is heavily exploited in
+    the HTCondor system. ClassAds are not only used to represent machines and
+    jobs in the HTCondor pool, but also other entities that exist in the pool
+    such as submitters of jobs and master daemons. Since arbitrary expressions
+    may be supplied and evaluated over these ClassAds, users have a uniform and
+    powerful mechanism to specify constraints over these ClassAds. These
+    constraints can take the form of <b>Requirements</b> expressions in resource
+    and job ClassAds, or queries over other ClassAds.</p>
+<section class="Ss">
+<h2 class="Ss" id="Constraints_and_Preferences"><a class="permalink" href="#Constraints_and_Preferences">Constraints
+  and Preferences</a></h2>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp">The <b>requirements</b> and <b>rank</b> expressions within the
+    submit description file are the mechanism by which users specify the
+    constraints and preferences of jobs. For machines, the configuration
+    determines both constraints and preferences of the machines.</p>
+<p class="Pp"></p>
+<p class="Pp"></p>
+<p class="Pp">For both machine and job, the <b>rank</b> expression specifies the
+    desirability of the match (where higher numbers mean better matches). For
+    example, a job ClassAd may contain the following expressions:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>Requirements = (Arch == &quot;INTEL&quot;) &amp;&amp; (OpSys == &quot;LINUX&quot;)
+Rank         = TARGET.Memory + TARGET.Mips
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">In this case, the job requires a 32-bit Intel processor running a
+    Linux operating system. Among all such computers, the customer prefers those
+    with large physical memories and high MIPS ratings. Since the <b>Rank</b> is
+    a user-specified metric, any expression may be used to specify the perceived
+    desirability of the match. The <i>condor_negotiator</i> daemon runs
+    algorithms to deliver the best resource (as defined by the <b>rank</b>
+    expression), while satisfying other required criteria.</p>
+<p class="Pp">Similarly, the machine may place constraints and preferences on
+    the jobs that it will run by setting the machine's configuration. For
+    example,</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>Friend        = Owner == &quot;tannenba&quot; || Owner == &quot;wright&quot;
+ResearchGroup = Owner == &quot;jbasney&quot; || Owner == &quot;raman&quot;
+Trusted       = Owner != &quot;rival&quot; &amp;&amp; Owner != &quot;riffraff&quot;
+START         = Trusted &amp;&amp; ( ResearchGroup || LoadAvg &lt; 0.3 &amp;&amp; KeyboardIdle &gt; 15*60 )
+RANK          = Friend + ResearchGroup*10
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The above policy states that the computer will never run jobs
+    owned by users rival and riffraff, while the computer will always run a job
+    submitted by members of the research group. Furthermore, jobs submitted by
+    friends are preferred to other foreign jobs, and jobs submitted by the
+    research group are preferred to jobs submitted by friends.</p>
+<p class="Pp"><b>Note:</b> Because of the dynamic nature of ClassAd expressions,
+    there is no a priori notion of an integer-valued expression, a real-valued
+    expression, etc. However, it is intuitive to think of the
+    <b>Requirements</b> and <b>Rank</b> expressions as integer-valued and
+    real-valued expressions, respectively. If the actual type of the expression
+    is not of the expected type, the value is assumed to be zero.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Querying_with_ClassAd_Expressions"><a class="permalink" href="#Querying_with_ClassAd_Expressions">Querying
+  with ClassAd Expressions</a></h2>
+<p class="Pp">The flexibility of this system may also be used when querying
+    ClassAds through the <i>condor_status</i> and <i>condor_q</i> tools which
+    allow users to supply ClassAd constraint expressions from the command
+  line.</p>
+<p class="Pp">Needed syntax is different on Unix and Windows platforms, due to
+    the interpretation of characters in forming command-line arguments. The
+    expression must be a single command-line argument, and the resulting
+    examples differ for the platforms. For Unix shells, single quote marks are
+    used to delimit a single argument. For a Windows command window, double
+    quote marks are used to delimit a single argument. Within the argument, Unix
+    escapes the double quote mark by prepending a backslash to the double quote
+    mark. Windows escapes the double quote mark by prepending another double
+    quote mark. There may not be spaces in between.</p>
+<p class="Pp">Here are several examples. To find all computers which have had
+    their keyboards idle for more than 60 minutes and have more than 4000 MB of
+    memory, the desired ClassAd expression is</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>KeyboardIdle &gt; 60*60 &amp;&amp; Memory &gt; 4000
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">On a Unix platform, the command appears as</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ condor_status -const 'KeyboardIdle &gt; 60*60 &amp;&amp; Memory &gt; 4000'
+Name               OpSys   Arch   State     Activity LoadAv Mem  ActvtyTime
+100
+slot1@altair.cs.wi LINUX   X86_64 Owner     Idle     0.000 8018 13+00:31:46
+slot2@altair.cs.wi LINUX   X86_64 Owner     Idle     0.000 8018 13+00:31:47
+...
+...
+slot1@athena.stat. LINUX   X86_64 Unclaimed Idle     0.000 7946  0+00:25:04
+slot2@athena.stat. LINUX   X86_64 Unclaimed Idle     0.000 7946  0+00:25:05
+...
+...
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The Windows equivalent command is</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>&gt; condor_status -const &quot;KeyboardIdle &gt; 60*60 &amp;&amp; Memory &gt; 4000&quot;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Here is an example for a Unix platform that utilizes a regular
+    expression ClassAd function to list specific information. A file contains
+    ClassAd information. <i>condor_advertise</i> is used to inject this
+    information, and <i>condor_status</i> constrains the search with an
+    expression that contains a ClassAd function.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ cat ad
+MyType = &quot;Generic&quot;
+FauxType = &quot;DBMS&quot;
+Name = &quot;random-test&quot;
+Machine = &quot;f05.cs.wisc.edu&quot;
+MyAddress = &quot;&lt;128.105.149.105:34000&gt;&quot;
+DaemonStartTime = 1153192799
+UpdateSequenceNumber = 1
+$ condor_advertise UPDATE_AD_GENERIC ad
+$ condor_status -any -constraint 'FauxType==&quot;DBMS&quot; &amp;&amp; regexp(&quot;random.*&quot;, Name, &quot;i&quot;)'
+MyType               TargetType           Name
+Generic              None                 random-test
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The ClassAd expression describing a machine that advertises a
+    Windows operating system:</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>OpSys == &quot;WINDOWS&quot;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">Here are three equivalent ways on a Unix platform to list all
+    machines advertising a Windows operating system. Spaces appear in these
+    examples to show where they are permitted.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ condor_status -constraint ' OpSys == &quot;WINDOWS&quot;  '
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ condor_status -constraint OpSys==\&quot;WINDOWS\&quot;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ condor_status -constraint &quot;OpSys==\&quot;WINDOWS\&quot;&quot;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">The equivalent command on a Windows platform to list all machines
+    advertising a Windows operating system must delimit the single argument with
+    double quote marks, and then escape the needed double quote marks that
+    identify the string within the expression. Spaces appear in this example
+    where they are permitted.</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>&gt; condor_status -constraint &quot; OpSys == &quot;&quot;WINDOWS&quot;&quot; &quot;
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXTENDING_CLASSADS_WITH_USER-WRITTEN_FUNCTIONS"><a class="permalink" href="#EXTENDING_CLASSADS_WITH_USER-WRITTEN_FUNCTIONS">EXTENDING
+  CLASSADS WITH USER-WRITTEN FUNCTIONS</a></h1>
+<p class="Pp">The ClassAd language provides a rich set of functions. It is
+    possible to add new functions to the ClassAd language without recompiling
+    the HTCondor system or the ClassAd library. This requires implementing the
+    new function in the C++ programming language, compiling the code into a
+    shared library, and telling HTCondor where in the file system the shared
+    library lives.</p>
+<p class="Pp">While the details of the ClassAd implementation are beyond the
+    scope of this document, the ClassAd source distribution ships with an
+    example source file that extends ClassAds by adding two new functions, named
+    todays_date() and double(). This can be used as a model for users to
+    implement their own functions. To deploy this example extension, follow the
+    following steps on Linux:</p>
+<div class="Bd-indent">
+<ul class="Bl-bullet">
+  <li>Download the ClassAd source distribution from
+      <i>http://www.cs.wisc.edu/condor/classad</i>.</li>
+  <li>Unpack the tarball.</li>
+  <li>Inspect the source file <b>shared.cpp</b>. This one file contains the
+      whole extension.</li>
+  <li>Build <b>shared.cpp</b> into a shared library. On Linux, the command line
+      to do so is</li>
+</ul>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ g++ -DWANT_CLASSAD_NAMESPACE -I. -shared -o shared.so \
+<br/>
+  -Wl,-soname,shared.so -o shared.so -fPIC shared.cpp
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Copy the file <b>shared.so</b> to a location that all of the HTCondor
+      tools and daemons can read.</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ cp shared.so `condor_config_val LIBEXEC`
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<dl class="Bl-tag">
+  <dt>&#x2022;</dt>
+  <dd>Tell HTCondor to load the shared library into all tools and daemons, by
+      setting the <i>CLASSAD_USER_LIBS</i> configuration variable to the full
+      name of the shared library. In this case,</dd>
+</dl>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>CLASSAD_USER_LIBS = $(LIBEXEC)/shared.so
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<ul class="Bl-bullet">
+  <li>Restart HTCondor.</li>
+  <li>Test the new functions by running</li>
+</ul>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>$ condor_status -format &quot;%s\n&quot; todays_date()
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp"></p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">HTCondor Team</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">1990-2024, Center for High Throughput Computing, Computer Sciences
+    Department, University of Wisconsin-Madison, Madison, WI, US. Licensed under
+    the Apache License, Version 2.0.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">August 25, 2024</td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: condor 23.4.0+dfsg-1ubuntu4.1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

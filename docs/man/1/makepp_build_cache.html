@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="- How to set up and use build caches">
+<title>makepp_build_cache(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">makepp_build_cache(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#How_a_build_cache_works">How
+  a build cache works</a></li><li><a href="#Build_cache_grouping">Build
+  cache grouping</a></li><li><a href="#How_to_use_a_build_cache">How
+  to use a build cache</a></li><li><a href="#How_to_manage_a_build_cache">How
+  to manage a build cache</a></li><li><a href="#Caveats_working_with_build_caches">Caveats
+  working with build caches</a></li><li><a href="#Concurrent_access">Concurrent
+  access</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MAKEPP_BUILD_CACHE(1)</td>
+    <td class="head-vol">Makepp</td>
+    <td class="head-rtitle">MAKEPP_BUILD_CACHE(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">makepp_build_cache -- How to set up and use build caches</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>C:</b>&#x00A0;clean,
+  <br/>
+   create,&#x00A0; <b>M:</b>&#x00A0;makepp_build_cache_control,
+  <br/>
+   mppbcc,&#x00A0; <b>S:</b>&#x00A0;show,
+  <br/>
+   stats</p>
+<p class="Pp">A <b>build cache</b> is a directory containing copies of previous
+    targets that makepp already built. When makepp is asked to build a new
+    target, it sees if it has already built it somewhere else under the same
+    conditions, and if so, simply links or copies it instead of rebuilding
+  it.</p>
+<p class="Pp">A build cache can be useful in the following circumstances:</p>
+<ul class="Bl-bullet">
+  <li>You are working on a program and you compile it optimized. Then you
+      discover a bug, and recompile the whole thing in debug mode. You find the
+      bug and you now want to recompile it in optimized mode. Most of the files
+      will be identical. If you used a build cache in all of your compilations,
+      makepp will simply pull the unchanged files out of the build cache rather
+      than recompiling them.
+    <p class="Pp">A similar situation is if you normally work on one
+        architecture but briefly switch to a different architecture, and then
+        you switch back. If the old files are still in the build cache, makepp
+        will not have to recompile anything.</p>
+  </li>
+  <li>You have checked out several copies of a particular program from your
+      version control system, and have made different changes to each directory
+      hierarchy. (E.g., you are solving different bugs in different directory
+      hierarchies.) Most of the files will be identical in the two directory
+      hierarchies. If you build both with a build cache, the build in the second
+      directory hierarchy will be able to simply copy the files from the build
+      cache rather than recompiling files that are the same.</li>
+  <li>You have several developers working on the same set of sources. Each
+      developer is making changes, but most of the files are identical between
+      developers. If all the developers share a build cache, then if one
+      developer's build compiles a file, any other developer's build which has
+      to compile the identical file (with the same includes, etc.) can just copy
+      the cached file instead of rerunning the compilation.</li>
+</ul>
+<p class="Pp">A build cache can help if all of the following are true:</p>
+<ul class="Bl-bullet">
+  <li>You have plenty of disk space. Usually makepp will wind up caching many
+      copies of each file that is changing, because it has no idea which ones
+      will actually be used. You can turn off the build cache for certain files,
+      but if the build cache is going to be useful at all, it will probably have
+      to have a lot of files in it.</li>
+  <li>Your files take noticeably longer to build than to copy. If the build
+      cache is on the same file system, makepp will try to use hard links rather
+      than copying the file. Makepp has to link or copy the file into the cache
+      when the file is built, and then it has to link or copy the file from the
+      cache when it is required again. Furthermore, there is a small overhead
+      involved in checking whether the needed file is actually in the build
+      cache, and copying the build information about the file as well as the
+      file itself.
+    <p class="Pp">You may find, for example, that using a build cache isn't
+        worth it for compiling very small modules. It's almost certainly not
+        worth it for commands to make a static library (an archive file,
+        <i>libxyz.a</i>), except if you use links to save disk space.</p>
+  </li>
+  <li>There is a high probability that some files will be needed again in
+      another compilation. If you are only compiling a piece of software once,
+      build caches can only slow things down.</li>
+</ul>
+<p class="Pp">Using a build cache requires a little bit of setup and maintenance
+    work. Please do not try using a build cache until you understand how they
+    work, how to create them, and how to keep them from continually growing and
+    eating up all of the available disk space on your system.</p>
+<section class="Ss">
+<h2 class="Ss" id="How_a_build_cache_works"><a class="permalink" href="#How_a_build_cache_works">How
+  a build cache works</a></h2>
+<p class="Pp">If you enable a build cache, every time a file is built, makepp
+    stores a copy away in a build cache. The name of the file is a key that is a
+    hash of the checksums of all the inputs and the build command and the
+    architecture. The next time makepp wants to rebuild the file, it sees if
+    there is a file with the same checksums already in the build cache. If so,
+    the file is copied out of the build cache.</p>
+<p class="Pp">For efficiency, if the build cache is located on the same file
+    system as the build, makepp will not actually copy the file; instead, it
+    will make a hard link. This is faster and doesn't use up any extra disk
+    space. Similarly, when makepp wants to pull a file out of the build cache,
+    it will use a hard link if possible, or copy it if necessary.</p>
+<p class="Pp"><b>WARNING:</b> Makepp <i>never</i> deletes files from a build
+    cache unless it is explicitly asked. This means that your build caches will
+    continue to grow without bounds unless you clean them up periodically (see
+    below for details).</p>
+<p class="Pp"><i>Build caches and repositories</i></p>
+<p class="Pp">Build caches and repositories (see makepp_repositories) can solve
+    similar problems. For some situations, a repository is more appropriate,
+    while for others, a build cache is more appropriate.</p>
+<p class="Pp">You can also combine the two. If you have a huge directory
+    structure with lots of sources, which you don't want every developer to have
+    a copy of, then you can provide them as a repository. The produced files,
+    with varying debug options and so forth, can then be managed more flexibly
+    through a build cache.</p>
+<p class="Pp">The key differences between a build cache and a repository
+  are:</p>
+<ul class="Bl-bullet">
+  <li>A build cache can only store files created by the build procedure. A
+      repository can also have original source files.</li>
+  <li>Files in a repository should <b>not</b> change during the course of a
+      build. A build cache does not have any such restriction.</li>
+  <li>Files in a repository must be present in the same relative position as the
+      files in the build directory. E.g., if makepp needs the file
+      <i>subdir1/subdir2/xyz.abc</i>, then it only looks at
+      <i>repository_root/subdir1/subdir2/xyz.abc</i>. Files in a build cache
+      have lost all directory hierarchy information, and are looked up only
+      based on the inputs and the command that were required to produce
+    them.</li>
+  <li>Files in a repository are soft-linked into their new locations in the
+      build directories. Files in a build cache are either copied or hard-linked
+      into their new locations. If a copy is necessary, a repository will
+      certainly be faster.</li>
+  <li>Build caches cost a bit of time to put files into them. A repository does
+      not have any extra cost (for the current run, that is, there was of course
+      the cost of creating it beforehand), but often requires a bit more advance
+      planning.</li>
+</ul>
+<p class="Pp">In general, a repository is more useful if you have a single
+    central build that you want all developers to take files from. A build cache
+    is what you want if you have a decentralized system where one developer
+    should borrow compiled files from any other developer.</p>
+<p class="Pp">Both build caches and repositories can help with variant builds.
+    For example, if you want to compile all your sources optimized, then again
+    with debugging, then again optimized, you can avoid recompiling all the
+    optimized files again by using either a repository or a build cache. To do
+    this with a repository, you have to think ahead and explicitly tell makepp
+    to use a repository for the debugging compilation, or else it will wipe out
+    your initial optimized compilation. With a build cache, makepp goes ahead
+    and wipes out the initial optimized compilation but can get it back
+  quickly.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Build_cache_grouping"><a class="permalink" href="#Build_cache_grouping">Build
+  cache grouping</a></h2>
+<p class="Pp">A group is a loose coupling of build caches. It is loose in the
+    sense that makepp doesn't deal with it, so as to not slow down its build
+    cache management. To benefit from this you have to use the offline utility.
+    Notably the <span class="Li">&quot;clean&quot;</span> command also performs
+    the replication. If you give an unrealistic cleaning criterion, like
+    <span class="Li">&quot;--mtime=+1000&quot;</span>, no cleaning occurs, only
+    replication.</p>
+<p class="Pp">Grouping allows sharing files with more people, especially if you
+    have your build caches on the developers' disks, to benefit from hard
+    linking, which saves submission time and disk space. Hard linking alone,
+    however, is restricted to per disk benefits.</p>
+<p class="Pp">With grouping the file will get replicated at some time after
+    makepp submitted it to the build cache. This means that the file will get
+    created only once for all disks together.</p>
+<p class="Pp">On file systems which allow hard linking to symbolic links --
+    which seems restricted to Linux and Solaris -- the file will additionally be
+    physically present on one disk only. Additionally it remains on each disk it
+    got created on before you replicated, but only as long as it is in use on
+    those disks. In this scenario with symlinks you may choose one or more file
+    systems on which you prefer your files to be physically. Be aware that
+    successfully built files may become unavailable, if the disk they are on
+    physically goes offline. Rebuilding will remedy this, and the impact can be
+    lessened by spreading the files over several preferred disks.</p>
+<p class="Pp">Replication has several interesting uses:</p>
+<dl class="Bl-tag">
+  <dt id="NFS"><a class="permalink" href="#NFS">NFS (possible with copying
+    too)</a></dt>
+  <dd>You have a central NFS server which provides the preferred build cache.
+      Each machine and developer disk has a local build cache for fast
+      submission. You either mount back all the developer disks to the NFS
+      server, and perform the replication and cleaning centrally, or you
+      replicate locally on each NFS client machine, treating only the part of
+      the group visible there.</dd>
+  <dt id="Unsafe"><a class="permalink" href="#Unsafe">Unsafe disk (possible with
+    copying too)</a></dt>
+  <dd>If you compile on a RAM disk (hopefully editing your sources in a
+      repository on a safe disk), you can make the safe disks be the preferred
+      ones. Then replication will migrate the files to the safe disks, where
+      they survive a reboot. After every reboot you will have to recreate the
+      RAM disk build cache and add it to the group (which will give a warning,
+      harmless in this case, because the other group members still remember
+    it).</dd>
+  <dt id="Full"><a class="permalink" href="#Full">Full disk (hard linking to
+    symbolic links only)</a></dt>
+  <dd>If one of your disks is notoriously full, you can make the build caches on
+      all the other disks be preferred. That way replication will migrate the
+      files away from the full disk, randomly to any of the others.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="How_to_use_a_build_cache"><a class="permalink" href="#How_to_use_a_build_cache">How
+  to use a build cache</a></h2>
+<p class="Pp"><i>How to tell makepp to use the build cache</i></p>
+<p class="Pp">Once the build cache has been created, it is now available to
+    makepp. There are several options you can specify during creation; see
+    &quot;How to manage a build cache&quot; for details.</p>
+<p class="Pp">A build cache is specified with the --build-cache command line
+    option, with the build_cache statement within a makefile, or with the
+    :build_cache rule modifier.</p>
+<p class="Pp">The most useful ways that I have found so far to work with build
+    caches are:</p>
+<ul class="Bl-bullet">
+  <li>Set the build cache path in the environment variable MAKEPPFLAGS, like
+      this (first variant for Korn Shell or bash, second for csh):
+    <p class="Pp"></p>
+    <pre>    export MAKEPPFLAGS=--build-cache=/path/to/build/cache
+    setenv MAKEPPFLAGS --build-cache=/path/to/build/cache
+    </pre>
+    <p class="Pp">Now every build that you run will always use this build cache,
+        and you don't need to modify anything else.</p>
+  </li>
+  <li>Specify the build cache in your makefiles with a line like this:
+    <p class="Pp"></p>
+    <pre>    BUILD_CACHE := /path/to/build_cache
+    build_cache $(BUILD_CACHE)
+    </pre>
+    <p class="Pp">You have to put this in all makefiles that use a build cache
+        (or in a common include file that all the makefiles use). Or put this
+        into your <i>RootMakeppfile</i>:</p>
+    <p class="Pp"></p>
+    <pre>    BUILD_CACHE := /path/to/build_cache
+    global build_cache $(BUILD_CACHE)
+    </pre>
+    <p class="Pp">On a multiuser machine you might set up one build cache per
+        home disk to take advantage of links. You might find it more convenient
+        to use a statement like this:</p>
+    <p class="Pp"></p>
+    <pre>    build_cache $(find_upwards our_build_cache)
+    </pre>
+    <p class="Pp">which searches upwards from the current directory in the
+        current file system until it finds a directory called
+        <i>our_build_cache</i>. This can be the same statement for all users and
+        still individually point to the cache on their disk.</p>
+    <p class="Pp">Solaris 10 can do some fancy remounting of home directories.
+        Your home will apparently be a mount point of its own, called
+        <i>/home/$LOGNAME</i>, when in fact it is on one of the
+        <i>/export/home*</i> disks alongside those of other users. Because it's
+        not really a separate filesystem, links still work. But you can't search
+        upwards. Instead you can do:</p>
+    <p class="Pp"></p>
+    <pre>    BUILD_CACHE := ${makeperl &lt;/export/home*/$(LOGNAME)/../makepp_bc&gt;}
+    </pre>
+  </li>
+</ul>
+<p class="Pp"><i>Build caches and signatures</i></p>
+<p class="Pp">Makepp looks up files in the build cache according to their
+    signatures. If you are using the default signature method (file date +
+    size), makepp will only pull files out of the build cache if the file date
+    of the input files is identical. Depending on how your build works, the file
+    dates may never be identical. For example, if you check files out into two
+    different directory hierarchies, the file dates are likely to be the time
+    you checked the files out, not the time the files were checked in
+    (depending, of course, on your version control software).</p>
+<p class="Pp">What you probably want is to pull files out of the build cache if
+    the file <i>contents</i> are identical, regardless of the date. If this is
+    the case, you should be using some sort of a content-based signature. Makepp
+    does this by default for C and C++ compilations, but it uses file dates for
+    any other kinds of files (e.g., object files, or any other files in the
+    build process not specifically recognized as a C source or include file). If
+    you want other kinds of files to work with the build cache (i.e., if you
+    want it to work with anything other than C/C++ compilation commands), then
+    you could put a statement like this somewhere near the top of your
+  makefile:</p>
+<p class="Pp"></p>
+<pre>    signature md5
+</pre>
+<p class="Pp">to force makepp to use signatures based on the content of files
+    rather than their date.</p>
+<p class="Pp"><i>How not to cache certain files</i></p>
+<p class="Pp">There may be certain files that you know you will never want to
+    cache. For example, if you embed a datestamp into a file, you know that you
+    will never under any circumstances want to fetch a previous copy of the file
+    out of the build cache, because the date stamp is different. In this case,
+    it is just a waste of time and disk space to copy it into the build
+  cache.</p>
+<p class="Pp">Or, you may think it is highly unlikely that you will want to
+    cache the final executable. You might want to cache individual objects or
+    shared objects that go into making the executable, but it's often pretty
+    unlikely that you will build an <i>exactly</i> identical executable from
+    identical inputs. Again, in this case, using a build cache is a waste of
+    disk space and time, so it makes sense to disable it.</p>
+<p class="Pp">Sometimes a file may be extremely quick to generate, and it is
+    just a waste to put it into the build cache since it can be generated as
+    quickly as copied. You may want to selectively disable caching of these
+    files.</p>
+<p class="Pp">You can turn off the build cache for specific rules by specifying
+    <span class="Li">&quot;:&#x00A0;build_cache&#x00A0;none&quot;</span> in a
+    rule, like this:</p>
+<p class="Pp"></p>
+<pre>    our_executable: dateStamp.o main.o */*.so
+        : build_cache none
+        $(CC) $(LDFLAGS) $(inputs) -o $(output)
+</pre>
+<p class="Pp">This flag means that any outputs from this particular rule will
+    never be put into the build cache, and makepp will never try to pull them
+    out of the build cache either.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="How_to_manage_a_build_cache"><a class="permalink" href="#How_to_manage_a_build_cache">How
+  to manage a build cache</a></h2>
+<dl class="Bl-tag">
+  <dt id="makepp_build_cache_control"><a class="permalink" href="#makepp_build_cache_control">makepp_build_cache_control
+    <i>command ...</i></a></dt>
+  <dd></dd>
+  <dt id="mppbcc"><a class="permalink" href="#mppbcc">mppbcc <i>command
+    ...</i></a></dt>
+  <dd></dd>
+</dl>
+<p class="Pp"><b>makepp_build_cache_control, mppbcc</b> is a utility that
+    administers build caches for makepp. What <b>makepp_build_cache_control</b>
+    does is determined by the first word of its argument.</p>
+<p class="Pp">In fact this little script is a wrapper to the following command,
+    which you might want to call directly in your cron jobs, where the path to
+    <span class="Li">&quot;makeppbuiltin&quot;</span> might be needed:</p>
+<p class="Pp"></p>
+<pre>    makeppbuiltin -MMpp::BuildCacheControl command ...
+</pre>
+<p class="Pp">You can also use these commands from a makefile after loading
+    them, with a <span class="Li">&quot;&amp;&quot;</span>-prefix as follows for
+    the example of <span class="Li">&quot;create&quot;</span>:</p>
+<p class="Pp"></p>
+<pre>    perl { use Mpp::BuildCacheControl } # It's a Perl module, so use instead of include.
+ 
+    my_cache:
+        &amp;create $(CACHE_OPTIONS) $(output) # Call a loaded builtin.
+ 
+    build_cache $(prebuild my_cache)
+</pre>
+<p class="Pp">The valid commands, which also take a few of the standard options
+    described in makepp_builtins, are:</p>
+<dl class="Bl-tag">
+  <dt id="create"><a class="permalink" href="#create">create <i>[option ...]
+    path/to/cache ...</i></a></dt>
+  <dd>Creates the build caches with the given options. Valid options are:
+    <p class="Pp">Standard options: <span class="Li">&quot;-A, --args-file,
+        --arguments-file=filename, -v, --verbose&quot;</span></p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="e"><a class="permalink" href="#e">-e <i>group</i></a></dt>
+  <dd></dd>
+  <dt id="extend="><a class="permalink" href="#extend=">--extend=<i>group</i></a></dt>
+  <dd></dd>
+  <dt id="extend"><a class="permalink" href="#extend">--extend-group=<i>group</i></a></dt>
+  <dd>Add the new build cache to the <span class="Li">&quot;group&quot;</span>.
+      This may have been a single stand alone build cache up to now.</dd>
+  <dt id="f"><a class="permalink" href="#f">-f</a></dt>
+  <dd></dd>
+  <dt id="force"><a class="permalink" href="#force">--force</a></dt>
+  <dd>This allows to create the cache even if <i>path/to/cache</i> already
+      existed. If it was a file it gets deleted. If it was a directory, it gets
+      reused, with whatever content it had.</dd>
+  <dt id="p"><a class="permalink" href="#p">-p</a></dt>
+  <dd></dd>
+  <dt id="preferred"><a class="permalink" href="#preferred">--preferred</a></dt>
+  <dd>This option is only meaningful if you have build caches in the group,
+      which allow hard linking to symlinks. In that case cleaning will migrate
+      the members to the preferred disk. You may create several caches within a
+      group with this option, in which case the files will be migrated randomly
+      to them.</dd>
+  <dt id="s"><a class="permalink" href="#s">-s <i>n1,n2,...</i></a></dt>
+  <dd></dd>
+  <dt id="subdir"><a class="permalink" href="#subdir">--subdir-chars=<i>n1,n2,...</i></a></dt>
+  <dd>Controls how many levels of subdirectories are created to hold the cached
+      files, and how many files will be in each subdirectory. The first
+      <i>n1</i> characters of the filename form the top level directory name,
+      and the characters from <i>n1</i> to <i>n2</i> form the second level
+      directory name, and so on.
+    <p class="Pp">Files in the build cache are named using MD5 hashes of data
+        that makepp uses, so each filename is 22 base64 digits plus the original
+        filename. If a build cache file name is
+        <i>0123456789abcdef012345_module.o</i>, it is actually stored in the
+        build cache as
+        <i>01</i><b><i>/</i></b><i>23</i><b><i>/</i></b><i>456789abcdef012345_module.o</i>
+        if you specify
+        <span class="Li">&quot;--subdir-chars&#x00A0;2,4&quot;</span>. In fact,
+        <span class="Li">&quot;--subdir-chars&#x00A0;2,4&quot;</span> is the
+        default, which is for a gigantic build cache of maximally 4096 dirs with
+        416777216 subdirs. Even
+        <span class="Li">&quot;--subdir-chars&#x00A0;1,2&quot;</span> or
+        <span class="Li">&quot;--subdir-chars&#x00A0;1&quot;</span> will get you
+        quite far. On a file system optimized for huge directories you might
+        even say <span class="Li">&quot;-s&#x00A0;''&quot;</span> or
+        <span class="Li">&quot;--subdir-chars=&quot;</span> to store all files
+        at the top level.</p>
+  </dd>
+  <dt id="m"><a class="permalink" href="#m">-m <i>perms</i></a></dt>
+  <dd></dd>
+  <dt id="mode="><a class="permalink" href="#mode=">--mode=<i>perms</i></a></dt>
+  <dd></dd>
+  <dt id="access"><a class="permalink" href="#access">--access-permissions=<i>perms</i></a></dt>
+  <dd>Specifies the directory access permissions when files are added to the
+      build cache. If you want other people to put files in your build cache,
+      you must make it group or world writable. Permissions must be specified
+      using octal notation.
+    <p class="Pp">As these are directory permissions, if you grant any access,
+        you must also grant execute access, or you will get a bunch of weird
+        failures. I.e. <span class="Li">0700</span> means that only this user
+        may have access to this build cache. <span class="Li">0770</span> means
+        that this user and anyone in the group may have write access to the
+        build cache. <span class="Li">0777</span> means that anyone may have
+        access to the build cache. The sensible octal digits are 7 (write), 5
+        (read) or 0 (none). 3 (write) or 1 (read) is also possible, allowing the
+        cache to be used, but not to be browsed, i.e. it would be harder for a
+        malicious user to find file names to manipulate.</p>
+    <p class="Pp">In a group of build caches each one has its own value for
+        this, so you can enforce different write permissions on different
+      disks.</p>
+    <p class="Pp">If you don't specify the permissions, your umask permissions
+        at creation time apply throughout the lifetime of the build cache.</p>
+  </dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="clean"><a class="permalink" href="#clean">clean <i>[option ...]
+    /path/to/cache ...</i></a></dt>
+  <dd>Cleans up the cache. Makepp never deletes files from the build cache; it
+      is up to you to delete the files with this command. For multiuser caches
+      the sysop can do this.
+    <p class="Pp">Only files with a link count of 1 are deleted (because
+        otherwise, the file doesn't get physically deleted anyway -- you'd just
+        uncache a file which someone is apparently still interested in, so
+        somebody else might be too). The criteria you give pertain to the actual
+        cached files. Each build info file will be deleted when its main file
+        is. No empty directories will be left. Irrespective of the link count
+        and the options you give, any file that does not match its build info
+        file will be deleted, if it is older than a safety margin of 10
+      minutes.</p>
+    <p class="Pp">The following options take a time specification as an
+        argument. Time specs start with a <span class="Li">&quot;+&quot;</span>
+        meaning longer ago, a <span class="Li">&quot;-&quot;</span> meaning more
+        recently or nothing meaning between the number you give, and one more.
+        Numbers, which may be fractional, are by default days. But they may be
+        followed by one of the letters <span class="Li">&quot;w&quot;</span>
+        (weeks), <span class="Li">&quot;d&quot;</span> (days, the default),
+        <span class="Li">&quot;h&quot;</span> (hours),
+        <span class="Li">&quot;m&quot;</span> (minutes) or
+        <span class="Li">&quot;s&quot;</span> (seconds). Note that days are
+        simply 24 real hours ignoring any change between summer and winter time.
+        Examples:</p>
+    <p class="Pp"></p>
+    <pre>    1           between 24 and 48 hours ago
+    24h         between 24 and 25 hours ago
+    0.5d        between 12 and 36 hours ago
+    1w          between 7 and 14 times 24 hours ago
+    -2          less than 48 hours ago
+    +30m        more than 30 minutes ago
+    </pre>
+    <p class="Pp">All the following options are combined with
+        <span class="Li">&quot;and&quot;</span>. If you want several sets of
+        combinations with <span class="Li">&quot;or&quot;</span>, you must call
+        this command repeatedly with different sets of options. Do the ones
+        where you expect the most deletions first, then the others can be
+        faster.</p>
+    <p class="Pp">Standard options: <span class="Li">&quot;-A, --args-file,
+        --arguments-file=filename, -v, --verbose&quot;</span></p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt>-a <i>spec</i></dt>
+  <dd></dd>
+  <dt>--atime <i>spec</i></dt>
+  <dd></dd>
+  <dt id="access~2"><a class="permalink" href="#access~2">--access-time
+    <i>spec</i></a></dt>
+  <dd>The last time the file was read. For a linked file this can happen
+      anytime. Otherwise this is the last time the file was copied. On badly
+      behaved systems this could also be the last tape backup or search index
+      creation time. You could try to exclude the cache from such operations.
+    <p class="Pp">Some file systems do not support the atime field, and even if
+        the file system does, sometimes people turn off access time on their
+        file systems because it adds a lot of extra disk I/O which can be
+        harmful on battery powered notebooks, or in disk speed optimization.
+        (But this is potentially fixable -- see the UTIME_ON_IMPORT comment in
+        Mpp/BuildCache.pm.)</p>
+  </dd>
+  <dt id="b"><a class="permalink" href="#b">-b</a></dt>
+  <dd></dd>
+  <dt id="blend"><a class="permalink" href="#blend">--blend</a></dt>
+  <dd></dd>
+  <dt>--blend-groups</dt>
+  <dd>Usually each <i>/path/to/cache</i> you specify will separately treat the
+      group of build caches it belongs to. Each group gets treated only once,
+      even if you specify several pathes from the same group. With this option
+      you temporarily blend all the groups you specify into one group.
+    <p class="Pp">Doing this for clean may have unwanted effects, if you can
+        hard link to symlinks, because it may migrate members from one group to
+        another. Subsequent non blended cleans, may then clean them form the
+        original group prematurely.</p>
+  </dd>
+  <dt>-c <i>spec</i></dt>
+  <dd></dd>
+  <dt>--ctime <i>spec</i></dt>
+  <dd></dd>
+  <dt id="change"><a class="permalink" href="#change">--change-time
+    <i>spec</i></a></dt>
+  <dd>The last change time of the file's inode. In a linking situation this
+      could be the time when the last user recreated the file differently,
+      severing his link to the cache. This could also be the time the
+      <span class="Li">&quot;--set-user&quot;</span> option below had to change
+      the user. On well behaved systems this could also be the time when the
+      last tape backup or search index creation covered its marks by resetting
+      the atime.</dd>
+  <dt id="m~2"><a class="permalink" href="#m~2">-m <i>spec</i></a></dt>
+  <dd></dd>
+  <dt id="mtime"><a class="permalink" href="#mtime">--mtime <i>spec</i></a></dt>
+  <dd></dd>
+  <dt id="modification"><a class="permalink" href="#modification">--modification-time
+    <i>spec</i></a></dt>
+  <dd>The last modification time of the file. As explained elsewhere it is
+      discouraged to have makepp update a file. So the last modification will
+      usually be the time of creation. (But in the future makepp may optionally
+      update the mtime when deleting files. This is so that links on atime-less
+      filesystems or copies can be tracked.)</dd>
+  <dt id="g"><a class="permalink" href="#g">-g <i>group</i></a></dt>
+  <dd></dd>
+  <dt id="newgrp="><a class="permalink" href="#newgrp=">--newgrp=<i>group</i></a></dt>
+  <dd></dd>
+  <dt id="new"><a class="permalink" href="#new">--new-group=<i>group</i></a></dt>
+  <dd>Set the effective and real group id to group (name or numeric). Only root
+      may be able to do this. This is needed when you use grouped build caches,
+      and you provide write access to the caches based on group id. Usually that
+      will not be root's group and thus replication would create unwritable
+      directories without this option.
+    <p class="Pp">This option is named after the equivalent utility
+        <span class="Li">&quot;newgrp&quot;</span> which alas can't easily be
+        used in <span class="Li">&quot;cron&quot;</span> jobs or similar
+      setups.</p>
+  </dd>
+  <dt id="i"><a class="permalink" href="#i">-i</a></dt>
+  <dd></dd>
+  <dt id="build"><a class="permalink" href="#build">--build-info</a></dt>
+  <dd></dd>
+  <dt id="build~2"><a class="permalink" href="#build~2">--build-info-check</a></dt>
+  <dd>Check that the build info matches the member. This test is fairly
+      expensive so you might consider not giving this option in the
+    daytime.</dd>
+  <dt id="l"><a class="permalink" href="#l">-l</a></dt>
+  <dd></dd>
+  <dt id="symlink"><a class="permalink" href="#symlink">--symlink-check</a></dt>
+  <dd></dd>
+  <dt id="symbolic"><a class="permalink" href="#symbolic">--symbolic-link-check</a></dt>
+  <dd>This option makes <span class="Li">&quot;clean&quot;</span> read every
+      symbolic link which has no external hard links to verify that it points to
+      the desired member. As this is somewhat expensive, it is suggested doing
+      this only at night.</dd>
+  <dt id="M"><a class="permalink" href="#M">-M <i>spec</i></a></dt>
+  <dd></dd>
+  <dt id="in"><a class="permalink" href="#in">--in-mtime <i>spec</i></a></dt>
+  <dd></dd>
+  <dt id="incoming"><a class="permalink" href="#incoming">--incoming-modification-time
+    <i>spec</i></a></dt>
+  <dd>The last modification time for files in the incoming directory. This
+      directory is used for temporary files with process-specific names that can
+      be written free of concurrent access and then renamed into the active part
+      of the cache atomically. Files normally live here only for as long as it
+      takes to write them, but they can get orphaned if the process that is
+      writing them terminates abnormally before it can remove them. This part of
+      the cache is cleaned first, because the link counts in the active part of
+      the cache can be improperly affected by orphaned files.
+    <p class="Pp">The timespec for
+        <span class="Li">&quot;--incoming-modification-time&quot;</span> must
+        begin with <span class="Li">&quot;+&quot;</span>, and defaults to
+        <span class="Li">&quot;+2h&quot;</span> (files at least 2 hours old are
+        assumed to have been orphaned).</p>
+  </dd>
+  <dt id="w"><a class="permalink" href="#w">-w</a></dt>
+  <dd></dd>
+  <dt id="workdays"><a class="permalink" href="#workdays">--workdays</a></dt>
+  <dd>This influences how the time options count. Weekends are ignored, as
+      though they weren't there. An exception is if you give this option on a
+      weekend. Then that weekend counts normally. So you can use it in cronjobs
+      that run from Tuesday through Saturday. Summertime is ignored. So summer
+      weekends can go from Saturday 1:00 to Monday 1:00, or southern hemisphere
+      winter weekends from Friday 23:00 to Sunday 23:00 or however much your
+      timezone changes the time. Holidays are also not taken into account.</dd>
+  <dt>-p <i>perlcode</i></dt>
+  <dd></dd>
+  <dt id="perl="><a class="permalink" href="#perl=">--perl=<i>perlcode</i></a></dt>
+  <dd></dd>
+  <dt id="predicate="><a class="permalink" href="#predicate=">--predicate=<i>perlcode</i></a></dt>
+  <dd>TODO: adapt this description to group changes!
+    <p class="Pp">This is the Swiss officer's knife. The <i>perlcode</i> is
+        called in scalar context once for every cache entry (i.e. excluding
+        directories and metainfo files). It is called in a
+        <span class="Li">&quot;File::Find&quot;</span>
+        <span class="Li">&quot;wanted&quot;</span> function, so see there for
+        the variables you can use. An <span class="Li">&quot;lstat&quot;</span>
+        has been performed, so you can use the
+        <span class="Li">&quot;_&quot;</span> filehandle.</p>
+    <p class="Pp">If <i>perlcode</i> returns
+        <span class="Li">&quot;undef&quot;</span> it is as if it weren't there,
+        that is the other options decide. If it returns true the file is
+        deleted. If it returns false, the file is retained.</p>
+  </dd>
+  <dt id="s~2"><a class="permalink" href="#s~2">-s <i>spec</i></a></dt>
+  <dd></dd>
+  <dt id="size"><a class="permalink" href="#size">--size <i>spec</i></a></dt>
+  <dd>The file size specification works just like time specifications, with
+      <span class="Li">&quot;+&quot;</span> for bigger than or
+      <span class="Li">&quot;-&quot;</span> for smaller than, except that the
+      units must be <span class="Li">&quot;c&quot;</span> (bytes, the default),
+      <span class="Li">&quot;k&quot;</span> (kilobytes),
+      <span class="Li">&quot;M&quot;</span> (megabytes) or
+      <span class="Li">&quot;G&quot;</span> (gigabytes).</dd>
+  <dt id="u"><a class="permalink" href="#u">-u <i>user</i></a></dt>
+  <dd></dd>
+  <dt id="user="><a class="permalink" href="#user=">--user=<i>user</i></a></dt>
+  <dd></dd>
+  <dt id="set"><a class="permalink" href="#set">--set-user=<i>user</i></a></dt>
+  <dd>This option is very different. It does not say when to delete a file.
+      Instead it applies to the files that do not get deleted. Note that on many
+      systems only root is allowed to set the user of a file. See under
+      &quot;Caveats working with build caches&quot; why you might need to change
+      ownership to some neutral user if you use disk quotas.
+    <p class="Pp">This strategy only works if you can trust your users not to
+        subvert the build cache for storing arbitrary (i.e. non-development)
+        files beyond their disk quota. The ownership of the associated metadata
+        file is retained, so you can always see who cached a file. If you need
+        this option, it might need to be given several times during the
+      daytime.</p>
+  </dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">There are different possible strategies, depending on how much
+    space you have and on whether the build cache contains linked files or
+    whether users only have copies. Several strategies can be combined, by
+    calling them one after another or at different times. The
+    <span class="Li">&quot;show&quot;</span> command is meant to help you find
+    an appropriate strategy.</p>
+<p class="Pp">A nightly (from Tuesday through Saturday) run might specify
+    <span class="Li">&quot;--atime +2&quot;</span> (or
+    <span class="Li">&quot;--mtime&quot;</span> if you don't have atime),
+    deleting all files no one has read for two days.</p>
+<p class="Pp">If you use links, you can also prevent fast useless growth which
+    occurs when successive header changes, which never get version controlled,
+    lead to lots of objects being rapidly created. Something like an hourly run
+    with <span class="Li">&quot;--mtime=-2h --ctime=+1h&quot;</span> during the
+    daytime will catch those guys the creator deleted within less than an hour,
+    and nobody else has wanted since.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="show"><a class="permalink" href="#show">show <i>[option ...]
+    /path/to/cache ...</i></a></dt>
+  <dd>This is a sort of recursive <span class="Li">&quot;ls -l&quot;</span> or
+      <span class="Li">&quot;stat&quot;</span> command, which shows the original
+      owner too, for when the owner of the cached file has been changed and the
+      metadata file retains the original owner (as per
+      <span class="Li">&quot;clean --set-user&quot;</span>). It shows the given
+      files, or all under the directories given.
+    <p class="Pp">The fields are, in the short standard and the long verbose
+        form:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="MODE,"><a class="permalink" href="#MODE,">MODE, mode</a></dt>
+  <dd>The octal mode of the cached file, which is usually as it got put in,
+      minus the write bits.</dd>
+  <dt id="EL,"><a class="permalink" href="#EL,">EL, ext-links</a></dt>
+  <dd>The number external hard links there are to all members of the group
+      combined. Only when this is 0, is the file eligible for cleaning.</dd>
+  <dt id="C,"><a class="permalink" href="#C,">C, copies (only for grouped build
+    caches)</a></dt>
+  <dd>The number of copies of the identical file, across all build caches.
+      Ideally this is one on systems which permit hard linking to symbolic
+      links, but that may temporarily not be possible, while there are external
+      links to more than one copy (in which case we'd lose the link count if we
+      deleted it.</dd>
+  <dt id="S,"><a class="permalink" href="#S,">S, symlinks (only for grouped
+    build caches)</a></dt>
+  <dd>The number of symbolic links between build caches. Ideally this is the
+      number of build caches minus one on systems which permit hard linking to
+      symbolic links. But as explained for the previous field, there may be more
+      copies than necessary, and thus less links.</dd>
+  <dt id="UID"><a class="permalink" href="#UID">UID</a></dt>
+  <dd>The owner of the cached file. This may be changed with the
+      <span class="Li">&quot;clean --user&quot;</span> option.</dd>
+  <dt id="BI-UID"><a class="permalink" href="#BI-UID">BI-UID</a></dt>
+  <dd>The owner of the build info file. This is not changed by clean, allowing
+      to see who first built the file.</dd>
+  <dt id="SIZE"><a class="permalink" href="#SIZE">SIZE</a></dt>
+  <dd>The size (of one copy) in bytes.</dd>
+  <dt id="atime,"><a class="permalink" href="#atime,">atime, mtime,
+    ctime</a></dt>
+  <dd>In the long verbose form you get the file access (read) time, the
+      modification time and the inode change time (e.g. when some user deleted
+      his external link to the cached file). In the short standard form you get
+      only one of the three times in three separate columns:</dd>
+  <dt id="AD,"><a class="permalink" href="#AD,">AD, MD, CD</a></dt>
+  <dd>The week day of the access, modification or inode change.</dd>
+  <dt id="ADATE,"><a class="permalink" href="#ADATE,">ADATE, MDATE,
+    CDATE</a></dt>
+  <dd>The date of the access, modification or inode change.</dd>
+  <dt id="ATIME,"><a class="permalink" href="#ATIME,">ATIME, MTIME,
+    CTIME</a></dt>
+  <dd>The day time of the access, modification or inode change.</dd>
+  <dt id="MEMBER"><a class="permalink" href="#MEMBER">MEMBER</a></dt>
+  <dd>The full path of the cached file, including the key, from the cache
+    root.</dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">With <span class="Li">&quot;-v, --verbose&quot;</span> the
+    information shown for each command allows you to get an impression which
+    options to give to the <span class="Li">&quot;clean&quot;</span> command.
+    The times are shown in readable form, as well as the number of days, hours
+    or minutes the age of this file has just exceeded. If you double the option,
+    you additionally get the info for each group member.</p>
+<p class="Pp">Standard options: <span class="Li">&quot;-A, --args-file,
+    --arguments-file=filename, -f, --force,</span> <span class="Li">-o,
+    --output=filename, -O, --outfail, -v, --verbose&quot;</span></p>
+<dl class="Bl-tag">
+  <dt id="a"><a class="permalink" href="#a">-a</a></dt>
+  <dd></dd>
+  <dt id="atime"><a class="permalink" href="#atime">--atime</a></dt>
+  <dd></dd>
+  <dt id="access~3"><a class="permalink" href="#access~3">--access-time</a></dt>
+  <dd>Show the file access time, instead of file modification time in
+      non-verbose mode.</dd>
+  <dt id="b~2"><a class="permalink" href="#b~2">-b</a></dt>
+  <dd></dd>
+  <dt id="blend~2"><a class="permalink" href="#blend~2">--blend</a></dt>
+  <dd></dd>
+  <dt>--blend-groups</dt>
+  <dd>Usually each <i>/path/to/cache</i> you specify will separately treat the
+      group of build caches it belongs to. Each group gets treated only once,
+      even if you specify several pathes from the same group. With this option
+      you temporarily blend all the groups you specify into one group.</dd>
+  <dt id="c"><a class="permalink" href="#c">-c</a></dt>
+  <dd></dd>
+  <dt id="ctime"><a class="permalink" href="#ctime">--ctime</a></dt>
+  <dd></dd>
+  <dt id="change~2"><a class="permalink" href="#change~2">--change-time</a></dt>
+  <dd>Show the inode info change time, instead of file modification time in
+      non-verbose mode.</dd>
+  <dt id="d"><a class="permalink" href="#d">-d</a></dt>
+  <dd></dd>
+  <dt id="deletable"><a class="permalink" href="#deletable">--deletable</a></dt>
+  <dd>Show only deletable files, i.e. those with an external link count of
+    0.</dd>
+  <dt>-p <i>pattern</i></dt>
+  <dd></dd>
+  <dt id="pattern="><a class="permalink" href="#pattern=">--pattern=<i>pattern</i></a></dt>
+  <dd><i>Pattern</i> is a bash style file name pattern (i.e. ?, *, [], {,,})
+      matched against member names after the underscore separating them from the
+      key.</dd>
+  <dt id="s~3"><a class="permalink" href="#s~3">-s <i>list</i></a></dt>
+  <dd></dd>
+  <dt id="sort="><a class="permalink" href="#sort=">--sort=<i>list</i></a></dt>
+  <dd>In non-verbose mode change the sorting order. The list is a case
+      insensitive comma- or space-separated order of column titles. There are
+      two special cases: &quot;member&quot; only considers the names after the
+      key, i.e. the file names as they are outside of the cache. And there is a
+      special name &quot;age&quot;, which groups whichever date and time is
+      being shown. This option defaults to &quot;member,age&quot;.
+    <p class="Pp">If you have a huge cache for which sorting takes intolerably
+        long, or needs more memory than your processes are allowed, you can skip
+        sorting by giving an empty list.</p>
+  </dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+<dl class="Bl-tag">
+  <dt id="stats"><a class="permalink" href="#stats">stats <i>[option ...]
+    /path/to/cache ...</i></a></dt>
+  <dd>This outputs several tables of statistics about the build cache contents.
+      Each table is split into three column groups. The first column varies for
+      each table and is the row heading. The other two groups pertain to sum of
+      <b>SIZE</b> of files and number of <b>FILES</b> for that heading.
+      Directories and build info files are not counted, so this is a little less
+      for size than actual disk usage and about half for number of files.
+    <p class="Pp">Each of the latter two groups consists of three column pairs,
+        one column with a value, and one for the percentage of the total that
+        value represents. The first pair shows either the size of files or the
+        number of files. The other two pairs show the <b>CUMUL</b>ation, once
+        from smallest to biggest and once the other way round.</p>
+    <p class="Pp">The first three tables, with a first column of <b>AD</b>,
+        <b>CD</b> or <b>MD</b> show access times, inode change times or
+        modification times grouped by days. Days are actually 24 hour blocks
+        counting backwards from the start time of the stats command. The row
+        &quot;0&quot; of the first table will thus show the sum of sizes and the
+        number of files accessed less than a day ago. If no files were accessed
+        then, there will be no row &quot;0&quot;. Row &quot;1&quot; in the third
+        table will show the files modified (i.e. written to the build cache)
+        between 24 and 48 hours ago.</p>
+    <p class="Pp">The next table, <b>EL</b>, shows external links, i.e. how many
+        build trees share a file from the build cache. This is a measure of
+        usefulness of the build cache. Alas it only works when developers have a
+        buld cache on their own disk, else they have to copy which leaves no
+        global trail. The more content has bigger external link counts, the
+        bigger the benefit of the build cache.</p>
+    <p class="Pp">The next table, again <b>EL</b>, shows the same information as
+        the previous one, but weighted by the number of external links. Each
+        byte or file with an external link count of one counts as one. But if
+        the count is ten, the values are counted ten times. That's why the
+        headings change to <b>*SIZE</b> and <b>*FILES</b>. This is a
+        hypothetical value, showing how much disk usage or how many files there
+        would be if the same build trees had all used no build cache.</p>
+    <p class="Pp">One more table, <b>C:S</b> copies to symlinks, pertains to
+        grouped caches only. Ideally all members exist in one copy, and one less
+        symlinks than there are caches in the group. Symlinks remain
+        &quot;0&quot; until cleaning has replicated. There may be more than one
+        copy, if either several people created the identical file before it was
+        replicated, or if replication migrated the file to a preferred disk, but
+        the original file was still in use. Superfluous copies become symlinks
+        when cleaning finds they have no more external links.</p>
+    <p class="Pp">Standard options: <span class="Li">&quot;-A, --args-file,
+        --arguments-file=filename, -v, --verbose&quot;</span></p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt id="h"><a class="permalink" href="#h">-h</a></dt>
+  <dd></dd>
+  <dt id="hours"><a class="permalink" href="#hours">--hours</a></dt>
+  <dd>Display the first three tables in much finer granularity. The column
+      headings change to <b>AH</b>, <b>CH</b> or <b>MH</b> accordingly.</dd>
+  <dt>-p <i>pattern</i></dt>
+  <dd></dd>
+  <dt id="pattern=~2"><a class="permalink" href="#pattern=~2">--pattern=<i>pattern</i></a></dt>
+  <dd><i>Pattern</i> is a bash style file name pattern (i.e. ?, *, [], {,,})
+      matched against member names after the underscore separating them from the
+      key. All statistics are limited to matching files.</dd>
+</dl>
+</div>
+<div class="Bd-indent"></div>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Caveats_working_with_build_caches"><a class="permalink" href="#Caveats_working_with_build_caches">Caveats
+  working with build caches</a></h2>
+<p class="Pp">Build caches will not work well under the following
+  circumstances:</p>
+<ul class="Bl-bullet">
+  <li>If the command that makepp runs to build a file actually only
+      <i>updates</i> the file and does not build it fresh, then you should
+      <b>NOT</b> use a build cache. (An example is a command to update a module
+      in a static library (an archive file, or a file with an extension of
+      <i>.a</i>). As explained in makepp_cookbook, on modern machines it is
+      almost always a bad idea to update an archive file--it's better to rebuild
+      it from scratch each time for a variety of reasons. This is yet another
+      reason not to update an archive file.) The reason is that if the build
+      cache happens to be located on the same file system, makepp makes a hard
+      link rather than copying the file. If you then subsequently modify the
+      file, the file that makepp has in the build cache will actually be
+      modified, and you could potentially screw up someone else's compilation.
+      In practice, makepp can usually detect that a file has been modified since
+      it was placed in the build cache and it won't use it, but sometimes it may
+      not actually detect the modification.</li>
+  <li>For <i>.o</i> files this can be slightly wrong, because they may
+      (depending on the compiler and debug level) contain the path to the source
+      they were built from. This can make debugging hard. The debugger may make
+      you edit the original creator's copy of the source, or may not even find
+      the file, if the creator no longer has a copy. Makepp may someday offer an
+      option to patch the path, which will of course mean a copy, instead of an
+      efficient link.</li>
+  <li>Any other file which has a path encoded into it should not be put into a
+      build cache (if you share your build cache among several directory
+      hierarchies or several developers). In this case, the result of a build in
+      a different directory is not the same as if it were in the same directory,
+      so the whole concept of the build cache is not applicable. It's ok if you
+      specify the directory path on the command line, like this:
+    <p class="Pp"></p>
+    <pre>    &amp;echo prog_path=$(PWD) -o $(output)
+    </pre>
+    <p class="Pp">because then the command line will be different and makepp
+        won't incorrectly pull the file out of the build cache. But if the
+        command line is not different, then there could be a problem. For
+        example,</p>
+    <p class="Pp"></p>
+    <pre>    echo prog_path=`pwd` &gt; $(output)
+    </pre>
+    <p class="Pp">will not work properly.</p>
+  </li>
+  <li>When using links and with many active developers of the same project on
+      the same disk, build caches can save a lot of disk space. But at the same
+      time for individual users the opposite can also be true:
+    <p class="Pp">Imagine Chang is the first to do a full build. Along comes
+        Ching and gets a link to all those files. Chang does some fundamental
+        changes leading to most things being rebuilt. He checks them in, Chong
+        checks them out and gets links to the build cache. Chang again does
+        changes, leading to a third set of files.</p>
+    <p class="Pp">In this scenario, no matter what cleaning strategy you use, no
+        files will get deleted, because they are all still in use. The problem
+        is that they all belong to Chang, which can make him reach his disk
+        quota, and there is nothing he can do about it on most systems. See the
+        <span class="Li">&quot;clean --set-user&quot;</span> command under
+        &quot;How to manage a build cache&quot; for how the system administrator
+        could change the files to a quota-less cache owner.</p>
+  </li>
+  <li>If you are using timestamp/size signatures to cross check the target and
+      its build info (the default), then it is possible to get a signature
+      alias, wherein non-corresponding files will not be detected. For example,
+      the MD5_SUM build info value may not match the MD5 checksum of the target.
+      This is not usually a problem, because by virtue of the fact that the
+      build cache keys match, the target in the build cache is substitutable for
+      the target that would have corresponded to the build info file. However,
+      if you have rule actions that depend on build info, then this could get
+      you into trouble (so don't do that). If this worries you, then use the
+      --md5-check-bc option.</li>
+</ul>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Concurrent_access"><a class="permalink" href="#Concurrent_access">Concurrent
+  access</a></h2>
+<p class="Pp">Build caches need to support concurrent access, which implies that
+    the implementation must be tolerant of races. In particular, a file might
+    get aged (deleted) between the time makepp decides to import a target and
+    the time the import completes.</p>
+<p class="Pp">Furthermore, some people use build caches over NFS, which is not
+    necessarily coherent. In other words, the order of file creation and
+    deletion by the writer on one host will not necessarily match the order seen
+    by a reader on another host, and therefore races <i>cannot</i> be resolved
+    by paying particular attention to the order of file operations. (But there
+    is usually an NFS cache timeout of about 1 minute which guarantees that
+    writes will take no longer than that amount of time to propagate to all
+    readers. Furthermore, typically in practice at least 99% of writes are
+    visible everywhere within 1 second.) Because of this, we must tolerate the
+    case in which the cached target and its build info file appear not to
+    correspond. Furthermore, there is a peculiar race that can occur when a file
+    is simultaneously aged and replaced, in which the files don't correspond
+    even after the NFS cache flushes. This appears to be unavoidable.</p>
+</section>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2021-01-06</td>
+    <td class="foot-os">perl v5.32.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: makepp 2.0.98.5-2.1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="engineering libguestfs for greatest performance">
+<title>guestfs-performance(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">guestfs-performance(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#BASELINE_MEASUREMENTS">BASELINE
+  MEASUREMENTS</a></li><li><a href="#Baseline:_Starting_the_appliance">Baseline:
+  Starting the appliance</a></li><li><a href="#Baseline:_Performing_inspection_of_a_guest">Baseline:
+  Performing inspection of a guest</a></li><li><a href="#UNDERSTANDING_THE_APPLIANCE_AND_WHEN_IT_IS_BUILT/CACHED">UNDERSTANDING
+  THE APPLIANCE AND WHEN IT IS BUILT/CACHED</a></li><li><a href="#USING_A_FIXED_APPLIANCE">USING
+  A FIXED APPLIANCE</a></li><li><a href="#Performance_of_the_fixed_appliance">Performance
+  of the fixed appliance</a></li><li><a href="#REDUCING_THE_NUMBER_OF_TIMES_THE_APPLIANCE_IS_LAUNCHED">REDUCING
+  THE NUMBER OF TIMES THE APPLIANCE IS LAUNCHED</a></li><li><a href="#SHORTENING_THE_TIME_TAKEN_FOR_INSPECTION_OF_VMs">SHORTENING
+  THE TIME TAKEN FOR INSPECTION OF VMs</a></li><li><a href="#PARALLEL_APPLIANCES">PARALLEL
+  APPLIANCES</a></li><li><a href="#TROUBLESHOOTING_POOR_PERFORMANCE">TROUBLESHOOTING
+  POOR PERFORMANCE</a></li><li><a href="#Ensure_hardware_virtualization_is_available">Ensure
+  hardware virtualization is available</a></li><li><a href="#Ensure_KVM_is_available">Ensure
+  KVM is available</a></li><li><a href="#Processors_to_avoid">Processors
+  to avoid</a></li><li><a href="#Xen_dom0">Xen
+  dom0</a></li><li><a href="#Use_libguestfs_">Use
+  libguestfs &amp;#x2265; 1.34 and qemu &amp;#x2265; 2.7</a></li><li><a href="#DETAILED_ANALYSIS">DETAILED
+  ANALYSIS</a></li><li><a href="#Boot_analysis">Boot
+  analysis</a></li><li><a href="#Detailed_timings_using_ts">Detailed
+  timings using ts</a></li><li><a href="#Detailed_debugging_using_gdb">Detailed
+  debugging using gdb</a></li><li><a href="#PERFORMANCE_REGRESSIONS_IN_OTHER_PROGRAMS">PERFORMANCE
+  REGRESSIONS IN OTHER PROGRAMS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#BUGS">BUGS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">guestfs-performance(1)</td>
+    <td class="head-vol">Virtualization Support</td>
+    <td class="head-rtitle">guestfs-performance(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">guestfs-performance - engineering libguestfs for greatest
+    performance</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This page documents how to get the greatest performance out of
+    libguestfs, especially when you expect to use libguestfs to manipulate
+    thousands of virtual machines or disk images.</p>
+<p class="Pp">Three main areas are covered. Libguestfs runs an appliance (a
+    small Linux distribution) inside qemu/KVM. The first two areas are:
+    minimizing the time taken to start this appliance, and the number of times
+    the appliance has to be started. The third area is shortening the time taken
+    for inspection of VMs.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BASELINE_MEASUREMENTS"><a class="permalink" href="#BASELINE_MEASUREMENTS">BASELINE
+  MEASUREMENTS</a></h1>
+<p class="Pp">Before making changes to how you use libguestfs, take baseline
+    measurements.</p>
+<section class="Ss">
+<h2 class="Ss" id="Baseline:_Starting_the_appliance"><a class="permalink" href="#Baseline:_Starting_the_appliance">Baseline:
+  Starting the appliance</a></h2>
+<p class="Pp">On an unloaded machine, time how long it takes to start up the
+    appliance:</p>
+<p class="Pp"></p>
+<pre> time guestfish -a /dev/null run
+</pre>
+<p class="Pp">Run this command several times in a row and discard the first few
+    runs, so that you are measuring a typical &quot;hot cache&quot; case.</p>
+<p class="Pp"><i>Side note for developers:</i> There is a program called
+    <i>boot-benchmark</i> in
+    https://github.com/libguestfs/libguestfs-analysis-tools which does the same
+    thing, but performs multiple runs and prints the mean and standard
+    deviation.</p>
+<p class="Pp"><i>Explanation</i></p>
+<p class="Pp">The guestfish command above starts up the libguestfs appliance on
+    a null disk, and then immediately shuts it down. The first time you run the
+    command, it will create an appliance and cache it (usually under
+    <i>/var/tmp/.guestfs-*</i>). Subsequent runs should reuse the cached
+    appliance.</p>
+<p class="Pp"><i>Expected results</i></p>
+<p class="Pp">You should expect to be getting times under 6 seconds. If the
+    times you see on an unloaded machine are above this, then see the section
+    &quot;TROUBLESHOOTING POOR PERFORMANCE&quot; below.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Baseline:_Performing_inspection_of_a_guest"><a class="permalink" href="#Baseline:_Performing_inspection_of_a_guest">Baseline:
+  Performing inspection of a guest</a></h2>
+<p class="Pp">For this test you will need an unloaded machine and at least one
+    real guest or disk image. If you are planning to use libguestfs against only
+    X guests (eg. X = Windows), then using an X guest here would be most
+    appropriate. If you are planning to run libguestfs against a mix of guests,
+    then use a mix of guests for testing here.</p>
+<p class="Pp">Time how long it takes to perform inspection and mount the disks
+    of the guest. Use the first command if you will be using disk images, and
+    the second command if you will be using libvirt.</p>
+<p class="Pp"></p>
+<pre> time guestfish --ro -a disk.img -i exit
+ time guestfish --ro -d GuestName -i exit
+</pre>
+<p class="Pp">Run the command several times in a row and discard the first few
+    runs, so that you are measuring a typical &quot;hot cache&quot; case.</p>
+<p class="Pp"><i>Explanation</i></p>
+<p class="Pp">This command starts up the libguestfs appliance on the named disk
+    image or libvirt guest, performs libguestfs inspection on it (see
+    &quot;INSPECTION&quot; in <b>guestfs</b>(3)), mounts the guest&#x2019;s
+    disks, then discards all these results and shuts down.</p>
+<p class="Pp">The first time you run the command, it will create an appliance
+    and cache it (usually under <i>/var/tmp/.guestfs-*</i>). Subsequent runs
+    should reuse the cached appliance.</p>
+<p class="Pp"><i>Expected results</i></p>
+<p class="Pp">You should expect times which are &#x2264; 5 seconds greater than
+    measured in the first baseline test above. (For example, if the first
+    baseline test ran in 5 seconds, then this test should run in &#x2264; 10
+    seconds).</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="UNDERSTANDING_THE_APPLIANCE_AND_WHEN_IT_IS_BUILT/CACHED"><a class="permalink" href="#UNDERSTANDING_THE_APPLIANCE_AND_WHEN_IT_IS_BUILT/CACHED">UNDERSTANDING
+  THE APPLIANCE AND WHEN IT IS BUILT/CACHED</a></h1>
+<p class="Pp">The first time you use libguestfs, it will build and cache an
+    appliance. This is usually in <i>/var/tmp/.guestfs-*</i>, unless you have
+    set <span class="Li">$TMPDIR</span> or
+    <span class="Li">$LIBGUESTFS_CACHEDIR</span> in which case it will be under
+    that temporary directory.</p>
+<p class="Pp">For more information about how the appliance is constructed, see
+    &quot;SUPERMIN APPLIANCES&quot; in <a class="Xr" href="../1/supermin.html"><b>supermin</b>(1)</a>.</p>
+<p class="Pp">Every time libguestfs runs it will check that no host files used
+    by the appliance have changed. If any have, then the appliance is rebuilt.
+    This usually happens when a package is installed or updated on the host (eg.
+    using programs like <span class="Li">&quot;yum&quot;</span> or
+    <span class="Li">&quot;apt-get&quot;</span>). The reason for reconstructing
+    the appliance is security: the new program that has been installed might
+    contain a security fix, and so we want to include the fixed program in the
+    appliance automatically.</p>
+<p class="Pp">These are the performance implications:</p>
+<ul class="Bl-bullet">
+  <li>The process of building (or rebuilding) the cached appliance is slow, and
+      you can avoid this happening by using a fixed appliance (see below).</li>
+  <li>If not using a fixed appliance, be aware that updating software on the
+      host will cause a one time rebuild of the appliance.</li>
+  <li><i>/var/tmp</i> (or <span class="Li">$TMPDIR</span>,
+      <span class="Li">$LIBGUESTFS_CACHEDIR</span>) should be on a fast disk,
+      and have plenty of space for the appliance.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USING_A_FIXED_APPLIANCE"><a class="permalink" href="#USING_A_FIXED_APPLIANCE">USING
+  A FIXED APPLIANCE</a></h1>
+<p class="Pp">To fully control when the appliance is built, you can build a
+    fixed appliance. This appliance should be stored on a fast local disk.</p>
+<p class="Pp">To build the appliance, run the command:</p>
+<p class="Pp"></p>
+<pre> libguestfs-make-fixed-appliance &lt;directory&gt;
+</pre>
+<p class="Pp">replacing <span class="Li">&quot;&lt;directory&gt;&quot;</span>
+    with the name of a directory where the appliance will be stored (normally
+    you would name a subdirectory, for example:
+    <i>/usr/local/lib/guestfs/appliance</i> or <i>/dev/shm/appliance</i>).</p>
+<p class="Pp">Then set <span class="Li">$LIBGUESTFS_PATH</span> (and ensure this
+    environment variable is set in your libguestfs program), or modify your
+    program so it calls <span class="Li">&quot;guestfs_set_path&quot;</span>.
+    For example:</p>
+<p class="Pp"></p>
+<pre> export LIBGUESTFS_PATH=/usr/local/lib/guestfs/appliance
+</pre>
+<p class="Pp">Now you can run libguestfs programs, virt tools, guestfish etc. as
+    normal. The programs will use your fixed appliance, and will not ever build,
+    rebuild, or cache their own appliance.</p>
+<p class="Pp">(For detailed information on this subject, see:
+    <a class="Xr" href="../1/libguestfs-make-fixed-appliance.html"><b>libguestfs-make-fixed-appliance</b>(1)</a>).</p>
+<section class="Ss">
+<h2 class="Ss" id="Performance_of_the_fixed_appliance"><a class="permalink" href="#Performance_of_the_fixed_appliance">Performance
+  of the fixed appliance</a></h2>
+<p class="Pp">In our testing we did not find that using a fixed appliance gave
+    any measurable performance benefit, even when the appliance was located in
+    memory (ie. on <i>/dev/shm</i>). However there are two points to
+  consider:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>Using a fixed appliance stops libguestfs from ever rebuilding the
+      appliance, meaning that libguestfs will have more predictable start-up
+      times.</dd>
+  <dt>2.</dt>
+  <dd>The appliance is loaded on demand. A simple test such as:
+    <p class="Pp"></p>
+    <pre> time guestfish -a /dev/null run
+    </pre>
+    <p class="Pp">does not load very much of the appliance. A real libguestfs
+        program using complicated API calls would demand-load a lot more of the
+        appliance. Being able to store the appliance in a specified location
+        makes the performance more predictable.</p>
+  </dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REDUCING_THE_NUMBER_OF_TIMES_THE_APPLIANCE_IS_LAUNCHED"><a class="permalink" href="#REDUCING_THE_NUMBER_OF_TIMES_THE_APPLIANCE_IS_LAUNCHED">REDUCING
+  THE NUMBER OF TIMES THE APPLIANCE IS LAUNCHED</a></h1>
+<p class="Pp">By far the most effective, though not always the simplest way to
+    get good performance is to ensure that the appliance is launched the minimum
+    number of times. This will probably involve changing your libguestfs
+    application.</p>
+<p class="Pp">Try to call <span class="Li">&quot;guestfs_launch&quot;</span> at
+    most once per target virtual machine or disk image.</p>
+<p class="Pp">Instead of using a separate instance of <a class="Xr" href="../1/guestfish.html"><b>guestfish</b>(1)</a> to
+    make a series of changes to the same guest, use a single instance of
+    guestfish and/or use the guestfish <i>--listen</i> option.</p>
+<p class="Pp">Consider writing your program as a daemon which holds a guest open
+    while making a series of changes. Or marshal all the operations you want to
+    perform before opening the guest.</p>
+<p class="Pp">You can also try adding disks from multiple guests to a single
+    appliance. Before trying this, note the following points:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd>Adding multiple guests to one appliance is a security problem because it
+      may allow one guest to interfere with the disks of another guest. Only do
+      it if you trust all the guests, or if you can group guests by trust.</dd>
+  <dt>2.</dt>
+  <dd>There is a hard limit to the number of disks you can add to a single
+      appliance. Call &quot;guestfs_max_disks&quot; in <b>guestfs</b>(3) to get
+      this limit. For further information see &quot;LIMITS&quot; in
+      <b>guestfs</b>(3).</dd>
+  <dt>3.</dt>
+  <dd>Using libguestfs this way is complicated. Disks can have unexpected
+      interactions: for example, if two guests use the same UUID for a
+      filesystem (because they were cloned), or have volume groups with the same
+      name (but see
+    <span class="Li">&quot;guestfs_lvm_set_filter&quot;</span>).</dd>
+</dl>
+<p class="Pp"><a class="Xr" href="../1/virt-df.html"><b>virt-df</b>(1)</a> adds multiple disks by default, so the source
+    code for this program would be a good place to start.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SHORTENING_THE_TIME_TAKEN_FOR_INSPECTION_OF_VMs"><a class="permalink" href="#SHORTENING_THE_TIME_TAKEN_FOR_INSPECTION_OF_VMs">SHORTENING
+  THE TIME TAKEN FOR INSPECTION OF VMs</a></h1>
+<p class="Pp">The main advice is obvious: Do not perform inspection (which is
+    expensive) unless you need the results.</p>
+<p class="Pp">If you previously performed inspection on the guest, then it may
+    be safe to cache and reuse the results from last time.</p>
+<p class="Pp">Some disks don&#x2019;t need to be inspected at all: for example,
+    if you are creating a disk image, or if the disk image is not a VM, or if
+    the disk image has a known layout.</p>
+<p class="Pp">Even when basic inspection
+    (<span class="Li">&quot;guestfs_inspect_os&quot;</span>) is required,
+    auxiliary inspection operations may be avoided:</p>
+<ul class="Bl-bullet">
+  <li>Mounting disks is only necessary to get further filesystem
+    information.</li>
+  <li>Listing applications
+      (<span class="Li">&quot;guestfs_inspect_list_applications&quot;</span>) is
+      an expensive operation on Linux, but almost free on Windows.</li>
+  <li>Generating a guest icon
+      (<span class="Li">&quot;guestfs_inspect_get_icon&quot;</span>) is cheap on
+      Linux but expensive on Windows.</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PARALLEL_APPLIANCES"><a class="permalink" href="#PARALLEL_APPLIANCES">PARALLEL
+  APPLIANCES</a></h1>
+<p class="Pp">Libguestfs appliances are mostly I/O bound and you can launch
+    multiple appliances in parallel. Provided there is enough free memory, there
+    should be little difference in launching 1 appliance vs N appliances in
+    parallel.</p>
+<p class="Pp">On a 2-core (4-thread) laptop with 16 GB of RAM, using the (not
+    especially realistic) test Perl script below, the following plot shows
+    excellent scalability when running between 1 and 20 appliances in
+  parallel:</p>
+<p class="Pp"></p>
+<pre>  12 ++---+----+----+----+-----+----+----+----+----+---++
+     +    +    +    +    +     +    +    +    +    +    *
+     |                                                  |
+     |                                               *  |
+  11 ++                                                ++
+     |                                                  |
+     |                                                  |
+     |                                          *  *    |
+  10 ++                                                ++
+     |                                        *         |
+     |                                                  |
+ s   |                                                  |
+   9 ++                                                ++
+ e   |                                                  |
+     |                                     *            |
+ c   |                                                  |
+   8 ++                                  *             ++
+ o   |                                *                 |
+     |                                                  |
+ n 7 ++                                                ++
+     |                              *                   |
+ d   |                           *                      |
+     |                                                  |
+ s 6 ++                                                ++
+     |                      *  *                        |
+     |                   *                              |
+     |                                                  |
+   5 ++                                                ++
+     |                                                  |
+     |                 *                                |
+     |            * *                                   |
+   4 ++                                                ++
+     |                                                  |
+     |                                                  |
+     +    *  * *    +    +     +    +    +    +    +    +
+   3 ++-*-+----+----+----+-----+----+----+----+----+---++
+     0    2    4    6    8     10   12   14   16   18   20
+               number of parallel appliances
+</pre>
+<p class="Pp">It is possible to run many more than 20 appliances in parallel,
+    but if you are using the libvirt backend then you should be aware that out
+    of the box libvirt limits the number of client connections to 20.</p>
+<p class="Pp">The simple Perl script below was used to collect the data for the
+    plot above, but there is much more information on this subject, including
+    more advanced test scripts and graphs, available in the following blog
+    postings:</p>
+<p class="Pp">http://rwmj.wordpress.com/2013/02/25/multiple-libguestfs-appliances-in-parallel-part-1/
+    http://rwmj.wordpress.com/2013/02/25/multiple-libguestfs-appliances-in-parallel-part-2/
+    http://rwmj.wordpress.com/2013/02/25/multiple-libguestfs-appliances-in-parallel-part-3/
+    http://rwmj.wordpress.com/2013/02/25/multiple-libguestfs-appliances-in-parallel-part-4/</p>
+<p class="Pp"></p>
+<pre> #!/usr/bin/env perl
+ 
+ use strict;
+ use threads;
+ use warnings;
+ use Sys::Guestfs;
+ use Time::HiRes qw(time);
+ 
+ sub test {
+     my $g = Sys::Guestfs-&gt;new;
+     $g-&gt;add_drive_ro (&quot;/dev/null&quot;);
+     $g-&gt;launch ();
+     
+     # You could add some work for libguestfs to do here.
+     
+     $g-&gt;close ();
+ }
+ 
+ # Get everything into cache.
+ test (); test (); test ();
+ 
+ for my $nr_threads (1..20) {
+     my $start_t = time ();
+     my @threads;
+     foreach (1..$nr_threads) {
+         push @threads, threads-&gt;create (\&amp;test)
+     }
+     foreach (@threads) {
+         $_-&gt;join ();
+         if (my $err = $_-&gt;error ()) {
+             die &quot;launch failed with $nr_threads threads: $err&quot;
+         }
+     }
+     my $end_t = time ();
+     printf (&quot;%d %.2f\n&quot;, $nr_threads, $end_t - $start_t);
+ }
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TROUBLESHOOTING_POOR_PERFORMANCE"><a class="permalink" href="#TROUBLESHOOTING_POOR_PERFORMANCE">TROUBLESHOOTING
+  POOR PERFORMANCE</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Ensure_hardware_virtualization_is_available"><a class="permalink" href="#Ensure_hardware_virtualization_is_available">Ensure
+  hardware virtualization is available</a></h2>
+<p class="Pp">Use <i>/proc/cpuinfo</i> to ensure that hardware virtualization is
+    available. Note that you may need to enable it in your BIOS.</p>
+<p class="Pp">Hardware virt is not usually available inside VMs, and libguestfs
+    will run slowly inside another virtual machine whatever you do. Nested
+    virtualization does not work well in our experience, and is certainly no
+    substitute for running libguestfs on baremetal.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Ensure_KVM_is_available"><a class="permalink" href="#Ensure_KVM_is_available">Ensure
+  KVM is available</a></h2>
+<p class="Pp">Ensure that KVM is enabled and available to the user that will run
+    libguestfs. It should be safe to set 0666 permissions on <i>/dev/kvm</i> and
+    most distributions now do this.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Processors_to_avoid"><a class="permalink" href="#Processors_to_avoid">Processors
+  to avoid</a></h2>
+<p class="Pp">Avoid processors that don&#x2019;t have hardware virtualization,
+    and some processors which are simply very slow (AMD Geode being a great
+    example).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Xen_dom0"><a class="permalink" href="#Xen_dom0">Xen
+  dom0</a></h2>
+<p class="Pp">In Xen, dom0 is a virtual machine, and so hardware virtualization
+    is not available.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Use_libguestfs_"><a class="permalink" href="#Use_libguestfs_">Use
+  libguestfs &#x2265; 1.34 and qemu &#x2265; 2.7</a></h2>
+<p class="Pp">During the libguestfs 1.33 development cycle, we spent a large
+    amount of time concentrating on boot performance, and added some patches to
+    libguestfs, qemu and Linux which in some cases can reduce boot times to well
+    under 1 second. You may therefore get much better performance by moving to
+    the versions of libguestfs or qemu mentioned in the heading.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DETAILED_ANALYSIS"><a class="permalink" href="#DETAILED_ANALYSIS">DETAILED
+  ANALYSIS</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Boot_analysis"><a class="permalink" href="#Boot_analysis">Boot
+  analysis</a></h2>
+<p class="Pp">In https://github.com/libguestfs/libguestfs-analysis-tools is a
+    program called <span class="Li">&quot;boot-analysis&quot;</span>. This
+    program is able to produce a very detailed breakdown of the boot steps (eg.
+    qemu, BIOS, kernel, libguestfs init script), and can measure how long it
+    takes to perform each step.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Detailed_timings_using_ts"><a class="permalink" href="#Detailed_timings_using_ts">Detailed
+  timings using ts</a></h2>
+<p class="Pp">Use the <a class="Xr" href="../1/ts.html"><b>ts</b>(1)</a> command (from moreutils) to show detailed
+    timings:</p>
+<p class="Pp"></p>
+<pre> $ guestfish -a /dev/null run -v |&amp; ts -i '%.s'
+ 0.000022 libguestfs: launch: program=guestfish
+ 0.000134 libguestfs: launch: version=1.29.31fedora=23,release=2.fc23,libvirt
+ 0.000044 libguestfs: launch: backend registered: unix
+ 0.000035 libguestfs: launch: backend registered: uml
+ 0.000035 libguestfs: launch: backend registered: libvirt
+ 0.000032 libguestfs: launch: backend registered: direct
+ 0.000030 libguestfs: launch: backend=libvirt
+ 0.000031 libguestfs: launch: tmpdir=/tmp/libguestfsw18rBQ
+ 0.000029 libguestfs: launch: umask=0002
+ 0.000031 libguestfs: launch: euid=1000
+ 0.000030 libguestfs: libvirt version = 1002012 (1.2.12)
+ [etc]
+</pre>
+<p class="Pp">The timestamps are seconds (incrementally since the previous
+    line).</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Detailed_debugging_using_gdb"><a class="permalink" href="#Detailed_debugging_using_gdb">Detailed
+  debugging using gdb</a></h2>
+<p class="Pp">You can attach to the appliance BIOS/kernel using gdb. If you know
+    what you're doing, this can be a useful way to diagnose boot
+  regressions.</p>
+<p class="Pp">Firstly, you have to change qemu so it runs with the
+    <span class="Li">&quot;-S&quot;</span> and
+    <span class="Li">&quot;-s&quot;</span> options. These options cause qemu to
+    pause at boot and allow you to attach a debugger. Read <b>qemu</b>(1) for
+    further information. Libguestfs invokes qemu several times (to scan the help
+    output and so on) and you only want the final invocation of qemu to use
+    these options, so use a qemu wrapper script like this:</p>
+<p class="Pp"></p>
+<pre> #!/bin/bash -
+ 
+ # Set this to point to the real qemu binary.
+ qemu=/usr/bin/qemu-kvm
+ 
+ if [ &quot;$1&quot; != &quot;-global&quot; ]; then
+     # Scanning help output etc.
+     exec $qemu &quot;$@&quot;
+ else 
+     # Really running qemu.
+     exec $qemu -S -s &quot;$@&quot;
+ fi
+</pre>
+<p class="Pp">Now run guestfish or another libguestfs tool with the qemu wrapper
+    (see &quot;QEMU WRAPPERS&quot; in <b>guestfs</b>(3) to understand what this
+    is doing):</p>
+<p class="Pp"></p>
+<pre> LIBGUESTFS_HV=/path/to/qemu-wrapper guestfish -a /dev/null -v run
+</pre>
+<p class="Pp">This should pause just after qemu launches. In another window,
+    attach to qemu using gdb:</p>
+<p class="Pp"></p>
+<pre> $ gdb
+ (gdb) set architecture i8086
+ The target architecture is assumed to be i8086
+ (gdb) target remote :1234
+ Remote debugging using :1234
+ 0x0000fff0 in ?? ()
+ (gdb) cont
+</pre>
+<p class="Pp">At this point you can use standard gdb techniques, eg. hitting
+    <span class="Li">&quot;^C&quot;</span> to interrupt the boot and
+    <span class="Li">&quot;bt&quot;</span> get a stack trace, setting
+    breakpoints, etc. Note that when you are past the BIOS and into the Linux
+    kernel, you'll want to change the architecture back to 32 or 64 bit.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="PERFORMANCE_REGRESSIONS_IN_OTHER_PROGRAMS"><a class="permalink" href="#PERFORMANCE_REGRESSIONS_IN_OTHER_PROGRAMS">PERFORMANCE
+  REGRESSIONS IN OTHER PROGRAMS</a></h1>
+<p class="Pp">Sometimes performance regressions happen in other programs (eg.
+    qemu, the kernel) that cause problems for libguestfs.</p>
+<p class="Pp">In https://github.com/libguestfs/libguestfs-analysis-tools
+    <i>boot-benchmark/boot-benchmark-range.pl</i> is a script which can be used
+    to benchmark libguestfs across a range of git commits in another project to
+    find out if any commit is causing a slowdown (or speedup).</p>
+<p class="Pp">To find out how to use this script, consult the manual:</p>
+<p class="Pp"></p>
+<pre> ./boot-benchmark/boot-benchmark-range.pl --man
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/supermin.html"><b>supermin</b>(1)</a>, <a class="Xr" href="../1/guestfish.html"><b>guestfish</b>(1)</a>, <b>guestfs</b>(3),
+    <b>guestfs-examples</b>(3), <a class="Xr" href="../1/guestfs-internals.html"><b>guestfs-internals</b>(1)</a>,
+    <a class="Xr" href="../1/libguestfs-make-fixed-appliance.html"><b>libguestfs-make-fixed-appliance</b>(1)</a>, <a class="Xr" href="../1/stap.html"><b>stap</b>(1)</a>, <b>qemu</b>(1),
+    <a class="Xr" href="../1/gdb.html"><b>gdb</b>(1)</a>, http://libguestfs.org/.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Richard W.M. Jones (<span class="Li">&quot;rjones at redhat dot
+    com&quot;</span>)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright (C) 2012-2023 Red Hat Inc.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public License as
+    published by the Free Software Foundation; either version 2 of the License,
+    or (at your option) any later version.</p>
+<p class="Pp">This library is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Lesser
+    General Public License for more details.</p>
+<p class="Pp">You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301
+  USA</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">To get a list of bugs against libguestfs, use this link:
+    https://bugzilla.redhat.com/buglist.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+<p class="Pp">To report a new bug against libguestfs, use this link:
+    https://bugzilla.redhat.com/enter_bug.cgi?component=libguestfs&amp;product=Virtualization+Tools</p>
+<p class="Pp">When reporting a bug, please supply:</p>
+<ul class="Bl-bullet">
+  <li>The version of libguestfs.</li>
+  <li>Where you got libguestfs (eg. which Linux distro, compiled from source,
+      etc)</li>
+  <li>Describe the bug accurately and give a way to reproduce it.</li>
+  <li>Run <a class="Xr" href="../1/libguestfs-test-tool.html"><b>libguestfs-test-tool</b>(1)</a> and paste the <b>complete, unedited</b>
+      output into the bug report.</li>
+</ul>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-01-05</td>
+    <td class="foot-os">libguestfs-1.52.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: libguestfs0t64 1.52.0-5ubuntu3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

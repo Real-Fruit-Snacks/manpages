@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="">
+<title>pyvcflib(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pyvcflib(1)</div>
+    <ul><li><a href="#VCFLib_Python_FFI">VCFLib
+  Python FFI</a></li><li><a href="#Setting_it_up_and_example">Setting
+  it up and example</a></li><li><a href="#Masking_genotypes">Masking
+  genotypes</a></li><li><a href="#Another_example">Another
+  example</a></li><li><a href="#Additional_bindings">Additional
+  bindings</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">-<i>- coding: utf-8 -</i>-()</td>
+    <td class="head-vol"></td>
+    <td class="head-rtitle">-<i>- coding: utf-8 -</i>-()</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="VCFLib_Python_FFI"><a class="permalink" href="#VCFLib_Python_FFI">VCFLib
+  Python FFI</a></h1>
+<p class="Pp">We are building up a Python FFI for vcflib using the brilliant
+    Python pybind11 module. Mostly for (our) testing purposes, so we are not
+    aiming for complete coverage. See below for adding new bindings.</p>
+<section class="Ss">
+<h2 class="Ss" id="Setting_it_up_and_example"><a class="permalink" href="#Setting_it_up_and_example">Setting
+  it up and example</a></h2>
+<p class="Pp">First import the module. It may require setting the PYTHONPATH to
+    the shared library pyvcflib.cpython-39-x86_64-linux-gnu.so.</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+env PYTHONPATH=./build python3 -c 'import pyvcflib'
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">in a GNU Guix shell you may prepend LD_LIBRARY_PATH to find GLIBC
+    etc.</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+LD_LIBRARY_PATH=$LIBRARY_PATH
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">Now you should be able to use the pyvcflib module. Let&#x2019;s
+    try with a VCF samples/10158243.vcf that has only one record:</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+&gt;&gt;&gt; from pyvcflib import *
+&gt;&gt;&gt; vcf = VariantCallFile()
+&gt;&gt;&gt; vcf.openFile(&quot;../samples/10158243.vcf&quot;)
+True
+# ...    list(rec.name,rec.pos,rec.ref,rec.alt)
+&gt;&gt;&gt; rec = Variant(vcf)
+&gt;&gt;&gt; while (vcf.getNextVariant(rec)):
+...    [rec.name,rec.pos,rec.ref]
+['grch38#chr4', 10158243, 'ACCCCCACCCCCACC']
+&gt;&gt;&gt; rec.alt[0]
+'ACC'
+&gt;&gt;&gt; rec.alleles
+['ACCCCCACCCCCACC', 'ACC', 'AC', 'ACCCCCACCCCCAC', 'ACCCCCACC', 'ACA']
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">So the one input record shows it has a ref of `ACCCCCACCCCCACC'
+    and six alt alleles [`ACCCCCACCCCCACC', `ACC', `AC', `ACCCCCACCCCCAC',
+    `ACCCCCACC', `ACA'].</p>
+<p class="Pp">This works fine!</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Masking_genotypes"><a class="permalink" href="#Masking_genotypes">Masking
+  genotypes</a></h2>
+<p class="Pp">With vcfwave&#x2019;s allelic primitives, when two VCF records get
+    combined, we need to combine the genotypes. This happens, for example, with
+    vcfwave deletions.</p>
+<p class="Pp">When a deletion spans any SNPs from realignment we want to make
+    sure the SNPs are masked for those deletions. I.e.</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+6/28/2022, 4:21:44 PM - erikg:
+if you have a deletion in hap 1
+<br/>
+        .|0 or .|1
+in hap 2
+<br/>
+        0|. or 1|.
+etc.
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">So, if we have input two variants at the same position with the
+    first a DEL and the second a SNP the SNP genotypes need to be masked as</p>
+<dl class="Bl-tag">
+  <dt></dt>
+  <dd>
+    <pre>
+&gt;&gt; deletion_mask_genotypes(['1|0', '0|0', '0|1', '1|1', '1|0', '1|0', '1|1'],
+...                         ['0|0', '1|1', '1|0', '0|0', '1|0', '1|1', '1|1'])
+<br/>
+                            ['0|0', '1|1', '1|0', '0|0', '.|0', '.|1', '.|.']
+    </pre>
+  </dd>
+</dl>
+<p class="Pp">In the 5-7th column the deletion has the same genotype and gets
+    masked.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Another_example"><a class="permalink" href="#Another_example">Another
+  example</a></h2>
+<p class="Pp">See realign.py for examples of using the FFI in the form of a
+    python unit test. We used that to develop the vcfwave module.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Additional_bindings"><a class="permalink" href="#Additional_bindings">Additional
+  bindings</a></h2>
+<p class="Pp">It may be the case you want additional bindings that we have not
+    included yet. See vcflib&#x2019;s pythonffi.cpp for the existing bindings
+    and Variant.h for the classes and accessors.</p>
+</section>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os"></td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: libvcflib-tools 1.0.9+dfsg1-3build1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

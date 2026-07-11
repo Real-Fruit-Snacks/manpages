@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="preprocess dvips-produced PostScript documents before passing them to pkfix">
+<title>pkfix-helper(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pkfix-helper(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Motivation">Motivation</a></li><li><a href="#Overview">Overview</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#Frequently_Used_Options">Frequently
+  Used Options</a></li><li><a href="#Less-frequently_Used_Options">Less-frequently
+  Used Options</a></li><li><a href="#DIAGNOSTICS">DIAGNOSTICS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#RESTRICTIONS">RESTRICTIONS</a></li><li><a href="#NOTES">NOTES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PKFIX-HELPER(1)</td>
+    <td class="head-vol"> </td>
+    <td class="head-rtitle">PKFIX-HELPER(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pkfix-helper - preprocess dvips-produced PostScript documents
+    before passing them to pkfix</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">pkfix-helper [<b>--help</b>] [<b>--verbose</b>]
+    [<b>--force</b>=<i>name</i>=<i>fontspec</i>]
+    [<b>--ps</b>=<i>filename.ps</i>] [<b>--tex</b>=<i>filename.tex</i>]
+    [<b>--cache</b>=<i>filename</i>] [<b>--include</b>=<i>fontspec</i>]
+    [<b>--exclude</b>=<i>regexp</i>] [<b>--keep</b>=<i>fontspec</i>]
+    [<b>--quiet</b>] [<b>--no-repeats</b>] [<b>--spp</b>=<i>number</i>]
+    [<i>input.ps</i> [<i>output.ps</i>]]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="Motivation"><a class="permalink" href="#Motivation">Motivation</a></h2>
+<p class="Pp">PostScript documents created with old versions of <b>dvips</b>
+    almost invariably utilize bitmapped (PostScript Type&#x00A0;3) fonts. The
+    problem with bitmapped fonts is that they target a specific device
+    resolution; a PostScript file produced using 300&#x00A0;DPI fonts will look
+    grainy on a 600&#x00A0;DPI printer. Even worse, <i>all</i> bitmapped fonts
+    look grainy when zoomed in on screen. The solution is to use vector
+    (PostScript Type&#x00A0;1) fonts, which are resolution-independent and
+    appear crisp at any size or scale.</p>
+<p class="Pp">While it is no longer difficult to configure <b>dvips</b> to use
+    vector fonts, it is not always possible to rerun <b>dvips</b> on an old
+    <i>.dvi</i> file. The <i>.dvi</i> file and document source may have been
+    lost; or, the source may no longer compile because packages it depends upon
+    may no longer be available.</p>
+<p class="Pp">Heiko Oberdiek's <b>pkfix</b> script replaces bitmapped fonts in
+    <b>dvips</b>-produced PostScript files with the corresponding vector fonts.
+    It works by parsing the PostScript comments with which <b>dvips</b>
+    surrounds bitmapped-font definitions. For example, a font definition
+    beginning with the comment <span class="Li">&quot;%DVIPSBitmapFont: Fi
+    cmss10 11</span> <span class="Li">28&quot;</span> and ending with a matching
+    <span class="Li">%EndDVIPSBitmapFont</span> is known to define font
+    <span class="Li">&quot;Fi&quot;</span> as
+    <span class="Li">&quot;cmss10&quot;</span> (Computer Modern Sans Serif at a
+    design size of 10&#x00A0;points) scaled to
+    <span class="Li">11</span>&#x00A0;points. Only the
+    <span class="Li">28</span> characters actually used by the document are
+    defined. <b>pkfix</b> then replaces the font definition with one that
+    defines <span class="Li">&quot;Fi&quot;</span> using the same set of
+    characters but taken from the <i>cmss10.pfb</i> vector font file.</p>
+<p class="Pp">Unfortunately, <b>pkfix</b> works only with versions of
+    <b>dvips</b> newer than v5.58 (ca.&#x00A0;1996). Naturally, the older a
+    PostScript document, the less likely its sources still exist and can still
+    be recompiled. Older versions of <b>dvips</b> lack
+    <span class="Li">%DVIPSBitmapFont</span> comments and various other
+    PostScript comments on which <b>pkfix</b> relies. Without PostScript
+    comments to guide it, <b>pkfix</b> is unable to determine which vector fonts
+    correspond with which bitmapped fonts.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Overview"><a class="permalink" href="#Overview">Overview</a></h2>
+<p class="Pp">The <b>pkfix-helper</b> script is a preprocessor for <b>pkfix</b>
+    that attempts to determine the association between each document-font name
+    (e.g.,&#x00A0;<span class="Li">&quot;Fi&quot;</span>) in a PostScript file
+    and the original font
+    (e.g.,&#x00A0;<span class="Li">&quot;cmss10&quot;</span>) and fonts size
+    (e.g., <span class="Li">11</span>&#x00A0;points). It then fabricates the
+    PostScript comments that <b>pkfix</b> expects to see so that <b>pkfix</b>
+    can do its job.</p>
+<p class="Pp"><b>pkfix-helper</b> works by comparing every document font against
+    every <i>.tfm</i> font file it knows about (assuming that each such font has
+    a corresponding <i>.pfb</i> vector version) and selecting the best matching
+    <i>.tfm</i> file for every document font. <b>pkfix-helper</b> has access
+    only to the widths of characters and only to those characters actually used
+    in the document. Also, the program recognizes only a limited set of the most
+    popular <i>.tfm</i> files and scaling factors. Consequently, the comparison
+    is imperfect and <b>pkfix-helper</b> may attribute an incorrect font to a
+    given name. Fonts comprising only one or two characters actually used in a
+    document are particularly problematic for <b>pkfix-helper</b> because many
+    fonts may be near-enough matches to fool the problem.</p>
+<p class="Pp"><b>pkfix-helper</b> is designed so that a user can guide the
+    font-selection process by manually designating matching fonts. With a
+    modicum of diligence and patience a user can correct any mismatched fonts
+    and help the program provide proper input to <b>pkfix</b>.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp"><b>pkfix-helper</b> accepts on the command line the filename of a
+    PostScript document to process (with the default being the standard input
+    device) and the filename of a modified PostScript document to create (with
+    the default being the standard output device). The program also accepts the
+    following command-line options:</p>
+<section class="Ss">
+<h2 class="Ss" id="Frequently_Used_Options"><a class="permalink" href="#Frequently_Used_Options">Frequently
+  Used Options</a></h2>
+<dl class="Bl-tag">
+  <dt id="h"><a class="permalink" href="#h"><b>-h</b>, <b>--help</b></a></dt>
+  <dd>Display usage information and exit. The <b>--verbose</b> and
+      <b>--quiet</b> options can be used to increase and decrease the amount of
+      information presented.</dd>
+  <dt id="v"><a class="permalink" href="#v"><b>-v</b>, <b>--verbose</b></a></dt>
+  <dd>Increase the amount of status information that <b>pkfix-helper</b>
+      displays as it runs. Additional instances of <b>--verbose</b> on the
+      command line further increase the program's verbosity. By default, only
+      major operations are displayed. A single <b>--verbose</b> additionally
+      displays information about individual font comparisons. A second
+      <b>--verbose</b> additionally displays details about some of the program's
+      internal operations.</dd>
+  <dt id="f"><a class="permalink" href="#f"><b>-f</b>
+    <i>name</i>=<i>fontspec</i>,
+    <b>--force</b>=<i>name</i>=<i>fontspec</i></a></dt>
+  <dd>Force <b>pkfix-helper</b> to associate a specific font with a given font
+      name appearing the document. <i>name</i> is a (usually) two-character
+      <b>dvips</b> font name such as <span class="Li">&quot;Fa&quot;</span>.
+      <i>fontspec</i> is a font specification that comprises a font name and an
+      optional scale: &quot;<i>font</i>
+      [<span class="Li">&quot;@&quot;</span>&#x00A0;<i>scale</i>]&quot;. Some
+      examples of <i>fontspec</i>s are <span class="Li">&quot;cmmi8&quot;</span>
+      and <span class="Li">&quot;cmsy10&#x00A0;@&#x00A0;1.1X&quot;</span>.
+    <p class="Pp">An asterisk used in the name of the font
+        (e.g.,&#x00A0;<span class="Li">&quot;cmti*&quot;</span>) will be
+        replaced by all integers from 5 to 17
+        (<span class="Li">&quot;cmti5&quot;</span>,
+        <span class="Li">&quot;cmti6&quot;</span>,&#x00A0;...,
+        <span class="Li">&quot;cmti17&quot;</span>). The scale can be written as
+        a multiple of the design size (<span class="Li">&quot;X&quot;</span>) or
+        as an absolute size in either TeX points
+        (<span class="Li">&quot;pt&quot;</span>) or PostScript &quot;big&quot;
+        points (<span class="Li">&quot;bp&quot;</span>). Hence,
+        <span class="Li">&quot;cmsy8&#x00A0;@&#x00A0;1.5X&quot;</span>,
+        <span class="Li">&quot;cmsy8&#x00A0;@&#x00A0;12pt&quot;</span>, and
+        <span class="Li">&quot;cmsy8&#x00A0;@&#x00A0;11.96bp&quot;</span> all
+        represent the <i>Computer</i> <i>Modern Math Symbols 8 Point</i> font
+        scaled to 12 TeX points/11.96 PostScript points. Instead of specifying
+        an explicit scale, an asterisk can be used (as in
+        <span class="Li">&quot;cmsy8&#x00A0;@&#x00A0;*&quot;</span>) to request
+        that <b>pkfix-helper</b> find the scale that best matches the original
+        font's metrics.</p>
+    <p class="Pp">The <b>--force</b> option can be specified repeatedly on the
+        command line.</p>
+  </dd>
+  <dt id="p"><a class="permalink" href="#p"><b>-p</b> <i>filename.ps</i>,
+    <b>--ps</b>=<i>filename.ps</i></a></dt>
+  <dd>Create a PostScript file called <i>filename.ps</i> that shows the
+      <b>dvips</b> name and a font sample of every font used by the input
+      document.</dd>
+  <dt id="t"><a class="permalink" href="#t"><b>-t</b> <i>filename.tex</i>,
+    <b>--tex</b>=<i>filename.tex</i></a></dt>
+  <dd>Create a Plain TeX file called <i>filename.tex</i> that shows the
+      <b>dvips</b> name and a font sample of every font that <b>pkfix-helper</b>
+      used in the output document.</dd>
+  <dt id="k"><a class="permalink" href="#k"><b>-k</b> <i>fontspec</i>,
+    <b>--keep</b>=<i>fontspec</i></a></dt>
+  <dd>Do not substitute a vector font for bitmapped font <i>fontspec</i>
+      (<span class="Li">&quot;Fa&quot;</span>,
+      <span class="Li">&quot;Fb&quot;</span>, etc.). This is useful when
+      converting documents that use obscure bitmapped fonts for which there is
+      no vector equivalent. For example, it was somewhat common in the past to
+      include graphics such as university or corporate logos into a document by
+      converting the bitmapped image into a single-character font and using that
+      font in LaTeX. <b>--keep</b> prevents such fonts from being replaced. The
+      <b>--keep</b> option can be specified repeatedly on the command line.</dd>
+  <dt><b>-1</b>, <b>--no-repeats</b></dt>
+  <dd>Prevent <b>pkfix-helper</b> from associating the same <i>fontspec</i> with
+      more than one <b>dvips</b> font name.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Less-frequently_Used_Options"><a class="permalink" href="#Less-frequently_Used_Options">Less-frequently
+  Used Options</a></h2>
+<dl class="Bl-tag">
+  <dt id="q"><a class="permalink" href="#q"><b>-q</b>, <b>--quiet</b></a></dt>
+  <dd>Instruct <b>pkfix-helper</b> to produce no output during its run except
+      for error and warning messages.</dd>
+  <dt id="C"><a class="permalink" href="#C"><b>-C</b> <i>filename</i>,
+    <b>--cache</b>=<i>filename</i></a></dt>
+  <dd>Speed up TFM file processing by caching character metrics into file
+      <i>filename</i>. On some systems it takes a long time to read a TFM file,
+      spawn <i>tftopl</i> to convert it to PL format, and extract from the PL
+      data the metrics for each character. The first time <b>--cache</b> is
+      specified, <b>pkfix-helper</b> proceeds as normal then writes all of the
+      extracted character metrics to <i>filename</i>. On subsequent runs in
+      which <b>--cache</b>=<i>filename</i> is specified, <b>pkfix-helper</b>
+      reads the previously extracted metrics from <i>filename</i>, going through
+      the <i>tftopl</i>-based process only for TFM files that were not
+      previously encountered.</dd>
+  <dt id="i"><a class="permalink" href="#i"><b>-i</b> <i>fontspec</i>,
+    <b>--include</b>=<i>fontspec</i></a></dt>
+  <dd>Add <i>fontspec</i> to the list of font specifications against which
+      <b>pkfix-helper</b> compares <i>every</i> document font. (In contrast,
+      <b>--force</b> designates a font specification to use only for a
+      <i>specific</i> document font.) The <b>--include</b> option can be
+      specified repeatedly on the command line.</dd>
+  <dt id="x"><a class="permalink" href="#x"><b>-x</b> <i>regexp</i>,
+    <b>--exclude</b>=<i>regexp</i></a></dt>
+  <dd>Remove all font specifications matching regular expression <i>regexp</i>
+      from <b>pkfix-helper</b>'s list of known fonts. The <b>--exclude</b>
+      option can be specified repeatedly on the command line.</dd>
+  <dt id="s"><a class="permalink" href="#s"><b>-s</b>, <b>--spp</b></a></dt>
+  <dd>Specify the number of font samples per page to print to the files
+      indicated using the <b>--ps</b> and <b>--tex</b> options. The default
+      value,&#x00A0;25, should work well in most circumstances.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DIAGNOSTICS"><a class="permalink" href="#DIAGNOSTICS">DIAGNOSTICS</a></h1>
+<dl class="Bl-tag">
+  <dt>&quot;Best match for <i>name</i> is rather poor&quot;</dt>
+  <dd>The best font <b>pkfix-helper</b> found for <b>dvips</b> font name
+      <i>name</i> has a mismatch value greater than or equal to&#x00A0;1.0. (The
+      mismatch value is the sum of the squares of the difference between the
+      character widths of a document font and a potential replacement font.) Use
+      the <b>--force</b> option to designate an alternative replacement font or
+      scaling amount.</dd>
+  <dt>&quot;<i>name</i> uses characters that don't appear in any candidate
+    font&quot;</dt>
+  <dd>None of the fonts considered for a match include all of the characters in
+      font <i>name</i>. The user should use the <b>--force</b> option to inform
+      <b>pkfix-helper</b> which font to use or the <b>--keep</b> option to
+      retain the original, bitmapped font.</dd>
+  <dt>&quot;Processing <i>name</i> ... done (<i>font</i> with
+    mismatch=<i>number</i>, tied with <i>font</i>...)&quot;</dt>
+  <dd>The best match for <i>name</i> is font <i>font</i>. A perfect match has a
+      <i>number</i> of 0.00000. Worse matches observe larger values. If a tie is
+      reported, this means one or more fonts matched <i>name</i> equally well
+      (i.e., they see the same <i>number</i>). In this case, <b>pkfix-helper</b>
+      selects the qualitatively most likely font as the winner.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">For the purpose of the following examples, assume that
+    <i>oldfile.ps</i> is the name of a PostScript file produced by an old
+    version of <b>dvips</b> and utilizing at least one bitmapped font. It's
+    always worth verifying that <b>pkfix</b> can't convert the file on its
+  own:</p>
+<p class="Pp"></p>
+<pre>    $ pkfix oldfile.ps newfile.ps
+    PKFIX 1.3, 2005/02/25 - Copyright (c) 2001, 2005 by Heiko Oberdiek.
+    ==&gt; no fonts converted
+</pre>
+<p class="Pp">(Alternatively <b>pkfix</b> may issue an error message such as
+    <span class="Li">&quot;!!!</span> <span class="Li">Error: Parse error
+    (@start parameters)!&quot;</span>.) Only when <b>pkfix</b> can't replace
+    bitmapped fonts with vector fonts is <b>pkfix-helper</b> needed. In its
+    simplest form, <b>pkfix-helper</b> takes the name of an input file
+    (<i>oldfile.ps</i> in this example) and the name of an output file
+    (<i>pkfix-oldfile.ps</i>), which will have the same contents as the input
+    file but serve as suitable input for <b>pkfix</b>:</p>
+<p class="Pp"></p>
+<pre>    $ pkfix-helper oldfile.ps pkfix-oldfile.ps
+    Reading oldfile.ps ... done.
+    Number of Type 3 fonts encountered: 10
+    Bitmapped fonts are typeset at 600 DPI.
+    Finding character widths ... done.
+    Reading TFM files ... done (103 TFMs in 193 scaling variations).
+    Matching fonts:
+        Processing Fi ... done (cmr10 @ 1X, mismatch=0.11683).
+        Processing Fa ... done (cmti10 @ 1X, mismatch=0.08892).
+        Processing Fb ... done (cmr8 @ 1X, mismatch=0.07133).
+        Processing Ff ... done (cmbx12 @ 1.2X, mismatch=0.02948).
+        Processing Fh ... done (cmtt10 @ 1X, mismatch=0.06895).
+        Processing Fd ... done (cmmi10 @ 1X, mismatch=0.03966).
+        Processing Fj ... done (cmbx12 @ 1X, mismatch=0.03972).
+        Processing Fe ... done (cmbx10 @ 1X, mismatch=0.00762).
+        Processing Fg ... done (cmsy10 @ 1X, mismatch=0.00875).
+        Processing Fc ... done (cmr6 @ 1X, mismatch=0.00284).
+    $ pkfix pkfix-oldfile.ps newfile.ps
+    PKFIX 1.3, 2005/02/25 - Copyright (c) 2001, 2005 by Heiko Oberdiek.
+    *** Font conversion: `cmti10' -&gt; `CMTI10'.
+    *** Font conversion: `cmr8' -&gt; `CMR8'.
+    *** Font conversion: `cmr6' -&gt; `CMR6'.
+    *** Font conversion: `cmmi10' -&gt; `CMMI10'.
+    *** Font conversion: `cmbx10' -&gt; `CMBX10'.
+    *** Font conversion: `cmbx12' -&gt; `CMBX12'.
+    *** Font conversion: `cmsy10' -&gt; `CMSY10'.
+    *** Font conversion: `cmtt10' -&gt; `CMTT10'.
+    *** Font conversion: `cmr10' -&gt; `CMR10'.
+    *** Font conversion: `cmbx12' -&gt; `CMBX12'.
+    *** Merging font `CMBX12' (2).
+    ==&gt; 10 converted fonts.
+    ==&gt; 1 merged font.
+</pre>
+<p class="Pp">Although <b>pkfix-helper</b> tries to automate as much as possible
+    the font-detection process, some fonts will invariably be incorrectly
+    identified. The program outputs a warning message if it <i>knows</i> a match
+    is bad but the lack of a warning message does not necessarily indicate that
+    <b>pkfix-helper</b> did a good job. It is therefore strongly recommended
+    that the user produce &quot;before&quot; and &quot;after&quot; font
+  sheets:</p>
+<p class="Pp"></p>
+<pre>    $ pkfix-helper -q oldfile.ps pkfix-oldfile.ps \
+      --ps=oldfonts.ps --tex=newfonts.tex
+    $ tex newfonts.tex
+    This is TeX, Version 3.14159 (Web2C 7.4.5)
+    (./newfonts.tex [1] )
+    Output written on newfonts.dvi (1 page, 1292 bytes).
+    Transcript written on newfonts.log.
+    $ dvips newfonts.dvi -o newfonts.ps
+    This is dvips(k) 5.92b Copyright 2002 Radical Eye Software (www.radicaleye.com)
+    ' TeX output 2006.06.11:1636' -&gt; newfonts.ps
+    &lt;texc.pro&gt;&lt;8r.enc&gt;&lt;texps.pro&gt;. &lt;cmr6.pfb&gt;&lt;cmsy10.pfb&gt;&lt;cmbx10.pfb&gt;&lt;cmbx12.pfb&gt;
+    &lt;cmmi10.pfb&gt;&lt;cmtt10.pfb&gt;&lt;cmr8.pfb&gt;&lt;cmti10.pfb&gt;&lt;cmr10.pfb&gt;[1]
+</pre>
+<p class="Pp">After running the preceding commands, <i>oldfonts.ps</i> shows
+    samples of the fonts in <i>oldfile.ps</i> and <i>newfonts.ps</i> shows
+    samples of the replacement fonts that <b>pkfix-helper</b> used to produce
+    <i>pkfix-oldfile.ps</i>. Print <i>oldfonts.ps</i> and <i>newfonts.ps</i> and
+    compare them carefully for incorrect fonts and sizes.</p>
+<p class="Pp">Suppose that the choice of <span class="Li">&quot;cmbx12 @
+    1.2X&quot;</span> for font <span class="Li">&quot;Ff&quot;</span> looks
+    wrong; say the characters look taller in <i>oldfonts.ps</i> than in
+    <i>newfonts.ps</i>. This is where the trial-and-error stage begins. Let's
+    hypothesize that <span class="Li">&quot;cmb12&quot;</span> is a better match
+    than <span class="Li">&quot;cmbx12&quot;</span> but we don't know how much
+    to scale the font. Fortunately, <b>pkfix-helper</b> allows
+    <span class="Li">&quot;*&quot;</span> to be used as a scaling factor to tell
+    the program to automatically detect an optimal scaling factor, even if doing
+    so means choosing a nonstandard font size:</p>
+<p class="Pp"></p>
+<pre>    $ pkfix-helper oldfile.ps pkfix-oldfile.ps --force=&quot;Ff=cmb12 @ *&quot;
+    Reading oldfile.ps ... done.
+    Number of Type 3 fonts encountered: 10
+    Bitmapped fonts are typeset at 600 DPI.
+    Finding character widths ... done.
+    Reading TFM files ... failed.
+    pkfix-helper: Unable to process user-specified TFM file &quot;cmb12&quot;
+</pre>
+<p class="Pp">Oops, it looks like we don't have a <i>cmb12.tfm</i> file on our
+    system. Let's try scaling up <i>cmb10.tfm</i> instead:</p>
+<p class="Pp"></p>
+<pre>    $ pkfix-helper oldfile.ps pkfix-oldfile.ps --force=&quot;Ff=cmb10 @ *&quot;
+    Reading oldfile.ps ... done.
+    Number of Type 3 fonts encountered: 10
+    Bitmapped fonts are typeset at 600 DPI.
+    Finding character widths ... done.
+    Reading TFM files ... done (103 TFMs in 193 scaling variations).
+    Matching fonts:
+        Processing Fi ... done (cmr10 @ 1X, mismatch=0.11683).
+        Processing Fa ... done (cmti10 @ 1X, mismatch=0.08892).
+        Processing Fb ... done (cmr8 @ 1X, mismatch=0.07133).
+        Processing Ff ... done (cmb10 @ 1.5X, mismatch=0.00035).
+        Processing Fh ... done (cmtt10 @ 1X, mismatch=0.06895).
+        Processing Fd ... done (cmmi10 @ 1X, mismatch=0.03966).
+        Processing Fj ... done (cmbx12 @ 1X, mismatch=0.03972).
+        Processing Fe ... done (cmbx10 @ 1X, mismatch=0.00762).
+        Processing Fg ... done (cmsy10 @ 1X, mismatch=0.00875).
+        Processing Fc ... done (cmr6 @ 1X, mismatch=0.00284).
+</pre>
+<p class="Pp">The match has definitely improved, although 15&#x00A0;pt. is
+    certainly an odd size for a font. Then again, many documents <i>do</i> use
+    nonstandard sizes so this may in fact be correct. The best way to verify is
+    once again to produce, print, and compare a pair of font samples and iterate
+    until all of the fonts look correct. Use one instance of <b>--force</b> for
+    each font you want to alter.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<p class="Pp"><b>pkfix-helper</b> honors the following environment
+  variables:</p>
+<dl class="Bl-tag">
+  <dt id="GS"><a class="permalink" href="#GS">GS</a></dt>
+  <dd>The name of the Ghostscript interpreter (default: <i>gs</i>)</dd>
+  <dt id="TFTOPL"><a class="permalink" href="#TFTOPL">TFTOPL</a></dt>
+  <dd>The name of a utility for converting <i>.tfm</i> files to <i>.pl</i> files
+      (default: <i>tftopl</i>)</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESTRICTIONS"><a class="permalink" href="#RESTRICTIONS">RESTRICTIONS</a></h1>
+<p class="Pp"><b>pkfix-helper</b> works only with PostScript files produced by
+    <b>dvips</b>, not with arbitrary PostScript files. Only bitmapped fonts
+    loaded by <b>dvips</b> can be analyzed, not bitmapped fonts loaded by
+    embedded graphics.</p>
+<p class="Pp"><b>pkfix-helper</b> works by comparing character widths, not the
+    actual glyphs. Consequently, it is misled by sets of fonts with similar
+    character widths (at least for those characters used by a given document).
+    As an extreme example, all Computer Modern Teletype fonts of a given design
+    size (e.g., <span class="Li">&quot;cmtt10&quot;</span>,
+    <span class="Li">&quot;cmsltt10&quot;</span>, and
+    <span class="Li">&quot;cmitt10&quot;</span>) use exactly the same widths for
+    all characters. Human assistance is generally needed to guide
+    <b>pkfix-helper</b>'s font-matching procedures, especially for fonts for
+    which relatively few characters appear in the document.</p>
+<p class="Pp">There is an astonishing variety of <b>dvips</b> output. Different
+    versions of the program and different command-line options can result in
+    PostScript files with a completely different structure. <b>pkfix-helper</b>
+    works hard to find font information buried in numerous output-file variants,
+    but it is not uncommon for a PostScript file produced by a sufficiently old
+    version of <b>dvips</b> or with sufficiently obscure command-line options to
+    utterly confuse <b>pkfix-helper</b>. In this case, please send your
+    problematic PostScript files to the author of <b>pkfix-helper</b> (see
+    &quot;AUTHOR&quot; below), who may be able to enhance <b>pkfix-helper</b> to
+    handle them.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NOTES"><a class="permalink" href="#NOTES">NOTES</a></h1>
+<p class="Pp">Files produced using the <b>--tex</b> option are Plain TeX files
+    and therefore must be compiled with <b>tex</b> (or a variant such as
+    <b>pdftex</b>, <b>luatex</b>, <b>xetex</b>, etc.), <i>not</i> with
+    <b>latex</b>.</p>
+<p class="Pp"><b>dvips</b>-produced PostScript files can be structured in
+    sections, demarcated by <span class="Li">%DVIPSBeginSection</span> and
+    <span class="Li">%DVIPSEndSection</span>. Font names are local to a section.
+    Hence, a font named <span class="Li">&quot;Fa&quot;</span> may map to
+    <span class="Li">&quot;cmex10&quot;</span> in one section and to
+    <span class="Li">&quot;cmmi7&quot;</span> in another. <b>pkfix-helper</b>
+    assigns every font in a multi-section document a unique name by appending a
+    section-number suffix: <span class="Li">&quot;Fa_S01&quot;</span>,
+    <span class="Li">&quot;Fa_S02&quot;</span>, etc.</p>
+<p class="Pp">Font names are processed in decreasing order of the number of
+    characters they have represented in the document. That is, if the document
+    includes 10 characters from <span class="Li">&quot;Fa&quot;</span> and 23
+    characters from <span class="Li">&quot;Fb&quot;</span>, <b>pkfix-helper</b>
+    will process <span class="Li">&quot;Fb&quot;</span> before
+    <span class="Li">&quot;Fa&quot;</span>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><b>pkfix</b>(1), <a class="Xr" href="../1/dvips.html"><b>dvips</b>(1)</a>, <a class="Xr" href="../1/tex.html"><b>tex</b>(1)</a>, <a class="Xr" href="../1/gs.html"><b>gs</b>(1)</a></p>
+<p class="Pp">PostScript Language Reference, Third Edition. Published by
+    Addison-Wesley, ISBN 0-201-37922-8,
+    &lt;http://www.adobe.com/products/postscript/pdfs/PLRM.pdf&gt;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Scott Pakin, <i>scott+pkfh@pakin.org</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT_AND_LICENSE"><a class="permalink" href="#COPYRIGHT_AND_LICENSE">COPYRIGHT
+  AND LICENSE</a></h1>
+<p class="Pp">Copyright (C) 2009-2020, Scott Pakin</p>
+<p class="Pp">This file may be distributed and/or modified under the conditions
+    of the LaTeX Project Public License, either version 1.3c of this license or
+    (at your option) any later version. The latest version of this license is in
+    &lt;http://www.latex-project.org/lppl.txt&gt; and version 1.3c or later is
+    part of all distributions of LaTeX version 2006/05/20 or later.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2020-08-06</td>
+    <td class="foot-os">v1.6</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: texlive-extra-utils 2023.20240207-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

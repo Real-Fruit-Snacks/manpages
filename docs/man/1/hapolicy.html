@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="policy delegation high availability script">
+<title>hapolicy(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">hapolicy(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#LINKS">LINKS</a></li><li><a href="#LICENSE">LICENSE</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">HAPOLICY(1)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">HAPOLICY(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">hapolicy - policy delegation high availability script</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>hapolicy</b> [OPTIONS] --service=SERVICE1 [--service=SERVICE2
+    ...]</p>
+<p class="Pp"></p>
+<pre>        Services:
+        -s, --service &lt;name&gt;=&lt;address&gt;:&lt;port&gt;[:&lt;prio&gt;:&lt;weight&gt;:&lt;timeout&gt;]
+        Options:
+        -d, --default &lt;action&gt;  returns &lt;action&gt; if no service was available (default: 'dunno')
+        -l, --logging           log requests
+        -v, --verbose           increase logging verbosity
+        -L, --stdout            log to stdout, for debugging, do NOT use with postfix
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<section class="Ss">
+<h2 class="Ss">INTRODUCTION</h2>
+<p class="Pp"><b>hapolicy</b> enables high availability, weighted loadbalancing
+    and a fallback action for postfix policy delegation services. Invoked via
+    postfix spawn it acts as a wrapper that queries other policy servers via tcp
+    connection. The order of the service queries can be influenced by assigning
+    a specific priority and weight to each service. A service is considered
+    'failing', if the connection is refused or the specified service timeout is
+    reached. If all of the configured policy services were failing,
+    <b>hapolicy</b> returns a default action (e.g. dunno) to postfix.</p>
+<p class="Pp">With version 1.00 <b>hapolicy</b> has less than 200 lines of perl
+    code using only standard perl modules. It does not require any disk access
+    nor configuration files and runs under an unpriviledged user account. This
+    should allow fast and reliable operation.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">CONFIGURATION</h2>
+<p class="Pp">A service has the following attributes</p>
+<p class="Pp"></p>
+<pre>    &quot;servicename&quot;           =&gt; {
+               ip              =&gt; '127.0.0.1',         # ip address
+               port            =&gt; '10040',             # tcp port
+               prio            =&gt; '10',                # optional, lower wins
+               weight          =&gt; '1',                 # optional, for items with same prio (weighted round-robin), higher is better
+               timeout         =&gt; '30',                # optional, query timeout in seconds
+    },
+</pre>
+<p class="Pp">You may define multiple services at the command line. Which means
+    that</p>
+<p class="Pp"></p>
+<pre>        hapolicy -s &quot;grey1=10.0.0.1:10031:10&quot; -s &quot;grey2=10.0.0.2:10031:20&quot;
+</pre>
+<p class="Pp">will always try first service <i>grey1</i> at ip 10.0.0.1 port
+    10031 and if that service is not available or does not answer within the
+    default of 30 seconds the next service <i>grey2</i> at ip 10.0.0.2 port
+    10031 will be queried.</p>
+<p class="Pp">If you want to load balance connections you may define</p>
+<p class="Pp"></p>
+<pre>        hapolicy -s &quot;polw1=10.0.0.1:12525:10:2&quot; -s &quot;polw2=10.0.0.2:12525:10:1&quot;
+</pre>
+<p class="Pp">which queries service <i>polw1</i> at ip 10.0.0.1 twice as much as
+    service <i>polw2</i> at ip 10.0.0.2. Note that this setup also ensures high
+    availability for both services. If <i>polw1</i> is not available or does not
+    answer within the default of 30 seconds <i>polw2</i> will be queried and
+    vice versa. There is no reason to define a service twice.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">INTEGRATION</h2>
+<p class="Pp">Enter the following at the bottom of your postfix master.cf
+    (usually located at /etc/postfix):</p>
+<p class="Pp"></p>
+<pre>        # service description, note the leading blanks at the second line
+        127.0.0.1:10060 inet    n       n       n       -       0       spawn
+          user=nobody argv=/usr/local/bin/hapolicy -l -s GREY1=10.0.0.1:10031:10 -s GREY2=10.0.0.2:10031:10
+</pre>
+<p class="Pp">save the file and open postfix main.cf. Modify it as follows:</p>
+<p class="Pp"></p>
+<pre>        127.0.0.1:10060_time_limit   = 3600
+        smtpd_recipient_restrictions =
+            permit_mynetworks,
+            ... other authed permits ...
+            reject_unauth_destination,
+            ... other restrictions ...
+            check_policy_service inet:127.0.0.1:10060   # &lt;- hapolicy query
+</pre>
+<p class="Pp">Now issue 'postfix reload' at the command line. Of course you can
+    have more enhanced setups using postfix restriction classes. Please see
+    &quot;LINKS&quot; for further options.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LINKS"><a class="permalink" href="#LINKS">LINKS</a></h1>
+<p class="Pp">[1] Postfix SMTP Access Policy Delegation
+    &lt;http://www.postfix.org/SMTPD_POLICY_README.html&gt;</p>
+<p class="Pp">[2] Postfix Per-Client/User/etc. Access Control
+    &lt;http://www.postfix.org/RESTRICTION_CLASS_README.html&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LICENSE"><a class="permalink" href="#LICENSE">LICENSE</a></h1>
+<p class="Pp">hapolicy is free software and released under BSD license, which
+    basically means that you can do what you want as long as you keep the
+    copyright notice:</p>
+<p class="Pp">Copyright (c) 2008, Jan Peter Kessler All rights reserved.</p>
+<p class="Pp">Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions are
+  met:</p>
+<p class="Pp"></p>
+<pre> * Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+ * Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer in
+   the documentation and/or other materials provided with the
+   distribution.
+ * Neither the name of the authors nor the names of his contributors
+   may be used to endorse or promote products derived from this
+   software without specific prior written permission.
+</pre>
+<p class="Pp">THIS SOFTWARE IS PROVIDED BY ME ``AS IS'' AND ANY EXPRESS OR
+    IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+    MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
+    EVENT SHALL BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+    EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+    PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+    OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+    WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+    OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+    ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Jan&#x00A0;Peter&#x00A0;Kessler&#x00A0;&lt;info&#x00A0;(AT)&#x00A0;postfwd&#x00A0;(DOT)&#x00A0;org&gt;.
+    Let me know, if you have any suggestions.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2023-01-23</td>
+    <td class="foot-os">perl v5.36.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: hapolicy 1.35-8 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

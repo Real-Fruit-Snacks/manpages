@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Read queries from a log and analyze how they use indexes.">
+<title>pt-index-usage(1p) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pt-index-usage(1p)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#RISKS">RISKS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OUTPUT">OUTPUT</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#DSN_OPTIONS">DSN
+  OPTIONS</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#SYSTEM_REQUIREMENTS">SYSTEM
+  REQUIREMENTS</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#DOWNLOADING">DOWNLOADING</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#ABOUT_PERCONA_TOOLKIT">ABOUT
+  PERCONA TOOLKIT</a></li><li><a href="#COPYRIGHT,_LICENSE,_AND_WARRANTY">COPYRIGHT,
+  LICENSE, AND WARRANTY</a></li><li><a href="#VERSION">VERSION</a></li><li><a href="#POD_ERRORS">POD
+  ERRORS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PT-INDEX-USAGE(1p)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">PT-INDEX-USAGE(1p)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pt-index-usage - Read queries from a log and analyze how they use
+    indexes.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Usage: pt-index-usage [OPTIONS] [FILES]</p>
+<p class="Pp">pt-index-usage reads queries from logs and analyzes how they use
+    indexes.</p>
+<p class="Pp">Analyze queries in slow.log and print reports:</p>
+<p class="Pp"></p>
+<pre>  pt-index-usage /path/to/slow.log --host localhost
+</pre>
+<p class="Pp">Disable reports and save results to percona database for later
+    analysis:</p>
+<p class="Pp"></p>
+<pre>  pt-index-usage slow.log --no-report --save-results-database percona
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RISKS"><a class="permalink" href="#RISKS">RISKS</a></h1>
+<p class="Pp">Percona Toolkit is mature, proven in the real world, and well
+    tested, but all database tools can pose a risk to the system and the
+    database server. Before using this tool, please:</p>
+<ul class="Bl-bullet">
+  <li>Read the tool's documentation</li>
+  <li>Review the tool's known &quot;BUGS&quot;</li>
+  <li>Test the tool on a non-production server</li>
+  <li>Backup your production server and verify the backups</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">This tool connects to a MySQL database server, reads through a
+    query log, and uses EXPLAIN to ask MySQL how it will use each query. When it
+    is finished, it prints out a report on indexes that the queries didn't
+  use.</p>
+<p class="Pp">The query log needs to be in MySQL's slow query log format. If you
+    need to input a different format, you can use pt-query-digest to translate
+    the formats. If you don't specify a filename, the tool reads from STDIN.</p>
+<p class="Pp">The tool runs two stages. In the first stage, the tool takes
+    inventory of all the tables and indexes in your database, so it can compare
+    the existing indexes to those that were actually used by the queries in the
+    log. In the second stage, it runs EXPLAIN on each query in the query log. It
+    uses separate database connections to inventory the tables and run EXPLAIN,
+    so it opens two connections to the database.</p>
+<p class="Pp">If a query is not a SELECT, it tries to transform it to a roughly
+    equivalent SELECT query so it can be EXPLAINed. This is not a perfect
+    process, but it is good enough to be useful.</p>
+<p class="Pp">The tool skips the EXPLAIN step for queries that are exact
+    duplicates of those seen before. It assumes that the same query will
+    generate the same EXPLAIN plan as it did previously (usually a safe
+    assumption, and generally good for performance), and simply increments the
+    count of times that the indexes were used. However, queries that have the
+    same fingerprint but different checksums will be re-EXPLAINed. Queries that
+    have different literal constants can have different execution plans, and
+    this is important to measure.</p>
+<p class="Pp">After EXPLAIN-ing the query, it is necessary to try to map aliases
+    in the query back to the original table names. For example, consider the
+    EXPLAIN plan for the following query:</p>
+<p class="Pp"></p>
+<pre>  SELECT * FROM tbl1 AS foo;
+</pre>
+<p class="Pp">The EXPLAIN output will show access to table
+    <span class="Li">&quot;foo&quot;</span>, and that must be translated back to
+    <span class="Li">&quot;tbl1&quot;</span>. This process involves complex
+    parsing. It is generally very accurate, but there is some chance that it
+    might not work right. If you find cases where it fails, submit a bug report
+    and a reproducible test case.</p>
+<p class="Pp">Queries that cannot be EXPLAINed will cause all subsequent queries
+    with the same fingerprint to be blacklisted. This is to reduce the work they
+    cause, and prevent them from continuing to print error messages. However, at
+    least in this stage of the tool's development, it is my opinion that it's
+    not a good idea to preemptively silence these, or prevent them from being
+    EXPLAINed at all. I am looking for lots of feedback on how to improve things
+    like the query parsing. So please submit your test cases based on the errors
+    the tool prints!</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OUTPUT"><a class="permalink" href="#OUTPUT">OUTPUT</a></h1>
+<p class="Pp">After it reads all the events in the log, the tool prints out DROP
+    statements for every index that was not used. It skips indexes for tables
+    that were never accessed by any queries in the log, to avoid false-positive
+    results.</p>
+<p class="Pp">If you don't specify &quot;--quiet&quot;, the tool also outputs
+    warnings about statements that cannot be EXPLAINed and similar. These go to
+    standard error.</p>
+<p class="Pp">Progress reports are enabled by default (see
+    &quot;--progress&quot;). These also go to standard error.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">This tool accepts additional command-line arguments. Refer to the
+    &quot;SYNOPSIS&quot; and usage information for details.</p>
+<dl class="Bl-tag">
+  <dt id="ask"><a class="permalink" href="#ask">--ask-pass</a></dt>
+  <dd>Prompt for a password when connecting to MySQL.</dd>
+  <dt id="charset"><a class="permalink" href="#charset">--charset</a></dt>
+  <dd>short form: -A; type: string
+    <p class="Pp">Default character set. If the value is utf8, sets Perl's
+        binmode on STDOUT to utf8, passes the mysql_enable_utf8 option to
+        DBD::mysql, and runs SET NAMES UTF8 after connecting to MySQL. Any other
+        value sets binmode on STDOUT without the utf8 layer, and runs SET NAMES
+        after connecting to MySQL.</p>
+  </dd>
+  <dt id="config"><a class="permalink" href="#config">--config</a></dt>
+  <dd>type: Array
+    <p class="Pp">Read this comma-separated list of config files; if specified,
+        this must be the first option on the command line.</p>
+  </dd>
+  <dt id="create"><a class="permalink" href="#create">--create-save-results-database</a></dt>
+  <dd>Create the &quot;--save-results-database&quot; if it does not exist.
+    <p class="Pp">If the &quot;--save-results-database&quot; already exists and
+        this option is specified, the database is used and the necessary tables
+        are created if they do not already exist.</p>
+  </dd>
+  <dt>--[no]create-views</dt>
+  <dd>Create views for &quot;--save-results-database&quot; example queries.
+    <p class="Pp">Several example queries are given for querying the tables in
+        the &quot;--save-results-database&quot;. These example queries are, by
+        default, created as views. Specifying
+        <span class="Li">&quot;--no-create-views&quot;</span> prevents these
+        views from being created.</p>
+  </dd>
+  <dt id="database"><a class="permalink" href="#database">--database</a></dt>
+  <dd>short form: -D; type: string
+    <p class="Pp">The database to use for the connection.</p>
+  </dd>
+  <dt id="databases"><a class="permalink" href="#databases">--databases</a></dt>
+  <dd>short form: -d; type: hash
+    <p class="Pp">Only get tables and indexes from this comma-separated list of
+        databases.</p>
+  </dd>
+  <dt>--databases-regex</dt>
+  <dd>type: string
+    <p class="Pp">Only get tables and indexes from database whose names match
+        this Perl regex.</p>
+  </dd>
+  <dt id="defaults"><a class="permalink" href="#defaults">--defaults-file</a></dt>
+  <dd>short form: -F; type: string
+    <p class="Pp">Only read mysql options from the given file. You must give an
+        absolute pathname.</p>
+  </dd>
+  <dt id="drop"><a class="permalink" href="#drop">--drop</a></dt>
+  <dd>type: Hash; default: non-unique
+    <p class="Pp">Suggest dropping only these types of unused indexes.</p>
+    <p class="Pp">By default pt-index-usage will only suggest to drop unused
+        secondary indexes, not primary or unique indexes. You can specify which
+        types of unused indexes the tool suggests to drop: primary, unique,
+        non-unique, all.</p>
+    <p class="Pp">A separate <span class="Li">&quot;ALTER TABLE&quot;</span>
+        statement for each type is printed. So if you specify
+        <span class="Li">&quot;--drop all&quot;</span> and there is a primary
+        key and a non-unique index, the <span class="Li">&quot;ALTER TABLE ...
+        DROP&quot;</span> for each will be printed on separate lines.</p>
+  </dd>
+  <dt id="empty"><a class="permalink" href="#empty">--empty-save-results-tables</a></dt>
+  <dd>Drop and re-create all pre-existing tables in the
+      &quot;--save-results-database&quot;. This allows information from previous
+      runs to be removed before the current run.</dd>
+  <dt id="help"><a class="permalink" href="#help">--help</a></dt>
+  <dd>Show help and exit.</dd>
+  <dt id="host"><a class="permalink" href="#host">--host</a></dt>
+  <dd>short form: -h; type: string
+    <p class="Pp">Connect to host.</p>
+  </dd>
+  <dt id="ignore"><a class="permalink" href="#ignore">--ignore-databases</a></dt>
+  <dd>type: Hash
+    <p class="Pp">Ignore this comma-separated list of databases.</p>
+  </dd>
+  <dt id="ignore~2"><a class="permalink" href="#ignore~2">--ignore-databases-regex</a></dt>
+  <dd>type: string
+    <p class="Pp">Ignore databases whose names match this Perl regex.</p>
+  </dd>
+  <dt id="ignore~3"><a class="permalink" href="#ignore~3">--ignore-tables</a></dt>
+  <dd>type: Hash
+    <p class="Pp">Ignore this comma-separated list of table names.</p>
+    <p class="Pp">Table names may be qualified with the database name.</p>
+  </dd>
+  <dt id="ignore~4"><a class="permalink" href="#ignore~4">--ignore-tables-regex</a></dt>
+  <dd>type: string
+    <p class="Pp">Ignore tables whose names match the Perl regex.</p>
+  </dd>
+  <dt id="password"><a class="permalink" href="#password">--password</a></dt>
+  <dd>short form: -p; type: string
+    <p class="Pp">Password to use when connecting. If password contains commas
+        they must be escaped with a backslash: &quot;exam\,ple&quot;</p>
+  </dd>
+  <dt id="port"><a class="permalink" href="#port">--port</a></dt>
+  <dd>short form: -P; type: int
+    <p class="Pp">Port number to use for connection.</p>
+  </dd>
+  <dt id="progress"><a class="permalink" href="#progress">--progress</a></dt>
+  <dd>type: array; default: time,30
+    <p class="Pp">Print progress reports to STDERR. The value is a
+        comma-separated list with two parts. The first part can be percentage,
+        time, or iterations; the second part specifies how often an update
+        should be printed, in percentage, seconds, or number of iterations.</p>
+  </dd>
+  <dt id="quiet"><a class="permalink" href="#quiet">--quiet</a></dt>
+  <dd>short form: -q
+    <p class="Pp">Do not print any warnings. Also disables
+        &quot;--progress&quot;.</p>
+  </dd>
+  <dt>--[no]report</dt>
+  <dd>default: yes
+    <p class="Pp">Print the reports for &quot;--report-format&quot;.</p>
+    <p class="Pp">You may want to disable the reports by specifying
+        <span class="Li">&quot;--no-report&quot;</span> if, for example, you
+        also specify &quot;--save-results-database&quot; and you only want to
+        query the results tables later.</p>
+  </dd>
+  <dt id="report"><a class="permalink" href="#report">--report-format</a></dt>
+  <dd>type: Array; default: drop_unused_indexes
+    <p class="Pp">Right now there is only one report: drop_unused_indexes. This
+        report prints SQL statements for dropping any unused indexes. See also
+        &quot;--drop&quot;.</p>
+    <p class="Pp">See also &quot;--[no]report&quot;.</p>
+  </dd>
+  <dt id="save"><a class="permalink" href="#save">--save-results-database</a></dt>
+  <dd>type: DSN
+    <p class="Pp">Save results to tables in this database. Information about
+        indexes, queries, tables and their usage is stored in several tables in
+        the specified database. The tables are auto-created if they do not
+        exist. If the database doesn't exist, it can be auto-created with
+        &quot;--create-save-results-database&quot;. In this case the connection
+        is initially created with no default database, then after the database
+        is created, it is USE'ed.</p>
+    <p class="Pp">pt-index-usage executes INSERT statements to save the results.
+        Therefore, you should be careful if you use this feature on a production
+        server. It might increase load, or cause trouble if you don't want the
+        server to be written to, or so on.</p>
+    <p class="Pp">This is a new feature. It may change in future releases.</p>
+    <p class="Pp">After a run, you can query the usage tables to answer various
+        questions about index usage. The tables have the following CREATE TABLE
+        definitions:</p>
+    <p class="Pp">MAGIC_create_indexes:</p>
+    <p class="Pp"></p>
+    <pre>  CREATE TABLE IF NOT EXISTS indexes (
+    db           VARCHAR(64) NOT NULL,
+    tbl          VARCHAR(64) NOT NULL,
+    idx          VARCHAR(64) NOT NULL,
+    cnt          BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY  (db, tbl, idx)
+  )
+    </pre>
+    <p class="Pp">MAGIC_create_queries:</p>
+    <p class="Pp"></p>
+    <pre>  CREATE TABLE IF NOT EXISTS queries (
+    query_id     BIGINT UNSIGNED NOT NULL,
+    fingerprint  TEXT NOT NULL,
+    sample       TEXT NOT NULL,
+    PRIMARY KEY  (query_id)
+  )
+    </pre>
+    <p class="Pp">MAGIC_create_tables:</p>
+    <p class="Pp"></p>
+    <pre>  CREATE TABLE IF NOT EXISTS tables (
+    db           VARCHAR(64) NOT NULL,
+    tbl          VARCHAR(64) NOT NULL,
+    cnt          BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    PRIMARY KEY  (db, tbl)
+  )
+    </pre>
+    <p class="Pp">MAGIC_create_index_usage:</p>
+    <p class="Pp"></p>
+    <pre>  CREATE TABLE IF NOT EXISTS index_usage (
+    query_id      BIGINT UNSIGNED NOT NULL,
+    db            VARCHAR(64) NOT NULL,
+    tbl           VARCHAR(64) NOT NULL,
+    idx           VARCHAR(64) NOT NULL,
+    cnt           BIGINT UNSIGNED NOT NULL DEFAULT 1,
+    UNIQUE INDEX  (query_id, db, tbl, idx)
+  )
+    </pre>
+    <p class="Pp">MAGIC_create_index_alternatives:</p>
+    <p class="Pp"></p>
+    <pre>  CREATE TABLE IF NOT EXISTS index_alternatives (
+    query_id      BIGINT UNSIGNED NOT NULL, -- This query used
+    db            VARCHAR(64) NOT NULL,     -- this index, but...
+    tbl           VARCHAR(64) NOT NULL,     --
+    idx           VARCHAR(64) NOT NULL,     --
+    alt_idx       VARCHAR(64) NOT NULL,     -- was an alternative
+    cnt           BIGINT UNSIGNED NOT NULL DEFAULT 1,
+    UNIQUE INDEX  (query_id, db, tbl, idx, alt_idx),
+    INDEX         (db, tbl, idx),
+    INDEX         (db, tbl, alt_idx)
+  )
+    </pre>
+    <p class="Pp">The following are some queries you can run against these
+        tables to answer common questions you might have. Each query is also
+        created as a view (with MySQL v5.0 and newer) if
+        <span class="Li">&quot;--[no]create-views&quot;</span> is true (it is by
+        default). The view names are the strings after the
+        <span class="Li">&quot;MAGIC_view_&quot;</span> prefix.</p>
+    <p class="Pp">Question: which queries sometimes use different indexes, and
+        what fraction of the time is each index chosen?
+        MAGIC_view_query_uses_several_indexes:</p>
+    <p class="Pp"></p>
+    <pre> SELECT iu.query_id, CONCAT_WS('.', iu.db, iu.tbl, iu.idx) AS idx,
+    variations, iu.cnt, iu.cnt / total_cnt * 100 AS pct
+ FROM index_usage AS iu
+    INNER JOIN (
+       SELECT query_id, db, tbl, SUM(cnt) AS total_cnt,
+         COUNT(*) AS variations
+       FROM index_usage
+       GROUP BY query_id, db, tbl
+       HAVING COUNT(*) &gt; 1
+    ) AS qv USING(query_id, db, tbl);
+    </pre>
+    <p class="Pp">Question: which indexes have lots of alternatives, i.e. are
+        chosen instead of other indexes, and for what queries?
+        MAGIC_view_index_has_alternates:</p>
+    <p class="Pp"></p>
+    <pre> SELECT CONCAT_WS('.', db, tbl, idx) AS idx_chosen,
+    GROUP_CONCAT(DISTINCT alt_idx) AS alternatives,
+    GROUP_CONCAT(DISTINCT query_id) AS queries, SUM(cnt) AS cnt
+ FROM index_alternatives
+ GROUP BY db, tbl, idx
+ HAVING COUNT(*) &gt; 1;
+    </pre>
+    <p class="Pp">Question: which indexes are considered as alternates for other
+        indexes, and for what queries? MAGIC_view_index_alternates:</p>
+    <p class="Pp"></p>
+    <pre> SELECT CONCAT_WS('.', db, tbl, alt_idx) AS idx_considered,
+    GROUP_CONCAT(DISTINCT idx) AS alternative_to,
+    GROUP_CONCAT(DISTINCT query_id) AS queries, SUM(cnt) AS cnt
+ FROM index_alternatives
+ GROUP BY db, tbl, alt_idx
+ HAVING COUNT(*) &gt; 1;
+    </pre>
+    <p class="Pp">Question: which of those are never chosen by any queries, and
+        are therefore superfluous? MAGIC_view_unused_index_alternates:</p>
+    <p class="Pp"></p>
+    <pre> SELECT CONCAT_WS('.', i.db, i.tbl, i.idx) AS idx,
+    alt.alternative_to, alt.queries, alt.cnt
+ FROM indexes AS i
+    INNER JOIN (
+       SELECT db, tbl, alt_idx, GROUP_CONCAT(DISTINCT idx) AS alternative_to,
+          GROUP_CONCAT(DISTINCT query_id) AS queries, SUM(cnt) AS cnt
+       FROM index_alternatives
+       GROUP BY db, tbl, alt_idx
+       HAVING COUNT(*) &gt; 1
+    ) AS alt ON i.db = alt.db AND i.tbl = alt.tbl
+      AND i.idx = alt.alt_idx
+ WHERE i.cnt = 0;
+    </pre>
+    <p class="Pp">Question: given a table, which indexes were used, by how many
+        queries, with how many distinct fingerprints? Were there alternatives?
+        Which indexes were not used? You can edit the following query's SELECT
+        list to also see the query IDs in question. MAGIC_view_index_usage:</p>
+    <p class="Pp"></p>
+    <pre> SELECT i.idx, iu.usage_cnt, iu.usage_total,
+    ia.alt_cnt, ia.alt_total
+ FROM indexes AS i
+    LEFT OUTER JOIN (
+       SELECT db, tbl, idx, COUNT(*) AS usage_cnt,
+          SUM(cnt) AS usage_total, GROUP_CONCAT(query_id) AS used_by
+       FROM index_usage
+       GROUP BY db, tbl, idx
+    ) AS iu ON i.db=iu.db AND i.tbl=iu.tbl AND i.idx = iu.idx
+    LEFT OUTER JOIN (
+       SELECT db, tbl, idx, COUNT(*) AS alt_cnt,
+          SUM(cnt) AS alt_total,
+          GROUP_CONCAT(query_id) AS alt_queries
+       FROM index_alternatives
+       GROUP BY db, tbl, idx
+    ) AS ia ON i.db=ia.db AND i.tbl=ia.tbl AND i.idx = ia.idx;
+    </pre>
+    <p class="Pp">Question: which indexes on a given table are vital for at
+        least one query (there is no alternative)?
+      MAGIC_view_required_indexes:</p>
+    <p class="Pp"></p>
+    <pre>   SELECT i.db, i.tbl, i.idx, no_alt.queries
+   FROM indexes AS i
+      INNER JOIN (
+         SELECT iu.db, iu.tbl, iu.idx,
+            GROUP_CONCAT(iu.query_id) AS queries
+         FROM index_usage AS iu
+            LEFT OUTER JOIN index_alternatives AS ia
+               USING(db, tbl, idx)
+         WHERE ia.db IS NULL
+         GROUP BY iu.db, iu.tbl, iu.idx
+      ) AS no_alt ON no_alt.db = i.db AND no_alt.tbl = i.tbl
+         AND no_alt.idx = i.idx
+   ORDER BY i.db, i.tbl, i.idx, no_alt.queries;
+    </pre>
+  </dd>
+  <dt id="set"><a class="permalink" href="#set">--set-vars</a></dt>
+  <dd>type: Array
+    <p class="Pp">Set the MySQL variables in this comma-separated list of
+        <span class="Li">&quot;variable=value&quot;</span> pairs.</p>
+    <p class="Pp">By default, the tool sets:</p>
+    <p class="Pp"></p>
+    <pre>   wait_timeout=10000
+    </pre>
+    <p class="Pp">Variables specified on the command line override these
+        defaults. For example, specifying <span class="Li">&quot;--set-vars
+        wait_timeout=500&quot;</span> overrides the defaultvalue of
+        <span class="Li">10000</span>.</p>
+    <p class="Pp">The tool prints a warning and continues if a variable cannot
+        be set.</p>
+  </dd>
+  <dt id="socket"><a class="permalink" href="#socket">--socket</a></dt>
+  <dd>short form: -S; type: string
+    <p class="Pp">Socket file to use for connection.</p>
+  </dd>
+  <dt id="tables"><a class="permalink" href="#tables">--tables</a></dt>
+  <dd>short form: -t; type: hash
+    <p class="Pp">Only get indexes from this comma-separated list of tables.</p>
+  </dd>
+  <dt>--tables-regex</dt>
+  <dd>type: string
+    <p class="Pp">Only get indexes from tables whose names match this Perl
+        regex.</p>
+  </dd>
+  <dt id="user"><a class="permalink" href="#user">--user</a></dt>
+  <dd>short form: -u; type: string
+    <p class="Pp">User for login if not current user.</p>
+  </dd>
+  <dt id="version"><a class="permalink" href="#version">--version</a></dt>
+  <dd>Show version and exit.</dd>
+  <dt>--[no]version-check</dt>
+  <dd>default: yes
+    <p class="Pp">Check for the latest version of Percona Toolkit, MySQL, and
+        other programs.</p>
+    <p class="Pp">This is a standard &quot;check for updates automatically&quot;
+        feature, with two additional features. First, the tool checks its own
+        version and also the versions of the following software: operating
+        system, Percona Monitoring and Management (PMM), MySQL, Perl, MySQL
+        driver for Perl (DBD::mysql), and Percona Toolkit. Second, it checks for
+        and warns about versions with known problems. For example, MySQL 5.5.25
+        had a critical bug and was re-released as 5.5.25a.</p>
+    <p class="Pp">A secure connection to Percona&#x2019;s Version Check database
+        server is done to perform these checks. Each request is logged by the
+        server, including software version numbers and unique ID of the checked
+        system. The ID is generated by the Percona Toolkit installation script
+        or when the Version Check database call is done for the first time.</p>
+    <p class="Pp">Any updates or known problems are printed to STDOUT before the
+        tool's normal output. This feature should never interfere with the
+        normal operation of the tool.</p>
+    <p class="Pp">For more information, visit
+        &lt;https://www.percona.com/doc/percona-toolkit/LATEST/version-check.html&gt;.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DSN_OPTIONS"><a class="permalink" href="#DSN_OPTIONS">DSN
+  OPTIONS</a></h1>
+<p class="Pp">These DSN options are used to create a DSN. Each option is given
+    like <span class="Li">&quot;option=value&quot;</span>. The options are
+    case-sensitive, so P and p are not the same option. There cannot be
+    whitespace before or after the <span class="Li">&quot;=&quot;</span> and if
+    the value contains whitespace it must be quoted. DSN options are
+    comma-separated. See the percona-toolkit manpage for full details.</p>
+<ul class="Bl-bullet">
+  <li>A
+    <p class="Pp">dsn: charset; copy: yes</p>
+    <p class="Pp">Default character set.</p>
+  </li>
+  <li>D
+    <p class="Pp">dsn: database; copy: yes</p>
+    <p class="Pp">Database to connect to.</p>
+  </li>
+  <li>F
+    <p class="Pp">dsn: mysql_read_default_file; copy: yes</p>
+    <p class="Pp">Only read default options from the given file</p>
+  </li>
+  <li>h
+    <p class="Pp">dsn: host; copy: yes</p>
+    <p class="Pp">Connect to host.</p>
+  </li>
+  <li>p
+    <p class="Pp">dsn: password; copy: yes</p>
+    <p class="Pp">Password to use when connecting. If password contains commas
+        they must be escaped with a backslash: &quot;exam\,ple&quot;</p>
+  </li>
+  <li>P
+    <p class="Pp">dsn: port; copy: yes</p>
+    <p class="Pp">Port number to use for connection.</p>
+  </li>
+  <li>S
+    <p class="Pp">dsn: mysql_socket; copy: yes</p>
+    <p class="Pp">Socket file to use for connection.</p>
+  </li>
+  <li>u
+    <p class="Pp">dsn: user; copy: yes</p>
+    <p class="Pp">User for login if not current user.</p>
+  </li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<p class="Pp">The environment variable
+    <span class="Li">&quot;PTDEBUG&quot;</span> enables verbose debugging output
+    to STDERR. To enable debugging and capture all output to a file, run the
+    tool like:</p>
+<p class="Pp"></p>
+<pre>   PTDEBUG=1 pt-index-usage ... &gt; FILE 2&gt;&amp;1
+</pre>
+<p class="Pp">Be careful: debugging output is voluminous and can generate
+    several megabytes of output.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYSTEM_REQUIREMENTS"><a class="permalink" href="#SYSTEM_REQUIREMENTS">SYSTEM
+  REQUIREMENTS</a></h1>
+<p class="Pp">You need Perl, DBI, DBD::mysql, and some core packages that ought
+    to be installed in any reasonably new version of Perl.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">For a list of known bugs, see
+    &lt;http://www.percona.com/bugs/pt-index-usage&gt;.</p>
+<p class="Pp">Please report bugs at
+    &lt;https://jira.percona.com/projects/PT&gt;. Include the following
+    information in your bug report:</p>
+<ul class="Bl-bullet">
+  <li>Complete command-line used to run the tool</li>
+  <li>Tool &quot;--version&quot;</li>
+  <li>MySQL version of all servers involved</li>
+  <li>Output from the tool including STDERR</li>
+  <li>Input files (log/dump/config files, etc.)</li>
+</ul>
+<p class="Pp">If possible, include debugging output by running the tool with
+    <span class="Li">&quot;PTDEBUG&quot;</span>; see
+  &quot;ENVIRONMENT&quot;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DOWNLOADING"><a class="permalink" href="#DOWNLOADING">DOWNLOADING</a></h1>
+<p class="Pp">Visit &lt;http://www.percona.com/software/percona-toolkit/&gt; to
+    download the latest release of Percona Toolkit. Or, get the latest release
+    from the command line:</p>
+<p class="Pp"></p>
+<pre>   wget percona.com/get/percona-toolkit.tar.gz
+   wget percona.com/get/percona-toolkit.rpm
+   wget percona.com/get/percona-toolkit.deb
+</pre>
+<p class="Pp">You can also get individual tools from the latest release:</p>
+<p class="Pp"></p>
+<pre>   wget percona.com/get/TOOL
+</pre>
+<p class="Pp">Replace <span class="Li">&quot;TOOL&quot;</span> with the name of
+    any tool.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Baron Schwartz and Daniel Nichter</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ABOUT_PERCONA_TOOLKIT"><a class="permalink" href="#ABOUT_PERCONA_TOOLKIT">ABOUT
+  PERCONA TOOLKIT</a></h1>
+<p class="Pp">This tool is part of Percona Toolkit, a collection of advanced
+    command-line tools for MySQL developed by Percona. Percona Toolkit was
+    forked from two projects in June, 2011: Maatkit and Aspersa. Those projects
+    were created by Baron Schwartz and primarily developed by him and Daniel
+    Nichter. Visit &lt;http://www.percona.com/software/&gt; to learn about other
+    free, open-source software from Percona.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT,_LICENSE,_AND_WARRANTY"><a class="permalink" href="#COPYRIGHT,_LICENSE,_AND_WARRANTY">COPYRIGHT,
+  LICENSE, AND WARRANTY</a></h1>
+<p class="Pp">This program is copyright 2011-2018 Percona LLC and/or its
+    affiliates, 2010-2011 Baron Schwartz.</p>
+<p class="Pp">THIS PROGRAM IS PROVIDED &quot;AS IS&quot; AND WITHOUT ANY EXPRESS
+    OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES
+    OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.</p>
+<p class="Pp">This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 2; OR the Perl Artistic License. On
+    UNIX and similar systems, you can issue `man perlgpl' or `man perlartistic'
+    to read these licenses.</p>
+<p class="Pp">You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software Foundation,
+    Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
+<p class="Pp">pt-index-usage 3.2.1</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="POD_ERRORS"><a class="permalink" href="#POD_ERRORS">POD
+  ERRORS</a></h1>
+<p class="Pp">Hey! <b>The above document had some coding errors, which are
+    explained below:</b></p>
+<dl class="Bl-tag">
+  <dt id="Around"><a class="permalink" href="#Around">Around line 7532:</a></dt>
+  <dd>Non-ASCII character seen before =encoding in 'Percona&#x2019;s'. Assuming
+      UTF-8</dd>
+</dl>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2020-08-30</td>
+    <td class="foot-os">perl v5.30.3</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: percona-toolkit 3.2.1-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

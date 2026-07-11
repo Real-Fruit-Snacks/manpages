@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="structure of public inbox v2 archives">
+<title>public-inbox-v2-format(5) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">public-inbox-v2-format(5)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#INBOX_LAYOUT">INBOX
+  LAYOUT</a></li><li><a href="#msgmap.sqlite3">msgmap.sqlite3</a></li><li><a href="#OBJECT_IDENTIFIERS">OBJECT
+  IDENTIFIERS</a></li><li><a href="#LOCKING">LOCKING</a></li><li><a href="#HEADERS">HEADERS</a></li><li><a href="#THANKS">THANKS</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PUBLIC-INBOX-V2-FORMAT(5)</td>
+    <td class="head-vol">public-inbox user manual</td>
+    <td class="head-rtitle">PUBLIC-INBOX-V2-FORMAT(5)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">public-inbox-v2-format - structure of public inbox v2 archives</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">The v2 format is designed primarily to address several scalability
+    problems of the original format described at
+    <a class="Xr" href="../5/public-inbox-v1-format.html"><b>public-inbox-v1-format</b>(5)</a>. It also handles messages with
+  Message-IDs.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INBOX_LAYOUT"><a class="permalink" href="#INBOX_LAYOUT">INBOX
+  LAYOUT</a></h1>
+<p class="Pp">The key change in v2 is the inbox is no longer a bare git
+    repository, but a directory with two or more git repositories. v2 divides
+    git repositories by time &quot;epochs&quot; and Xapian databases for
+    parallelism by &quot;shards&quot;.</p>
+<section class="Ss">
+<h2 class="Ss">INBOX OVERVIEW AND DEFINITIONS</h2>
+<pre>  $EPOCH - Integer starting with 0 based on time
+  $SCHEMA_VERSION - DB schema version (for Xapian)
+  $SHARD - Integer starting with 0 based on parallelism
+  foo/                              # &quot;foo&quot; is the name of the inbox
+  - inbox.lock                      # lock file to protect global state
+  - git/$EPOCH.git                  # normal git repositories
+  - all.git                         # empty, alternates to $EPOCH.git
+  - xap$SCHEMA_VERSION/$SHARD       # per-shard Xapian DB
+  - xap$SCHEMA_VERSION/over.sqlite3 # OVER-view DB for NNTP, threading
+  - msgmap.sqlite3                  # same the v1 msgmap
+</pre>
+<p class="Pp">For blob lookups, the reader only needs to open the
+    &quot;all.git&quot; repository with
+    <span class="Li">$GIT_DIR</span>/objects/info/alternates which references
+    every <span class="Li">$EPOCH</span>.git repo.</p>
+<p class="Pp">Individual <span class="Li">$EPOCH</span>.git repos DO NOT use
+    alternates themselves as git currently limits recursion of alternates
+    nesting depth to 5.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">GIT EPOCHS</h2>
+<p class="Pp">One of the inherent scalability problems with git itself is the
+    full history of a project must be stored and carried around to all clients.
+    To address this problem, the v2 format uses multiple git repositories,
+    stored as time-based &quot;epochs&quot;.</p>
+<p class="Pp">We currently divide epochs into roughly one gigabyte segments; but
+    this size can be configurable (if needed) in the future.</p>
+<p class="Pp">A pleasant side-effect of this design is the git packs of older
+    epochs are stable, allowing them to be cloned without requiring expensive
+    pack generation. This also allows clients to clone only the epochs they are
+    interested in to save bandwidth and storage.</p>
+<p class="Pp">To minimize changes to existing v1-based code and simplify our
+    code, we use the &quot;alternates&quot; mechanism described in
+    <a class="Xr" href="../5/gitrepository-layout.html"><b>gitrepository-layout</b>(5)</a> to link all the epoch repositories with a
+    single read-only &quot;all.git&quot; endpoint.</p>
+<p class="Pp">Processes retrieve blobs via the &quot;all.git&quot; repository,
+    while writers write blobs directly to epochs.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">GIT TREE LAYOUT</h2>
+<p class="Pp">One key problem specific to v1 was large trees were frequently a
+    performance problem as name lookups are expensive and there were limited
+    deltafication opportunities with unpredictable file names. As a result, all
+    Xapian-enabled installations retrieve blob object_ids directly in v1,
+    bypassing tree lookups.</p>
+<p class="Pp">While dividing git repositories into epochs caps the growth of
+    trees, worst-case tree size was still unnecessary overhead and worth
+    eliminating.</p>
+<p class="Pp">So in contrast to the big trees of v1, the v2 git tree contains
+    only a single file at the top-level of the tree, either 'm' (for 'mail' or
+    'message') or 'd' (for deleted). A tree does not have 'm' and 'd' at the
+    same time.</p>
+<p class="Pp">Mail is still stored in blobs (instead of inline with the commit
+    object) as we still need a stable reference in the indices in case commit
+    history is rewritten to comply with legal requirements.</p>
+<p class="Pp">After-the-fact invocations of public-inbox-index will ignore
+    messages written to 'd' after they are written to 'm'.</p>
+<p class="Pp">Deltafication is not significantly improved over v1, but overall
+    storage for trees is made as as small as possible. Initial statistics and
+    benchmarks showing the benefits of this approach are documented at:</p>
+<p class="Pp">&lt;https://public-inbox.org/meta/20180209205140.GA11047@dcvr/&gt;</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">XAPIAN SHARDS</h2>
+<p class="Pp">Another second scalability problem in v1 was the inability to
+    utilize multiple CPU cores for Xapian indexing. This is addressed by using
+    shards in Xapian to perform import indexing in parallel.</p>
+<p class="Pp">As with git alternates, Xapian natively supports a read-only
+    interface which transparently abstracts away the knowledge of multiple
+    shards. This allows us to simplify our read-only code paths.</p>
+<p class="Pp">The performance of the storage device is now the bottleneck on
+    larger multi-core systems. In our experience, performance is improved with
+    high-quality and high-quantity solid-state storage. Issuing TRIM commands
+    with <a class="Xr" href="../8/fstrim.html"><b>fstrim</b>(8)</a> was necessary to maintain consistent performance while
+    developing this feature.</p>
+<p class="Pp">Rotational storage devices perform significantly worse than solid
+    state storage for indexing of large mail archives; but are fine for backup
+    and usable for small instances.</p>
+<p class="Pp">As of public-inbox 1.6.0, the
+    <span class="Li">&quot;publicInbox.indexSequentialShard&quot;</span> option
+    of <a class="Xr" href="../1/public-inbox-index.html"><b>public-inbox-index</b>(1)</a> may be used with a high shard count to
+    ensure individual shards fit into page cache when the entire Xapian DB
+    cannot.</p>
+<p class="Pp">Our use of the &quot;OVERVIEW DB&quot; requires Xapian document
+    IDs to remain stable. Using <a class="Xr" href="../1/public-inbox-compact.html"><b>public-inbox-compact</b>(1)</a> and
+    <a class="Xr" href="../1/public-inbox-xcpdb.html"><b>public-inbox-xcpdb</b>(1)</a> wrappers are recommended over tools provided by
+    Xapian.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss">OVERVIEW DB</h2>
+<p class="Pp">Towards the end of v2 development, it became apparent Xapian did
+    not perform well for sorting large result sets used to generate the landing
+    page in the PSGI UI (/$INBOX/) or many queries used by the NNTP server.
+    Thus, SQLite was employed and the Xapian &quot;skeleton&quot; DB was renamed
+    to the &quot;overview&quot; DB (after the NNTP OVER/XOVER commands).</p>
+<p class="Pp">The overview DB maintains all the header information necessary to
+    implement the NNTP OVER/XOVER commands and non-search endpoints of the PSGI
+    UI.</p>
+<p class="Pp">Xapian has become completely optional for v2 (as it is for v1),
+    but SQLite remains required for v2. SQLite turns out to be powerful enough
+    to maintain overview information. Most of the PSGI and all of the NNTP
+    functionality is possible with only SQLite in addition to git.</p>
+<p class="Pp">The overview DB was an instrumental piece in maintaining near
+    constant-time read performance on a dataset 2-3 times larger than LKML
+    history as of 2018.</p>
+<p class="Pp"><i>GHOST MESSAGES</i></p>
+<p class="Pp">The overview DB also includes references to &quot;ghost&quot;
+    messages, or messages which have replies but have not been seen by us. Thus
+    it is expected to have more rows than the &quot;msgmap&quot; DB described
+    below.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="msgmap.sqlite3"><a class="permalink" href="#msgmap.sqlite3">msgmap.sqlite3</a></h2>
+<p class="Pp">The SQLite msgmap DB is unchanged from v1, but it is now at the
+    top-level of the directory.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OBJECT_IDENTIFIERS"><a class="permalink" href="#OBJECT_IDENTIFIERS">OBJECT
+  IDENTIFIERS</a></h1>
+<p class="Pp">There are three distinct type of identifiers. content_hash is the
+    new one for v2 and should make message removal and deduplication easier.
+    object_id and Message-ID are already known.</p>
+<dl class="Bl-tag">
+  <dt id="object_id"><a class="permalink" href="#object_id">object_id</a></dt>
+  <dd>The blob identifier git uses (currently SHA-1). No need to publicly expose
+      this outside of normal git ops (cloning) and there's no need to make this
+      searchable. As with v1 of public-inbox, this is stored as part of the
+      Xapian document so expensive name lookups can be avoided for document
+      retrieval.</dd>
+  <dt id="Message-ID"><a class="permalink" href="#Message-ID">Message-ID</a></dt>
+  <dd>The email header; duplicates allowed for archival purposes. This remains a
+      searchable field in Xapian. Note: it's possible for emails to have
+      multiple Message-ID headers (and <a class="Xr" href="../1/git-send-email.html"><b>git-send-email</b>(1)</a> had that bug for
+      a bit); so we take all of them into account. In case of conflicts detected
+      by content_hash below, we generate a new Message-ID based on content_hash;
+      if the generated Message-ID still conflicts, a random one is
+    generated.</dd>
+  <dt id="content_hash"><a class="permalink" href="#content_hash">content_hash</a></dt>
+  <dd>A hash of relevant headers and raw body content for purging of unwanted
+      content. This is not stored anywhere, but always calculated on-the-fly.
+    <p class="Pp">For now, the relevant headers are:</p>
+    <p class="Pp"></p>
+    <pre>        Subject, From, Date, References, In-Reply-To, To, Cc
+    </pre>
+    <p class="Pp">Received, List-Id, and similar headers are NOT part of
+        content_hash as they differ across lists and we will want removal to be
+        able to cross lists.</p>
+    <p class="Pp">The textual parts of the body are decoded, CRLF normalized to
+        LF, and trailing whitespace stripped. Notably, hashing the raw body
+        risks being broken by list signatures; but we can use filters (e.g.
+        PublicInbox::Filter::Vger) to clean the body for imports.</p>
+    <p class="Pp">content_hash is SHA-256 for now; but can be changed at any
+        time without making DB changes.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LOCKING"><a class="permalink" href="#LOCKING">LOCKING</a></h1>
+<p class="Pp"><a class="Xr" href="../2/flock.html"><b>flock</b>(2)</a> locking exclusively locks the empty inbox.lock
+    file for all non-atomic operations.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HEADERS"><a class="permalink" href="#HEADERS">HEADERS</a></h1>
+<p class="Pp">Same handling as with v1, except the Message-ID header will be
+    generated if not provided or conflicting. &quot;Bytes&quot;,
+    &quot;Lines&quot; and &quot;Content-Length&quot; headers are stripped and
+    not allowed, they can interfere with further processing.</p>
+<p class="Pp">The &quot;Status&quot; mbox header is also stripped as that header
+    makes no sense in a public archive.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="THANKS"><a class="permalink" href="#THANKS">THANKS</a></h1>
+<p class="Pp">Thanks to the Linux Foundation for sponsoring the development and
+    testing of the v2 format.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">Copyright 2018-2021 all contributors
+    &lt;mailto:meta@public-inbox.org&gt;</p>
+<p class="Pp">License: AGPL-3.0+
+    &lt;http://www.gnu.org/licenses/agpl-3.0.txt&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../5/gitrepository-layout.html"><b>gitrepository-layout</b>(5)</a>,
+  <a class="Xr" href="../5/public-inbox-v1-format.html"><b>public-inbox-v1-format</b>(5)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">1993-10-02</td>
+    <td class="foot-os">public-inbox.git</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: public-inbox 1.9.0-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

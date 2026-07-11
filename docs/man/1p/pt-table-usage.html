@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Analyze how queries use tables.">
+<title>pt-table-usage(1p) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">pt-table-usage(1p)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#RISKS">RISKS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OUTPUT">OUTPUT</a></li><li><a href="#EXIT_STATUS">EXIT
+  STATUS</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#DSN_OPTIONS">DSN
+  OPTIONS</a></li><li><a href="#ENVIRONMENT">ENVIRONMENT</a></li><li><a href="#SYSTEM_REQUIREMENTS">SYSTEM
+  REQUIREMENTS</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#DOWNLOADING">DOWNLOADING</a></li><li><a href="#AUTHORS">AUTHORS</a></li><li><a href="#ABOUT_PERCONA_TOOLKIT">ABOUT
+  PERCONA TOOLKIT</a></li><li><a href="#COPYRIGHT,_LICENSE,_AND_WARRANTY">COPYRIGHT,
+  LICENSE, AND WARRANTY</a></li><li><a href="#VERSION">VERSION</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">PT-TABLE-USAGE(1p)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">PT-TABLE-USAGE(1p)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">pt-table-usage - Analyze how queries use tables.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">Usage: pt-table-usage [OPTIONS] [FILES]</p>
+<p class="Pp">pt-table-usage reads queries from a log and analyzes how they use
+    tables. If no FILE is specified, it reads STDIN. It prints a report for each
+    query.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RISKS"><a class="permalink" href="#RISKS">RISKS</a></h1>
+<p class="Pp">Percona Toolkit is mature, proven in the real world, and well
+    tested, but all database tools can pose a risk to the system and the
+    database server. Before using this tool, please:</p>
+<ul class="Bl-bullet">
+  <li>Read the tool's documentation</li>
+  <li>Review the tool's known &quot;BUGS&quot;</li>
+  <li>Test the tool on a non-production server</li>
+  <li>Backup your production server and verify the backups</li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">pt-table-usage reads queries from a log and analyzes how they use
+    tables. The log should be in MySQL's slow query log format.</p>
+<p class="Pp">Table usage is more than simply an indication of which tables the
+    query reads or writes. It also indicates data flow: data in and data out.
+    The tool determines the data flow by the contexts in which tables appear. A
+    single query can use a table in several different contexts simultaneously.
+    The tool's output lists every context for every table. This CONTEXT-TABLE
+    list indicates how data flows between tables. The &quot;OUTPUT&quot; section
+    lists the possible contexts and describes how to read a table usage
+  report.</p>
+<p class="Pp">The tool analyzes data flow down to the level of individual
+    columns, so it is helpful if columns are identified unambiguously in the
+    query. If a query uses only one table, then all columns must be from that
+    table, and there's no difficulty. But if a query uses multiple tables and
+    the column names are not table-qualified, then it is necessary to use
+    <span class="Li">&quot;EXPLAIN EXTENDED&quot;</span>, followed by
+    <span class="Li">&quot;SHOW WARNINGS&quot;</span>, to determine to which
+    tables the columns belong.</p>
+<p class="Pp">If the tool does not know the query's default database, which can
+    occur when the database is not printed in the log, then
+    <span class="Li">&quot;EXPLAIN EXTENDED&quot;</span> can fail. In this case,
+    you can specify a default database with &quot;--database&quot;. You can also
+    use the &quot;--create-table-definitions&quot; option to help resolve
+    ambiguities.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OUTPUT"><a class="permalink" href="#OUTPUT">OUTPUT</a></h1>
+<p class="Pp">The tool prints a usage report for each table in every query,
+    similar to the following:</p>
+<p class="Pp"></p>
+<pre>  Query_id: 0x1CD27577D202A339.1
+  UPDATE t1
+  SELECT DUAL
+  JOIN t1
+  JOIN t2
+  WHERE t1
+  Query_id: 0x1CD27577D202A339.2
+  UPDATE t2
+  SELECT DUAL
+  JOIN t1
+  JOIN t2
+  WHERE t1
+</pre>
+<p class="Pp">The first line contains the query ID, which by default is the same
+    as those shown in pt-query-digest reports. It is an MD5 checksum of the
+    query's &quot;fingerprint,&quot; which is what remains after removing
+    literals, collapsing white space, and a variety of other transformations.
+    The query ID has two parts separated by a period: the query ID and the table
+    number. If you wish to use a different value to identify the query, you can
+    specify the &quot;--id-attribute&quot; option.</p>
+<p class="Pp">The previous example shows two paragraphs for a single query, not
+    two queries. Note that the query ID is identical for the two, but the table
+    number differs. The table number increments by 1 for each table that the
+    query updates. Only multi-table UPDATE queries can update multiple tables
+    with a single query, so the table number is 1 for all other types of
+    queries. (The tool does not support multi-table DELETE queries.) The example
+    output above is from this query:</p>
+<p class="Pp"></p>
+<pre>  UPDATE t1 AS a JOIN t2 AS b USING (id)
+  SET a.foo=&quot;bar&quot;, b.foo=&quot;bat&quot;
+  WHERE a.id=1;
+</pre>
+<p class="Pp">The <span class="Li">&quot;SET&quot;</span> clause indicates that
+    the query updates two tables: <span class="Li">&quot;a&quot;</span> aliased
+    as <span class="Li">&quot;t1&quot;</span>, and
+    <span class="Li">&quot;b&quot;</span> aliased as
+    <span class="Li">&quot;t2&quot;</span>.</p>
+<p class="Pp">After the first line, the tool prints a variable number of
+    CONTEXT-TABLE lines. Possible contexts are as follows:</p>
+<ul class="Bl-bullet">
+  <li>SELECT
+    <p class="Pp">SELECT means that the query retrieves data from the table for
+        one of two reasons. The first is to be returned to the user as part of a
+        result set. Only SELECT queries return result sets, so the report always
+        shows a SELECT context for SELECT queries.</p>
+    <p class="Pp">The second case is when data flows to another table as part of
+        an INSERT or UPDATE. For example, the UPDATE query in the example above
+        has the usage:</p>
+    <p class="Pp"></p>
+    <pre>  SELECT DUAL
+    </pre>
+    <p class="Pp">This refers to:</p>
+    <p class="Pp"></p>
+    <pre>  SET a.foo=&quot;bar&quot;, b.foo=&quot;bat&quot;
+    </pre>
+    <p class="Pp">The tool uses DUAL for any values that do not originate in a
+        table, in this case the literal values &quot;bar&quot; and
+        &quot;bat&quot;. If that <span class="Li">&quot;SET&quot;</span> clause
+        were <span class="Li">&quot;SET</span>
+        <span class="Li">a.foo=b.foo&quot;</span> instead, then the complete
+        usage would be:</p>
+    <p class="Pp"></p>
+    <pre>  Query_id: 0x1CD27577D202A339.1
+  UPDATE t1
+  SELECT t2
+  JOIN t1
+  JOIN t2
+  WHERE t1
+    </pre>
+    <p class="Pp">The presence of a SELECT context after another context, such
+        as UPDATE or INSERT, indicates where the UPDATE or INSERT retrieves its
+        data. The example immediately above reflects an UPDATE query that
+        updates rows in table <span class="Li">&quot;t1&quot;</span> with data
+        from table <span class="Li">&quot;t2&quot;</span>.</p>
+  </li>
+  <li>Any other verb
+    <p class="Pp">Any other verb, such as INSERT, UPDATE, DELETE, etc. may be a
+        context. These verbs indicate that the query modifies data in some way.
+        If a SELECT context follows one of these verbs, then the query reads
+        data from the SELECT table and writes it to this table. This happens,
+        for example, with INSERT..SELECT or UPDATE queries that use values from
+        tables instead of constant values.</p>
+    <p class="Pp">These query types are not supported: SET, LOAD, and
+        multi-table DELETE.</p>
+  </li>
+  <li>JOIN
+    <p class="Pp">The JOIN context lists tables that are joined, either with an
+        explicit JOIN in the FROM clause, or implicitly in the WHERE clause,
+        such as <span class="Li">&quot;t1.id = t2.id&quot;</span>.</p>
+  </li>
+  <li>WHERE
+    <p class="Pp">The WHERE context lists tables that are used in the WHERE
+        clause to filter results. This does not include tables that are
+        implicitly joined in the WHERE clause; those are listed as JOIN
+        contexts. For example:</p>
+    <p class="Pp"></p>
+    <pre>  WHERE t1.id &gt; 100 AND t1.id &lt; 200 AND t2.foo IS NOT NULL
+    </pre>
+    <p class="Pp">Results in:</p>
+    <p class="Pp"></p>
+    <pre>  WHERE t1
+  WHERE t2
+    </pre>
+    <p class="Pp">The tool lists only distinct tables; that is why table
+        <span class="Li">&quot;t1&quot;</span> is listed only once.</p>
+  </li>
+  <li>TLIST
+    <p class="Pp">The TLIST context lists tables that the query accesses, but
+        which do not appear in any other context. These tables are usually an
+        implicit cartesian join. For example, the query
+        <span class="Li">&quot;SELECT * FROM t1, t2&quot;</span> results in:</p>
+    <p class="Pp"></p>
+    <pre>  Query_id: 0xBDDEB6EDA41897A8.1
+  SELECT t1
+  SELECT t2
+  TLIST t1
+  TLIST t2
+    </pre>
+    <p class="Pp">First of all, there are two SELECT contexts, because
+        <span class="Li">&quot;SELECT *&quot;</span> selects rows from all
+        tables; <span class="Li">&quot;t1&quot;</span> and
+        <span class="Li">&quot;t2&quot;</span> in this case. Secondly, the
+        tables are implicitly joined, but without any kind of join condition,
+        which results in a cartesian join as indicated by the TLIST context for
+        each.</p>
+  </li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXIT_STATUS"><a class="permalink" href="#EXIT_STATUS">EXIT
+  STATUS</a></h1>
+<p class="Pp">pt-table-usage exits 1 on any kind of error, or 0 if no
+  errors.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">This tool accepts additional command-line arguments. Refer to the
+    &quot;SYNOPSIS&quot; and usage information for details.</p>
+<dl class="Bl-tag">
+  <dt id="ask"><a class="permalink" href="#ask">--ask-pass</a></dt>
+  <dd>Prompt for a password when connecting to MySQL.</dd>
+  <dt id="charset"><a class="permalink" href="#charset">--charset</a></dt>
+  <dd>short form: -A; type: string
+    <p class="Pp">Default character set. If the value is utf8, sets Perl's
+        binmode on STDOUT to utf8, passes the mysql_enable_utf8 option to
+        DBD::mysql, and runs SET NAMES UTF8 after connecting to MySQL. Any other
+        value sets binmode on STDOUT without the utf8 layer, and runs SET NAMES
+        after connecting to MySQL.</p>
+  </dd>
+  <dt id="config"><a class="permalink" href="#config">--config</a></dt>
+  <dd>type: Array
+    <p class="Pp">Read this comma-separated list of config files; if specified,
+        this must be the first option on the command line.</p>
+  </dd>
+  <dt id="constant"><a class="permalink" href="#constant">--constant-data-value</a></dt>
+  <dd>type: string; default: DUAL
+    <p class="Pp">Table to print as the source for constant data (literals).
+        This is any data not retrieved from tables (or subqueries, because
+        subqueries are not supported). This includes literal values such as
+        strings (&quot;foo&quot;) and numbers (42), or functions such as
+        <span class="Li">&quot;NOW()&quot;</span>. For example, in the query
+        <span class="Li">&quot;INSERT INTO t (c)</span> <span class="Li">VALUES
+        ('a')&quot;</span>, the string 'a' is constant data, so the table usage
+        report is:</p>
+    <p class="Pp"></p>
+    <pre>  INSERT t
+  SELECT DUAL
+    </pre>
+    <p class="Pp">The first line indicates that the query inserts data into
+        table <span class="Li">&quot;t&quot;</span>, and the second line
+        indicates that the inserted data comes from some constant value.</p>
+  </dd>
+  <dt>--[no]continue-on-error</dt>
+  <dd>default: yes
+    <p class="Pp">Continue to work even if there is an error.</p>
+  </dd>
+  <dt id="create"><a class="permalink" href="#create">--create-table-definitions</a></dt>
+  <dd>type: array
+    <p class="Pp">Read <span class="Li">&quot;CREATE TABLE&quot;</span>
+        definitions from this list of comma-separated files. If you cannot use
+        &quot;--explain-extended&quot; to fully qualify table and column names,
+        you can save the output of <span class="Li">&quot;mysqldump
+        --no-data&quot;</span> to one or more files and specify those files with
+        this option. The tool will parse all <span class="Li">&quot;CREATE
+        TABLE&quot;</span> definitions from the files and use this information
+        to qualify table and column names. If a column name appears in multiple
+        tables, or a table name appears in multiple databases, the ambiguities
+        cannot be resolved.</p>
+  </dd>
+  <dt id="daemonize"><a class="permalink" href="#daemonize">--daemonize</a></dt>
+  <dd>Fork to the background and detach from the shell. POSIX operating systems
+      only.</dd>
+  <dt id="database"><a class="permalink" href="#database">--database</a></dt>
+  <dd>short form: -D; type: string
+    <p class="Pp">Default database.</p>
+  </dd>
+  <dt id="defaults"><a class="permalink" href="#defaults">--defaults-file</a></dt>
+  <dd>short form: -F; type: string
+    <p class="Pp">Only read mysql options from the given file. You must give an
+        absolute pathname.</p>
+  </dd>
+  <dt id="explain"><a class="permalink" href="#explain">--explain-extended</a></dt>
+  <dd>type: DSN
+    <p class="Pp">A server to execute EXPLAIN EXTENDED queries. This may be
+        necessary to resolve ambiguous (unqualified) column and table names.</p>
+  </dd>
+  <dt id="filter"><a class="permalink" href="#filter">--filter</a></dt>
+  <dd>type: string
+    <p class="Pp">Discard events for which this Perl code doesn't return
+      true.</p>
+    <p class="Pp">This option is a string of Perl code or a file containing Perl
+        code that is compiled into a subroutine with one argument:
+        <span class="Li">$event</span>. If the given value is a readable file,
+        then pt-table-usage reads the entire file and uses its contents as the
+        code.</p>
+    <p class="Pp">Filters are implemented in the same fashion as in the
+        pt-query-digest tool, so please refer to its documentation for more
+        information.</p>
+  </dd>
+  <dt id="help"><a class="permalink" href="#help">--help</a></dt>
+  <dd>Show help and exit.</dd>
+  <dt id="host"><a class="permalink" href="#host">--host</a></dt>
+  <dd>short form: -h; type: string
+    <p class="Pp">Connect to host.</p>
+  </dd>
+  <dt id="id"><a class="permalink" href="#id">--id-attribute</a></dt>
+  <dd>type: string
+    <p class="Pp">Identify each event using this attribute. The default is to
+        use a query ID, which is an MD5 checksum of the query's fingerprint.</p>
+  </dd>
+  <dt id="log"><a class="permalink" href="#log">--log</a></dt>
+  <dd>type: string
+    <p class="Pp">Print all output to this file when daemonized.</p>
+  </dd>
+  <dt id="password"><a class="permalink" href="#password">--password</a></dt>
+  <dd>short form: -p; type: string
+    <p class="Pp">Password to use when connecting. If password contains commas
+        they must be escaped with a backslash: &quot;exam\,ple&quot;</p>
+  </dd>
+  <dt id="pid"><a class="permalink" href="#pid">--pid</a></dt>
+  <dd>type: string
+    <p class="Pp">Create the given PID file. The tool won't start if the PID
+        file already exists and the PID it contains is different than the
+        current PID. However, if the PID file exists and the PID it contains is
+        no longer running, the tool will overwrite the PID file with the current
+        PID. The PID file is removed automatically when the tool exits.</p>
+  </dd>
+  <dt id="port"><a class="permalink" href="#port">--port</a></dt>
+  <dd>short form: -P; type: int
+    <p class="Pp">Port number to use for connection.</p>
+  </dd>
+  <dt id="progress"><a class="permalink" href="#progress">--progress</a></dt>
+  <dd>type: array; default: time,30
+    <p class="Pp">Print progress reports to STDERR. The value is a
+        comma-separated list with two parts. The first part can be percentage,
+        time, or iterations; the second part specifies how often an update
+        should be printed, in percentage, seconds, or number of iterations.</p>
+  </dd>
+  <dt id="query"><a class="permalink" href="#query">--query</a></dt>
+  <dd>type: string
+    <p class="Pp">Analyze the specified query instead of reading a log file.</p>
+  </dd>
+  <dt id="read"><a class="permalink" href="#read">--read-timeout</a></dt>
+  <dd>type: time; default: 0
+    <p class="Pp">Wait this long for an event from the input; 0 to wait
+      forever.</p>
+    <p class="Pp">This option sets the maximum time to wait for an event from
+        the input. If an event is not received after the specified time, the
+        tool stops reading the input and prints its reports.</p>
+    <p class="Pp">This option requires the Perl POSIX module.</p>
+  </dd>
+  <dt id="run"><a class="permalink" href="#run">--run-time</a></dt>
+  <dd>type: time
+    <p class="Pp">How long to run before exiting. The default is to run forever
+        (you can interrupt with CTRL-C).</p>
+  </dd>
+  <dt id="set"><a class="permalink" href="#set">--set-vars</a></dt>
+  <dd>type: Array
+    <p class="Pp">Set the MySQL variables in this comma-separated list of
+        <span class="Li">&quot;variable=value&quot;</span> pairs.</p>
+    <p class="Pp">By default, the tool sets:</p>
+    <p class="Pp"></p>
+    <pre>   wait_timeout=10000
+    </pre>
+    <p class="Pp">Variables specified on the command line override these
+        defaults. For example, specifying <span class="Li">&quot;--set-vars
+        wait_timeout=500&quot;</span> overrides the defaultvalue of
+        <span class="Li">10000</span>.</p>
+    <p class="Pp">The tool prints a warning and continues if a variable cannot
+        be set.</p>
+  </dd>
+  <dt id="socket"><a class="permalink" href="#socket">--socket</a></dt>
+  <dd>short form: -S; type: string
+    <p class="Pp">Socket file to use for connection.</p>
+  </dd>
+  <dt id="user"><a class="permalink" href="#user">--user</a></dt>
+  <dd>short form: -u; type: string
+    <p class="Pp">User for login if not current user.</p>
+  </dd>
+  <dt id="version"><a class="permalink" href="#version">--version</a></dt>
+  <dd>Show version and exit.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DSN_OPTIONS"><a class="permalink" href="#DSN_OPTIONS">DSN
+  OPTIONS</a></h1>
+<p class="Pp">These DSN options are used to create a DSN. Each option is given
+    like <span class="Li">&quot;option=value&quot;</span>. The options are
+    case-sensitive, so P and p are not the same option. There cannot be
+    whitespace before or after the <span class="Li">&quot;=&quot;</span> and if
+    the value contains whitespace it must be quoted. DSN options are
+    comma-separated. See the percona-toolkit manpage for full details.</p>
+<ul class="Bl-bullet">
+  <li>A
+    <p class="Pp">dsn: charset; copy: yes</p>
+    <p class="Pp">Default character set.</p>
+  </li>
+  <li>D
+    <p class="Pp">copy: no</p>
+    <p class="Pp">Default database.</p>
+  </li>
+  <li>F
+    <p class="Pp">dsn: mysql_read_default_file; copy: no</p>
+    <p class="Pp">Only read default options from the given file</p>
+  </li>
+  <li>h
+    <p class="Pp">dsn: host; copy: yes</p>
+    <p class="Pp">Connect to host.</p>
+  </li>
+  <li>p
+    <p class="Pp">dsn: password; copy: yes</p>
+    <p class="Pp">Password to use when connecting. If password contains commas
+        they must be escaped with a backslash: &quot;exam\,ple&quot;</p>
+  </li>
+  <li>P
+    <p class="Pp">dsn: port; copy: yes</p>
+    <p class="Pp">Port number to use for connection.</p>
+  </li>
+  <li>S
+    <p class="Pp">dsn: mysql_socket; copy: no</p>
+    <p class="Pp">Socket file to use for connection.</p>
+  </li>
+  <li>u
+    <p class="Pp">dsn: user; copy: yes</p>
+    <p class="Pp">User for login if not current user.</p>
+  </li>
+</ul>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ENVIRONMENT"><a class="permalink" href="#ENVIRONMENT">ENVIRONMENT</a></h1>
+<p class="Pp">The environment variable
+    <span class="Li">&quot;PTDEBUG&quot;</span> enables verbose debugging output
+    to STDERR. To enable debugging and capture all output to a file, run the
+    tool like:</p>
+<p class="Pp"></p>
+<pre>   PTDEBUG=1 pt-table-usage ... &gt; FILE 2&gt;&amp;1
+</pre>
+<p class="Pp">Be careful: debugging output is voluminous and can generate
+    several megabytes of output.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYSTEM_REQUIREMENTS"><a class="permalink" href="#SYSTEM_REQUIREMENTS">SYSTEM
+  REQUIREMENTS</a></h1>
+<p class="Pp">You need Perl, DBI, DBD::mysql, and some core packages that ought
+    to be installed in any reasonably new version of Perl.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">For a list of known bugs, see
+    &lt;http://www.percona.com/bugs/pt-table-usage&gt;.</p>
+<p class="Pp">Please report bugs at
+    &lt;https://jira.percona.com/projects/PT&gt;. Include the following
+    information in your bug report:</p>
+<ul class="Bl-bullet">
+  <li>Complete command-line used to run the tool</li>
+  <li>Tool &quot;--version&quot;</li>
+  <li>MySQL version of all servers involved</li>
+  <li>Output from the tool including STDERR</li>
+  <li>Input files (log/dump/config files, etc.)</li>
+</ul>
+<p class="Pp">If possible, include debugging output by running the tool with
+    <span class="Li">&quot;PTDEBUG&quot;</span>; see
+  &quot;ENVIRONMENT&quot;.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DOWNLOADING"><a class="permalink" href="#DOWNLOADING">DOWNLOADING</a></h1>
+<p class="Pp">Visit &lt;http://www.percona.com/software/percona-toolkit/&gt; to
+    download the latest release of Percona Toolkit. Or, get the latest release
+    from the command line:</p>
+<p class="Pp"></p>
+<pre>   wget percona.com/get/percona-toolkit.tar.gz
+   wget percona.com/get/percona-toolkit.rpm
+   wget percona.com/get/percona-toolkit.deb
+</pre>
+<p class="Pp">You can also get individual tools from the latest release:</p>
+<p class="Pp"></p>
+<pre>   wget percona.com/get/TOOL
+</pre>
+<p class="Pp">Replace <span class="Li">&quot;TOOL&quot;</span> with the name of
+    any tool.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHORS"><a class="permalink" href="#AUTHORS">AUTHORS</a></h1>
+<p class="Pp">Daniel Nichter</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ABOUT_PERCONA_TOOLKIT"><a class="permalink" href="#ABOUT_PERCONA_TOOLKIT">ABOUT
+  PERCONA TOOLKIT</a></h1>
+<p class="Pp">This tool is part of Percona Toolkit, a collection of advanced
+    command-line tools for MySQL developed by Percona. Percona Toolkit was
+    forked from two projects in June, 2011: Maatkit and Aspersa. Those projects
+    were created by Baron Schwartz and primarily developed by him and Daniel
+    Nichter. Visit &lt;http://www.percona.com/software/&gt; to learn about other
+    free, open-source software from Percona.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT,_LICENSE,_AND_WARRANTY"><a class="permalink" href="#COPYRIGHT,_LICENSE,_AND_WARRANTY">COPYRIGHT,
+  LICENSE, AND WARRANTY</a></h1>
+<p class="Pp">This program is copyright 2012-2018 Percona LLC and/or its
+    affiliates.</p>
+<p class="Pp">THIS PROGRAM IS PROVIDED &quot;AS IS&quot; AND WITHOUT ANY EXPRESS
+    OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES
+    OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.</p>
+<p class="Pp">This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 2; OR the Perl Artistic License. On
+    UNIX and similar systems, you can issue `man perlgpl' or `man perlartistic'
+    to read these licenses.</p>
+<p class="Pp">You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software Foundation,
+    Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="VERSION"><a class="permalink" href="#VERSION">VERSION</a></h1>
+<p class="Pp">pt-table-usage 3.2.1</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2020-08-30</td>
+    <td class="foot-os">perl v5.30.3</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: percona-toolkit 3.2.1-1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

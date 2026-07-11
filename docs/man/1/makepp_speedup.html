@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="- How to make makepp faster">
+<title>makepp_speedup(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">makepp_speedup(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Safe_Methods">Safe
+  Methods</a></li><li><a href="#Almost_Safe_Methods">Almost
+  Safe Methods</a></li><li><a href="#Potentially_Unsafe_Methods">Potentially
+  Unsafe Methods</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MAKEPP_SPEEDUP(1)</td>
+    <td class="head-vol">Makepp</td>
+    <td class="head-rtitle">MAKEPP_SPEEDUP(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">makepp_speedup -- How to make makepp faster</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">So you think makepp is slow? It has gotten noticeably faster, but
+    granted, it's still slow, especially if you come from GNU make. This is
+    because it conscientiously checks all those things where gmake gives you a
+    headache, ignoring lots of dependencies (the &quot;I think I need to gmake
+    clean to get rid of a mysterious bug&quot; syndrome). If you suspect some
+    Perl code you added to your makefiles might be at fault, take a look at
+    perl_performance.</p>
+<p class="Pp">But there are a few things you can do to squeeze out more speed.
+    Some of the things are labeled unsafe, in the sence that you're asking
+    makepp not to check or do certain things, which you think are not needed. If
+    these things would have been necessary, the build may not be correct.
+    Luckily this problem will be temporary, however. It will get corrected as
+    soon as you let makepp do all checks.</p>
+<p class="Pp">You can combine several of these tips to increase the time gain
+    even more.</p>
+<section class="Ss">
+<h2 class="Ss" id="Safe_Methods"><a class="permalink" href="#Safe_Methods">Safe
+  Methods</a></h2>
+<p class="Pp"><i>Use makeppreplay</i></p>
+<p class="Pp">The stand-alone utility makeppreplay, mppr repeats things that
+    makepp has already done, without any overhead.</p>
+<p class="Pp"><i>Use a Faster Perl</i></p>
+<p class="Pp">Within version 5.8, all are roughly the same, only 5.8.7 is a bit
+    faster. Tuning your Perl can also help, like not compiling it for 64 bits,
+    which makepp doesn't need. For example ActiveState's build
+    (&lt;http://www.activestate.com/activeperl&gt;) of 5.8.7 for Linux is faster
+    than the Perl 5.8.7 that comes with SuSE Linux 10.0.</p>
+<p class="Pp"><i>Include as Little as Possible</i></p>
+<p class="Pp">Each additional file you include is doubly penalizing. On the one
+    hand, the compiler must look for and at all those files. You don't notice
+    this so much, because it's just a little extra per compiler call. On the
+    other hand makepp must look too, to find dependencies and figure out whether
+    they incur a rebuild. Then it can seem to stall, while it is digesting a lot
+    of dependencies at once.</p>
+<p class="Pp">An absolutely deadly variant is the project master include file,
+    which in turn conveniently includes anything you might need. The result is
+    that any header file change leads to a full build. Even without a change,
+    makepp must think about all those headers again, for every source you
+    compile. Just a tiny effort, since this is cached, but thousands of files
+    can make this staggering.</p>
+<p class="Pp">It may be cumbersome to figure out the minimal set of includes,
+    and to cleanup those no longer needed, but it really pays off. If anybody
+    knows a tool that can identify which files get included unnecessarily, I'd
+    be glad to mention it here!</p>
+<p class="Pp"><i>Build as Little as You Need</i></p>
+<p class="Pp">If you have a default target which makes several programs, then
+    makepp will have to check all their dependencies, right down to the smallest
+    header file. But maybe you want to test your change with only one of those
+    programs.</p>
+<p class="Pp">Then you would call makepp with an explicit target. The less
+    modules or headers all those programs have in common, the greater the
+    benefit of not letting makepp check them all.</p>
+<p class="Pp">Say your top level Makeppfile has this rule:</p>
+<p class="Pp"></p>
+<pre>    $(phony all): proggie1 proggie2 $(only_phony_targets */**/all)
+</pre>
+<p class="Pp">Then you would call things like</p>
+<p class="Pp"></p>
+<pre>    $ makepp proggie2
+    $ makepp proggie1 dir/subdir/proggie27
+</pre>
+<p class="Pp"><i>Use preferred makefile names</i></p>
+<p class="Pp">Makepp looks for makefiles (unless you specify them explicitly on
+    the command line or with <span class="Li">&quot;load-makefile&quot;</span>)
+    in the order <i>RootMakeppfile</i>, <i>RootMakeppfile.mk</i>,
+    <i>Makeppfile</i> and <i>Makeppfile.mk</i>, followed by the classical
+    makefile names. (The <i>.mk</i> variants are for purely suffix-based
+    systems.)</p>
+<p class="Pp">So, if you use <i>RootMakeppfile</i> at the root of your build
+    tree, and <i>Makeppfile</i> everywhere else, the files will be found
+    slightly faster. Makepp will also have a slightly smaller memory consumption
+    (caching the fact that the other names don't exist), which also means speed
+    through less memory management.</p>
+<p class="Pp">Likewise if you have a statement</p>
+<p class="Pp"></p>
+<pre>    include standard
+</pre>
+<p class="Pp">there will first be an attempt to find <i>standard.makepp</i>, so
+    you might as well use that name.</p>
+<p class="Pp"><i>Have as few rules as you need</i></p>
+<p class="Pp">Makepp keeps track not only of existent files, but also of any it
+    learns to create. (That's why it offers reliable wildcards like <i>*.o</i>.)
+    The price for this power is a lot of management. So, if you tell it how to
+    create a <i>.o</i> from a <i>.c</i>, that's fine, because it will happen for
+    most if not all candidates.</p>
+<p class="Pp">But if you tell it how to link any suffixless executable from a
+    like named <i>.o</i>, that's expensive, because it will probably only happen
+    for a small part of them (those that contain a main function), but the basis
+    will get laid for all. You have to weigh the comfort of a linker pattern
+    rule, against the efficiency of individual linker rules.</p>
+<p class="Pp">If you don't use any of them, you should also turn off the builtin
+    rules with:</p>
+<p class="Pp"></p>
+<pre>    makepp_no_builtin = 1
+</pre>
+<p class="Pp">If you do use them, but, for the reasons explained above, not the
+    builtin linker rules, you should turn those off with:</p>
+<p class="Pp"></p>
+<pre>    makepp_no_builtin_linker = 1
+</pre>
+<p class="Pp"><i>Put makepp extensions into a module</i></p>
+<p class="Pp">Makepp offers very convenient possibilities of being extended
+    through Perl. But if you write some functions, commands or statements in a
+    file and include that from dozens of makefiles, you will get dozens of
+    copies of them all in memory. And they will be read dozens of times by the
+    makepp parser, which is a bit slower than Perl's.</p>
+<p class="Pp">In this situation it is better to put your own functions into a
+    module.</p>
+<p class="Pp"><i>Use Repositories and/or a Build Cache</i></p>
+<p class="Pp">If you have several developers working on the same machine or if
+    you change to and fro between sets of build options, this is for you.
+    Repositories allow you to offer a central reference where you only need to
+    build what is locally different. A build cache simply collects all produced
+    files, and reuses them as appropriate, with less planning needed. The latter
+    page also describes the differences.</p>
+<p class="Pp"><i>Use Sandboxes</i></p>
+<p class="Pp">If your build is so big that makepp is having a hard time
+    digesting all the information and if you can find a way of splitting it up
+    into smaller independent parts, sandboxes might give you better parallelism
+    than the <span class="Li">&quot;--jobs&quot;</span> option.</p>
+<p class="Pp"><i>Don't log what you do</i></p>
+<p class="Pp">Makepp's logging feature is very powerful for tracking down bugs
+    in the build system, or for analyzing your dependencies. Whenever you don't
+    do these things, you can save quite a bit of formatting and I/O with
+    <span class="Li">&quot;--no-log</span>
+    <span class="Li">--no-scan-log&quot;</span>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Almost_Safe_Methods"><a class="permalink" href="#Almost_Safe_Methods">Almost
+  Safe Methods</a></h2>
+<p class="Pp"><i>Get a Headstart</i></p>
+<p class="Pp">The option <span class="Li">&quot;--loop&quot;</span> (or
+    <span class="Li">&quot;--stop-before-building&quot;</span> or
+    <span class="Li">&quot;--stop-after-loading&quot;</span> or
+    <span class="Li">&quot;--stop&quot;</span>) allows makepp to start its work
+    while you are still editing. It will repeatedly suspend itself when it gets
+    to the point analyzing the dependencies. You decide when you're ready to let
+    it go on. On our huge project this saves half a minute, and that's only when
+    we have a CPU to ourselves.</p>
+<p class="Pp">This method has two potential drawbacks:</p>
+<ul class="Bl-bullet">
+  <li>Makeppfiles have been read by the time makepp stops. If you edit a
+      Makeppfile or something from which it would have to be rebuilt, after
+      starting makepp, this will go unnoticed till the next time. But this
+      should rarely be necessary, since makepp greatly reduces the need for
+      Makeppfile changes.</li>
+  <li>If a target depends on a wildcard, and that would match more than when the
+      Makeppfile was read, makepp will not notice:
+    <p class="Pp"></p>
+    <pre>    proggie: *.o
+        $(LD) $(inputs) -o $(output)
+    </pre>
+    <p class="Pp">If you add another source file, or a file from which makepp
+        knows how to generate a source, then
+        <span class="Li">&quot;*.o&quot;</span> should match the object that
+        produces. But, if this file was added after starting makepp, it will
+        not, because the wildcard was expanded too early.</p>
+  </li>
+</ul>
+<p class="Pp">In both of these cases you should kill the prestarted makepp and
+    start it anew.</p>
+<p class="Pp"><i>Gulliver's Travels</i></p>
+<p class="Pp">The option <span class="Li">&quot;--gullible&quot;</span> tells
+    makepp to believe that a rule changes what it says it will, neither less nor
+    more. Not performing these checks can save a few percent of makepp's CPU
+    time. And the Disk I/O savings is especially welcome on network file
+    systems. If you do nightly full builds in an empty directory with the
+    <span class="Li">&quot;--repository&quot;</span> option, but without the
+    <span class="Li">&quot;--gullible&quot;</span> option, you can be fairly
+    sure that your rule set is consistent. Then this option shouldn't hurt in
+    your daytime work.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Potentially_Unsafe_Methods"><a class="permalink" href="#Potentially_Unsafe_Methods">Potentially
+  Unsafe Methods</a></h2>
+<p class="Pp">These methods are unsafe if you give makepp the wrong hints. But
+    everything will again be fine, however, as soon as you let makepp do all the
+    checks, by not passing it any limiting options. For this reason I suggest
+    using these hints to get quick intermediate builds, and use lunchtime and
+    nights to let makepp do its job thoroughly.</p>
+<p class="Pp"><i>Build as Little as Needed</i></p>
+<p class="Pp">This is the same tip of using explicit targets discussed under
+    &quot;Build as Little as You Need&quot; above. But it becomes more
+    dangerous, if you do it because you are sure that your change will not
+    affect any of the other programs. Then they will not be built, even though
+    it might have been necessary.</p>
+<p class="Pp"><i>Know Where Not to Build</i></p>
+<p class="Pp">The option <span class="Li">&quot;--dont-build&quot;</span> is
+    very powerful for speeding makepp up a lot. If you know one or more
+    directories, which you are sure are unaffected by any change you made since
+    the last time, you can issue
+    <span class="Li">&quot;--dont-build&quot;</span> options for them. This can
+    save makepp a lot of dependency analysis. But it will not build anything in
+    those directories, even if it should have.</p>
+<p class="Pp"><i>Know Where to Build</i></p>
+<p class="Pp">This is the same as &quot;Know where not to build&quot;, but
+    instead of an exclusion list, you supply an inclusion list. The trick is
+    that a <span class="Li">&quot;--do-build&quot;</span> option, with a
+    <span class="Li">&quot;--dont-build=/&quot;</span> option or under a
+    <span class="Li">&quot;RootMakeppfile(.mk)&quot;</span> directory without a
+    <span class="Li">&quot;--dont-build&quot;</span> option on a higher level
+    directory means: build nothing except what I tell you to. This is what users
+    of traditional makes are looking for when they want to build just one
+    directory:</p>
+<p class="Pp"></p>
+<pre>    $ makepp --do-build=dir/subdir
+</pre>
+<p class="Pp">or, if you don't have a
+    <span class="Li">&quot;RootMakeppfile(.mk)&quot;</span>:</p>
+<p class="Pp"></p>
+<pre>    $ makepp --dont-build=/ --do-build=dir/subdir
+</pre>
+<p class="Pp">The difference is that any default target in the top level
+    Makeppfile, i.e. link commands are also executed this way. If you don't want
+    that, you must give an explicit target, which is automatically also marked
+    for <span class="Li">&quot;--do-build&quot;</span>:</p>
+<p class="Pp"></p>
+<pre>    $ makepp --do-build=dir1/subdir dir2/proggie
+</pre>
+<p class="Pp"><i>Know What to Build</i></p>
+<p class="Pp">An extreme variant is asking makepp not to build anything but what
+    you tell it to. This is not so dangerous if you changed <b>no include
+    files</b>, only modules, and you know which programs they go into.</p>
+<p class="Pp">Say you have only changed
+    <span class="Li">&quot;src/a.cpp&quot;</span> and
+    <span class="Li">&quot;src/b.cpp&quot;</span> and these are linked directly
+    into one program. Dot is the current directory including all
+  subdirectories.</p>
+<p class="Pp"></p>
+<pre>    $ makepp --dont-build=. src/a.o src/b.o proggie1
+</pre>
+<p class="Pp">Or equivalently, because a
+    <span class="Li">&quot;--do-build&quot;</span> option, without a
+    <span class="Li">&quot;--dont-build&quot;</span> option on a higher level
+    directory implies <span class="Li">&quot;--dont-build&quot;</span> for the
+    root of the build tree:</p>
+<p class="Pp"></p>
+<pre>    $ makepp --do-build=src/a.o src/b.o proggie1
+</pre>
+<p class="Pp">You can do something like the following in your Shell's
+    <span class="Li">$ENV</span> file or .profile to save typing (csh users
+    replace '=' with ' '):</p>
+<p class="Pp"></p>
+<pre>    alias mppb='makepp --do-build'
+    alias mppsb='makepp --stop --do-build'
+</pre>
+<p class="Pp">Then the last example becomes:</p>
+<p class="Pp"></p>
+<pre>    $ mppb src/a.o src/b.o proggie1
+</pre>
+<p class="Pp"><i>Build on a RAM disk</i></p>
+<p class="Pp">Modern computers, especially servers, typically have a high mean
+    time between failure. If this is the case for you, and you have lots of RAM
+    to spare, you can save the time you wait for I/O. You should edit on a real
+    disk, or replicate your edits there quickly. But the build results are
+    reproducible, so they can reside in RAM. If you don't want to risk
+    rebuilding, you can always replicate to disk after each build or at night.
+    You should not do this during the build, as you might catch partially
+    written files, just as if the machine had crashed.</p>
+<p class="Pp">If you have a system and/or storage unit with good caching and
+    RAID, the gain might not be so big.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Daniel Pfeiffer &lt;occitan@esperanto.org&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2021-01-06</td>
+    <td class="foot-os">perl v5.32.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: makepp 2.0.98.5-2.1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

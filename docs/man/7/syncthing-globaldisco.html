@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Global Discovery Protocol v3">
+<title>syncthing-globaldisco(7) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">syncthing-globaldisco(7)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#ANNOUNCEMENTS">ANNOUNCEMENTS</a></li><li><a href="#QUERIES">QUERIES</a></li><li><a href="#AUTHENTICATION">AUTHENTICATION</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#COPYRIGHT">COPYRIGHT</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">SYNCTHING-GLOBALDISCO(7)</td>
+    <td class="head-vol">Syncthing</td>
+    <td class="head-rtitle">SYNCTHING-GLOBALDISCO(7)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">syncthing-globaldisco - Global Discovery Protocol v3</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ANNOUNCEMENTS"><a class="permalink" href="#ANNOUNCEMENTS">ANNOUNCEMENTS</a></h1>
+<p class="Pp">A device should announce itself at startup. It does this by an
+    HTTPS POST to the announce server URL. Standard discovery currently requires
+    the path to be &#x201C;/v2/&#x201D;, yet this can be up to the discovery
+    server. The POST has a JSON payload listing connection addresses (if
+  any):</p>
+<div class="Bd-indent">
+<div class="Bd-indent">
+<p class="Pp"></p>
+<pre>{
+<br/>
+        addresses: [&quot;tcp://192.0.2.45:22000&quot;, &quot;tcp://:22202&quot;, &quot;relay://192.0.2.99:22028&quot;],
+}
+</pre>
+</div>
+<br/>
+</div>
+<br/>
+<p class="Pp">It&#x2019;s OK for the &#x201C;addresses&#x201D; field to be
+    either the empty list (<b>[]</b>), <b>null</b>, or missing entirely. An
+    announcement with the field missing or empty is however not
+  useful&#x2026;</p>
+<p class="Pp">Any empty or unspecified IP addresses (i.e. addresses like
+    <b>tcp://:22000</b>, <b>tcp://0.0.0.0:22000</b>, <b>tcp://[::]:22000</b>)
+    are interpreted as referring to the source IP address of the
+  announcement.</p>
+<p class="Pp">The device ID of the announcing device is not part of the
+    announcement. Instead, the server requires that the client perform
+    certificate authentication. The device ID is deduced from the presented
+    certificate.</p>
+<p class="Pp">The server response is empty, with code <b>204</b> (No Content) on
+    success. If no certificate was presented, status <b>403</b> (Forbidden) is
+    returned. If the posted data doesn&#x2019;t conform to the expected format,
+    <b>400</b> (Bad Request) is returned.</p>
+<p class="Pp">In successful responses, the server may return a
+    <b>Reannounce-After</b> header containing the number of seconds after which
+    the client should perform a new announcement.</p>
+<p class="Pp">In error responses, the server may return a <b>Retry-After</b>
+    header containing the number of seconds after which the client should
+  retry.</p>
+<p class="Pp">Performing announcements significantly more often than indicated
+    by the <b>Reannounce-After</b> or <b>Retry-After</b> headers may result in
+    the client being throttled. In such cases the server may respond with status
+    code <b>429</b> (Too Many Requests).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="QUERIES"><a class="permalink" href="#QUERIES">QUERIES</a></h1>
+<p class="Pp">Queries are performed as HTTPS GET requests to the announce server
+    URL. The requested device ID is passed as the query parameter
+    &#x201C;device&#x201D;, in canonical string form, i.e.
+    <b>https://discovery.syncthing.net/?device=ABC12345-....</b></p>
+<p class="Pp">Successful responses will have status code <b>200</b> (OK) and
+    carry a JSON payload of the same format as the announcement above. The
+    response will not contain empty or unspecified addresses.</p>
+<p class="Pp">If the &#x201C;device&#x201D; query parameter is missing or
+    malformed, the status code 400 (Bad Request) is returned.</p>
+<p class="Pp">If the device ID is of a valid format but not found in the
+    registry, 404 (Not Found) is returned.</p>
+<p class="Pp">If the client has exceeded a rate limit, the server may respond
+    with 429 (Too Many Requests).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHENTICATION"><a class="permalink" href="#AUTHENTICATION">AUTHENTICATION</a></h1>
+<p class="Pp">Global discovery is spoken over HTTPS and is protected against
+    attackers in the same manner as other HTTPS traffic. However, there are a
+    few Syncthing specific considerations on top of this. As mentioned above,
+    for announcements the client must provide a certificate to prove ownership
+    of the announced device ID.</p>
+<p class="Pp">In addition, Syncthing has a mechanism to verify the identity of
+    the discovery server. While this would normally be accomplished by using a
+    CA signed certificate, Syncthing often runs in environments with outdated or
+    simply nonexistent root CA bundles. Instead, Syncthing can verify the
+    discovery server certificate fingerprint using the device ID mechanism. This
+    is certificate pinning and conveyed in the Syncthing configuration as a
+    synthetic &#x201C;id&#x201D; parameter on the discovery server URL:
+    <b>https://discovery.syncthing.net/?id=...</b>. The &#x201C;id&#x201D;
+    parameter is not, in fact, sent to the discovery server - it&#x2019;s used
+    by Syncthing itself to know which certificate to expect on the server
+  side.</p>
+<p class="Pp">The public discovery network uses this authentication mechanism
+    instead of CA signed certificates.</p>
+<p class="Pp">The discovery server prints its certificate ID in this manner on
+    startup.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">The Syncthing Authors</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYRIGHT"><a class="permalink" href="#COPYRIGHT">COPYRIGHT</a></h1>
+<p class="Pp">2014-2019, The Syncthing Authors</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">December 21, 2023</td>
+    <td class="foot-os">v1.27.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: syncthing 1.27.2~ds4-1ubuntu0.24.04.3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

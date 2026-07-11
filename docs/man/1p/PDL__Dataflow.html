@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="- description of the dataflow implementation and philosophy">
+<title>PDL::Dataflow(1p) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">PDL::Dataflow(1p)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#TWO-WAY">TWO-WAY</a></li><li><a href="#Type_conversions">Type
+  conversions</a></li><li><a href="#ONE-WAY">ONE-WAY</a></li><li><a href="#LAZY_EVALUATION">LAZY
+  EVALUATION</a></li><li><a href="#FAMILIES">FAMILIES</a></li><li><a href="#EVENTS">EVENTS</a></li><li><a href="#TRANSFORMATIONS">TRANSFORMATIONS</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">DATAFLOW(1p)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">DATAFLOW(1p)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">PDL::Dataflow -- description of the dataflow implementation and
+    philosophy</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<pre>        pdl&gt; $x = zeroes(10);
+        pdl&gt; $y = $x-&gt;slice(&quot;2:4:2&quot;);
+        pdl&gt; $y ++;
+        pdl&gt; print $x;
+        [0 0 1 0 1 0 0 0 0 0]
+</pre>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp">As of 2.079, this is now a description of the current
+    implementation, together with some design thoughts from its original author,
+    Tuomas Lukka.</p>
+<p class="Pp">Two-directional dataflow (which implements
+    <span class="Li">&quot;-&gt;slice()&quot;</span> etc.) is fully functional,
+    as shown in the SYNOPSIS. One-way is implemented, but with restrictions.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TWO-WAY"><a class="permalink" href="#TWO-WAY">TWO-WAY</a></h1>
+<p class="Pp">Just about any function which returns some subset of the values in
+    some ndarray will make a binding. <span class="Li">$y</span> has become
+    effectively a window to some sub-elements of <span class="Li">$x</span>. You
+    can also define your own routines that do different types of subsets. If you
+    don't want <span class="Li">$y</span> to be a window to
+    <span class="Li">$x</span>, you must do</p>
+<p class="Pp"></p>
+<pre>        $y = $x-&gt;slice(&quot;some parts&quot;)-&gt;sever;
+</pre>
+<p class="Pp">The <span class="Li">&quot;sever&quot;</span> destroys the
+    <span class="Li">&quot;slice&quot;</span> transform, thereby turning off all
+    dataflow between the two ndarrays.</p>
+<section class="Ss">
+<h2 class="Ss" id="Type_conversions"><a class="permalink" href="#Type_conversions">Type
+  conversions</a></h2>
+<p class="Pp">This works, thanks to a two-way flowing transform that implements
+    type-conversions, particularly for supplied outputs of the &quot;wrong&quot;
+    type for the given transform:</p>
+<p class="Pp"></p>
+<pre>  pdl&gt; $a_bad = pdl double, '[1 BAD 3]';
+  pdl&gt; $b_float = zeroes float, 3;
+  pdl&gt; $a_bad-&gt;assgn($b_float); # could be written as $b_float .= $a_bad
+  pdl&gt; p $b_float-&gt;badflag;
+  1
+  pdl&gt; p $b_float;
+  [1 BAD 3]
+</pre>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ONE-WAY"><a class="permalink" href="#ONE-WAY">ONE-WAY</a></h1>
+<p class="Pp">You need to explicitly turn on one-way dataflow on an ndarray to
+    activate it for non-flowing operations, so</p>
+<p class="Pp"></p>
+<pre>        pdl&gt; $x = pdl 2,3,4;
+        pdl&gt; $x-&gt;doflow;
+        pdl&gt; $y = $x * 2;
+        pdl&gt; print $y;
+        [4 6 8]
+        pdl&gt; $x-&gt;set(0,5);
+        pdl&gt; print $y;
+        [10 6 8]
+</pre>
+<p class="Pp">It is not possible to turn on backwards dataflow (such as is used
+    by <span class="Li">&quot;slice&quot;</span>-type operations), because there
+    is no general way for PDL (or maths, in fact) to know how to reverse most
+    operations - consider <span class="Li">&quot;$z = $x * $y&quot;</span>, then
+    adding one to <span class="Li">$z</span>.</p>
+<p class="Pp">Consider the following code:</p>
+<p class="Pp"></p>
+<pre>        $u = sequence(3,3); $u-&gt;doflow;
+        $v = ones(3,3); $v-&gt;doflow;
+        $w = $u + $v; $w-&gt;doflow; # must turn on for each
+        $y = $w + 1; $y-&gt;doflow;
+        $x = $w-&gt;diagonal(0,1);
+        $x += 50;
+        $z = $w + 2;
+</pre>
+<p class="Pp">What do <span class="Li">$y</span> and <span class="Li">$z</span>
+    contain now?</p>
+<p class="Pp"></p>
+<pre>        pdl&gt; p $y
+        [
+         [52  3  4]
+         [ 5 56  7]
+         [ 8  9 60]
+        ]
+        pdl&gt; p $z
+        [
+         [53  4  5]
+         [ 6 57  8]
+         [ 9 10 61]
+        ]
+</pre>
+<p class="Pp">What about when <span class="Li">$u</span> is changed and a
+    recalculation is triggered? A problem arises, in that PDL currently (as of
+    2.079) disallows (see <i>pdlapi.c</i>), for normal transforms, output
+    ndarrays with flow, or output ndarrays with any parent with dataflow. So
+    <span class="Li">&quot;$u++&quot;</span> throws an exception. But it is
+    currently possible to use <span class="Li">&quot;set&quot;</span>, which is
+    a sort of micro-transform that calls (in the C API)
+    <span class="Li">&quot;PDL.set&quot;</span> to mutate the data, then
+    <span class="Li">&quot;PDL.changed&quot;</span> to trigger flow updates:</p>
+<p class="Pp"></p>
+<pre>        pdl&gt; $u-&gt;set(1,1,90)
+        pdl&gt; p $y
+        [
+         [ 2  3  4]
+         [ 5 92  7]
+         [ 8  9 10]
+        ]
+</pre>
+<p class="Pp">You'll notice that while the setting of
+    <span class="Li">&quot;1,1&quot;</span> (the middle) of
+    <span class="Li">$u</span> updated <span class="Li">$y</span>, the changes
+    to <span class="Li">$y</span> that resulted from adding 50 to the diagonal
+    (via <span class="Li">$x</span>, and two-way flow) got lost. This is one-way
+    flow.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="LAZY_EVALUATION"><a class="permalink" href="#LAZY_EVALUATION">LAZY
+  EVALUATION</a></h1>
+<p class="Pp">In one-way flow context like the above, with:</p>
+<p class="Pp"></p>
+<pre>        pdl&gt; $y = $x * 2;
+</pre>
+<p class="Pp">nothing will have been calculated at this point. Even the memory
+    for the contents of <span class="Li">$y</span> has not been allocated. Only
+    the command</p>
+<p class="Pp"></p>
+<pre>        pdl&gt; print $y
+</pre>
+<p class="Pp">will actually cause <span class="Li">$y</span> to be calculated.
+    This is important to bear in mind when doing performance measurements and
+    benchmarks as well as when tracking errors.</p>
+<p class="Pp">There is an explanation for this behaviour: it may save cycles but
+    more importantly, imagine the following:</p>
+<p class="Pp"></p>
+<pre>        pdl&gt; $x = pdl 2,3,4; $x-&gt;doflow;
+        pdl&gt; $y = pdl 5,6,7; $y-&gt;doflow;
+        pdl&gt; $c = $x + $y;
+        pdl&gt; $x-&gt;setdims([4]);
+        pdl&gt; $y-&gt;setdims([4]);
+        pdl&gt; print $c;
+</pre>
+<p class="Pp">Now, if <span class="Li">$c</span> were evaluated between the two
+    resizes, an error condition of incompatible sizes would occur.</p>
+<p class="Pp">What happens in the current version is that resizing
+    <span class="Li">$x</span> raises a flag in <span class="Li">$c:</span>
+    &quot;PDL_PARENTDIMSCHANGED&quot; and <span class="Li">$y</span> just raises
+    the same flag again. When <span class="Li">$c</span> is next evaluated, the
+    flags are checked and it is found that a recalculation is needed.</p>
+<p class="Pp">Of course, lazy evaluation can sometimes make debugging more
+    painful because errors may occur somewhere where you'd not expect them.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FAMILIES"><a class="permalink" href="#FAMILIES">FAMILIES</a></h1>
+<p class="Pp">This is one of the more intricate concepts of dataflow. In order
+    to make dataflow work like you'd expect, a rather strange concept must be
+    introduced: families. Let us make a diagram of the one-way flow example - it
+    uses a hypergraph because the transforms (with
+    <span class="Li">&quot;+&quot;</span>) are connectors between ndarrays (with
+    <span class="Li">&quot;*&quot;</span>):</p>
+<p class="Pp"></p>
+<pre>       u*   *v
+         \ /
+          +(plus)
+          |
+   1*     *w
+     \   /|\
+      \ / | \
+ (plus)+  |  +(diagonal)
+       |  |  |
+      y*  |  *x
+          |
+          | *1
+          |/
+          +(plus)
+          |
+         z*
+</pre>
+<p class="Pp">This is what PDL actually has in memory after the first three
+    lines. When <span class="Li">$x</span> is changed,
+    <span class="Li">$w</span> changes due to
+    <span class="Li">&quot;diagonal&quot;</span> being a two-way operation.</p>
+<p class="Pp">If you want flow from <span class="Li">$w</span>, you opt in using
+    <span class="Li">&quot;$w-&gt;doflow&quot;</span> (as shown in this
+    scenario). If you didn't, then don't enable it. If you have it but want to
+    stop it, call <span class="Li">&quot;$ndarray-&gt;sever&quot;</span>. That
+    will destroy the ndarray's <span class="Li">&quot;trans_parent&quot;</span>
+    (here, a node marked with <span class="Li">&quot;+&quot;</span>), and as you
+    can visually tell, will stop changes flowing thereafter. If you want to
+    leave the flow operating, but get a copy of the ndarray at that point, use
+    <span class="Li">&quot;$ndarray-&gt;copy&quot;</span> - it will have the
+    same data at that moment, but have no flow relationships.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EVENTS"><a class="permalink" href="#EVENTS">EVENTS</a></h1>
+<p class="Pp">There is the start of a mechanism to bind events onto changed
+    data, intended to allow this to work:</p>
+<p class="Pp"></p>
+<pre>        pdl&gt; $x = pdl 2,3,4
+        pdl&gt; $y = $x + 1;
+        pdl&gt; $c = $y * 2;
+        pdl&gt; $c-&gt;bind( sub { print &quot;A now: $x, C now: $c\n&quot; } )
+        pdl&gt; PDL::dowhenidle();
+        A now: [2,3,4], C now: [6 8 10]
+        pdl&gt; $x-&gt;set(0,1);
+        pdl&gt; $x-&gt;set(1,1);
+        pdl&gt; PDL::dowhenidle();
+        A now: [1,1,4], C now: [4 4 10]
+</pre>
+<p class="Pp">This hooks into PDL's <span class="Li">&quot;magic&quot;</span>
+    which resembles Perl's, but does not currently operate.</p>
+<p class="Pp">There would be many kinds of uses for this feature: self-updating
+    charts, for instance. It is not yet fully clear whether it would be most
+    useful to queue up changes (useful for doing asynchronously, e.g. when
+    idle), or to activate things immediately.</p>
+<p class="Pp">In the 2022 era of both GPUs and multiple cores, it is a pity that
+    Perl's dominant model remains single-threaded on CPU, but PDL can use
+    multi-cores for CPU processing (albeit controlled in a single-threaded
+    style) - see PDL::ParallelCPU. It is planned that PDL will gain the ability
+    to use GPUs, and there might be a way to hook that up albeit probably with
+    an event loop to &quot;subscribe&quot; to GPU events.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="TRANSFORMATIONS"><a class="permalink" href="#TRANSFORMATIONS">TRANSFORMATIONS</a></h1>
+<p class="Pp">PDL implements nearly everything (except for XS oddities like
+    <span class="Li">&quot;set&quot;</span>) using transforms which connect
+    ndarrays. This includes data transformations like addition,
+    &quot;slicing&quot; to access/operate on subsets, and data-type conversions
+    (which have two-way dataflow, see &quot;Type conversions&quot;).</p>
+<p class="Pp">This does not currently include a resizing transformation, and
+    <span class="Li">&quot;setdims&quot;</span> mutates its input. This is
+    intended to change.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Copyright(C) 1997 Tuomas J. Lukka (lukka@fas.harvard.edu). Same
+    terms as the rest of PDL.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2024-04-10</td>
+    <td class="foot-os">perl v5.38.2</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: pdl 2.085-1ubuntu1 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="User scanning support daemon for scanbd / scanbd manager">
+<title>scanbm(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">scanbm(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#SCANBD/SCANBM_CONFIGURATION">SCANBD/SCANBM
+  CONFIGURATION</a></li><li><a href="#NETWORK_SETUP_FOR_SCANBM">NETWORK
+  SETUP FOR SCANBM</a></li><li><a href="#INETD_CONFIGURATION">INETD
+  CONFIGURATION</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">scanbm(8)</td>
+    <td class="head-vol">Scanner button daemon</td>
+    <td class="head-rtitle">scanbm(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">scanbm- User scanning support daemon for scanbd / scanbd
+  manager</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>scanbm</b> <b>[-c</b> <i>configfile</i>
+    <b>[-d</b><i>[debuglevel]</i> <b>] [-s]</b> <b>[-t</b> <i>device</i>
+    <b>-a</b> <i>action</i> <b>]</b></p>
+<dl class="Bl-tag">
+  <dt id="scanbd"><a class="permalink" href="#scanbd"><b>scanbd</b></a></dt>
+  <dd><b>-m</b> <b>[-c</b> <i>configfile</i> <b>[-d</b><i>[debuglevel]</i> <b>]
+      [-s]</b> <b>[-t</b> <i>device</i> <b>-a</b> <i>action</i> <b>]</b></dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>scanbm</b> is a companion to scanbd, a scanner button
+    monitoring daemon that can trigger execution of scripts when a button is
+    pressed.</p>
+<p class="Pp">scanbm is actually a (symbolic) link to scanbd and can be called
+    as <b>scanbm</b> or <b>scanbd -m.</b></p>
+<p class="Pp">scanbd (the scanner button daemon) opens and polls the scanner and
+    therefore locks the device. So no other application can access the device
+    directly (open the /dev/..., or via libusb, etc).</p>
+<p class="Pp">To enable scanning from applications, we use scanbm as a manager
+    for scanbd. scanbm is a &quot;proxy&quot; for saned to access the scanner
+    from an application. scanbm listens for requests on the saned network port.
+    All applications therefore need to use the &quot;net backend to access a
+    scanner.</p>
+<p class="Pp">If a scan request arrives to scanbm on the sane-port, scanbm
+    requests the scanbd scanner polling daemon to interrupt polling and to
+    release the device by sending it a dbus-message (default) or a posix-signal
+    (SIGUSR1) (signal-mode). It then starts the real saned which does the
+    scanning and sends the data back to the requesting application. When the
+    scanning is done and saned exits, scanbm requests scanbd to restart the
+    polling by sending a second dbus-message (or the posix-signal SIGUSR2) and
+    ends execution. The polling scanbd now re-enables polling of the
+  devices.</p>
+<p class="Pp">scanbm is meant to be started from <b>inetd, xinetd or
+    systemd.</b> Unlike saned it does not support stand-alone mode.</p>
+<p class="Pp"><b>Note:</b> Please note that the scanbm acts as a proxy to saned,
+    all scanner applications must be configured to use the sane &quot;net&quot;
+    backend to access the scanner. Direct access will not be possible.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<dl class="Bl-tag">
+  <dt id="c"><a class="permalink" href="#c"><b>-c</b><i> configfile</i><b>
+    --config</b><i>=configfile</i></a></dt>
+  <dd>Use <i>configfile</i> instead of the default /etc/scanbd/scanbd.conf
+      configuration file.</dd>
+  <dt id="d"><a class="permalink" href="#d"><b>-d</b><i>[debuglevel]</i><b>
+    --debug</b><i>[=debuglevel]</i></a></dt>
+  <dd>turn debug mode on. If specified, set the debug level to
+    <i>debuglevel</i></dd>
+</dl>
+<div class="Bd-indent">
+<br/>
+1 = error
+<br/>
+2 = warn
+<br/>
+3 = info
+<br/>
+4 - 7 = debug)</div>
+<dl class="Bl-tag">
+  <dt id="s"><a class="permalink" href="#s"><b>-s --signal</b></a></dt>
+  <dd>use signals SIGUSR1/ SIGUSR2 instead of dbus messages to request the
+      polling scanbd to stop / restart polling</dd>
+  <dt id="t"><a class="permalink" href="#t"><b>-t</b><i> device
+    </i><b>--trigger</b><i>=device</i></a></dt>
+  <dd>Trigger action for <i>device</i> (numerical)</dd>
+  <dt id="a"><a class="permalink" href="#a"><b>-a</b><i> action
+    </i><b>--action</b><i>=action</i></a></dt>
+  <dd><i>action</i> (numerical) to be triggered</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SCANBD/SCANBM_CONFIGURATION"><a class="permalink" href="#SCANBD/SCANBM_CONFIGURATION">SCANBD/SCANBM
+  CONFIGURATION</a></h1>
+<p class="Pp">scanbd and scanbm are configured trough scanbd.conf
+    (/etc/scanbd/scanbd.conf or the file pointed out by the <b>-c
+    &lt;config-file&gt;</b> )</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="NETWORK_SETUP_FOR_SCANBM"><a class="permalink" href="#NETWORK_SETUP_FOR_SCANBM">NETWORK
+  SETUP FOR SCANBM</a></h1>
+<p class="Pp">scanbm must be setup very similar to the way saned must be setup.
+    Note that your inetd must support IPv6 if you want to connect to scanbm over
+    IPv6 ; xinetd, openbsd-inetd and systemd are known to support IPv6, check
+    the documentation for your inetd daemon.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INETD_CONFIGURATION"><a class="permalink" href="#INETD_CONFIGURATION">INETD
+  CONFIGURATION</a></h1>
+<p class="Pp">For <b>scanbm</b> it is also necessary to add a configuration line
+    to <i>/etc/inetd.conf</i> just like it is for saned.</p>
+<p class="Pp">The configuration line normally looks like this:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">sane-port stream tcp nowait scanbd.scanbd
+  /usr/sbin/scanbm scanbm</div>
+<p class="Pp">However, if your system uses <a class="Xr" href="../8/tcpd.html"><b>tcpd</b>(8)</a> for additional
+    security screening, you may want to disable saned access control by putting
+    ``+'' in <i>saned.conf</i> (see <a class="Xr" href="../8/saned.html"><i>saned</i>(8)</a> ) and use a line of the
+    following form in <i>/etc/inetd.conf</i> instead:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">sane-port stream tcp nowait scanbd.scanbd /usr/sbin/tcpd
+  /usr/sbin/scanbm</div>
+<p class="Pp">Note that both examples assume that there is a <b>scanbd</b> group
+    and a <b>scanbd</b> user. If you follow this example, please make sure that
+    the access permissions on the special device are set such that <b>scanbd and
+    saned</b> can access the scanner (the programs generally need read and write
+    access to scanner devices).</p>
+<p class="Pp">If xinetd is installed on your system instead of inetd the
+    following example for xinetd.conf may be helpful:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre># default: off
+# description: The sane server accepts requests 
+# for network access to a local scanner via the
+# network.
+service sane-port
+{
+<br/>
+   port        = 6566
+<br/>
+   socket_type = stream
+<br/>
+   wait        = no
+<br/>
+   user        = scanbd
+<br/>
+   group       = scanbd
+<br/>
+   server      = /usr/sbin/scanbm 
+<br/>
+   server_args = 
+}</pre>
+</div>
+<p class="Pp">Finally, it is also necessary to add a line of the following form
+    to <i>/etc/services</i>:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">sane-port 6566/tcp # SANE network scanner daemon</div>
+<p class="Pp">The official IANA short name for port 6566 is
+    &quot;sane-port&quot;. The older name &quot;sane&quot; is now deprecated.
+  <br/>
+</p>
+<p class="Pp">scanbm does not do access control, but it relies on the access
+    control done by saned.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/scanbd.html"><b>scanbd</b>(8)</a>, <a class="Xr" href="../7/sane.html"><b>sane</b>(7)</a>, <a class="Xr" href="../8/saned.html"><b>saned</b>(8)</a>,
+    <a class="Xr" href="../5/sane-dll.html"><b>sane-dll</b>(5)</a>, <a class="Xr" href="../5/sane-net.html"><b>sane-net</b>(5)</a>
+  <br/>
+  <i>http://http://scanbd.sourceforge.net/</i></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Louis Lagendijk</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">02 Jan 2013</td>
+    <td class="foot-os">scanbd 1.92</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: scanbd 1.5.1-7 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

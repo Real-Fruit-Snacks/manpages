@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="a utility for creating MySQL backups using LVM snapshots">
+<title>mylvmbackup(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">mylvmbackup(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#GENERAL_HINTS">GENERAL
+  HINTS</a></li><li><a href="#HOOKS">HOOKS</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#FILES">FILES</a></li><li><a href="#REQUIREMENTS">REQUIREMENTS</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#RESOURCES">RESOURCES</a></li><li><a href="#CREDITS">CREDITS</a></li><li><a href="#COPYING">COPYING</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">MYLVMBACKUP(1)</td>
+    <td class="head-vol">User Contributed Perl Documentation</td>
+    <td class="head-rtitle">MYLVMBACKUP(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<br/>
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">mylvmbackup - a utility for creating MySQL backups using LVM
+    snapshots</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp">mylvmbackup [OPTIONS]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><i>mylvmbackup</i> is a tool for quickly creating full physical
+    backups of a MySQL server's data files. To perform a backup,
+    <i>mylvmbackup</i> obtains a read lock on all tables and flushes all server
+    caches to disk, makes an LVM snapshot of the volume containing the MySQL
+    data directory, and unlocks the tables again. The snapshot process takes
+    only a small amount of time. When it is done, the server can continue normal
+    operations, while the actual file backup proceeds.</p>
+<p class="Pp">The LVM snapshot is mounted to a temporary directory and all data
+    is backed up using the <i>tar</i> program by default. The archive files are
+    created using names in the form of
+    <i>backup-YYYYMMDD_hhmmss_mysql.tar.gz</i>, where <i>YYYY</i>, <i>MM</i>,
+    <i>DD</i>, <i>hh</i>, <i>mm</i> and <i>ss</i> represent the year, month,
+    day, hour, minute, and second of the time at which the backup occurred. The
+    default prefix <i>backup</i>, date format and file suffix may be modified.
+    The use of timestamped archive names allows you to run <i>mylvmbackup</i>
+    many times without risking to overwrite old archives. It is possible to
+    preserve only a defined number of last backups, to avoid running out of disk
+    space.</p>
+<p class="Pp">Alternatively, instead of <i>tar</i>, you can use <i>rsync</i>,
+    <i>rsnap</i> or <i>zbackup</i> to perform the archiving.</p>
+<p class="Pp">The <i>rsync</i> backup can perform both local backups as well as
+    backing up to a remote server using rsyncd or rsync via SSH.</p>
+<p class="Pp"><i>rsnap</i> is a wrapper around <i>rsync</i> to automatically
+    maintain and rotate a given number of last backups (7 by default). It
+    utilizes hard links to link to unchanged files for saving disk space.</p>
+<p class="Pp"><i>zbackup</i> is a globally-deduplicating backup tool. Feed a
+    large .tar into it, and it will store duplicate regions of it only once,
+    then compress and optionally encrypt the result. Feed another .tar file, and
+    it will also re-use any data found in any previous backups. This way only
+    new changes are stored, and as long as the files are not very different, the
+    amount of storage required is very low. Any of the backup files stored
+    previously can be read back in full at any time.</p>
+<p class="Pp">Moreover, a backup type <i>none</i> is provided for cases where
+    the user wants to use <i>mylvmbackup</i> only for creating the snapshots and
+    intends to perform the actual backup by using the appropriate hooks. (Or for
+    cases where the snapshot itself is considered to be the backup).</p>
+<p class="Pp"><i>mylvmbackup</i> also provides several methods for logging and
+    reporting the progress and success of a backup run. The log messages can
+    either be printed to the console (STDOUT) or logged via <i>syslog</i>.
+    Additionally, a report can be sent to you via email.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GENERAL_HINTS"><a class="permalink" href="#GENERAL_HINTS">GENERAL
+  HINTS</a></h1>
+<p class="Pp">It is required to run <i>mylvmbackup</i> on the same host where
+    the MySQL server runs. If your MySQL daemon is not listening on localhost or
+    using the default socket location, you must specify <i>--host</i> or
+    <i>--socket</i>. Even though <i>mylvmbackup</i> communicates with the server
+    through a normal client connection to obtain the read lock and flush data,
+    it performs the actual backup by accessing the file system directly. It is
+    also a requirement that the MySQL server's data directory resides on an LVM
+    volume. (It is, however, a good idea to do the LVM backup to a different
+    partition than the one where the data directory resides. Otherwise, there is
+    a good chance that LVM will run out of undo space for LVM snapshot
+    maintenance and the backup will fail.)</p>
+<p class="Pp">The user who invokes <i>mylvmbackup</i> must have sufficient
+    filesystem permissions to create the LVM snapshot and mount it. This
+    includes read/write access to the backup directory.</p>
+<p class="Pp">If you plan to back up InnoDB tables using LVM snapshots, be
+    advised that it is not sufficient to lock the tables and issue the <i>FLUSH
+    TABLES</i> command to get the table files into a consistent state. When
+    starting the MySQL server from these restored files, InnoDB will detect
+    these tables as being in an inconsistent state and will perform a log
+    recovery run before the tables can be accessed again. As this can
+    potentially take some time (which you may not want to spend after restoring
+    a server and trying to get it back on its feet as fast as possible),
+    consider using the option <i>--innodb_recover</i>, which will perform the
+    recovery operation on the backup snapshot prior to archiving it.</p>
+<p class="Pp">The recovery operation is performed by spawning a second mysqld
+    instance that uses the snapshot volume as the data directory. Note that this
+    functionality currently assumes a default InnoDB configuration in which all
+    InnoDB table spaces and log files are stored inside of the data directory -
+    it does not work properly if you use options like
+    <i>--innodb-data-home-dir</i>, <i>--innodb-data-file-path</i> or
+    <i>--innodb-log-group-home-dir</i> that modify the default file layout for
+    InnoDB tables.</p>
+<p class="Pp">If you use InnoDB tables exclusively, you may also want to
+    consider to include the option <i>--skip_flush_tables</i>, to avoid the
+    probably time-consuming and in this case unnecessary flushing of buffers.
+    But don't enable this option when MyISAM tables are involved!</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOOKS"><a class="permalink" href="#HOOKS">HOOKS</a></h1>
+<p class="Pp">It is possible to run arbitrary external programs or scripts
+    (hooks) at various stages of the backup process, to perform additional
+    actions as part of the backup process.</p>
+<p class="Pp">These scripts or symbolic links to executables should be placed in
+    the directory that the <i>hooksdir</i> configuration option points to
+    (<i>/usr/share/mylvmbackup</i> by default). They should return zero upon
+    successful completion, any non-zero return value will be considered a
+    failure which will be logged.</p>
+<p class="Pp">Hook scripts can also be implemented as Perl modules. The module
+    must be named <i>hookname.pm</i> and must be a package of type
+    <i>hookname</i>. The module must implement
+    <i></i><b><i>execute()</i></b><i></i> which is called by <i>mylvmbackup</i>
+    to initiate the hook. It must return boolean true/false (1 or 0) on
+    success/failure. <i></i><b><i>execute()</i></b><i></i> will be passed 2
+    parameters. The first parameter is a <b>clone()</b> of the global database
+    handle <span class="Li">$dbh</span>. This will allow hook scripts to
+    interact with the database using the established connection. The second
+    parameter is a string containing any messages passed to the
+    <i></i><b><i>run_hook()</i></b><i></i> function. The module must also
+    implement <i></i><b><i>errmsg()</i></b><i></i> which will return a string
+    error message to be sent to <i></i><b><i>log_msg()</i></b><i></i>. This will
+    be called by <i>mylvmbackup</i> when <i></i><b><i>execute()</i></b><i></i>
+    returns false/0.</p>
+<p class="Pp">The names of the scripts or symbolic links reflect the stage in
+    which the hook will be called. Currently, the following stages exist:</p>
+<dl class="Bl-tag">
+  <dt id="preconnect"><a class="permalink" href="#preconnect"><b>preconnect</b></a></dt>
+  <dd>before a connection to the database server is established</dd>
+  <dt id="preflush"><a class="permalink" href="#preflush"><b>preflush</b></a></dt>
+  <dd>before calling FLUSH TABLES</dd>
+  <dt id="presnapshot"><a class="permalink" href="#presnapshot"><b>presnapshot</b></a></dt>
+  <dd>before the file system snapshot is created</dd>
+  <dt id="preunlock"><a class="permalink" href="#preunlock"><b>preunlock</b></a></dt>
+  <dd>before the database tables are unlocked again</dd>
+  <dt id="predisconnect"><a class="permalink" href="#predisconnect"><b>predisconnect</b></a></dt>
+  <dd>before the connection to the database server is released</dd>
+  <dt id="premount"><a class="permalink" href="#premount"><b>premount</b></a></dt>
+  <dd>before the snapshot volume is mounted</dd>
+  <dt id="prebackup"><a class="permalink" href="#prebackup"><b>prebackup</b></a></dt>
+  <dd>before the snapshot backup will be performed</dd>
+  <dt id="backupsuccess"><a class="permalink" href="#backupsuccess"><b>backupsuccess</b></a></dt>
+  <dd>after a successful backup</dd>
+  <dt id="backupfailure"><a class="permalink" href="#backupfailure"><b>backupfailure</b></a></dt>
+  <dd>after a failed backup</dd>
+  <dt id="logerr"><a class="permalink" href="#logerr"><b>logerr</b></a></dt>
+  <dd>when an error is logged</dd>
+  <dt id="precleanup"><a class="permalink" href="#precleanup"><b>precleanup</b></a></dt>
+  <dd>before the snapshot is unmounted and discarded</dd>
+</dl>
+<p class="Pp">These hooks are optional and will only be called if a file for the
+    particular stage exists and is executable. Note that hooks implemented as
+    Perl modules (<i>hookname.pm</i>) have priority over &quot;plain&quot; hook
+    scripts (<i>hookname</i>), if both exist, only the first one will be used.
+    The execution of all hooks can be suppressed by passing the
+    <i>--skip_hooks</i> option or by setting the <i>skip_hooks</i> configuration
+    option to <i>1</i>;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp"><i>mylvmbackup</i> supports the following command line options.
+    The same options can also be defined in the <i>/etc/mylvmbackup.conf</i>
+    configuration file (omitting the leading dashes, of course). A sample
+    configuration file is included in the distribution.</p>
+<dl class="Bl-tag">
+  <dt id="action=string"><a class="permalink" href="#action=string"><b>--action=string</b></a></dt>
+  <dd>Selects the mode of action. Possible values are <i>backup</i> and
+      <i>purge</i>.
+    <p class="Pp">When this option is omitted, the <i>backup</i> action is
+        assumed by default, which performs the actual backup creation. Older
+        backup files are preserved.</p>
+    <p class="Pp">The <i>purge</i> action can be used to remove older tar or
+        local rsync backups from the backup directory, except for the a
+        configurable number of most recent backups, defined by the
+        <i>backupretention</i> option. The backup creation process is skipped in
+        this case.</p>
+    <p class="Pp">Note that this option erases <b>all</b> files contained in
+        this directory that match the criterion of being older than the last n
+        backup files (with the exception of hidden (dot) files!</p>
+  </dd>
+  <dt id="user=string"><a class="permalink" href="#user=string"><b>--user=string</b></a></dt>
+  <dd>Specifies the username to use for connecting to the MySQL server. The
+      default is <i>root</i>.</dd>
+  <dt id="password=string"><a class="permalink" href="#password=string"><b>--password=string</b></a></dt>
+  <dd>Specifies the password to use for connecting to the MySQL server. The
+      default is the empty string (no password). Alternatively, you can set the
+      password by defining the environment variable <i>MYSQL_PWD</i> prior to
+      starting the script. Note however that this method is considered to be
+      highly insecure, as it's possible for other users to obtain the password
+      by examining the environment variables of the running process. See the
+      MySQL Reference manual for more details on password security.</dd>
+  <dt id="host=string"><a class="permalink" href="#host=string"><b>--host=string</b></a></dt>
+  <dd>Specifies the host name to use for connecting to the MySQL server. Note
+      that <i>mylvmbackup</i> needs to be run on the same system that the MySQL
+      server to be backed up runs on - do not enter a remote host's host name or
+      IP address here! A non-empty value for <i>host</i> other than
+      <i>localhost</i> overrides any given <i>socket</i> path value. The default
+      is the empty string.</dd>
+  <dt id="port=number"><a class="permalink" href="#port=number"><b>--port=number</b></a></dt>
+  <dd>Specifies the TCP port number to use for connecting to the MySQL server.
+      This value is only honoured, if <i>host</i> is provided as well and is not
+      equal to <i>localhost</i>. The default is the empty string.</dd>
+  <dt id="socket=string"><a class="permalink" href="#socket=string"><b>--socket=string</b></a></dt>
+  <dd>Specifies the path to the local socket file, if it is not located at the
+      default location. The default is the empty string.</dd>
+  <dt id="quiet"><a class="permalink" href="#quiet"><b>--quiet</b></a></dt>
+  <dd>Suppresses logging of informal messages. Warnings and errors will still be
+      printed or logged (depending on the selected logging mechanism). The
+      default is verbose logging.</dd>
+  <dt id="innodb_recover"><a class="permalink" href="#innodb_recover"><b>--innodb_recover</b></a></dt>
+  <dd>Run InnoDB recovery on the writable snapshot prior to performing the
+      backup.</dd>
+  <dt id="recoveryopts"><a class="permalink" href="#recoveryopts"><b>--recoveryopts</b></a></dt>
+  <dd>Additional values to pass to the startup options of the separate MySQL
+      instance that gets spawned to perform the InnoDB log recovery option.
+      Depending on your MySQL Server version, you may have to modify these
+      startup parameters.
+    <p class="Pp">The default is <i>--skip-networking --skip-grant --bootstrap
+        --skip-syslog --skip-slave-start</i>.</p>
+  </dd>
+  <dt id="skip_flush_tables"><a class="permalink" href="#skip_flush_tables"><b>--skip_flush_tables</b></a></dt>
+  <dd>Don't issue a <i>FLUSH TABLES WITH READ LOCK</i> command before creating
+      the snapshot. Only use this option when backing up InnoDB tables (as they
+      don't support this function anyway and will require recovery in any case).
+      This option skips the (probably time consuming) flushing of buffers.</dd>
+  <dt id="extra_flush_tables"><a class="permalink" href="#extra_flush_tables"><b>--extra_flush_tables</b></a></dt>
+  <dd>If your database performs a lot of writes, it may help to perform an extra
+      initial <i>FLUSH TABLES</i> so that the <i>lvcreate</i> can finish within
+      the interactivity timeout during the read-locked flush.</dd>
+  <dt id="pidfile=string"><a class="permalink" href="#pidfile=string"><b>--pidfile=string</b></a></dt>
+  <dd>Specifies the full path and file name to the PID file of the server
+      instance that is spawned to perform the InnoDB recovery (see option
+      <i>--innodb_recover</i>). Must be different from the PID file that the
+      actual running server uses. The default is
+      <i>/var/run/mysqld/mylvmbackup_recoverserver.pid</i></dd>
+  <dt id="lvcreate=string"><a class="permalink" href="#lvcreate=string"><b>--lvcreate=string</b></a></dt>
+  <dd>Specifies the pathname for the <i>lvcreate</i> program. The default is
+      <i>lvcreate</i>.</dd>
+  <dt id="lvremove=string"><a class="permalink" href="#lvremove=string"><b>--lvremove=string</b></a></dt>
+  <dd>Specifies the pathname for the <i>lvremove</i> program. The default is
+      <i>lvremove</i>.</dd>
+  <dt id="lvs=string"><a class="permalink" href="#lvs=string"><b>--lvs=string</b></a></dt>
+  <dd>Specifies the pathname for the <i>lvs</i> program. The default is
+      <i>lvs</i>.</dd>
+  <dt id="mysqld_safe=string"><a class="permalink" href="#mysqld_safe=string"><b>--mysqld_safe=string</b></a></dt>
+  <dd>Specifies the pathname for the <i>mysqld_safe</i> program. The default is
+      <i>mysqld_safe</i>. Only used to perform InnoDB recovery.</dd>
+  <dt id="mycnf=string"><a class="permalink" href="#mycnf=string"><b>--mycnf=string</b></a></dt>
+  <dd>Specifies the name of a MySQL config file (e.g. <i>/etc/my.cnf</i>) or an
+      entire config directory (e.g. <i>/etc/mysql</i>) to include in the backup.
+      The default is <i>/etc/my.cnf</i>.</dd>
+  <dt id="skip_mycnf"><a class="permalink" href="#skip_mycnf"><b>--skip_mycnf</b></a></dt>
+  <dd>Skip backing up the MySQL configuration. The default is to include a copy
+      of the MySQL configuration in the backup.</dd>
+  <dt id="hooksdir=string"><a class="permalink" href="#hooksdir=string"><b>--hooksdir=string</b></a></dt>
+  <dd>The location of external scripts or executable to be called during various
+      stages of the backup. See the HOOKS section in this manual page for more
+      info. The default is <i>/usr/share/mylvmbackup</i>.</dd>
+  <dt id="skip_hooks"><a class="permalink" href="#skip_hooks"><b>--skip_hooks</b></a></dt>
+  <dd>Skip invoking any external hooks during the backup.</dd>
+  <dt id="vgname=string"><a class="permalink" href="#vgname=string"><b>--vgname=string</b></a></dt>
+  <dd>Specifies the volume group of the logical volume where the MySQL data
+      directory is located. The default is <i>mysql</i>.</dd>
+  <dt id="lvname=string"><a class="permalink" href="#lvname=string"><b>--lvname=string</b></a></dt>
+  <dd>Specifies the name of the logical volume where the MySQL data directory is
+      located. The default is <i>data</i>.</dd>
+  <dt id="backuplv=string"><a class="permalink" href="#backuplv=string"><b>--backuplv=string</b></a></dt>
+  <dd>Specifies the name used for the snapshot volume. If left empty,
+      <b>_snapshot</b> will simply be appended to the original volume name (e.g.
+      <i>data_snapshot</i>).
+    <p class="Pp">It is possible to use selected
+        <i></i><b><i>timestr()</i></b><i></i> formatting sequences to create
+        snapshot volume names which contain a dynamic date value. This can be
+        useful if you use thin provisioned snapshots as the actual backup, by
+        enabling the <i>keep_snapshot</i> option.</p>
+    <p class="Pp">Currently, the following format strings are supported:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><i></i><span class="Li"><i>%Y</i></span><i></i></dt>
+  <dd>4-digit year (e.g. 2009)</dd>
+  <dt><i></i><span class="Li"><i>%m</i></span><i></i></dt>
+  <dd>Month (01..12)</dd>
+  <dt><i></i><span class="Li"><i>%d</i></span><i></i></dt>
+  <dd>Day of month, leading zero</dd>
+  <dt><i></i><span class="Li"><i>%h</i></span><i></i></dt>
+  <dd>Month abbreviation,</dd>
+  <dt><i></i><span class="Li"><i>%H</i></span><i></i></dt>
+  <dd>Hour, 24 hour clock, leading zero</dd>
+  <dt><i></i><span class="Li"><i>%M</i></span><i></i></dt>
+  <dd>Minute, leading zero</dd>
+  <dt><i></i><span class="Li"><i>%S</i></span><i></i></dt>
+  <dd>Seconds, leading zero</dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">Example:
+    <i></i><span class="Li"><i>$backuplv</i></span><i>=backup-%Y-%m-%d-%H-%M-%S</i>
+    will expand to <i>backup-2013-06-07-14-08-45</i>.</p>
+</div>
+<dl class="Bl-tag">
+  <dt id="keep_snapshot"><a class="permalink" href="#keep_snapshot"><b>--keep_snapshot</b></a></dt>
+  <dd>If this option is given, <i>mylvmbackup</i> will not remove the snapshot
+      before terminating. Note that keeping multiple LVM snapshots open at the
+      same time can reduce I/O performance and you will need to manually discard
+      the snapshot before invoking <i>mylvmbackup</i> again.</dd>
+  <dt id="keep_mount"><a class="permalink" href="#keep_mount"><b>--keep_mount</b></a></dt>
+  <dd>If this option is given, <i>mylvmbackup</i> will not remove the mounted
+      partition before terminating. This option also implies
+      <i>keep_snapshot=1</i>, as it would not be useful if the snapshot is
+      removed. You need to manually unmount this directory before invoking
+      <i>mylvmbackup</i> again.</dd>
+  <dt id="thin"><a class="permalink" href="#thin"><b>--thin</b></a></dt>
+  <dd>If this option is given, <i>mylvmbackup</i> will expect that the LVM
+      volume is using thin provisioning and that the snapshot will use physical
+      space from the existing thin pool. Any size specified with <i>lvsize</i>
+      is ignored.</dd>
+  <dt id="relpath=string"><a class="permalink" href="#relpath=string"><b>--relpath=string</b></a></dt>
+  <dd>Relative path on the logical volume to the MySQL data directory (no
+      leading or trailing slash). Example: the logical volume is mounted on
+      <i>/var/lib</i>, but the MySQL data directory is /var/lib/mysql. In this
+      case, <i>relpath</i> should be set to <i>mysql</i>. The default is the
+      empty string.</dd>
+  <dt id="lvsize=string"><a class="permalink" href="#lvsize=string"><b>--lvsize=string</b></a></dt>
+  <dd>Specifies the size for the snapshot volume. The default is <i>5G</i> (5
+      gigabytes).</dd>
+  <dt id="backuptype=string"><a class="permalink" href="#backuptype=string"><b>--backuptype=string</b></a></dt>
+  <dd>Specifies what type of backup to perform. The available options are
+      <i>tar</i>, <i>rsync</i>, <i>rsnap</i>, <i>zbackup</i> and <i>none</i>.
+      Note that using <i>zbackup</i> still requires a <i>tar</i> executable to
+      prepare the backup archives.</dd>
+  <dt id="backupretention=string"><a class="permalink" href="#backupretention=string"><b>--backupretention=string</b></a></dt>
+  <dd>Specifies how many previous backups (tar archives or rsync directories
+      only) to keep in the backup directory when performing the <i>purge</i>
+      action. The default is <i>0</i> (keep all backups).
+    <p class="Pp">Note that this feature only works on a local backup directory
+        with a static directory name! If you use
+        <i></i><b><i>timestr()</i></b><i></i> formatting sequences for the
+        backup directory, the retention mode will not work.</p>
+    <p class="Pp">The script looks at the last modification time (mtime) of each
+        file and directory to determine which files will be removed.</p>
+    <p class="Pp">Be advised that this operation deletes <b>all</b> files and
+        directories in the backup directory that are older than the last n files
+        (with the exception of hidden (dot) files!</p>
+  </dd>
+  <dt id="prefix=string"><a class="permalink" href="#prefix=string"><b>--prefix=string</b></a></dt>
+  <dd>Prefix added to the backup file names. It is also appended to the name of
+      the directory used to mount the snapshot volume. The default value is
+      <i>backup</i>.</dd>
+  <dt id="suffix=string"><a class="permalink" href="#suffix=string"><b>--suffix=string</b></a></dt>
+  <dd>Suffix added to the backup file names (after the time stamp). The default
+      value is <i>_mysql</i>.</dd>
+  <dt id="datefmt=string"><a class="permalink" href="#datefmt=string"><b>--datefmt=string</b></a></dt>
+  <dd>Format of the time stamp included in the backup file name. See the
+      <i>Date::Format</i> perldoc page for a description of the format. The
+      default value is
+      <i></i><span class="Li"><i>%Y</i></span><i>%m%d_%H%M%S</i>, which creates
+      a time stamp like <i>YYYYMMDD_HHMMSS</i>, e.g. <i>20070531_112549</i> Can
+      be empty as well, to suppress adding a time stamp (e.g. when using rsync
+      to always sync into the same backup directory).</dd>
+  <dt id="mountdir=string"><a class="permalink" href="#mountdir=string"><b>--mountdir=string</b></a></dt>
+  <dd>Path for mounting the snapshot volume to. The default value is
+      <i>/var/run/mysqld/mylvmbackup/mnt/</i>. If the directory does not exist,
+      it will be created.
+    <p class="Pp">It is possible to use selected
+        <i></i><b><i>timestr()</i></b><i></i> formatting sequences to create
+        directory names which contain a dynamic date value. Currently, the
+        following format strings are supported:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><i></i><span class="Li"><i>%Y</i></span><i></i></dt>
+  <dd>4-digit year (e.g. 2009)</dd>
+  <dt><i></i><span class="Li"><i>%m</i></span><i></i></dt>
+  <dd>Month (01..12)</dd>
+  <dt><i></i><span class="Li"><i>%d</i></span><i></i></dt>
+  <dd>Day of month, leading zero</dd>
+  <dt><i></i><span class="Li"><i>%h</i></span><i></i></dt>
+  <dd>Month abbreviation,</dd>
+  <dt><i></i><span class="Li"><i>%H</i></span><i></i></dt>
+  <dd>Hour, 24 hour clock, leading zero</dd>
+  <dt><i></i><span class="Li"><i>%M</i></span><i></i></dt>
+  <dd>Minute, leading zero</dd>
+  <dt><i></i><span class="Li"><i>%S</i></span><i></i></dt>
+  <dd>Seconds, leading zero</dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">Example:
+    <i></i><span class="Li"><i>$mountdir</i></span><i>=/path/to/%Y-%m-%d</i>
+    will expand to <i>/path/to/2009-06-13</i></p>
+</div>
+<dl class="Bl-tag">
+  <dt id="backupdir=string"><a class="permalink" href="#backupdir=string"><b>--backupdir=string</b></a></dt>
+  <dd>Specifies the pathname of the directory where the archive files will be
+      written to. The backup directory must not be on the same volume as the
+      MySQL data directory. If the directory does not exist, it will be created.
+    <p class="Pp">It is possible to use selected
+        <i></i><b><i>timestr()</i></b><i></i> formatting sequences to create
+        directory names which contain a dynamic date value. Currently, the
+        following format strings are supported:</p>
+  </dd>
+</dl>
+<div class="Bd-indent">
+<dl class="Bl-tag">
+  <dt><i></i><span class="Li"><i>%Y</i></span><i></i></dt>
+  <dd>4-digit year (e.g. 2009)</dd>
+  <dt><i></i><span class="Li"><i>%m</i></span><i></i></dt>
+  <dd>Month (01..12)</dd>
+  <dt><i></i><span class="Li"><i>%d</i></span><i></i></dt>
+  <dd>Day of month, leading zero</dd>
+  <dt><i></i><span class="Li"><i>%h</i></span><i></i></dt>
+  <dd>Month abbreviation,</dd>
+  <dt><i></i><span class="Li"><i>%H</i></span><i></i></dt>
+  <dd>Hour, 24 hour clock, leading zero</dd>
+  <dt><i></i><span class="Li"><i>%M</i></span><i></i></dt>
+  <dd>Minute, leading zero</dd>
+  <dt><i></i><span class="Li"><i>%S</i></span><i></i></dt>
+  <dd>Seconds, leading zero</dd>
+</dl>
+</div>
+<div class="Bd-indent">
+<p class="Pp">Example:
+    <i></i><span class="Li"><i>$mountdir</i></span><i>=/path/to/%Y-%m-%d</i>
+    will expand to <i>/path/to/2009-06-13</i></p>
+<p class="Pp">Instead of a local directory, you can also provide a valid rsync
+    URL here, e.g. <i>username@hostname:/path</i>, <i>hostname:path</i> or
+    <i>hostname::rsync-module/path</i>. This requires a properly configured
+    remote rsync setup (e.g. pre-setup SSH keys or a working rsyncd
+    configuration).</p>
+<p class="Pp">Note that the <i>backupretention</i> option does not work for
+    rsync URLs or directory names that use format strings. You need to define a
+    static local directory name in <i>backupdir</i> if you want to use the
+    <i>purge</i> action to automatically remove older backups from the backup
+    directory.</p>
+<p class="Pp">The default is <i>/var/run/mysqld/mylvmbackup/backup/</i></p>
+</div>
+<dl class="Bl-tag">
+  <dt id="mount=string"><a class="permalink" href="#mount=string"><b>--mount=string</b></a></dt>
+  <dd>Specifies the pathname for the <i>mount</i> program. The default is
+      <i>mount</i>.</dd>
+  <dt id="umount=string"><a class="permalink" href="#umount=string"><b>--umount=string</b></a></dt>
+  <dd>Specifies the pathname for the <i>umount</i> program. The default is
+      <i>umount</i>.</dd>
+  <dt id="tar=string"><a class="permalink" href="#tar=string"><b>--tar=string</b></a></dt>
+  <dd>Specifies the pathname for the <i>tar</i> program. The default is
+      <i>tar</i>.</dd>
+  <dt id="tararg=string"><a class="permalink" href="#tararg=string"><b>--tararg=string</b></a></dt>
+  <dd>Specifies the initial arguments for the <i>tar</i> program. The default is
+      <i>cvf</i>.</dd>
+  <dt id="tarsuffixarg=string"><a class="permalink" href="#tarsuffixarg=string"><b>--tarsuffixarg=string</b></a></dt>
+  <dd>Specifies the suffix arguments for the <i>tar</i> program. The default is
+      the empty string. To exclude a database, you would pass <i>--exclude
+      dbname</i> here.</dd>
+  <dt id="tarfilesuffix=string"><a class="permalink" href="#tarfilesuffix=string"><b>--tarfilesuffix=string</b></a></dt>
+  <dd>Specifies the suffix for the tarball. This value should be set according
+      to the selected compression method (e.g. <i>.tar.bz2</i> for bzip2
+      compression). The default is <i>.tar.gz</i>.</dd>
+  <dt id="compress=string"><a class="permalink" href="#compress=string"><b>--compress=string</b></a></dt>
+  <dd>Specifies the name of the compression program. Only used if
+      <i>backuptype</i> is set to <i>tar</i>. Some possibilities are
+      <i>gzip</i>, <i>bzip2</i> or <i>lzma</i>. The program must support reading
+      the to be compressed data from <i>stdin</i> and writing to <i>stdout</i>,
+      without requiring intermediate temporary files (for this reason, 7zip
+      cannot be used). It's also possible to use <i>cat</i>. In this case, no
+      compression will be done. Make sure to update the <i>compressarg</i>
+      option and the <i>tarfilesuffix</i> accordingly. The default is
+      <i>gzip</i>. Can be left empty.</dd>
+  <dt id="compressarg=string"><a class="permalink" href="#compressarg=string"><b>--compressarg=string</b></a></dt>
+  <dd>Specifies the command line options given to the <i>compress</i> program.
+      For <i>gzip</i>, that would be <i>--stdout --verbose --best</i>, for
+      <i>lzma</i> or <i>bzip2</i> <i>--stdout --verbose -7</i> and for
+      <i>cat</i>, it would be empty. The default is <i>--stdout --verbose
+      --best</i>.</dd>
+  <dt id="rsnap=string"><a class="permalink" href="#rsnap=string"><b>--rsnap=string</b></a></dt>
+  <dd>Specifies the pathname for the <i>rsnap</i> program. The default is
+      <i>rsnap</i>.</dd>
+  <dt id="rsnaparg=string"><a class="permalink" href="#rsnaparg=string"><b>--rsnaparg=string</b></a></dt>
+  <dd>Specifies the arguments for the <i>rsnap</i> program. The default is
+      <i>7</i>, which causes it to keep the last 7 snapshot (useful when running
+      <i>mylvmbackup</i> once per day).</dd>
+  <dt id="rsnaprsyncarg=string"><a class="permalink" href="#rsnaprsyncarg=string"><b>--rsnaprsyncarg=string</b></a></dt>
+  <dd>Specifies the arguments for the <i>rsync</i> process that is spawned by
+      <i>rsnap</i>, e.g. <i>--exclude \*.o --bwlimit=8</i>. You don't need to
+      provide the double dashes usually required by <i>rsnap</i> to separate
+      these arguments. Default value is the empty string.</dd>
+  <dt id="rsync=string"><a class="permalink" href="#rsync=string"><b>--rsync=string</b></a></dt>
+  <dd>Specifies the pathname for the <i>rsync</i> program. The default is
+      <i>rsync</i>.</dd>
+  <dt id="rsyncarg=string"><a class="permalink" href="#rsyncarg=string"><b>--rsyncarg=string</b></a></dt>
+  <dd>Specifies the arguments for the <i>rsync</i> program. The default is
+      <i>-avWP</i>. You must ensure that the recursive option is included either
+      implicitly by <i>-a</i>, or explicitly by using <i>-r</i>.</dd>
+  <dt id="zbackup=string"><a class="permalink" href="#zbackup=string"><b>--zbackup=string</b></a></dt>
+  <dd>Specifies the pathname for the <i>zbackup</i> program. The default is
+      <i>zbackup</i>.</dd>
+  <dt id="zbackuparg=string"><a class="permalink" href="#zbackuparg=string"><b>--zbackuparg=string</b></a></dt>
+  <dd>Specifies the arguments for the <i>zbackup</i> program. The default is
+      <i>--non-encrypted</i>.
+    <p class="Pp">You may use <i>--password-file /path/to/pass</i> to create an
+        encrypted zbackup repository. The backup repository located in
+        <i>backupdir</i> will be initialized automatically by running <i>zbackup
+        init</i> before the first invocation.</p>
+  </dd>
+  <dt id="xfs"><a class="permalink" href="#xfs"><b>--xfs</b></a></dt>
+  <dd>Use the <i>nouuid</i> mount option to safely mount snapshot partitions
+      that use the XFS file system.</dd>
+  <dt id="log_method=string"><a class="permalink" href="#log_method=string"><b>--log_method=string</b></a></dt>
+  <dd>How to log output from this script. Valid options are <i>console</i>,
+      <i>syslog</i> or <i>both</i>. The default value is <i>console</i>.
+      Enabling the <i>syslog</i> option requires an installed <i>Sys::Syslog</i>
+      Perl module.</dd>
+  <dt id="syslog_socktype=string"><a class="permalink" href="#syslog_socktype=string"><b>--syslog_socktype=string</b></a></dt>
+  <dd>What type of socket to use for connecting to the syslog service. Valid
+      options are <i>native</i>, <i>tcp</i> and <i>udp</i>. The default value is
+      <i>native</i>.</dd>
+  <dt id="syslog_facility=string"><a class="permalink" href="#syslog_facility=string"><b>--syslog_facility=string</b></a></dt>
+  <dd>Define a particular syslog facility Default value is the empty
+    string.</dd>
+  <dt id="syslog_remotehost=string"><a class="permalink" href="#syslog_remotehost=string"><b>--syslog_remotehost=string</b></a></dt>
+  <dd>Host name of a remote syslog server.</dd>
+  <dt id="mail_report_on=string"><a class="permalink" href="#mail_report_on=string"><b>--mail_report_on=string</b></a></dt>
+  <dd>Enable sending the logging output via email to a specified email address.
+    <p class="Pp">This option requires an installed <i>MIME::Lite</i> Perl
+        module as well as a functional local sendmail (or alternative)
+      facility.</p>
+    <p class="Pp">You should also review and adjust the <i>mail_from</i>,
+        <i>mail_to</i> and <i>mail_subject</i> configuration options to match
+        you requirements.</p>
+    <p class="Pp">Supported values are <i>never</i>, this disables the mail
+        reporting completely. A value of <i>always</i> sends an email report for
+        each invocation of <i>mylvmbackup</i>, <i>errors</i> only sends a report
+        in case of an error condition.</p>
+    <p class="Pp">The default value is <i>never</i>.</p>
+  </dd>
+  <dt id="mail_from=string"><a class="permalink" href="#mail_from=string"><b>--mail_from=string</b></a></dt>
+  <dd>The email address to be used in the <i>From:</i> header for email reports
+      (requires the <i>mail_report</i> option to be set). The default value is
+      <i>root@localhost</i>.</dd>
+  <dt id="mail_to=string"><a class="permalink" href="#mail_to=string"><b>--mail_to=string</b></a></dt>
+  <dd>The email address to be used to send email reports to (requires the
+      <i>mail_report</i> option to be set). The default value is
+      <i>root@localhost</i>.</dd>
+  <dt id="mail_subject=string"><a class="permalink" href="#mail_subject=string"><b>--mail_subject=string</b></a></dt>
+  <dd>The text to be used in the <i>Subject:</i> header for email reports
+      (requires the <i>mail_report</i> option to be set). The default value is
+      &quot;mylvmbackup report for localhost&quot;.</dd>
+  <dt id="configfile=string"><a class="permalink" href="#configfile=string"><b>--configfile=string</b></a></dt>
+  <dd>Specify an alternative configuration file. The default is
+      <i>/etc/mylvmbackup.conf</i>.</dd>
+  <dt id="help"><a class="permalink" href="#help"><b>--help</b></a></dt>
+  <dd>Displays a help message showing the available options.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><b>/etc/mylvbackup.conf</b></dt>
+  <dd>The <i>mylvmbackup</i> configuration file</dd>
+  <dt id="mylvmbackup"><a class="permalink" href="#mylvmbackup"><b>mylvmbackup</b></a></dt>
+  <dd>The executable Perl script that performs the work.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REQUIREMENTS"><a class="permalink" href="#REQUIREMENTS">REQUIREMENTS</a></h1>
+<p class="Pp">For proper operation <i>mylvmbackup</i> requires Perl 5 with the
+    <i>DBI</i> and <i>DBD::mysql</i> modules. It also needs the
+    <i>Config::IniFiles</i> to read the global configuration file of the
+    program. <i>Date::Format</i> is required to create the time stamp used in
+    the backup file names. In addition, it utilizes <i>Getopt::Long</i>,
+    <i>File::Basename</i> and <i>File::Temp</i>, which usually are part of the
+    default Perl distribution. <i>File::Copy::Recursive</i> is used to copy the
+    MySQL configuration file(s). <i>Sys::Syslog</i> is only required in case you
+    want to enable the syslog log facility. The <i>MIME::Lite</i> module is
+    required when you enable the mail reporting functionality. It also requires
+    a functional local sendmail (or alternative) facility.</p>
+<p class="Pp">It also requires several other external programs: GNU <i>tar</i>
+    and <i>gzip</i> to back up the data, LVM utilities (<i>lvcreate</i>,
+    <i>lvremove</i> and <i>lvs</i>) to create and remove the LVM snapshot, and
+    the system utilities <i>mount</i> and <i>umount</i>. Please note that
+    <i>mylvmbackup</i> requires Linux LVM Version 2 or higher. It does not work
+    on LVMv1, as this version does not support writable snapshots.</p>
+<p class="Pp">Optionally, <i>rsync</i> or <i>rsnap</i> may be required instead
+    of <i>tar</i> and <i>gzip</i>, depending on which backup type you
+  choose.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/mount.html"><b>mount</b>(8)</a>, <a class="Xr" href="../1/tar.html"><b>tar</b>(1)</a>, <a class="Xr" href="../8/lvcreate.html"><b>lvcreate</b>(8)</a>,
+    <a class="Xr" href="../8/lvremove.html"><b>lvremove</b>(8)</a>, <a class="Xr" href="../8/lvs.html"><b>lvs</b>(8)</a>, <a class="Xr" href="../8/umount.html"><b>umount</b>(8)</a>, <a class="Xr" href="../1/rsync.html"><b>rsync</b>(1)</a></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">This program was initially written by Aleksey &quot;Walrus&quot;
+    Kishkin from MySQL AB, with suggestions from Peter Zaitsev and Lenz
+  Grimmer.</p>
+<p class="Pp">It is currently maintained by Lenz Grimmer
+    &lt;lenz@grimmer.com&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RESOURCES"><a class="permalink" href="#RESOURCES">RESOURCES</a></h1>
+<p class="Pp">Main web site: &lt;http://www.lenzg.net/mylvmbackup&gt;</p>
+<p class="Pp">Mailing list:
+  &lt;https://launchpad.net/~mylvmbackup-discuss&gt;</p>
+<p class="Pp">Source code, bug tracker:
+    &lt;https://launchpad.net/mylvmbackup&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CREDITS"><a class="permalink" href="#CREDITS">CREDITS</a></h1>
+<p class="Pp">See the file CREDITS included in the distribution for a list of
+    individual contributors.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="COPYING"><a class="permalink" href="#COPYING">COPYING</a></h1>
+<p class="Pp"><i>mylvmbackup</i> is distributed under the GNU public license.
+    See the file COPYING for details.</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">2022-09-22</td>
+    <td class="foot-os">perl v5.36.0</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: mylvmbackup 0.15-1.3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

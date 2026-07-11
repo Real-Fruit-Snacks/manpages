@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="manage iscsi gateway configuration from the command line">
+<title>gwcli(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">gwcli(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#USAGE">USAGE</a></li><li><a href="#QUICKSTART">QUICKSTART</a></li><li><a href="#DISKS">DISKS</a></li><li><a href="#ISCSI-TARGETS">ISCSI-TARGETS</a></li><li><a href="#GATEWAYS">GATEWAYS</a></li><li><a href="#HOST-GROUPS">HOST-GROUPS</a></li><li><a href="#HOSTS">HOSTS</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#CREATING_ISCSI_GATEWAYS">CREATING
+  ISCSI GATEWAYS</a></li><li><a href="#ADDING_AN_RBD">ADDING
+  AN RBD</a></li><li><a href="#CREATING_A_CLIENT">CREATING
+  A CLIENT</a></li><li><a href="#ADDING_DISKS_TO_A_CLIENT">ADDING
+  DISKS TO A CLIENT</a></li><li><a href="#OTHER_COMMANDS">OTHER
+  COMMANDS</a></li><li><a href="#FILES">FILES</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#REPORTING_BUGS">REPORTING
+  BUGS</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">gwcli(8)</td>
+    <td class="head-vol">Ceph iSCSI Gateway Tools</td>
+    <td class="head-rtitle">gwcli(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><b>gwcli</b> - manage iscsi gateway configuration from the command
+    line</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><b>gwcli</b> is a configuration shell interface used for viewing,
+    editing and saving the configuration of a ceph/iSCSI gateway environment. It
+    enables the administrator to define rbd devices, map them across gateway
+    nodes and export them to various clients over iSCSI. In addition to managing
+    the iSCSI related elements of the configuration, the shell provides an
+    overview of the ceph cluster, describing the available pools and the
+    capacity they provide. Since rbd images are thin provisioned, the capacity
+    information also indicates the capacity over-commit of the pools, enabling
+    the admin to make more informed choices when allocating new rbd images.</p>
+<p class="Pp">iSCSI services are implemented by the kernel's LIO target
+    subsystem layer, with iSCSI settings enforced by the rbd-target-gw daemon.
+    The targetcli command may still be used to view lower level detail of the
+    LIO environment, but all changes <b>must</b> be made using the gwcli.</p>
+<p class="Pp">The gwcli shell is similar to the targetcli interface, and is also
+    based on 'configshell'. The layout of the UI is a tree format, and is
+    navigated in much the same way as a filesystem.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="USAGE"><a class="permalink" href="#USAGE">USAGE</a></h1>
+<p class="Pp"><b>gwcli</b> [-d | --debug]</p>
+<p class="Pp">The -d option provides additional verbosity within the shell</p>
+<p class="Pp"><b>gwcli [cmd]</b></p>
+<p class="Pp">Invoke gwcli as root to enter the interactive shell, or supply a
+    command to execute without entering the shell. Within the shell, us
+    <b>ls</b> to list nodes beneath the current path. Moving around the tree is
+    done using the <b>cd</b> command, or by simply entering the 'path' of the
+    new location/node directly. Use <b>help &lt;cmd&gt;</b> for specific help
+    information. The shell provides tab completion for commands and command
+    arguments.</p>
+<p class="Pp">Configuration state is persisted within a rados object stored in
+    the 'rbd' pool. gwcli orchestrates changes across all iscsi gateways via the
+    rbd-target-api service running on each gateway. Once the change to the local
+    LIO subsystem is complete, the change is committed to the rados
+    configuration object. Although 'targetcli' is available, it can only really
+    provide a view of the local LIO configuration.</p>
+<p class="Pp"></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="QUICKSTART"><a class="permalink" href="#QUICKSTART">QUICKSTART</a></h1>
+<p class="Pp">gwcli interacts with an API service provided by each iSCSI
+    gateway's rbd-target-api daemon. The API service is installed with the cli,
+    and can be configured by updating the api_* related settings in
+    '/etc/ceph/iscsi-gateway.cfg'.</p>
+<p class="Pp">Typically, the following options are regarded as site
+  specific;</p>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>api_user = &lt;user_name&gt;</b>
+<p class="Pp"><b>api_password = &lt;password&gt;</b></p>
+<p class="Pp"><b>api_port = &lt;port_number&gt;</b></p>
+<p class="Pp"><b>api_secure = &lt;true or false&gt;</b></p>
+</div>
+<p class="Pp"><b>NB.</b> An example iscsi-gateway.cfg file is provided under
+    /usr/share/doc/ceph-iscsi-config*</p>
+<p class="Pp">Access to the API is normally restricted to the IP's of the
+    gateway nodes, but you may also define other IP addresses that should be
+    granted access to the API by adding the following entry to the configuration
+    file;</p>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>trusted_ip_list =
+  &lt;ip_address,ip_address...&gt;</b></div>
+<p class="Pp">By default the API service is not running with TLS, so for a more
+    secure environment ensure iscsi-gateway.cfg has &quot;api_secure =
+    true&quot; defined. When using secure mode you will need to create the
+    appropriate certificate and private key files, and place them in /etc/ceph
+    as 'iscsi-gateway.crt' and 'iscsi-gateway.key' on <b>each</b> gateway
+  node.</p>
+<p class="Pp">Once these files are inplace across the nodes, the rbd-target-api
+    service can be started. Check that the API service is enabled and in the
+    correct mode by looking at the output of 'systemctl status rbd-target-api'.
+    You should see a message similar to</p>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>* Running on https://0.0.0.0:5000/</b>.</div>
+<p class="Pp">The example gwcli output below shows a small two-gateway
+    configuration, supporting 2 iSCSI clients</p>
+<p class="Pp"></p>
+<p class="Pp">$ sudo gwcli</p>
+<p class="Pp">/&gt; ls</p>
+<p class="Pp"></p>
+<pre>/&gt; ls
+o- / ................................................................... [...]
+<br/>
+  o- clusters .................................................. [Clusters: 1]
+<br/>
+  | o- ceph ...................................................... [HEALTH_OK]
+<br/>
+  |   o- pools .................................................... [Pools: 3]
+<br/>
+  |   | o- ec ......................... [(2+1), Commit: 0b/40G (0%), Used: 0b]
+<br/>
+  |   | o- iscsi ...................... [(x3), Commit: 0b/20G (0%), Used: 18b]
+<br/>
+  |   | o- rbd ........................ [(x3), Commit: 8G/20G (40%), Used: 5K]
+<br/>
+  |   o- topology .......................................... [OSDs: 3,MONs: 3]
+<br/>
+  o- disks .................................................... [8G, Disks: 5]
+<br/>
+  | o- rbd ........................................................ [rbd (8G)]
+<br/>
+  |   o- disk_1 ............................................ [rbd/disk_1 (1G)]
+<br/>
+  |   o- disk_2 ............................................ [rbd/disk_2 (2G)]
+<br/>
+  |   o- disk_3 ............................................ [rbd/disk_3 (2G)]
+<br/>
+  |   o- disk_4 ............................................ [rbd/disk_4 (1G)]
+<br/>
+  |   o- disk_5 ............................................ [rbd/disk_5 (2G)]
+<br/>
+  o- iscsi-targets .............................................. [Targets: 1]
+<br/>
+    o- iqn.2003-01.com.redhat.iscsi-gw:ceph-gw ................. [Gateways: 2]
+<br/>
+      o- disks .................................................... [Disks: 5]
+<br/>
+      | o- rbd/disk_1 ....................................... [Owner: rh7-gw1]
+<br/>
+      | o- rbd/disk_5 ....................................... [Owner: rh7-gw2]
+<br/>
+      o- gateways ...................................... [Up: 2/2, Portals: 2]
+<br/>
+      | o- rh7-gw1 ..................................... [192.168.122.69 (UP)]
+<br/>
+      | o- rh7-gw2 .................................... [192.168.122.104 (UP)]
+<br/>
+      o- host-groups ............................................ [Groups : 1]
+<br/>
+      | o- group1 ....................................... [Hosts: 1, Disks: 1]
+<br/>
+      |   o- iqn.1994-05.com.redhat:rh7-client ........................ [host]
+<br/>
+      |   o- rbd/disk_5 ............................................... [disk]
+<br/>
+      o- hosts .................................................... [Hosts: 2]
+<br/>
+        o- iqn.1994-05.com.redhat:myhost1 ......... [Auth: None, Disks: 1(1G)]
+<br/>
+        | o- lun 0 .......................... [rbd/disk_1(1G), <b>Owner: rh7-gw2]</b>]
+<br/>
+        o- iqn.1994-05.com.redhat:rh7-client  [LOGGED-IN, Auth: CHAP, Disks: 1(2G)]
+<br/>
+          o- lun 0 .......................... [rbd/disk_5(2G), <b>Owner: rh7-gw2]</b>]</pre>
+<p class="Pp">Disks exported through the gateways use ALUA attributes to provide
+    ActiveOptimised and ActiveNonOptimised access to the rbd images. Each disk
+    is assigned a primary owner at creation/import time - shown above with the
+    <b>owner</b> attribute.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DISKS"><a class="permalink" href="#DISKS">DISKS</a></h1>
+<p class="Pp">In order to manage rbd images (disks) within the environment there
+    are several commands that enable you to create, resize and delete rbd's from
+    the ceph cluster. When an rbd image is created, it is registered with all
+    gateways. Part of this registration process defines the gateway that will
+    provide the active I/O path to the LUN (disk) for any/all clients. This
+    means that the iscsi-target definition <i>and</i> the gateway hosts must be
+    defined prior to any disks being created (added to the gateways). It's also
+    important to note that for an rbd image to be compatible with the iSCSI
+    environment, it must have specific image features enabled (exclusive_lock,
+    layering). The easiest way to create new disks is using the <b>/disks
+    create</b> command.</p>
+<dl class="Bl-tag">
+  <dt><b>/disks/ create pool=&lt;pool&gt; image=&lt;image_name&gt;
+    size=&lt;N&gt;G</b></dt>
+  <dd>Using the create command ensure the image features are applied correctly.
+      You can also choose to create your rbd images by some other means, in
+      which case the 'create' command will effectively 'import' the rbd into the
+      configuration leaving any data already on the device, intact.</dd>
+  <dt><b>/disks/&lt;disk_name&gt;/ resize &lt;N&gt;g</b></dt>
+  <dd></dd>
+  <dt><b>/disks resize &lt;disk_name&gt; &lt;new_size&gt;</b></dt>
+  <dd>Use the resize command to increase the capacity of a specific rbd
+    image.</dd>
+  <dt><b>/disks/ delete &lt;disk_name&gt;</b></dt>
+  <dd>The delete command allows you to remove the rbd from the LIO and ceph
+      cluster. Prior to the delete being actioned the current configuration is
+      checked to ensure that the requested rbd image is not masked to any iSCSI
+      client. Once this check is successful, the rbd image will be purged from
+      the LIO environment on each gateway and deleted from the ceph cluster.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="ISCSI-TARGETS"><a class="permalink" href="#ISCSI-TARGETS">ISCSI-TARGETS</a></h1>
+<p class="Pp">The iscsi-target provides the end-point name that clients will
+    know the iSCSI 'cluster' as. The target IQN will be created across all
+    gateways within the configuration. Once the target is defined, the
+    iscsi-target sub-tree is populated with entries for <b>gateways</b> and
+    <b>hosts</b>.</p>
+<dl class="Bl-tag">
+  <dt><b>/iscsi-targets/ create &lt;valid_IQN&gt;</b></dt>
+  <dd>The IQN provided will be validated and defined to the configuration
+      object. Adding gateway nodes will then pick up the configuration's IQN and
+      apply it to their local LIO instance.</dd>
+  <dt><b>/iscsi-targets/ clearconfig confirm=true</b></dt>
+  <dd>The clearconfig command provides the ability to return each of the
+      gateways to their undefined state. However, since this is a disruptive
+      command you must remove the clients and disks first, before issuing a
+      clearconfig.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="GATEWAYS"><a class="permalink" href="#GATEWAYS">GATEWAYS</a></h1>
+<p class="Pp">Gateways provide the access points for rbd images over iSCSI, so
+    there should be a minimum of 2 defined to provide fault tolerance.</p>
+<dl class="Bl-tag">
+  <dt><b>/iscsi-targets/&lt;iqn&gt;/ create &lt;node_name&gt;
+    &lt;portal_ip_address&gt;</b></dt>
+  <dd>Gateways are defined by a node name (preferably a shortname, but it must
+      resolve), and an IPv4/IPv6 address that the iSCSI 'service' will be bound
+      to (i.e. the iSCSI portal IP address). When adding a gateway, the
+      candidate machine will be checked to ensure the relevant files and daemons
+      are in place.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOST-GROUPS"><a class="permalink" href="#HOST-GROUPS">HOST-GROUPS</a></h1>
+<p class="Pp">Host groups provide a more convenient way of managing multiple
+    servers that must share the same disk masking configuration. For example in
+    a RHV/oVirt or Vmware environment, each host needs access to the same LUNs.
+    Host groups allow you to create a logical group which contains the hosts and
+    the disks that each host in the group should have access to. Please note
+    that sharing devices across hosts needs a cluster aware filesystem or
+    equivalent locking to avoid data corruption.</p>
+<dl class="Bl-tag">
+  <dt><b>/iscsi-targets/&lt;iqn&gt;/host-groups/ create | delete
+    &lt;group-name&gt;</b></dt>
+  <dd>Create or delete a given group name. Deleting a group definition does
+      <b>not</b> remove the hosts or LUN masking, it simply removes the logical
+      grouping used for management purposes.</dd>
+  <dt><b>/iscsi-targets/&lt;iqn&gt;/host-groups/&lt;group_name&gt;/ host add |
+    remove &lt;client-iqn&gt;</b></dt>
+  <dd>The host subcommand within a group definition allows you to add and remove
+      hosts from the group. When adding a host, it must not have existing LUN
+      masking in place - this restriction ensure lun id consistency across all
+      hosts within the host group. Removing a host from a group does <b>not</b>
+      automatically remove it's LUN masking.</dd>
+  <dt><b>/iscsi-targets/&lt;iqn&gt;/host-groups/&lt;group_name&gt;/ disk add |
+    remove &lt;pool&gt;.&lt;image_name&gt;</b></dt>
+  <dd>The disk subcommand enables you to add and remove disks to/from all
+      members of the host group.</dd>
+</dl>
+<p class="Pp"></p>
+<div class="Bd-indent"><b>NB.</b>Once a client is a member of a host group, it's
+  disks <b>can only</b> be managed at the group level.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="HOSTS"><a class="permalink" href="#HOSTS">HOSTS</a></h1>
+<p class="Pp">The 'hosts' section defines the iSCSI client definitions
+    (NodeACLs) that provide access to the rbd images. The CLI provides the
+    ability to create and delete clients, define/update chap authentication and
+    add and remove rbd images for the client.</p>
+<dl class="Bl-tag">
+  <dt><b>/iscsi-targets/&lt;iqn&gt;/hosts/ create &lt;client_iqn&gt;</b></dt>
+  <dd>The create command will define the client IQN to all gateways within the
+      configuration. At creation time, the client IQN is added to a ACL that
+      allows normal iSCSI session logins for all clients with the IQN. To enable
+      CHAP authentication use the <b>auth</b> command described below.</dd>
+  <dt><b>/iscsi-targets/&lt;iqn&gt;/hosts/ delete &lt;client_iqn&gt;</b></dt>
+  <dd>The delete command will attempt to remove client IQN from all gateways
+      within the configuration. The client must be logged out, for the delete
+      command to be successful.</dd>
+  <dt><b>/iscsi-targets/&lt;iqn&gt;/hosts/ auth nochap</b></dt>
+  <dd>
+    <pre></pre>
+    CHAP authentication can be reset to initiator based ACLs target wide for all
+      setup ACLs using the <b>nochap</b> keyword. If there are multiple clients,
+      CHAP must be enabled for all clients or disabled for all clients. gwcli
+      does not support mixing CHAP clients with IQN ACL clients.</dd>
+  <dt><b>/iscsi-targets/&lt;iqn&gt;/hosts/&lt;client_iqn&gt;/ auth
+    chap=&lt;user&gt;/&lt;pswd&gt;</b></dt>
+  <dd>
+    <pre></pre>
+    CHAP authentication can be defined for the client with the <b>chap=</b>
+      parameter. The username and password defined here must then be used within
+      the clients login credentials for this iscsi target. If there are multiple
+      clients, CHAP must be enabled for all clients or disabled for all clients.
+      gwcli does not support mixing CHAP clients with IQN ACL clients.</dd>
+  <dt><b>/iscsi-targets/&lt;iqn&gt;/hosts/&lt;client_iqn&gt;/ disk add | remove
+    &lt;disk_name&gt;</b></dt>
+  <dd>
+    <pre></pre>
+    rbd images defined to the iscsi gateway, become LUNs within the LIO
+      environment. These LUNs can be masked to, or masked from specific clients
+      using the <b>disk</b> command. When a disk is masked to a client, the disk
+      is automatically assigned a LUN id. The disk-&gt;LUN id relationship is
+      persisted in the rados configuration object to ensure that the disk always
+      appears on the clients SCSI interface at the same point.
+    <p class="Pp">It is the Administrators responsibility to ensure that any
+        disk shared between clients uses a cluster-aware filesystem to prevent
+        data corruption.</p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<section class="Ss">
+<h2 class="Ss" id="CREATING_ISCSI_GATEWAYS"><a class="permalink" href="#CREATING_ISCSI_GATEWAYS">CREATING
+  ISCSI GATEWAYS</a></h2>
+<dl class="Bl-tag">
+  <dt><b>&gt;/iscsi-targets create
+    iqn.2003-01.com.redhat.iscsi-gw:ceph-igw</b></dt>
+  <dd>Create a iscsi target name of 'iqn.2003-01.com.redhat.iscsi-gw:ceph-igw',
+      that will be used by each gateway node added to the configuration</dd>
+</dl>
+<p class="Pp"><b>&gt;cd
+    /iscsi-targets/iqn.2003-01.com.redhat.iscsi-gw:ceph-igw/gateways</b></p>
+<p class="Pp"><b>&gt;create ceph-gw-1 10.172.19.21</b></p>
+<dl class="Bl-tag">
+  <dt><b>&gt;create ceph-gw-2 10.172.19.22</b></dt>
+  <dd>Create 2 gateways, using servers ceph-gw-1 and ceph-gw-2. The iSCSI
+      portals will be bound to the IP addresses provided. During the
+      registration of a gateway a check is performed to ensure the candidate
+      machine has the required IP address available.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ADDING_AN_RBD"><a class="permalink" href="#ADDING_AN_RBD">ADDING
+  AN RBD</a></h2>
+<dl class="Bl-tag">
+  <dt><b>&gt;/disks/ create pool=rbd image=disk_1 size=50g</b></dt>
+  <dd>Create/import a 50g rbd image and register it with each gateway node</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="CREATING_A_CLIENT"><a class="permalink" href="#CREATING_A_CLIENT">CREATING
+  A CLIENT</a></h2>
+<p class="Pp"><b>&gt;cd
+    /iscsi-targets/iqn.2003-01.com.redhat.iscsi-gw:ceph-igw/hosts/fR</b></p>
+<dl class="Bl-tag">
+  <dt><b>&gt;create iqn.1994-05.com.redhat:rh7-client</b></dt>
+  <dd>Create an iscsi client called 'iqn.1994-05.com.redhat:rh7-client'. The
+      initial client definition will not have CHAP authentication enabled,
+      resulting in red highlighting against this clients summary information in
+      the output of the <b>ls</b> command.</dd>
+</dl>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="ADDING_DISKS_TO_A_CLIENT"><a class="permalink" href="#ADDING_DISKS_TO_A_CLIENT">ADDING
+  DISKS TO A CLIENT</a></h2>
+<dl class="Bl-tag">
+  <dt><b>&gt;/iscsi-target..eph-igw/hosts&gt; cd
+    iqn.1994-05.com.redhat:rh7-client</b></dt>
+  <dd></dd>
+  <dt><b>&gt;disk add rbd/disk_1</b></dt>
+  <dd>The first command navigates to the client's entry in the UI at which point
+      the <b>disk</b> or <b>auth</b> sub-commands may be used. In this example
+      the disk subcommand is used to mask <i>disk_1</i> in the <i>rbd</i> pool
+      to the iSCSI client. The LUN id associated with this device is
+      automatically assigned and maintained by the system.</dd>
+</dl>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OTHER_COMMANDS"><a class="permalink" href="#OTHER_COMMANDS">OTHER
+  COMMANDS</a></h1>
+<dl class="Bl-tag">
+  <dt id="export"><a class="permalink" href="#export"><b>export mode=[ copy
+    ]</b></a></dt>
+  <dd>with the export command a copy of the current configuration can be
+      exported as a backup (mode=copy). The resulting output is written to
+      stdout.</dd>
+  <dt><b>/ceph refresh</b></dt>
+  <dd>refreshes the ceph information present in the UI</dd>
+  <dt id="info"><a class="permalink" href="#info"><b>info</b></a></dt>
+  <dd>when run at the root of the shell (/), info will show you configuration
+      settings such as http mode, API port, local ceph cluster name and 2ndary
+      API trusted IP addresses.</dd>
+  <dt id="goto"><a class="permalink" href="#goto"><b>goto [ gateways | hosts |
+    host-groups | 'bookmark']</b></a></dt>
+  <dd>to ease navigation within the UI, gwcli automatically creates bookmarks
+      for hosts and gateways. This allows you to switch to those sub-trees in
+      the UI by simply using '<b>goto hosts</b>'. The 'goto' command will also
+      work for any other bookmarks you create.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag">
+  <dt><b>~/gwcli.log</b></dt>
+  <dd>log file maintained by gwcli, recording all changes made via the shell
+      interface in a timestamped format.</dd>
+  <dt><b>~/.gwcli/history.txt</b></dt>
+  <dd>log containing a record of all commands executed within the gwcli shell on
+      this system.
+    <p class="Pp"></p>
+  </dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Written by Paul Cuzner (pcuzner@redhat.com)</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="REPORTING_BUGS"><a class="permalink" href="#REPORTING_BUGS">REPORTING
+  BUGS</a></h1>
+<p class="Pp">Report bugs via
+    &lt;https://github.com/ceph/ceph-iscsi-cli/issues&gt;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">Ceph iSCSI Gateway Tools</td>
+    <td class="foot-os">23 Jul 2017</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: ceph-iscsi 3.6-3 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

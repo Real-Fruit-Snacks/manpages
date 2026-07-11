@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="Utility for storing metadata in a LUKSv1 header">
+<title>luksmeta(8) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">luksmeta(8)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#OVERVIEW">OVERVIEW</a></li><li><a href="#UUID_GENERATION">UUID
+  GENERATION</a></li><li><a href="#INITIALIZATION">INITIALIZATION</a></li><li><a href="#METADATA_STATE">METADATA
+  STATE</a></li><li><a href="#MANAGING_METADATA">MANAGING
+  METADATA</a></li><li><a href="#CAVEATS">CAVEATS</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#RETURN_VALUES">RETURN
+  VALUES</a></li><li><a href="#EXAMPLES">EXAMPLES</a></li><li><a href="#AUTHOR">AUTHOR</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">LUKSMETA(8)</td>
+    <td class="head-vol">&#x00A0;</td>
+    <td class="head-rtitle">LUKSMETA(8)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp">luksmeta - Utility for storing metadata in a LUKSv1 header</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<p class="Pp"><b>luksmeta test</b> -d DEVICE</p>
+<p class="Pp"><b>luksmeta nuke</b> -d DEVICE [-f]</p>
+<p class="Pp"><b>luksmeta init</b> -d DEVICE [-f] [-n]</p>
+<p class="Pp"><b>luksmeta show</b> -d DEVICE [-s SLOT]</p>
+<p class="Pp"><b>luksmeta save</b> -d DEVICE [-s SLOT] -u UUID &lt; DATA</p>
+<p class="Pp"><b>luksmeta load</b> -d DEVICE -s SLOT [-u UUID] &gt; DATA</p>
+<p class="Pp"><b>luksmeta wipe</b> -d DEVICE -s SLOT [-u UUID] [-f]</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OVERVIEW"><a class="permalink" href="#OVERVIEW">OVERVIEW</a></h1>
+<p class="Pp">The <b>luksmeta</b> utility enables an administrator to store
+    metadata in the gap between the end of the LUKSv1 header and the start of
+    the encrypted data. This is useful for storing data that is available before
+    the volume is unlocked, usually for use during the volume unlock
+  process.</p>
+<p class="Pp">The metadata is stored in a series of UUID-typed slots, allowing
+    multiple blocks of metadata. Although the <b>luksmeta</b> slots are inspired
+    by the LUKS slots, they are functionally independent and share only a casual
+    relationship. Slots merely provide a hint that a given chunk of metadata is
+    associated with a specific LUKSv1 password (in a slot with the same number).
+    However, <b>luksmeta</b> itself is indifferent to the relationship between a
+    LUKSv1 slot and the correspondly numbered <b>luksmeta</b> slot, with one
+    exception (detailed below).</p>
+<p class="Pp">After a LUKSv1 volume is initialized using <a class="Xr" href="../8/cryptsetup.html"><b>cryptsetup</b>(8)</a>,
+    it must also be initialized for metadata storage by <b>luksmeta init</b>.
+    Once this is complete, the device is ready to store medata.</p>
+<p class="Pp">Data can be written to a slot using <b>luksmeta save</b> or read
+    from a slot using <b>luksmeta load</b>. You can also erase the data in an
+    existing slot using <b>luksmeta wipe</b> or query the slots using
+    <b>luksmeta show</b>.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="UUID_GENERATION"><a class="permalink" href="#UUID_GENERATION">UUID
+  GENERATION</a></h1>
+<p class="Pp">It is often presumed that saving metadata to a slot requires a
+    specific UUID or that there is an official registry of UUID types. This is
+    incorrect.</p>
+<p class="Pp">UUID stands for Universally Unique IDentifier. UUIDs are a
+    standardized, widely-used data type used for identification without a
+    central registry. For the relevant standards, see ISO 9834-8:2005 and RFC
+    4122.</p>
+<p class="Pp">UUIDs are large enough that collision is practically impossible.
+    So if your application wants to store data in a <b>luksmeta</b> slot, just
+    generate your own UUID and use it consistently to refer to your type of
+    data. If you have multiple types of data, feel free to generate multiple
+    UUIDs.</p>
+<p class="Pp">The easiest way to generate a UUID is to use <a class="Xr" href="../1/uuidgen.html"><b>uuidgen</b>(1)</a>.
+    However, any compliant UUID generator will suffice.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="INITIALIZATION"><a class="permalink" href="#INITIALIZATION">INITIALIZATION</a></h1>
+<p class="Pp">Before reading or writing metadata, the LUKSv1 block device must
+    be initialized for metadata storage. Three commands help with this process:
+    <b>luksmeta test</b>, <b>luksmeta nuke</b> and <b>luksmeta init</b>.</p>
+<p class="Pp">The <b>luksmeta test</b> command simply checks an existing block
+    device to see if it is initialized for metadata storage. This command does
+    not provide any output, so be sure to check its return code (see below).</p>
+<p class="Pp">The <b>luksmeta nuke</b> command will zero (erase) the entire
+    LUKSv1 header gap. Since this operation is destructive, user confirmation
+    will be required before clearing the gap unless the <b>-f</b> option is
+    supplied.</p>
+<p class="Pp">The <b>luksmeta init</b> command initializes the LUKSv1 block
+    device for metadata storage. This process will wipe out any data in the
+    LUKSv1 header gap. For this reason, this command will require user
+    confirmation before any data is written unless the <b>-f</b> option is
+    supplied. Note that this command succeeds without any modification if the
+    device is already initialized. If you would like to force the creation of
+    clean initialization state, you can specify the <b>-n</b> option to nuke the
+    LUKSv1 header gap before initialization (but after user confirmation).</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="METADATA_STATE"><a class="permalink" href="#METADATA_STATE">METADATA
+  STATE</a></h1>
+<p class="Pp">The <b>luksmeta show</b> command displays the current state of
+    slots on the LUKSv1 block device. If no slot is specified, it prints a table
+    consisting of the slot number, the corresponding LUKSv1 slot state and the
+    UUID of the data stored in the <b>luksmeta</b> slot (or &quot;empty&quot; if
+    no data is stored). If a slot is specified, this command simply prints out
+    the UUID of the data in the slot. If the slot does not contain data, it
+    prints nothing.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="MANAGING_METADATA"><a class="permalink" href="#MANAGING_METADATA">MANAGING
+  METADATA</a></h1>
+<p class="Pp">Managing the metadata in the slots is performed with three
+    commands: <b>luksmeta save</b>, <b>luksmeta load</b> and <b>luksmeta
+    wipe</b>. These commands write metadata to a slot, read metadata from a slot
+    and erase metadata in a slot, respectively.</p>
+<p class="Pp">The <b>luksmeta save</b> command reads metadata on standard input
+    and writes it to the specified slot using the specified UUID. If no slot is
+    specified, <b>luksmeta</b> will search for the first slot number for which
+    the LUKSv1 slot is inactive and the <b>luksmeta</b> slot is empty. This
+    represents the only official correlation between LUKSv1 slots and
+    <b>luksmeta</b> slots. In this case, the metadata is written to the first
+    applicable slot using the specified UUID and the slot number is printed to
+    standard output. In either case, this command will never overwrite existing
+    data. To replace data in a slot you will need to execute <b>luksmeta
+    wipe</b> before <b>luksmeta save</b>.</p>
+<p class="Pp">The <b>luksmeta load</b> command reads data from the specified
+    slot and writes it to standard output. If a UUID is specified, the command
+    will verify that the UUID associated with the metadata in the slot matches
+    the specified UUID. This type check helps to ensure that you always receive
+    the type of data you are expecting as output. If the UUIDs do not match, the
+    command will fail.</p>
+<p class="Pp">The <b>luksmeta wipe</b> command erases the data from the given
+    slot. If a UUID is specified, the command will verify that the UUID
+    associated with the metadata in the slot matches the specified UUID. This
+    type check helps to ensure that you only erase the data you intended to
+    erase. Because this is a destructive operation, this command will require
+    user confirmation before any data is erased, unless the <b>-f</b> option is
+    supplied. Note that this command succeeds if you attempt to wipe a slot that
+    is already empty.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="CAVEATS"><a class="permalink" href="#CAVEATS">CAVEATS</a></h1>
+<p class="Pp">The amount of storage in the LUKSv1 header gap is extremely
+    limited. It also varies based upon the configuration used by LUKSv1 at
+    device initialization time. In some LUKSv1 configurations, there is not even
+    enough space for all the metadata slots even at the smallest possible slot
+    size.</p>
+<p class="Pp">During the design of this utility, we considered it likely that
+    users would want to reduce the number of usable slots in exchange for more
+    storage space in the slots used. In order to provide this flexibility, the
+    amount of storage available per-slot is dynamic. Put simply, slots are not a
+    fixed size. This means that it is possible (and even somewhat likely) to
+    encounter an error during <b>luksmeta save</b> indicating that there is
+    insufficient space.</p>
+<p class="Pp">This error is not a programming bug. If you encounter this error
+    it likely means that either all space is being consumed by the
+    already-written slots or that the metadata you are attempting to write
+    simply does not fit.</p>
+<p class="Pp">You can attempt to resolve this problem by calling <b>luksmeta
+    wipe</b> on slots that are no longer in use. This will release the storage
+    space for use by other slots. Note that <b>luksmeta</b> does not, however,
+    currently perform defragmentation since the number of usable blocks is
+    rather limited. You can attempt to manually get around this by extracting
+    all slot data, wiping the slots and reloading them in order. However, this
+    operation is potentially dangerous and should be undertaken with great
+  care.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<div class="Bd-indent">&#x2022;<b>-d</b> <i>DEVICE</i>,
+  <b>--device</b>=<i>DEVICE</i> : The device on which to perform the
+  operation.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>-s</b> <i>SLOT</i>, <b>--slot</b>=<i>SLOT</i>
+  : The slot number on which to perform the operation.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>-u</b> <i>UUID</i>, <b>--uuid</b>=<i>UUID</i>
+  : The UUID to associate with the operation.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>-f</b>, <b>--force</b> : Forcibly suppress all
+  user prompting.</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="RETURN_VALUES"><a class="permalink" href="#RETURN_VALUES">RETURN
+  VALUES</a></h1>
+<p class="Pp">This command uses the return values as defined by
+    <b>sysexit.h</b>. The following are general errors whose meaning is shared
+    by all <b>luksmeta</b> commands:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>EX_OK</b> : The operation was
+  successful.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>EX_OSERR</b> : An undefined operating system
+  error occurred.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>EX_USAGE</b> : The program was called with
+  invalid parameters.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>EX_IOERR</b> : An IO error occurred when
+  writing to the device.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>EX_OSFILE</b> : The device is not initialized
+  or is corrupted.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>EX_NOPERM</b> : The user did not grant
+  permission during confirmation.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>EX_NOINPUT</b> : An error occurred while
+  reading from standard input.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>EX_DATAERR</b> : The specified UUID does not
+  match the slot UUID.</div>
+<p class="Pp"></p>
+<div class="Bd-indent">&#x2022;<b>EX_CANTCREAT</b> : There is insufficient space
+  in LUKSv1 header.</div>
+<p class="Pp">Additionally, <b>luksmeta save</b> will return
+    <b>EX_UNAVAILABLE</b> when you attempt to save data into a slot that is
+    already used. Likewise, <b>luksmeta load</b> will return
+    <b>EX_UNAVAILABLE</b> when you attempt to read from an empty slot.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="EXAMPLES"><a class="permalink" href="#EXAMPLES">EXAMPLES</a></h1>
+<p class="Pp">Destroy all data (including LUKSMeta data) in the LUKSv1 header
+    gap and initialize the gap for LUKSMeta storage:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ luksmeta init -n -f -d /dev/sdz</pre>
+</div>
+<p class="Pp">If already initialized, do nothing. Otherwise, destroy all
+    non-LUKSMeta data in the LUKSv1 header gap and initialize the gap for
+    LUKSMeta storage:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ luksmeta init -f -d /dev/sdz</pre>
+</div>
+<p class="Pp">Write some data to a slot:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ UUID=*uuidgen*
+$ echo $UUID
+31c25e3b-b8e2-4eaa-a427-23aa882feef2
+$ echo &quot;Hello, World&quot; | luksmeta save -d /dev/sdz -s 0 -u $UUID</pre>
+</div>
+<p class="Pp">Read the data back:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ luksmeta load -d /dev/sdz -s 0 -u $UUID
+Hello, World</pre>
+</div>
+<p class="Pp">Wipe the data from the slot:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ luksmeta wipe -d /dev/sdz -s 0 -u $UUID</pre>
+</div>
+<p class="Pp">Erase all trace of LUKSMeta:</p>
+<p class="Pp"></p>
+<div class="Bd-indent">
+<pre>$ luksmeta nuke -f -d /dev/sdz</pre>
+</div>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp">Nathaniel McCallum <i></i> &lt;npmccallum@redhat.com&gt;</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../8/cryptsetup.html"><b>cryptsetup</b>(8)</a>, <a class="Xr" href="../1/uuidgen.html"><b>uuidgen</b>(1)</a></p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date"></td>
+    <td class="foot-os">&#x00A0;</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: luksmeta 9-4 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>

@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en" data-root="../../">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+<meta name="description" content="FUSE-based single file backing store via Amazon S3">
+<title>s3backer(1) — manpages</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="manifest" href="../../manifest.webmanifest">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/app.css">
+<link rel="stylesheet" href="../../assets/pet.css">
+<script>try{var t=localStorage.getItem('twb-theme');if(t)document.documentElement.setAttribute('data-theme',t);var pm=localStorage.getItem('twb-pet');if(pm!=='cursor')document.documentElement.setAttribute('data-pet',pm==='off'?'off':'float');var ps=parseInt(localStorage.getItem('twb-pet-size'),10);if(ps>=16&&ps<=64)document.documentElement.style.setProperty('--pet-size',ps+'px');var po=parseInt(localStorage.getItem('twb-pet-opacity'),10);if(po>=15&&po<=100)document.documentElement.style.setProperty('--pet-base-opacity',(po/100).toFixed(3));}catch(e){}</script>
+</head>
+<body>
+<a class="skip-link" href="#content">skip to content</a>
+<header class="site-header">
+  <a class="brand" href="../../index.html">man<span class="brand-accent">pages</span></a>
+  <div class="search-wrap">
+    <span class="prompt-char">❯</span>
+    <input id="search" type="search" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" aria-label="Search man pages" placeholder="search man pages  ( / )" autocomplete="off" spellcheck="false">
+    <ul id="results" role="listbox" aria-label="Search results" hidden></ul>
+  </div>
+  <a class="nav-link" href="../../browse/index.html">browse</a>
+  <button id="theme-toggle" type="button" title="toggle theme">◐</button>
+</header>
+<main class="page">
+  <nav class="toc" aria-label="Sections">
+    <div class="toc-title">s3backer(1)</div>
+    <ul><li><a href="#NAME">NAME</a></li><li><a href="#SYNOPSIS">SYNOPSIS</a></li><li><a href="#DESCRIPTION">DESCRIPTION</a></li><li><a href="#Consistency_Guarantees">Consistency
+  Guarantees</a></li><li><a href="#Zeroed_Block_Optimization">Zeroed
+  Block Optimization</a></li><li><a href="#File_and_Block_Size_Auto-Detection">File
+  and Block Size Auto-Detection</a></li><li><a href="#Block_Cache">Block
+  Cache</a></li><li><a href="#Read_Ahead">Read
+  Ahead</a></li><li><a href="#Encryption_and_Authentication">Encryption
+  and Authentication</a></li><li><a href="#Compression">Compression</a></li><li><a href="#Server_Side_Encryption">Server
+  Side Encryption</a></li><li><a href="#Read-Only_Access">Read-Only
+  Access</a></li><li><a href="#Simultaneous_Mounts">Simultaneous
+  Mounts</a></li><li><a href="#Statistics_File">Statistics
+  File</a></li><li><a href="#Logging">Logging</a></li><li><a href="#OPTIONS">OPTIONS</a></li><li><a href="#FILES">FILES</a></li><li><a href="#SEE_ALSO">SEE
+  ALSO</a></li><li><a href="#BUGS">BUGS</a></li><li><a href="#AUTHOR">AUTHOR</a></li></ul>
+  </nav>
+  <article class="man-content" id="content">
+<table class="head">
+  <tr>
+    <td class="head-ltitle">S3BACKER(1)</td>
+    <td class="head-vol">General Commands Manual</td>
+    <td class="head-rtitle">S3BACKER(1)</td>
+  </tr>
+</table>
+<div class="manual-text">
+<section class="Sh">
+<h1 class="Sh" id="NAME"><a class="permalink" href="#NAME">NAME</a></h1>
+<p class="Pp"><code class="Nm">s3backer</code> &#x2014;
+    <span class="Nd">FUSE-based single file backing store via Amazon
+  S3</span></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SYNOPSIS"><a class="permalink" href="#SYNOPSIS">SYNOPSIS</a></h1>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">s3backer</code></td>
+    <td>[options] <var class="Ar">bucket</var>
+      <var class="Ar">/mount/point</var></td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">s3backer</code></td>
+    <td><code class="Fl">--test</code>
+      [options]&#x00A0;<var class="Ar">dir</var>
+      <var class="Ar">/mount/point</var></td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">s3backer</code></td>
+    <td><code class="Fl">--erase</code>
+      [options]&#x00A0;<var class="Ar">bucket</var></td>
+  </tr>
+</table>
+<p class="Pp"></p>
+<br/>
+<table class="Nm">
+  <tr>
+    <td><code class="Nm">s3backer</code></td>
+    <td><code class="Fl">--reset-mounted-flag</code>
+      [options]&#x00A0;<var class="Ar">bucket</var></td>
+  </tr>
+</table>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="DESCRIPTION"><a class="permalink" href="#DESCRIPTION">DESCRIPTION</a></h1>
+<p class="Pp"><code class="Nm">s3backer</code> is a filesystem that contains a
+    single file backed by the Amazon Simple Storage Service (Amazon S3). As a
+    filesystem, it is very simple: it provides a single normal file having a
+    fixed size. Underneath, the file is divided up into blocks, and the content
+    of each block is stored in a unique Amazon S3 object. In other words, what
+    <code class="Nm">s3backer</code> provides is really more like an S3-backed
+    virtual hard disk device, rather than a filesystem.</p>
+<p class="Pp">In typical usage, a `normal' filesystem is mounted on top of the
+    file exported by the <code class="Nm">s3backer</code> filesystem using a
+    loopback mount (or disk image mount on Mac OS X).</p>
+<p class="Pp">This arrangement has several benefits compared to more complete S3
+    filesystem implementations:</p>
+<dl class="Bl-tag">
+  <dt>o</dt>
+  <dd>By not attempting to implement a complete filesystem, which is a complex
+      undertaking and difficult to get right, <code class="Nm">s3backer</code>
+      can stay very lightweight and simple. Only three HTTP operations are used:
+      GET, PUT, and DELETE. All of the experience and knowledge about how to
+      properly implement filesystems that already exists can be reused.</dd>
+  <dt>o</dt>
+  <dd>By utilizing existing filesystems, you get full UNIX filesystem semantics.
+      Subtle bugs or missing functionality relating to hard links, extended
+      attributes, POSIX locking, etc. are avoided.</dd>
+  <dt>o</dt>
+  <dd>The gap between normal filesystem semantics and Amazon S3 ``eventual
+      consistency'' is more easily and simply solved when one can interpret S3
+      objects as simple device blocks rather than filesystem objects (see
+      below).</dd>
+  <dt>o</dt>
+  <dd>When storing your data on Amazon S3 servers, which are not under your
+      control, the ability to encrypt and authenticate data becomes a critical
+      issue. <code class="Nm">s3backer</code> supports secure encryption and
+      authentication. Alternately, the encryption capability built into the
+      Linux loopback device can be used.</dd>
+  <dt>o</dt>
+  <dd>Since S3 data is accessed over the network, local caching is also very
+      important for performance reasons. Since <code class="Nm">s3backer</code>
+      presents the equivalent of a virtual hard disk to the kernel, most of the
+      filesystem caching can be done where it should be: in the kernel, via the
+      kernel's page cache. However <code class="Nm">s3backer</code> also
+      includes its own internal block cache for increased performance, using
+      asynchronous worker threads to take advantage of the parallelism inherent
+      in the network.</dd>
+</dl>
+<section class="Ss">
+<h2 class="Ss" id="Consistency_Guarantees"><a class="permalink" href="#Consistency_Guarantees">Consistency
+  Guarantees</a></h2>
+<p class="Pp">Amazon S3 makes relatively weak guarantees relating to the timing
+    and consistency of reads vs. writes (collectively known as ``eventual
+    consistency''). <code class="Nm">s3backer</code> includes logic and
+    configuration parameters to work around these limitations, allowing the user
+    to guarantee consistency to whatever level desired, up to and including 100%
+    detection and avoidance of incorrect data. These are:</p>
+<dl class="Bl-tag">
+  <dt>1.</dt>
+  <dd><code class="Nm">s3backer</code> enforces a minimum delay between
+      consecutive PUT or DELETE operations on the same block. This ensures that
+      Amazon S3 doesn't receive these operations out of order.</dd>
+  <dt>2.</dt>
+  <dd><code class="Nm">s3backer</code> maintains an internal block MD5 checksum
+      cache, which enables automatic detection and rejection of `stale' blocks
+      returned by GET operations.</dd>
+</dl>
+<p class="Pp">This logic is configured by the following command line options:
+    <code class="Fl">--md5CacheSize</code>,
+    <code class="Fl">--md5CacheTime</code>, and
+    <code class="Fl">--minWriteDelay</code>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Zeroed_Block_Optimization"><a class="permalink" href="#Zeroed_Block_Optimization">Zeroed
+  Block Optimization</a></h2>
+<p class="Pp">As a simple optimization, <code class="Nm">s3backer</code> does
+    not store blocks containing all zeroes; instead, they are simply deleted.
+    Conversely, reads of non-existent blocks will contain all zeroes. In other
+    words, the backed file is always maximally sparse.</p>
+<p class="Pp">As a result, blocks do not need to be created before being used
+    and no special initialization is necessary when creating a new
+  filesystem.</p>
+<p class="Pp">When the <code class="Fl">--listBlocks</code> flag is given,
+    <code class="Nm">s3backer</code> will list all existing blocks at startup so
+    it knows ahead of time exactly which blocks are empty.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="File_and_Block_Size_Auto-Detection"><a class="permalink" href="#File_and_Block_Size_Auto-Detection">File
+  and Block Size Auto-Detection</a></h2>
+<p class="Pp">As a convenience, whenever the first block of the backed file is
+    written, <code class="Nm">s3backer</code> includes as meta-data (in the
+    ``x-amz-meta-s3backer-filesize'' header) the total size of the file. Along
+    with the size of the block itself, this value can be checked and/or
+    auto-detected later when the filesystem is remounted, eliminating the need
+    for the <code class="Fl">--blockSize</code> or
+    <code class="Fl">--size</code> flags to be explicitly provided and avoiding
+    accidental mis-interpretation of an existing filesystem.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Block_Cache"><a class="permalink" href="#Block_Cache">Block
+  Cache</a></h2>
+<p class="Pp"><code class="Nm">s3backer</code> includes support for an internal
+    block cache to increase performance. The block cache cache is completely
+    separate from the MD5 cache which only stores MD5 checksums transiently and
+    whose sole purpose is to mitigate ``eventual consistency''. The block cache
+    is a traditional cache containing cached data blocks. When full, clean
+    blocks are evicted as necessary in LRU order.</p>
+<p class="Pp">Reads of cached blocks will return immediately with no network
+    traffic. Writes to the cache also return immediately and trigger an
+    asynchronous write operation to the network via a separate worker thread.
+    Because the kernel typically writes blocks through FUSE filesystems one at a
+    time, performing writes asynchronously allows
+    <code class="Nm">s3backer</code> to take advantage of the parallelism
+    inherent in the network, vastly improving write performance.</p>
+<p class="Pp">The block cache can be configured to store the cached data in a
+    local file instead of in memory. This permits larger cache sizes and allows
+    <code class="Nm">s3backer</code> to reload cached data after a restart.
+    Reloaded data is verified via MD5 checksum with Amazon S3 before reuse.</p>
+<p class="Pp">The block cache is configured by the following command line
+    options: <code class="Fl">--blockCacheFile</code>,
+    <code class="Fl">--blockCacheMaxDirty</code>,
+    <code class="Fl">--blockCacheNoVerify</code>,
+    <code class="Fl">--blockCacheSize</code>,
+    <code class="Fl">--blockCacheSync</code>,
+    <code class="Fl">--blockCacheThreads</code>,
+    <code class="Fl">--blockCacheTimeout</code>,
+    <code class="Fl">--blockCacheWriteDelay</code>, and
+    <code class="Fl">--blockCacheRecoverDirtyBlocks</code>.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Read_Ahead"><a class="permalink" href="#Read_Ahead">Read
+  Ahead</a></h2>
+<p class="Pp"><code class="Nm">s3backer</code> implements a simple read-ahead
+    algorithm in the block cache. When a configurable number of blocks are read
+    in order, block cache worker threads are awoken to begin reading subsequent
+    blocks into the block cache. Read ahead continues as long as the kernel
+    continues reading blocks sequentially. The kernel typically requests blocks
+    one at a time, so having multiple worker threads already reading the next
+    few blocks improves read performance by taking advantage of the parallelism
+    inherent in the network.</p>
+<p class="Pp">Note that the kernel implements a read ahead algorithm as well;
+    its behavior should be taken into consideration. By default,
+    <code class="Nm">s3backer</code> passes the <code class="Fl">-o</code>
+    <var class="Ar">max_readahead=0</var> option to FUSE.</p>
+<p class="Pp">Read ahead is configured by the
+    <code class="Fl">--readAhead</code> and
+    <code class="Fl">--readAheadTrigger</code> command line options.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Encryption_and_Authentication"><a class="permalink" href="#Encryption_and_Authentication">Encryption
+  and Authentication</a></h2>
+<p class="Pp"><code class="Nm">s3backer</code> supports encryption via the
+    <code class="Fl">--encrypt</code>, <code class="Fl">--password</code>, and
+    <code class="Fl">--passwordFile</code> flags. When encryption is enabled,
+    SHA1 HMAC authentication is also automatically enabled, and
+    <code class="Nm">s3backer</code> rejects any blocks that are not properly
+    encrypted and signed.</p>
+<p class="Pp">Encrypting at the <code class="Nm">s3backer</code> layer is
+    preferable to encrypting at an upper layer (e.g., at the loopback device
+    layer), because if the data <code class="Nm">s3backer</code> sees is already
+    encrypted it can't optimize away zeroed blocks or do meaningful
+  compression.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Compression"><a class="permalink" href="#Compression">Compression</a></h2>
+<p class="Pp"><code class="Nm">s3backer</code> supports block-level compression,
+    which minimizes transfer time and storage costs.</p>
+<p class="Pp">Compression is configured via the
+    <code class="Fl">--compress</code> flag. Compression is automatically
+    enabled when encryption is enabled.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Server_Side_Encryption"><a class="permalink" href="#Server_Side_Encryption">Server
+  Side Encryption</a></h2>
+<p class="Pp"><code class="Nm">s3backer</code> supports server side encryption
+    via the <code class="Fl">--sse</code> flag.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Read-Only_Access"><a class="permalink" href="#Read-Only_Access">Read-Only
+  Access</a></h2>
+<p class="Pp">An Amazon S3 account is not required in order to use
+    <code class="Nm">s3backer</code>. The filesystem must already exist and have
+    S3 objects with ACL's configured for public read access (see
+    <code class="Fl">--accessType</code> below); users should perform the
+    looback mount with the read-only flag (see
+    <a class="Xr" href="../8/mount.html">mount(8)</a>) and provide the
+    <code class="Fl">--readOnly</code> flag to <code class="Nm">s3backer</code>.
+    This mode of operation facilitates the creation of public, read-only
+    filesystems.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Simultaneous_Mounts"><a class="permalink" href="#Simultaneous_Mounts">Simultaneous
+  Mounts</a></h2>
+<p class="Pp">Although it functions over the network, the
+    <code class="Nm">s3backer</code> filesystem is not a distributed filesystem
+    and does not support simultaneous read/write mounts. (This is not something
+    you would normally do with a hard-disk partition either.) As a safety
+    measure, <code class="Nm">s3backer</code> attempts to detect this situation
+    using an 'already mounted' flag in the data store, and will fail to start if
+    it does.</p>
+<p class="Pp">This detection may produce a false positive if a former
+    <code class="Nm">s3backer</code> process was not shutdown cleanly; if so,
+    the <code class="Fl">--reset-mounted-flag</code> flag can be used to reset
+    the 'already mounted' flag. But see also BUGS below.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Statistics_File"><a class="permalink" href="#Statistics_File">Statistics
+  File</a></h2>
+<p class="Pp"><code class="Nm">s3backer</code> populates the filesystem with a
+    human-readable statistics file. Use <code class="Fl">--statsFilename</code>
+    to change the name of this file (default `stats'). The statistics can be
+    reset to zero by attempting to remove the file.</p>
+</section>
+<section class="Ss">
+<h2 class="Ss" id="Logging"><a class="permalink" href="#Logging">Logging</a></h2>
+<p class="Pp">In normal operation <code class="Nm">s3backer</code> will log via
+    <a class="Xr" href="../3/syslog.html">syslog(3)</a>. When run with the
+    <code class="Fl">-d</code> or <code class="Fl">-f</code> flags,
+    <code class="Nm">s3backer</code> will log to standard error.</p>
+</section>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="OPTIONS"><a class="permalink" href="#OPTIONS">OPTIONS</a></h1>
+<p class="Pp">Each command line flag has two forms, for example
+    <code class="Fl">--accessFile=FILE</code> and <code class="Fl">-o</code>
+    <var class="Ar">accessFile=FILE</var>. Only the first form is shown below.
+    Either form many be used; both are equivalent. The second form allows mount
+    options to be specified directly in <span class="Pa">/etc/fstab</span> and
+    passed seamlessly to <code class="Nm">s3backer</code> by FUSE.</p>
+<dl class="Bl-tag">
+  <dt id="accessFile=FILE"><a class="permalink" href="#accessFile=FILE"><code class="Fl">--accessFile=FILE</code></a></dt>
+  <dd>Specify a file containing `accessID:accessKey' pairs, one per-line. Blank
+      lines and lines beginning with a `#' are ignored. If no
+      <code class="Fl">--accessKey</code> is specified, this file will be
+      searched for the entry matching the access ID specified via
+      <code class="Fl">--accessId;</code> if neither
+      <code class="Fl">--accessKey</code> nor <code class="Fl">--accessId</code>
+      is specified, the first entry in this file will be used. Default value is
+      <span class="Pa">$HOME/.s3backer_passwd</span>.</dd>
+  <dt id="accessId=ID"><a class="permalink" href="#accessId=ID"><code class="Fl">--accessId=ID</code></a></dt>
+  <dd>Specify Amazon S3 access ID. Specify an empty string to force no access
+      ID. If no access ID is specified (and none is found in the access file)
+      then <code class="Nm">s3backer</code> will still function, but only reads
+      of publicly available filesystems will work.</dd>
+  <dt id="accessKey=KEY"><a class="permalink" href="#accessKey=KEY"><code class="Fl">--accessKey=KEY</code></a></dt>
+  <dd>Specify Amazon S3 access key. To avoid publicizing this secret via the
+      command line, use <code class="Fl">--accessFile</code> instead of this
+      flag.</dd>
+  <dt id="accessType=TYPE"><a class="permalink" href="#accessType=TYPE"><code class="Fl">--accessType=TYPE</code></a></dt>
+  <dd>Specify the Amazon S3 access privilege ACL type for newly written blocks.
+      The value must be one of `private', `public-read', `public-read-write', or
+      `authenticated-read'. Default is `private'.</dd>
+  <dt id="accessEC2IAM=ROLE"><a class="permalink" href="#accessEC2IAM=ROLE"><code class="Fl">--accessEC2IAM=ROLE</code></a></dt>
+  <dd>Download access credentials and security token in JSON document form from
+      <var class="Ar">http://169.254.169.254/latest/meta-data/iam/security-credentials/ROLE</var>
+      every five minutes.
+    <p class="Pp">This option allows S3 credentials to be provided automatically
+        via the specified IAM role to <code class="Nm">s3backer</code> when
+        running on an Amazon EC2 instance.</p>
+  </dd>
+  <dt id="authVersion=TYPE"><a class="permalink" href="#authVersion=TYPE"><code class="Fl">--authVersion=TYPE</code></a></dt>
+  <dd>Specify how to authenticate requests. There are two supported
+      authentication methods: <var class="Ar">aws2</var> is the original AWS
+      authentication scheme. <var class="Ar">aws4</var> is the newer,
+      recommended authentication scheme.
+    <p class="Pp"><var class="Ar">aws4</var> is the default setting starting in
+        version 1.4, and is required for certain non-US regions, while
+        <var class="Ar">aws2</var> may still be required by some non-Amazon S3
+        providers.</p>
+  </dd>
+  <dt id="baseURL=URL"><a class="permalink" href="#baseURL=URL"><code class="Fl">--baseURL=URL</code></a></dt>
+  <dd>Specify the base URL, which must end in a forward slash. Default is
+      `http://s3.amazonaws.com/'.</dd>
+  <dt id="blockCacheFile=FILE"><a class="permalink" href="#blockCacheFile=FILE"><code class="Fl">--blockCacheFile=FILE</code></a></dt>
+  <dd>Specify a file in which to store cached data blocks. Without this flag,
+      the block cache lives entirely in process memory and the cached data
+      disappears when <code class="Nm">s3backer</code> is stopped. The file will
+      be created if it doesn't exist.
+    <p class="Pp">Cache files that have been created by previous invocations of
+        <code class="Nm">s3backer</code> are reusable as long as they were
+        created with the same configured block size (if not, startup will fail).
+        This is true even if <code class="Nm">s3backer</code> was stopped
+        abruptly, e.g., due to a system crash; however, this guarantee rests on
+        the assumption that the filesystem containing the cache file will not
+        reorder writes across calls to
+        <a class="Xr" href="../2/fsync.html">fsync(2)</a>.</p>
+    <p class="Pp">If an existing cache is used but was created with a different
+        size, <code class="Nm">s3backer</code> will automatically expand or
+        shrink the file at startup. When shrinking, blocks that don't fit in the
+        new, smaller cache are discarded. This process also compacts the cache
+        file to the extent possible.</p>
+    <p class="Pp">By default, only clean cache blocks are recoverable after a
+        restart. This means a system crash will cause dirty blocks in the cache
+        to be lost (of course, that is the case with an in-memory cache as
+        well).</p>
+    <p class="Pp">With the newer cache file format introduced in release 1.5.0,
+        you can recover these dirty blocks by specifying the
+        <code class="Fl">--blockCacheRecoverDirtyBlocks</code> option. This will
+        cause any dirty blocks in the cache file to be made writable again on
+        startup. If your cache file was created with a prior release of
+        <code class="Nm">s3backer</code> or you do not specify this option,
+        dirty blocks in the cache file are discarded on startup. The window of
+        this data loss can be limited by
+        <code class="Fl">--blockCacheWriteDelay</code>.</p>
+    <p class="Pp">By default, when having reloaded the cache from a cache file,
+        <code class="Nm">s3backer</code> will verify the MD5 checksum of each
+        reloaded block with Amazon S3 before its first use. This verify
+        operation does not require actually reading the block's data, and
+        therefore is relatively quick. This guards against the cached data
+        having unknowingly gotten out of sync since the cache file was last
+        used, a situation that is otherwise impossible for
+        <code class="Nm">s3backer</code> to detect.</p>
+  </dd>
+  <dt id="blockCacheMaxDirty=NUM"><a class="permalink" href="#blockCacheMaxDirty=NUM"><code class="Fl">--blockCacheMaxDirty=NUM</code></a></dt>
+  <dd>Specify a limit on the number of dirty blocks in the block cache. When
+      this limit is reached, subsequent write attempts will block until an
+      existing dirty block is successfully written (and therefore becomes no
+      longer dirty). This flag limits the amount of inconsistency there can be
+      with respect to the underlying S3 data store.
+    <p class="Pp">The default value is zero, which means no limit.</p>
+  </dd>
+  <dt id="blockCacheNoVerify"><a class="permalink" href="#blockCacheNoVerify"><code class="Fl">--blockCacheNoVerify</code></a></dt>
+  <dd>Disable the MD5 verification of blocks loaded from a cache file specified
+      via <code class="Fl">--blockCacheFile</code>. Using this flag is
+      dangerous; use only when you are sure the cached file is uncorrupted and
+      the data it contains is up to date.</dd>
+  <dt id="blockCacheSize=SIZE"><a class="permalink" href="#blockCacheSize=SIZE"><code class="Fl">--blockCacheSize=SIZE</code></a></dt>
+  <dd>Specify the block cache size (in number of blocks). Each entry in the
+      cache will consume approximately block size plus 20 bytes. A value of zero
+      disables the block cache. Default value is 1000.</dd>
+  <dt id="blockCacheThreads=NUM"><a class="permalink" href="#blockCacheThreads=NUM"><code class="Fl">--blockCacheThreads=NUM</code></a></dt>
+  <dd>Set the size of the thread pool associated with the block cache (if
+      enabled). This bounds the number of simultaneous writes that can occur to
+      the network. Default value is 20.</dd>
+  <dt id="blockCacheTimeout=MILLIS"><a class="permalink" href="#blockCacheTimeout=MILLIS"><code class="Fl">--blockCacheTimeout=MILLIS</code></a></dt>
+  <dd>Specify the maximum time a clean entry can remain in the block cache
+      before it will be forcibly evicted and its associated memory freed. A
+      value of zero means there is no timeout; in this case, the number of
+      entries in the block cache will never decrease, eventually reaching the
+      maximum size configured by <code class="Fl">--blockCacheSize</code> and
+      staying there. Configure a non-zero value if the memory usage of the block
+      cache is a concern. Default value is zero (no timeout).</dd>
+  <dt id="blockCacheWriteDelay=MILLIS"><a class="permalink" href="#blockCacheWriteDelay=MILLIS"><code class="Fl">--blockCacheWriteDelay=MILLIS</code></a></dt>
+  <dd>Specify the maximum time a dirty block can remain in the block cache
+      before it must be written out to the network. Blocks may be written sooner
+      when there is cache pressure. A value of zero configures a
+      ``write-through'' policy; greater values configure a ``write-back''
+      policy. Larger values increase performance when a small number of blocks
+      are accessed repeatedly, at the cost of greater inconsistency with the
+      underlying S3 data store. Default value is 250 milliseconds.</dd>
+  <dt id="blockCacheSync"><a class="permalink" href="#blockCacheSync"><code class="Fl">--blockCacheSync</code></a></dt>
+  <dd>Forces synchronous writes in the block cache layer. Instead of returning
+      immediately and scheduling the actual write to operation happen later,
+      write requests will not return until the write has completed. This flag is
+      a stricter requirement than
+      <code class="Fl">--blockCacheWriteDelay=0</code>, which merely causes the
+      writes to be initiated as soon as possible (but still after the write
+      request returns).
+    <p class="Pp">This flag requires
+        <code class="Fl">--blockCacheWriteDelay</code> to be zero. Using this
+        flag is likely to drastically reduce write performance.</p>
+  </dd>
+  <dt id="blockCacheRecoverDirtyBlocks"><a class="permalink" href="#blockCacheRecoverDirtyBlocks"><code class="Fl">--blockCacheRecoverDirtyBlocks</code></a></dt>
+  <dd>An unclean dismount may leave dirty blocks (blocks written to the local
+      cache file, but not yet flushed to S3) in the cache file.
+    <p class="Pp">If this option is set, <code class="Nm">s3backer</code> will
+        recover any such dirty blocks and eventually write them back to S3. If
+        this option is not specified, all dirty data in the cache file are
+        discarded on startup.</p>
+    <p class="Pp">If the filesystem has been mounted since the cache file was
+        last used, <code class="Nm">s3backer</code> will refuse to mount. This
+        is verified by checking a unique 32-bit mount token in the cache file
+        against the 'already mounted' flag in the data store.</p>
+    <p class="Pp">This flag requires <code class="Fl">--blockCacheFile</code> to
+        be set.</p>
+  </dd>
+  <dt id="blockHashPrefix"><a class="permalink" href="#blockHashPrefix"><code class="Fl">--blockHashPrefix</code></a></dt>
+  <dd>Prepend random prefixes (generated deterministically from the block
+      number) to block object names. This spreads requests more evenly across
+      the namespace, and prevents heavy access to a narrow range of blocks from
+      all being directed to the same backend server.
+    <p class="Pp">As with <code class="Fl">--prefix</code>, this flag must be
+        used consistently once a disk image is established.</p>
+  </dd>
+  <dt id="blockSize=SIZE"><a class="permalink" href="#blockSize=SIZE"><code class="Fl">--blockSize=SIZE</code></a></dt>
+  <dd>Specify the block size. This must be a power of two and should be a
+      multiple of the kernel's native page size. The size may have an optional
+      suffix 'K' for kilobytes, 'M' for megabytes, etc.
+    <p class="Pp"><code class="Nm">s3backer</code> supports partial block
+        operations, though this forces a read before each write; use of the
+        block cache and proper alignment of the <code class="Nm">s3backer</code>
+        block size with the intended use (e.g., the block size of the `upper'
+        filesystem) will help minimize the extra reads. Note that even when
+        filesystems are configured for large block sizes, the kernel will often
+        still write page-sized blocks.</p>
+    <p class="Pp"><code class="Nm">s3backer</code> will attempt to auto-detect
+        the block size by reading block number zero at startup. If this option
+        is not specified, the auto-detected value will be used. If this option
+        is specified but disagrees with the auto-detected value,
+        <code class="Nm">s3backer</code> will exit with an error unless
+        <code class="Fl">--force</code> is also given. If auto-detection fails
+        because block number zero does not exist, and this option is not
+        specified, then the default value of 4K (4096) is used.</p>
+  </dd>
+  <dt id="cacert=FILE"><a class="permalink" href="#cacert=FILE"><code class="Fl">--cacert=FILE</code></a></dt>
+  <dd>Specify SSL certificate file to be used when verifying the remote server's
+      identity when operating over SSL connections. Equivalent to the
+      <code class="Fl">--cacert</code> flag documented in
+      <a class="Xr" href="../1/curl.html">curl(1)</a>.</dd>
+  <dt id="compress_=LEVEL_"><a class="permalink" href="#compress_=LEVEL_"><code class="Fl">--compress[=LEVEL]</code></a></dt>
+  <dd>Compress blocks before sending them over the network. This should result
+      in less network traffic (in both directions) and lower storage costs.
+    <p class="Pp">The compression level is optional; if given, it must be
+        between 1 (fast compression) and 9 (most compression), inclusive. If
+        omitted, the default compression level is used.</p>
+    <p class="Pp">This flag only enables compression of newly written blocks;
+        decompression is always enabled and applied when appropriate. Therefore,
+        it is safe to switch this flag on or off between different invocations
+        of <code class="Nm">s3backer</code> on the same filesystem.</p>
+    <p class="Pp">This flag is automatically enabled when
+        <code class="Fl">--encrypt</code> is used, though you may also specify
+        <code class="Fl">--compress=LEVEL</code> to set a non-default
+        compression level.</p>
+    <p class="Pp">When using an encrypted upper layer filesystem, this flag adds
+        no value because the data will not be compressible.</p>
+  </dd>
+  <dt id="directIO"><a class="permalink" href="#directIO"><code class="Fl">--directIO</code></a></dt>
+  <dd>Disable kernel caching of the backed file. This will force the kernel to
+      always pass reads and writes directly to <code class="Nm">s3backer</code>.
+      This reduces performance but also eliminates one source of
+    inconsistency.</dd>
+  <dt id="debug"><a class="permalink" href="#debug"><code class="Fl">--debug</code></a></dt>
+  <dd>Enable logging of debug messages. Note that this flag is different from
+      <code class="Fl">-d</code>, which is a flag to FUSE; however, the
+      <code class="Fl">-d</code> FUSE flag implies this flag.</dd>
+  <dt id="debug-http"><a class="permalink" href="#debug-http"><code class="Fl">--debug-http</code></a></dt>
+  <dd>Enable printing of HTTP headers to standard output.</dd>
+  <dt id="defaultContentEncoding=VALUE"><a class="permalink" href="#defaultContentEncoding=VALUE"><code class="Fl">--defaultContentEncoding=VALUE</code></a></dt>
+  <dd>Use this to workaround S3 backends that fail to send back the
+      <span class="Pa">Content-Encoding</span> header that was sent to them by
+      <code class="Nm">s3backer</code>. If a block read response contains no
+      <span class="Pa">Content-Encoding</span> header, this value will be
+      substituted.
+    <p class="Pp">If you get errors complaining that the content was expected to
+        be encrypted, try setting this to
+        <span class="Pa">deflate,encrypt-AES-128-CBC</span>.</p>
+  </dd>
+  <dt id="encrypt_=CIPHER_"><a class="permalink" href="#encrypt_=CIPHER_"><code class="Fl">--encrypt[=CIPHER]</code></a></dt>
+  <dd>Enable encryption and authentication of block data. See your OpenSSL
+      documentation for a list of supported ciphers; the default if no cipher is
+      specified is AES-128 CBC.
+    <p class="Pp">The encryption password may be supplied via one of
+        <code class="Fl">--password</code> or
+        <code class="Fl">--passwordFile</code>. If neither flag is given,
+        <code class="Nm">s3backer</code> will ask for the password at
+      startup.</p>
+    <p class="Pp">Note: the actual key used is derived by hashing the password,
+        the bucket name, the prefix name (if any), and the block number.
+        Therefore, encrypted data cannot be ported to different buckets or
+        prefixes.</p>
+    <p class="Pp">This flag implies <code class="Fl">--compress</code>.</p>
+  </dd>
+  <dt id="erase"><a class="permalink" href="#erase"><code class="Fl">--erase</code></a></dt>
+  <dd>Completely erase the file system by deleting all non-zero blocks, clear
+      the 'already mounted' flag, and then exit. User confirmation is required
+      unless the <code class="Fl">--force</code> flag is also given. Note, no
+      simultaneous mount detection is performed in this case.
+    <p class="Pp">This option implies <code class="Fl">--listBlocks</code>.</p>
+  </dd>
+  <dt id="filename=NAME"><a class="permalink" href="#filename=NAME"><code class="Fl">--filename=NAME</code></a></dt>
+  <dd>Specify the name of the backed file that appears in the
+      <code class="Nm">s3backer</code> filesystem. Default is `file'.</dd>
+  <dt id="fileMode=MODE"><a class="permalink" href="#fileMode=MODE"><code class="Fl">--fileMode=MODE</code></a></dt>
+  <dd>Specify the UNIX permission bits for the backed file that appears in the
+      <code class="Nm">s3backer</code> filesystem. Default is 0600, unless
+      <code class="Fl">--readOnly</code> is specified, in which case the default
+      is 0400.</dd>
+  <dt id="force"><a class="permalink" href="#force"><code class="Fl">--force</code></a></dt>
+  <dd>Proceed even if the value specified by <code class="Fl">--blockSize</code>
+      or <code class="Fl">--size</code> disagrees with the auto-detected value,
+      or <code class="Nm">s3backer</code> detects that another
+      <code class="Nm">s3backer</code> instance is still mounted on top of the
+      same S3 bucket (and prefix). In any of these cases, proceeding will lead
+      to corrupted data, so the <code class="Fl">--force</code> flag should be
+      avoided for normal use.
+    <p class="Pp">The simultaneous mount detection can produce a false positive
+        when a previous <code class="Nm">s3backer</code> instance was not shut
+        down cleanly. In this case, don't use <code class="Fl">--force</code>
+        but rather run <code class="Nm">s3backer</code> once with the
+        <code class="Fl">--reset-mounted-flag</code> flag.</p>
+    <p class="Pp">If <code class="Fl">--erase</code> is given,
+        <code class="Fl">--force</code> causes <code class="Nm">s3backer</code>
+        to proceed without user confirmation.</p>
+  </dd>
+  <dt id="h"><a class="permalink" href="#h"><code class="Fl">-h</code></a>
+    <code class="Fl">--help</code></dt>
+  <dd>Print a help message and exit.</dd>
+  <dt id="initialRetryPause=MILLIS"><a class="permalink" href="#initialRetryPause=MILLIS"><code class="Fl">--initialRetryPause=MILLIS</code></a></dt>
+  <dd>Specify the initial pause time in milliseconds before the first retry
+      attempt after failed HTTP operations. Failures include network failures
+      and timeouts, HTTP errors, and reads of stale data (i.e., MD5 mismatch);
+      <code class="Nm">s3backer</code> will make multiple retry attempts using
+      an exponential backoff algorithm, starting with this initial retry pause
+      time. Default value is 200ms. See also
+      <code class="Fl">--maxRetryPause</code>.</dd>
+  <dt id="insecure"><a class="permalink" href="#insecure"><code class="Fl">--insecure</code></a></dt>
+  <dd>Do not verify the remote server's identity when operating over SSL
+      connections. Equivalent to the <code class="Fl">--insecure</code> flag
+      documented in <a class="Xr" href="../1/curl.html">curl(1)</a>.</dd>
+  <dt id="keyLength"><a class="permalink" href="#keyLength"><code class="Fl">--keyLength</code></a></dt>
+  <dd>Override the length of the generated block encryption key.
+    <p class="Pp">Versions of <code class="Nm">s3backer</code> prior to 1.3.6
+        contained a bug where the length of the generated encryption key was
+        fixed but system-dependent, causing it to be possibly incompatible on
+        different systems for some ciphers. In version 1.3.6, this bug was
+        corrected; however, in some cases this changed the generated key length,
+        making the encryption no longer compatible with previously written data.
+        This flag can be used to force the older, fixed key length. The value
+        you want to use is whatever is defined for
+        <span class="Pa">EVP_MAX_KEY_LENGTH</span> on your system, typically
+      64.</p>
+    <p class="Pp">It is an error to specify a value smaller than the cipher's
+        natural key length; however, a value of zero is allowed and is
+        equivalent to not specifying anything.</p>
+  </dd>
+  <dt id="listBlocks"><a class="permalink" href="#listBlocks"><code class="Fl">--listBlocks</code></a></dt>
+  <dd>Perform a query at startup to determine which blocks already exist. This
+      enables optimizations whereby, for each block that does not yet exist,
+      reads return zeroes and zeroed writes are omitted, thereby eliminating any
+      network access. This flag is useful when creating a new backed file, or
+      any time it is expected that a large number of zeroed blocks will be read
+      or written, such as when initializing a new filesystem.
+    <p class="Pp">This flag will slow down startup in direct proportion to the
+        number of blocks that already exist.</p>
+  </dd>
+  <dt id="maxUploadSpeed=BITSPERSEC"><a class="permalink" href="#maxUploadSpeed=BITSPERSEC"><code class="Fl">--maxUploadSpeed=BITSPERSEC</code></a></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="maxDownloadSpeed=BITSPERSEC"><a class="permalink" href="#maxDownloadSpeed=BITSPERSEC"><code class="Fl">--maxDownloadSpeed=BITSPERSEC</code></a></dt>
+  <dd>These flags set a limit on the bandwidth utilized for individual block
+      uploads and downloads (i.e., the setting applies on a per-thread basis).
+      The limits only apply to HTTP payload data and do not include any
+      additional overhead from HTTP or TCP headers, etc.
+    <p class="Pp">The value is measured in bits per second, and abbreviations
+        like `256k', `1m', etc. may be used. By default, there is no fixed
+        limit.</p>
+    <p class="Pp">Use of these flags may also require setting the
+        <code class="Fl">--timeout</code> flag to a higher value.</p>
+  </dd>
+  <dt id="maxRetryPause=MILLIS"><a class="permalink" href="#maxRetryPause=MILLIS"><code class="Fl">--maxRetryPause=MILLIS</code></a></dt>
+  <dd>Specify the total amount of time in milliseconds
+      <code class="Nm">s3backer</code> should pause when retrying failed HTTP
+      operations before giving up. Failures include network failures and
+      timeouts, HTTP errors, and reads of stale data (i.e., MD5 mismatch);
+      <code class="Nm">s3backer</code> will make multiple retry attempts using
+      an exponential backoff algorithm, up to this maximum total retry pause
+      time. This value does not include the time it takes to perform the HTTP
+      operations themselves (use <code class="Fl">--timeout</code> for that).
+      Default value is 30000 (30 seconds). See also
+      <code class="Fl">--initialRetryPause</code>.</dd>
+  <dt id="minWriteDelay=MILLIS"><a class="permalink" href="#minWriteDelay=MILLIS"><code class="Fl">--minWriteDelay=MILLIS</code></a></dt>
+  <dd>Specify a minimum time in milliseconds between the successful completion
+      of a write and the initiation of another write to the same block. This
+      delay ensures that S3 doesn't receive the writes out of order. This value
+      must be set to zero when <code class="Fl">--md5CacheSize</code> is set to
+      zero (MD5 cache disabled). Default value is 500ms.</dd>
+  <dt id="md5CacheSize=SIZE"><a class="permalink" href="#md5CacheSize=SIZE"><code class="Fl">--md5CacheSize=SIZE</code></a></dt>
+  <dd>Specify the size of the MD5 checksum cache (in number of blocks). If the
+      cache is full when a new block is written, the write will block until
+      there is room. Therefore, it is important to configure
+      <code class="Fl">--md5CacheTime</code> and
+      <code class="Fl">--md5CacheSize</code> according to the frequency of
+      writes to the filesystem overall and to the same block repeatedly.
+      Alternately, a value equal to the number of blocks in the filesystem
+      eliminates this problem but consumes the most memory when full (each entry
+      in the cache is approximately 40 bytes). A value of zero disables the MD5
+      cache. Default value is 1000.</dd>
+  <dt id="md5CacheTime=MILLIS"><a class="permalink" href="#md5CacheTime=MILLIS"><code class="Fl">--md5CacheTime=MILLIS</code></a></dt>
+  <dd>Specify in milliseconds the time after a block has been successfully
+      written for which the MD5 checksum of the block's contents should be
+      cached, for the purpose of detecting stale data during subsequent reads. A
+      value of zero means `infinite' and provides a guarantee against reading
+      stale data; however, you should only do this when
+      <code class="Fl">--md5CacheSize</code> is configured to be equal to the
+      number of blocks; otherwise deadlock will (eventually) occur. This value
+      must be at least as big as <code class="Fl">--minWriteDelay.</code> This
+      value must be set to zero when <code class="Fl">--md5CacheSize</code> is
+      set to zero (MD5 cache disabled). Default value is 10 seconds.
+    <p class="Pp">The MD5 checksum cache is not persisted across restarts.
+        Therefore, to ensure the same eventual consistency protection while
+        <code class="Nm">s3backer</code> is not running, you must delay at least
+        <code class="Fl">--md5CacheTime</code> milliseconds between stopping and
+        restarting <code class="Nm">s3backer</code>.</p>
+  </dd>
+  <dt id="noAutoDetect"><a class="permalink" href="#noAutoDetect"><code class="Fl">--noAutoDetect</code></a></dt>
+  <dd>Disable block and file size auto-detection at startup. If this flag is
+      given, then the block size defaults to 4096 and the
+      <code class="Fl">--size</code> flag is required.</dd>
+  <dt id="password=PASSWORD"><a class="permalink" href="#password=PASSWORD"><code class="Fl">--password=PASSWORD</code></a></dt>
+  <dd>Supply the password for encryption and authentication as a command-line
+      parameter.</dd>
+  <dt id="passwordFile=FILE"><a class="permalink" href="#passwordFile=FILE"><code class="Fl">--passwordFile=FILE</code></a></dt>
+  <dd>Read the password for encryption and authentication from (the first line
+      of) the specified file.</dd>
+  <dt id="prefix=STRING"><a class="permalink" href="#prefix=STRING"><code class="Fl">--prefix=STRING</code></a></dt>
+  <dd>Specify a prefix to prepend to the resource names within bucket that
+      identify each block. By using different prefixes, multiple independent
+      <code class="Nm">s3backer</code> disks can live in the same S3 bucket.
+    <p class="Pp">The default prefix is the empty string.</p>
+  </dd>
+  <dt id="quiet"><a class="permalink" href="#quiet"><code class="Fl">--quiet</code></a></dt>
+  <dd>Suppress progress output during initial startup.</dd>
+  <dt id="readAhead=NUM"><a class="permalink" href="#readAhead=NUM"><code class="Fl">--readAhead=NUM</code></a></dt>
+  <dd>Configure the number of blocks of read ahead. This determines how many
+      blocks will be read into the block cache ahead of the last block read by
+      the kernel when read ahead is active. This option has no effect if the
+      block cache is disabled. Default value is 4.</dd>
+  <dt id="readAheadTrigger=NUM"><a class="permalink" href="#readAheadTrigger=NUM"><code class="Fl">--readAheadTrigger=NUM</code></a></dt>
+  <dd>Configure the number of blocks that must be read consecutively before the
+      read ahead algorithm is triggered. Once triggered, read ahead will
+      continue as long as the kernel continues reading blocks sequentially. This
+      option has no effect if the block cache is disabled. Default value is
+    2.</dd>
+  <dt id="readOnly"><a class="permalink" href="#readOnly"><code class="Fl">--readOnly</code></a></dt>
+  <dd>Assume the filesystem is going to be mounted read-only, and return
+      <code class="Er">EROFS</code> in response to any attempt to write. This
+      flag also changes the default mode of the backed file from 0600 to 0400
+      and disables the MD5 checksum cache.</dd>
+  <dt id="region=REGION"><a class="permalink" href="#region=REGION"><code class="Fl">--region=REGION</code></a></dt>
+  <dd>Specify an AWS region. This flag changes the default base URL to include
+      the region name and automatically sets the <code class="Fl">--vhost</code>
+      flag.</dd>
+  <dt id="reset-mounted-flag"><a class="permalink" href="#reset-mounted-flag"><code class="Fl">--reset-mounted-flag</code></a></dt>
+  <dd>Reset the 'already mounted' flag on the underlying S3 data store.
+    <p class="Pp"><code class="Nm">s3backer</code> detects simultaneous mounts
+        by checking a special flag. If a previous invocation of
+        <code class="Nm">s3backer</code> was not shut down cleanly, the flag may
+        not have been cleared. Running <code class="Nm">s3backer</code>
+        <code class="Fl">--erase</code> will clear it manually. But see also
+        BUGS below.</p>
+  </dd>
+  <dt id="rrs"><a class="permalink" href="#rrs"><code class="Fl">--rrs</code></a></dt>
+  <dd>Deprecated; equivalent to
+      <code class="Fl">--storageClass=REDUCED_REDUNDANCY</code>.</dd>
+  <dt id="size=SIZE"><a class="permalink" href="#size=SIZE"><code class="Fl">--size=SIZE</code></a></dt>
+  <dd>Specify the size (in bytes) of the backed file to be exported by the
+      filesystem. The size may have an optional suffix 'K' for kilobytes, 'M'
+      for megabytes, 'G' for gigabytes, 'T' for terabytes, 'E' for exabytes, 'Z'
+      for zettabytes, or 'Y' for yottabytes. <code class="Nm">s3backer</code>
+      will attempt to auto-detect the size of the backed file by reading block
+      number zero. If this option is not specified, the auto-detected value will
+      be used. If this option is specified but disagrees with the auto-detected
+      value, <code class="Nm">s3backer</code> will exit with an error unless
+      <code class="Fl">--force</code> is also given.</dd>
+  <dt id="sse=ALGORITHM"><a class="permalink" href="#sse=ALGORITHM"><code class="Fl">--sse=ALGORITHM</code></a></dt>
+  <dd>Enable server side encryption. This adds the
+      <span class="Pa">x-amz-server-side-encryption</span> header to all PUT
+      requests.
+    <p class="Pp">Currently the only supported encryption algorithm is
+        <span class="Pa">AES256</span>.</p>
+  </dd>
+  <dt id="ssl"><a class="permalink" href="#ssl"><code class="Fl">--ssl</code></a></dt>
+  <dd>Equivalent to <code class="Fl">--baseURL</code>
+      <var class="Ar">https://s3.amazonaws.com/</var></dd>
+  <dt id="statsFilename=NAME"><a class="permalink" href="#statsFilename=NAME"><code class="Fl">--statsFilename=NAME</code></a></dt>
+  <dd>Specify the name of the human-readable statistics file that appears in the
+      <code class="Nm">s3backer</code> filesystem. A value of empty string
+      disables the appearance of this file. Default is `stats'.</dd>
+  <dt id="storageClass=TYPE"><a class="permalink" href="#storageClass=TYPE"><code class="Fl">--storageClass=TYPE</code></a></dt>
+  <dd>Specify storage class.
+    <p class="Pp">Valid values are: <span class="Pa">STANDARD</span>,
+        <span class="Pa">STANDARD_IA</span>, and
+        <span class="Pa">REDUCED_REDUNDANCY</span>.</p>
+    <p class="Pp">The default is <span class="Pa">STANDARD</span>.</p>
+  </dd>
+  <dt id="test"><a class="permalink" href="#test"><code class="Fl">--test</code></a></dt>
+  <dd>Operate in local test mode. Filesystem blocks are stored as regular files
+      in the directory <var class="Ar">dir</var>. No network traffic occurs.
+    <p class="Pp">Note if <var class="Ar">dir</var> is a relative pathname (and
+        <code class="Fl">-f</code> is not given) it will be resolved relative to
+        the root directory.</p>
+  </dd>
+  <dt id="timeout=SECONDS"><a class="permalink" href="#timeout=SECONDS"><code class="Fl">--timeout=SECONDS</code></a></dt>
+  <dd>Specify a time limit in seconds for one HTTP operation attempt. This
+      limits the entire operation including connection time (if not already
+      connected) and data transfer time. The default is 30 seconds; this value
+      may need to be adjusted upwards to avoid premature timeouts on slower
+      links and/or when using a large number of block cache worker threads.
+    <p class="Pp">See also <code class="Fl">--maxRetryPause</code>.</p>
+  </dd>
+  <dt id="version"><a class="permalink" href="#version"><code class="Fl">--version</code></a></dt>
+  <dd>Output version and exit.</dd>
+  <dt id="vhost"><a class="permalink" href="#vhost"><code class="Fl">--vhost</code></a></dt>
+  <dd>Force virtual hosted style requests. For example, this will cause
+      <code class="Nm">s3backer</code> to use the URL
+      <span class="Pa">http://mybucket.s3.amazonaws.com/path/uri</span> instead
+      of <span class="Pa">http://s3.amazonaws.com/mybucket/path/uri</span>.
+    <p class="Pp">This flag is required when S3 buckets have been created with
+        location constraints (for example `EU buckets'). Put another way, this
+        flag is required for buckets defined outside of the US region. This flag
+        is automatically set when the <code class="Fl">--region</code> flag is
+        used.</p>
+  </dd>
+</dl>
+<p class="Pp">In addition, <code class="Nm">s3backer</code> accepts all of the
+    generic FUSE options as well. Here is a partial list:</p>
+<dl class="Bl-tag">
+  <dt id="o"><a class="permalink" href="#o"><code class="Fl">-o</code></a>
+    <var class="Ar">uid=UID</var></dt>
+  <dd>Override the user ID of the backed file, which defaults to the current
+      user ID.</dd>
+  <dt id="o~2"><a class="permalink" href="#o~2"><code class="Fl">-o</code></a>
+    <var class="Ar">gid=GID</var></dt>
+  <dd>Override the group ID of the backed file, which defaults to the current
+      group ID.</dd>
+  <dt id="o~3"><a class="permalink" href="#o~3"><code class="Fl">-o</code></a>
+    <var class="Ar">sync_read</var></dt>
+  <dd>Do synchronous reads.</dd>
+  <dt id="o~4"><a class="permalink" href="#o~4"><code class="Fl">-o</code></a>
+    <var class="Ar">max_readahead=NUM</var></dt>
+  <dd>Set maximum read-ahead (in bytes).</dd>
+  <dt id="f"><a class="permalink" href="#f"><code class="Fl">-f</code></a></dt>
+  <dd>Run in the foreground (do not fork). Causes logging to be sent to standard
+      error.</dd>
+  <dt id="d"><a class="permalink" href="#d"><code class="Fl">-d</code></a></dt>
+  <dd>Enable FUSE debug mode. Implies <code class="Fl">-f</code>.</dd>
+  <dt id="s"><a class="permalink" href="#s"><code class="Fl">-s</code></a></dt>
+  <dd>Run in single-threaded mode.</dd>
+</dl>
+<p class="Pp">In addition, <code class="Nm">s3backer</code> passes the following
+    flags which are optimized for <code class="Nm">s3backer</code> to FUSE
+    (unless overridden by the user on the command line):</p>
+<p class="Pp"></p>
+<dl class="Bl-tag Bl-compact">
+  <dt id="o~5"><a class="permalink" href="#o~5"><code class="Fl">-o</code></a>
+    <var class="Ar">kernel_cache</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~6"><a class="permalink" href="#o~6"><code class="Fl">-o</code></a>
+    <var class="Ar">fsname=&lt;baseURL&gt;&lt;bucket&gt;/&lt;prefix&gt;</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~7"><a class="permalink" href="#o~7"><code class="Fl">-o</code></a>
+    <var class="Ar">subtype=s3backer</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~8"><a class="permalink" href="#o~8"><code class="Fl">-o</code></a>
+    <var class="Ar">use_ino</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~9"><a class="permalink" href="#o~9"><code class="Fl">-o</code></a>
+    <var class="Ar">entry_timeout=31536000</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~10"><a class="permalink" href="#o~10"><code class="Fl">-o</code></a>
+    <var class="Ar">negative_timeout=31536000</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~11"><a class="permalink" href="#o~11"><code class="Fl">-o</code></a>
+    <var class="Ar">max_readahead=0</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~12"><a class="permalink" href="#o~12"><code class="Fl">-o</code></a>
+    <var class="Ar">attr_timeout=0</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~13"><a class="permalink" href="#o~13"><code class="Fl">-o</code></a>
+    <var class="Ar">default_permissions</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~14"><a class="permalink" href="#o~14"><code class="Fl">-o</code></a>
+    <var class="Ar">allow_other</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~15"><a class="permalink" href="#o~15"><code class="Fl">-o</code></a>
+    <var class="Ar">nodev</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+  <dt id="o~16"><a class="permalink" href="#o~16"><code class="Fl">-o</code></a>
+    <var class="Ar">nosuid</var></dt>
+  <dd style="width: auto;">&#x00A0;</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="FILES"><a class="permalink" href="#FILES">FILES</a></h1>
+<dl class="Bl-tag Bl-compact">
+  <dt><span class="Pa">$HOME/.s3backer_passwd</span></dt>
+  <dd>Contains Amazon S3 `accessID:accessKey' pairs.</dd>
+</dl>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="SEE_ALSO"><a class="permalink" href="#SEE_ALSO">SEE
+  ALSO</a></h1>
+<p class="Pp"><a class="Xr" href="../1/curl.html">curl(1)</a>,
+    <a class="Xr" href="../8/losetup.html">losetup(8)</a>,
+    <a class="Xr" href="../8/mount.html">mount(8)</a>,
+    <a class="Xr" href="../8/umount.html">umount(8)</a>,
+    <span class="Xr">fusermount(8)</span>.</p>
+<p class="Pp"><cite class="Rs"><span class="RsT">s3backer: FUSE-based single
+    file backing store via Amazon S3</span>,
+    <span class="RsO">https://github.com/archiecobbs/s3backer</span>.</cite></p>
+<p class="Pp"><cite class="Rs"><span class="RsT">Amazon Simple Storage Service
+    (Amazon S3)</span>,
+    <span class="RsO">http://aws.amazon.com/s3</span>.</cite></p>
+<p class="Pp"><cite class="Rs"><span class="RsT">FUSE: Filesystem in
+    Userspace</span>,
+    <span class="RsO">http://fuse.sourceforge.net/</span>.</cite></p>
+<p class="Pp"><cite class="Rs"><span class="RsT">MacFUSE: A User-Space File
+    System Implementation Mechanism for Mac OS X</span>,
+    <span class="RsO">http://code.google.com/p/macfuse/</span>.</cite></p>
+<p class="Pp"><cite class="Rs"><span class="RsT">FUSE for OS X</span>,
+    <span class="RsO">https://osxfuse.github.io/</span>.</cite></p>
+<p class="Pp"><cite class="Rs"><span class="RsT">Google Search for `linux page
+    cache'</span>,
+    <span class="RsO">http://www.google.com/search?q=linux+page+cache</span>.</cite></p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="BUGS"><a class="permalink" href="#BUGS">BUGS</a></h1>
+<p class="Pp">Due to a design flaw in FUSE, an unmount of the
+    <code class="Nm">s3backer</code> filesystem will complete successfully
+    before <code class="Nm">s3backer</code> has finished writing back all dirty
+    blocks. Therefore, when using the block cache, attempts to remount the same
+    bucket and prefix may fail with an 'already mounted' error while the former
+    <code class="Nm">s3backer</code> process finishes flushing its cache. Before
+    assuming a false positive and using
+    <code class="Fl">--reset-mounted-flag,</code> ensure that any previous
+    <code class="Nm">s3backer</code> process attached to the same bucket and
+    prefix has exited. See issue #40 for details.</p>
+<p class="Pp">For cache space efficiency, <code class="Nm">s3backer</code> uses
+    32 bit values to index individual blocks. Therefore, the block size must be
+    increased beyond the default 4K when very large filesystems (greater than 16
+    terabytes) are created.</p>
+<p class="Pp"><code class="Nm">s3backer</code> should really be implemented as a
+    device rather than a filesystem. However, this would require writing a
+    kernel module instead of a simple user-space daemon, because Linux does not
+    provide a user-space API for devices like it does for filesystems with FUSE.
+    Implementing <code class="Nm">s3backer</code> as a filesystem and then using
+    the loopback mount is a simple workaround.</p>
+<p class="Pp">On Mac OS X, the kernel imposes its own timeout (600 seconds) on
+    FUSE operations, and automatically unmounts the filesystem when this limit
+    is reached. This can happen when a combination of
+    <code class="Fl">--maxRetryPause</code> and/or
+    <code class="Fl">--timeout</code> settings allow HTTP retries to take longer
+    than this value. A warning is emitted on startup in this case.</p>
+<p class="Pp">Filesystem size is limited by the maximum allowable size of a
+    single file.</p>
+<p class="Pp">The default block size of 4k is non-optimal from a compression and
+    cost perspective. Typically, users will want a larger value to maximize
+    compression and minimize transaction costs, e.g., 1m.</p>
+</section>
+<section class="Sh">
+<h1 class="Sh" id="AUTHOR"><a class="permalink" href="#AUTHOR">AUTHOR</a></h1>
+<p class="Pp"><span class="An">Archie L. Cobbs</span>
+    &#x27E8;archie@dellroad.org&#x27E9;</p>
+</section>
+</div>
+<table class="foot">
+  <tr>
+    <td class="foot-date">September 7, 2009</td>
+    <td class="foot-os">Debian</td>
+  </tr>
+</table>
+
+  <footer class="page-foot">source: s3backer 1.5.4-2build4 · ubuntu 24.04 lts (noble) · generated 2026-07-10 · fully offline</footer>
+  </article>
+</main>
+<script src="../../data/index.js" defer></script>
+<script src="../../assets/search-core.js" defer></script>
+<script src="../../assets/app.js" defer></script>
+<script src="../../assets/pet.js" defer></script>
+<script>if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){navigator.serviceWorker.register('../../sw.js');}</script>
+</body>
+</html>
